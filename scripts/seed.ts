@@ -335,6 +335,60 @@ await db.insert(schema.featureFlags).values([
   { key: 'experimental_mcq_shuffle', description: 'Shuffle MCQ options per attempt', enabled: false },
 ]);
 
+// ── Demo activity: classmates, XP history, league week, streaks ─────────────
+// Makes leaderboards, leagues and streaks meaningful on a fresh install.
+const mondayOf = (d: Date) => {
+  const diff = (d.getUTCDay() + 6) % 7;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff));
+};
+const utcDateKey = (d: Date = new Date()) => d.toISOString().slice(0, 10);
+const weekStart = mondayOf(new Date()).toISOString().slice(0, 10);
+
+const classmates = ['Priya Shah', 'Dan Whitfield', 'Maya Chen', 'Ollie Grant', 'Sofia Rossi'];
+const buddies: { id: string; name: string }[] = [];
+for (const [i, name] of classmates.entries()) {
+  const [row] = await db
+    .insert(schema.users)
+    .values({
+      id: uuid(), email: `student${i + 1}@srs.dev`, name,
+      passwordHash: hash('Password123!'), role: 'student', status: 'active',
+      emailVerifiedAt: now(),
+    })
+    .returning();
+  await db.insert(schema.classMemberships).values({ classId: cls.id, userId: row.id });
+  buddies.push({ id: row.id, name });
+}
+
+// XP: three events this week (daily/weekly boards) + one last week (monthly only).
+const everyone = [{ id: student.id, name: 'Alex Rivera' }, ...buddies];
+const weekXps: number[] = [];
+for (const [i, person] of everyone.entries()) {
+  const events = [
+    { amount: 60 + i * 15, occurredAt: daysAgo(0) },
+    { amount: 40 + i * 20, occurredAt: daysAgo(1) },
+    { amount: 55, occurredAt: daysAgo(2) },
+    { amount: 80, occurredAt: daysAgo(9) }, // last week → monthly only
+  ];
+  await db.insert(schema.xpEvents).values(
+    events.map((e) => ({ id: uuid(), userId: person.id, amount: e.amount, source: 'review' as const, occurredAt: e.occurredAt })),
+  );
+  const weekXp = events.slice(0, 3).reduce((s, e) => s + e.amount, 0);
+  weekXps.push(weekXp);
+  await db.insert(schema.streaks).values({ userId: person.id, current: 3 + i, best: 6 + i * 2, lastActiveDate: utcDateKey() });
+}
+
+// League tiers from weekly rank: gold / silver / bronze...
+const ranked = [...everyone.keys()].sort((a, b) => weekXps[b] - weekXps[a]);
+for (const idx of ranked) {
+  const league = idx === ranked[0] ? 'gold' : idx === ranked[1] ? 'silver' : 'bronze';
+  await db.insert(schema.leagueMemberships).values({ userId: everyone[idx].id, weekStart, xpWeek: weekXps[idx], league });
+}
+
+// A couple of unlocked achievements for the demo student
+await db.insert(schema.userAchievements).values([
+  { userId: student.id, achievementId: 'first-review', unlockedAt: daysAgo(2) },
+]);
+
 console.log('Seeded:');
 console.log('  student@srs.dev / Password123!  (student, in class 10B Biology)');
 console.log('  teacher@srs.dev / Password123!  (teacher of 10B Biology)');

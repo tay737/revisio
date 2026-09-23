@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { achievements, leagueMemberships, userAchievements, users } from '@/db/schema';
+import { achievements, leagueMemberships, userAchievements, users, xpEvents } from '@/db/schema';
 import { ok, requireUser, route } from '@/services/api';
 import { LEAGUE_META, levelForXp } from '@/domain/gamification';
 import { mondayOf, totalXpFor } from '@/services/study';
@@ -17,7 +17,7 @@ export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const scope = (req.nextUrl.searchParams.get('scope') ?? 'weekly') as 'daily' | 'weekly' | 'monthly';
 
-  // weekly = current league week; daily/monthly roll up xp_events
+  // weekly = current league week (league_memberships); daily/monthly roll up xp_events
   let board: { rank: number; userId: string; name: string; xp: number; isMe: boolean }[];
   if (scope === 'weekly') {
     const rows = await db
@@ -29,15 +29,16 @@ export const GET = route(async (req: NextRequest) => {
       .limit(50);
     board = rows.filter((r) => !r.optOut).map((r, i) => ({ rank: i + 1, userId: r.userId, name: r.name, xp: r.xp, isMe: r.userId === user.id }));
   } else {
-    const since = scope === 'daily' ? startOfDay(0) : startOfDay(30);
+    const since = startOfDay(scope === 'daily' ? 0 : 30);
     const rows = await db
-      .select({ userId: leagueMemberships.userId, name: users.name, optOut: users.leaderboardOptOut, xp: leagueMemberships.xpWeek })
-      .from(leagueMemberships)
-      .innerJoin(users, eq(leagueMemberships.userId, users.id))
-      .where(eq(leagueMemberships.weekStart, mondayOf(new Date()).toISOString().slice(0, 10)))
-      .orderBy(desc(leagueMemberships.xpWeek))
+      .select({ userId: xpEvents.userId, name: users.name, optOut: users.leaderboardOptOut, xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
+      .from(xpEvents)
+      .innerJoin(users, eq(xpEvents.userId, users.id))
+      .where(gte(xpEvents.occurredAt, since))
+      .groupBy(xpEvents.userId, users.name, users.leaderboardOptOut)
+      .orderBy(desc(sql`coalesce(sum(${xpEvents.amount}), 0)`))
       .limit(50);
-    board = rows.filter((r) => !r.optOut).map((r, i) => ({ rank: i + 1, userId: r.userId, name: r.name, xp: r.xp, isMe: r.userId === user.id }));
+    board = rows.filter((r) => !r.optOut).map((r, i) => ({ rank: i + 1, userId: r.userId, name: r.name, xp: Number(r.xp), isMe: r.userId === user.id }));
   }
 
   const [mine] = await db.select().from(leagueMemberships).where(eq(leagueMemberships.userId, user.id)).orderBy(desc(leagueMemberships.weekStart)).limit(1);
