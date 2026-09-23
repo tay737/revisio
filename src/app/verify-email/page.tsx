@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -9,7 +9,7 @@ type State =
   | { kind: 'done' }
   | { kind: 'error'; message: string; email?: string };
 
-export default function VerifyEmailPage() {
+function VerifyEmailInner() {
   const params = useSearchParams();
   const token = params.get('token');
   const [state, setState] = useState<State>({ kind: token ? 'verifying' : 'error', message: token ? '' : 'No verification token in link.' });
@@ -78,5 +78,13 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<main className="grid min-h-screen place-items-center"><p className="animate-pulse text-muted">Loading…</p></main>}>
+      <VerifyEmailInner />
+    </Suspense>
   );
 }
