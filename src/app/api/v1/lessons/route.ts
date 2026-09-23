@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { lessons, topics } from '@/db/schema';
 import { ok, requireUser, route } from '@/services/api';

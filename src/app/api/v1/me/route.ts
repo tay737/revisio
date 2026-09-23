@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, streaks, userSubjects, subjects, userAchievements, achievements } from '@/db/schema';
+import { users, streaks, reviewLogs, userSubjects, subjects, xpEvents, userAchievements, achievements, userTopicStates } from '@/db/schema';
 import { ok, requireUser, route } from '@/services/api';
 import { levelForXp } from '@/domain/gamification';
 import { totalXpFor } from '@/services/study';

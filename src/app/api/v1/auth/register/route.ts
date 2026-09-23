@@ -29,7 +29,7 @@ export const POST = route(async (req: NextRequest) => {
       email: email.toLowerCase(),
       name,
       passwordHash: await hashPassword(password),
-      role: 'student', // role upgrades after approval
+      role: requestedRole === 'teacher' ? 'student' : 'student', // role upgrades after approval
       status: 'pending',
     })
     .returning();

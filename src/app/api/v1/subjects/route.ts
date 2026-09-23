@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { subjects, topics, userSubjects, classMemberships, classes } from '@/db/schema';
 import { ok, requireUser, route } from '@/services/api';
@@ -12,13 +12,12 @@ export const GET = route(async (req: NextRequest) => {
   const enrolledIds = new Set(enrolled.map((e) => e.subjectId));
 
   // topics the user can see: public + own private
-  const topicRows = rows.length
-    ? await db
-        .select({ subjectId: topics.subjectId, id: topics.id, visibility: topics.visibility, ownerId: topics.ownerId })
-        .from(topics)
-    : [];
+  const topicRows = await db
+    .select({ subjectId: topics.subjectId, id: topics.id, visibility: topics.visibility, ownerId: topics.ownerId })
+    .from(topics)
+    .where(inArray(topics.subjectId, rows.map((r) => r.id).length ? rows.map((r) => r.id) : ['']));
 
-  // also count subjects from classes the student is in (subject-level access via class)
+  // also count topics from classes the student is in (subject-level access via class)
   const classSubjects = await db
     .select({ subjectId: classes.subjectId })
     .from(classMemberships)

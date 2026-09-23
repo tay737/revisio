@@ -1,14 +1,6 @@
-# Revisio — Architecture
+# SRS Platform — Architecture
 
-Status: as-built (v1.0, 2026-09-23)
-
-> **Note:** This document originated as the pre-build design (Rails API + Next.js web).
-> During implementation the Rails API was replaced by Next.js Route Handlers running the
-> same layered architecture (routes → services → domain), because the build environment
-> had no Ruby toolchain. Every boundary below is preserved, so extracting a Rails (or
-> any) API service later is mechanical: the domain layer is pure TypeScript with zero
-> framework imports, and the REST contract at `/api/v1` is unchanged.
-
+Status: design (v1.0, 2026-09-23)
 Kind: spaced-repetition learning platform (Bunpro-like) — subjects → topics → lessons/notes → SRS reviews (cloze, flashcard, multiple-choice), cram, learn content, exam simulator, classes/teaching, publishing with review, gamification (XP/streak/leagues/leaderboards/achievements), exports, imports (Anki/CSV), teacher/developer tooling.
 
 ## 1. Context & requirements
@@ -20,24 +12,24 @@ Kind: spaced-repetition learning platform (Bunpro-like) — subjects → topics 
 
 ### 1.2 Hard requirements (from brief)
 1. Web first (Vercel), PWA installable; later native Android/iOS via Expo without a rewrite.
-2. Next.js + TypeScript + Tailwind + Framer Motion + SWR frontend.
+2. Next.js + TypeScript + Tailwind + Framer Motion + SWR frontend; Rails API backend; Supabase for auth-adjacent storage (files), email delivery, and — where it wins — Postgres hosting.
 3. Three account roles: student (open registration), teacher and developer (behind approval + hidden entry points).
 4. Registration: email/password, name, subject selection, optional class join code.
 5. Email authentication and 2FA (TOTP) for all roles; mandatory for teacher/developer.
 6. Answer checking: cloze fill-in-the-blank with case/punctuation tolerance but hard-fail on wrong content; multiple accepted answers; keyword-based marking for long-form flashcards; one-attempt multiple choice.
-7. Imports: Anki (tsv/csv exports), notes, flashcards — uploaded to backend, never only local.
+7. Imports: Anki (`*.apkg`/tsv/csv), notes, flashcards — uploaded to backend, never only local.
 8. User-created private topics/notes; optional publish → manual developer review → public.
 9. Gamification: XP, streaks, achievements, leagues/ranks, daily/weekly/monthly leaderboards; opt-out honored everywhere.
-10. Exports: transcript as XLSX/CSV covering covered/uncovered spec points, per-topic rankings, strengths/weaknesses.
-11. Teacher dashboard: class rosters, per-student SRS frequency and progress.
+10. Exports: transcript as PDF/XLSX/CSV covering covered/uncovered spec points, per-topic rankings, strengths/weaknesses.
+11. Teacher dashboard: class rosters, per-student SRS frequency and progress, aggregate heatmap.
 
 ### 1.3 Non-goals for v1
 - Native mobile store builds (architected for, not built).
 - Real-time multiplayer or chat.
 - Payments/marketplace payouts.
-- Rich WYSIWYG note authoring beyond Markdown.
+- Rich WYSIWYG note authoring beyond Markdown + MathJax/KaTeX + images.
 
-## 2. High-level shape (as built)
+## 2. High-level shape
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -45,237 +37,259 @@ Kind: spaced-repetition learning platform (Bunpro-like) — subjects → topics 
 │  • Next.js 14 PWA (App Router, RSC for shell, SWR for client)     │
 │  • Expo app (later) — same REST API, same JWT                     │
 └───────────────┬──────────────────────────────────────────────────┘
-                │ HTTPS, JSON REST, JWT (short-lived) + refresh
+                │ HTTPS, JSON:api-ish REST, JWT (short-lived) + refresh
 ┌───────────────▼──────────────────────────────────────────────────┐
-│  Next.js Route Handlers (/api/v1) — thin controllers             │
-│    src/app/api/v1/**            auth → services → domain          │
+│  Rails 7.1 API-only (.Render/Fly; or Vercel-adjacent container)   │
+│  app/ (rails-auth, srs, content, classes, gamification,           │
+│        review, import, export, search)                            │
 └───────┬──────────────────────────────┬───────────────────────────┘
         │                              │
 ┌───────▼──────────┐        ┌──────────▼───────────┐
-│ PostgreSQL       │        │ Supabase platform    │
-│ (Supabase)       │        │ • hosted Postgres    │
-│ — source of truth│        │ • Storage (files)    │
+│ PostgreSQL       │        │ Supabase             │
+│ (Neon/Supabase)  │        │ • Storage (files)    │
+│ — source of truth│        │ • Auth email sending │
+│ + RLS defense-   │        │   (or Rails Action-  │
+│   in-depth       │        │   Mailer + SES)      │
 └──────────────────┘        └──────────────────────┘
 ```
 
-**Key structural decision — who owns the database:** Supabase provides hosted
-Postgres (via a dedicated least-privilege `revisio_app` role, not the service role)
-and file storage. The application remains the sole authority for authorization and
-domain logic — grading, SRS scheduling, XP, and content-visibility rules are too
-subtle to duplicate in Postgres RLS, which stays disabled on app tables.
+**Key structural decision — who owns the database:** Supabase is used for **Storage (images/past papers), email delivery integration, and optionally hosted Postgres**, but the **Rails API remains the sole authority for authorization and domain logic**. The Next.js client never talks to Supabase directly. Rationale: SRS scheduling, grading, XP, and content visibility rules are too subtle to duplicate in Postgres RLS; RLS is still enabled as defense-in-depth for direct-connection emergencies, but the app treats Rails as the only door.
 
-## 3. Repository layout (as built)
+## 3. Monorepo layout
 
 ```
-revisio/
-├── src/
-│   ├── app/                      # Next.js App Router
-│   │   ├── (app)/                # authed app: dashboard, review, cram, learn,
-│   │   │                         # exam, progress, library, teacher, admin
-│   │   ├── api/v1/               # REST controllers (thin)
-│   │   ├── login|register/       # student auth pages
-│   │   ├── staff/                # hidden teacher/developer portal (noindex)
-│   │   └── page.tsx              # marketing landing
-│   ├── components/               # AppShell, AuthForm, PwaRegister
-│   ├── db/                       # drizzle schema + lazy pooled client
-│   ├── domain/                   # PURE logic: grading, srs, gamification
-│   ├── lib/                      # client fetcher (api), session hook
-│   └── services/                 # use-cases: auth, api helpers, study,
-│                                 # stats, roles
-├── scripts/seed.ts               # demo data seeding
-├── drizzle/                      # generated SQL migration
-├── public/                       # manifest.webmanifest, sw.js, icon.svg
-└── docs/ARCHITECTURE.md
+srs-platform/
+├── apps/
+│   ├── web/                      # Next.js 14 (App Router, TS, PWA)
+│   │   ├── app/                  # routes (see §8)
+│   │   ├── components/           # design-system + feature components
+│   │   ├── lib/api/              # typed API client + SWR hooks
+│   │   ├── lib/domain/           # pure TS: client-side answer preview, XP math mirror
+│   │   └── public/manifest.json  # PWA manifest + service worker
+│   └── mobile/                   # Expo (later) — shares packages/
+├── services/
+│   └── api/                      # Rails 7.1 --api
+│       ├── app/
+│       │   ├── controllers/      # thin: auth, parse, authorize, serialize
+│       │   ├── models/           # AR models + invariants
+│       │   ├── services/         # use cases (ReviewSession, GradeAnswer, …)
+│       │   ├── domain/           # pure logic: SRS algorithms, grading, XP/league
+│       │   ├── policies/         # Pundit policies per resource
+│       │   ├── serializers/      # JSON serializers (one per entity)
+│       │   └── jobs/             # Sidekiq/GoodJob async work
+│       ├── db/migrate/           # schema (see §5)
+│       └── spec/                 # RSpec: domain unit > service > request
+├── packages/
+│   ├── shared-types/             # zod schemas → TS types shared by web+mobile
+│   └── ui-tokens/                # colors, motion tokens shared across clients
+└── docs/
 ```
 
 Boundaries and flow direction:
-- `pages → /api/v1 → services → domain`, never sideways.
-- `domain/` imports nothing from `app/`, `services/`, or `db/` — it is pure and
-  unit-testable (grading, SRS math, XP/league math).
-- Grading correctness lives in ONE place (`src/domain/grading.ts`); the server's
-  verdict is final — the client only renders it.
+- `web → api` (HTTP only). `mobile → api` (HTTP only). Nothing bypasses Rails.
+- Inside Rails: `controllers → services → domain`, never sideways; `domain` imports nothing from `controllers`/`serializers`.
+- Grading correctness lives in ONE place (`services/api/app/domain/grading`); the web app may *preview* the same rules by compiling the same zod `GradingRule` schema, but the server's verdict is final.
 
 ## 4. Cross-cutting decisions
 
 | Concern | Decision | Why |
 |---|---|---|
-| Auth | JWT (15 min, `jose`) + rotating refresh token (30 d, httpOnly cookie) | One identity model across web + future native |
-| Passwords | bcrypt (`bcryptjs`) | Battle-tested |
-| 2FA | TOTP (`otplib`), mandatory for teacher/dev, optional for students | Brief requirement; TOTP avoids SMS cost |
-| Teacher/dev approval | Registration creates `pending` user + `approval_requests` row; dev approves in admin UI; hidden entry at `/staff/*` (noindex) | Brief requirement |
+| Auth | Rails-issued JWT (15 min) + rotating refresh token (30 d, httpOnly cookie on web); Supabase Auth not used as source of truth | One identity model across web + future native; native can't rely on cookies |
+| Passwords | bcrypt | Rails default, battle-tested |
+| 2FA | TOTP (rotp gem), mandatory for teacher/dev, optional for students; recovery codes hashed | Brief requirement; TOTP avoids SMS cost |
+| Teacher/dev approval | Registration creates `pending` user + `ApprovalRequest`; dev approves in admin UI; hidden entry at `/staff` (not linked in nav, noindex) | Brief requirement |
 | Hidden portals | `/staff/login` (teacher+dev). Obscurity is a UX feature, not a security control — authorization does the real work | Correct security posture |
-| Background jobs | none in v1 — streaks/XP computed transactionally on review submit | Fewer moving pieces at launch |
-| Emails | verification tokens stored in `email_tokens`; delivery deferred to Supabase SMTP/Resend integration | Brief requires email auth flow |
-| Feature flags | `feature_flags` table + dev-only admin toggle; surfaced via `/me` payload | Brief: dev can enable/disable test features |
-| SRS algorithms | `srs_algorithms`-style config in `feature_flags` (`srs.algorithm` = sm2 \| fsrs-lite) with params; dev-tunable | Brief: dev can edit/add algorithms |
+| Background jobs | GoodJob (Postgres-backed) v1; Sidekiq+Redis if scale demands | Fewer moving pieces at launch |
+| Search | Postgres `pg_trgm` + `tsvector` | Avoid Elastic for v1 |
+| File uploads | Direct-to-Supabase-Storage presigned PUT from client; Rails validates type/size and records the DB row | Keeps large payloads off the API dyno |
+| Emails | Rails ActionMailer + SES (or Supabase SMTP); Devise-style confirmations, password resets | Brief requires email auth |
+| Observability | Sentry (both apps), structured logs, `/health` | Vercel + container parity |
+| Feature flags | `features` table + dev-only admin toggle; cached 30 s in API, surfaced via `/me` payload | Brief: dev can enable/disable test features |
 
-## 5. Data model (Postgres, `src/db/schema.ts`)
+## 5. Data model (Postgres)
 
 Core ERD (arrows = belongs_to):
 
 ```
-users ─┬─< class_memberships >─ classes
+users ─┬─< enrollments >─ classes
        ├─< user_subjects >─ subjects
-       ├─< card_user_states >─ cards        # SRS queue anchor
-       ├─< review_logs >─ cards
-       ├─< xp_events, streaks, user_achievements >─ achievements
-       └─< exports, exam_attempts
+       ├─< user_topic_states >─ topics          # SRS queue anchor
+       ├─< review_logs >─ reviews >─ cards
+       ├─< xp_events, streaks, achievements, league_memberships
+       └─< exports
 
-subjects ─< topics ─< lessons ─< lesson_progress
-subjects ─< classes
-topics ─< cards ─< card_answers           # cloze/flashcard/MCQ
-topics ─< exam_questions
-users ─< topics (owner_id, private) → visibility: public|pending_review|private
+subjects ─< topics ─< lessons (notes) ─< lesson_revisions
+subjects ─< specifications ─< spec_points (exam spec coverage)
+topics ─< spec_point_links > spec_points                  # many-to-many
+topics ─< cards ─< card_answers                            # cloze/flashcard/MCQ
+topics ─< exam_questions (past-paper; file + metadata)
+users ─< user_content (private topics/notes/flashcards) ─< publishes ─ content_reviews
+classes ─< class_join_codes, class_assignments (topics + due dates)
 ```
 
-Key columns:
+Table-by-table (abridged, types in migrations):
 
-- `users`: role (student/teacher/developer), status (pending/active/suspended),
-  `totp_secret`, `totp_enabled`, `leaderboard_opt_out`, `email_verified`, `preferences` jsonb.
-- `approval_requests`: role_requested, note, reviewed_by, decided_at, status.
-- `topics.visibility` (public/pending_review/private) + `owner_id` (null ⇒ official).
-- `lessons`: `detailed_md` + `summary_md` (brief: detailed vs summary notes), `spec_refs`.
-- `cards`: `kind` (cloze/flashcard/mcq) + per-kind columns (`text_with_blank`, `prompt`,
-  `question` + `options` jsonb + `correct_idx`).
-- `card_answers`: `text` (accepted answer), `keywords` jsonb (flashcard marking), `is_primary`.
-- `card_user_states`: per-user SRS state — `stage`, `ease`, `interval_days`, `due_at`,
-  `stability`, `difficulty` (FSRS-lite), `lapses`. Index `(user_id, due_at)` drives the queue.
-- `review_logs`: append-only; `mode` (daily/cram/exam), `verdict` jsonb (machine grading),
-  `user_answer`, `duration_ms`. Cram reviews bypass scheduling but are logged.
-- Gamification: `xp_events` (append-only ledger), `streaks`, `achievements` + `user_achievements`.
-- `exam_questions` (mcq or free_response + `mark_scheme_md`, `board`, `source_year`), `exam_attempts`.
+- `users`: id (uuid), email (citext, unique), password_digest, name, role (enum: student/teacher/developer, single role per user — simpler and sufficient), status (pending/active/suspended), totp_secret_enc, totp_enabled, recovery_codes (jsonb, hashed), last_login_at, leaderboard_opt_out, preferences (jsonb: default note density, motion reduced).
+- `approval_requests`: user_id, role_requested, note, reviewed_by, decided_at.
+- `subjects`, `topics`, `lessons`: `visibility` (public/pending_review/private), `owner_id` nullable (null ⇒ official), `position`, `metadata` jsonb. `lessons.content_md` text + `summary_md` text (brief: detailed vs summary notes).
+- `specifications` (e.g. "AQA GCSE Biology 8461") → `spec_points` (code "3.4.1.2", body, order). `spec_point_links` ties topics/lessons/cards to spec points — powers "covered/uncovered" transcript.
+- `cards`: polymorphic-lite via `kind` (cloze/flashcard/mcq) + columns used per kind:
+  - common: topic_id, author, visibility, difficulty (a/b test hook), srs fields: `stage int`, `due_at timestamptz`, `stability real`, `difficulty_real real` (FSRS-style), `lapses`.
+  - cloze: `text_with_blank`, `blank_positions jsonb`.
+  - flashcard: `prompt`, `explanation_md`.
+  - mcq: `question`, `options jsonb` [{id, text}], `correct_option_id`.
+- `card_answers`: card_id, `text` (accepted string), `weight` (keyword matching), `is_primary`. Cloze may have many; flashcard answers carry `keywords jsonb` (arrays of {phrase, required, synonyms}).
+- `reviews`: user_id, card_id, rating (again/hard/good/easy), `user_answer`, `graded jsonb` (machine verdict + which rule matched), `duration_ms`, `reviewed_at`, `session_id`. Immutable, append-only.
+- `review_sessions`: user_id, mode (daily/cram/exam), topic_ids jsonb, started/ended, counts.
+- `cram_jobs`: user_id, topic_ids, max_per_topic, note_density (asked up-front per brief), expiry (cram reviews bypass SRS scheduling but log to review_logs).
+- `exam_questions`: topic_id, file_path (Supabase), mark_scheme_md, difficulty, source_year, board.
+- `classes`: teacher_id, name, subject_id, join_code (6-char, rotating). `class_memberships`: class_id, user_id, joined_at. `class_assignments`: class_id, topic_ids, due_at.
+- Gamification: `xp_events` (user, amount, source enum, occurred_at — append-only ledger; totals derived), `streaks` (user, current, best, last_active_date, freezes), `achievements` + `user_achievements`, `leagues` (season + tier bronze→legend), `league_memberships` (user, league, week_start, xp_week).
+- `imports`: user_id, kind (anki/csv), file_path, status (pending/parsed/failed/done), report jsonb (per-row errors).
+- `content_reviews`: publishable_id/type, reviewer_id, verdict (approved/rejected/changes_requested), note.
+- `exports`: user_id, format (pdf/xlsx/csv), scope jsonb, file_path, created_at.
+
+Indexing notes: `user_topic_states (user_id, due_at)` drives the daily queue; `reviews (user_id, reviewed_at)` drives streaks/leaderboards; partial index on `cards WHERE visibility='public'`; `pg_trgm` GIN on topics.title + lessons search vector.
 
 ## 6. Roles & authorization
+
+- Pundit, one policy per resource. Matrix:
 
 | Capability | Student | Teacher | Developer |
 |---|---|---|---|
 | Study, review, cram, export own data | ✅ | ✅ | ✅ |
 | Import Anki/CSV, create private content | ✅ | ✅ | ✅ |
-| Publish content for review | request | ✅ direct | ✅ direct |
-| Approve publishes + staff approvals | — | — | ✅ |
-| Create/edit public subjects/topics/notes/cards | — | ✅ | ✅ |
+| Publish content for review | request | request | request |
+| Approve publishes | — | — | ✅ |
+| Create/edit public subjects/topics/notes/cards/exam resources | — | ✅ | ✅ |
 | Create classes, view class analytics | — | ✅ (own) | ✅ (all) |
-| Tune SRS algorithms, feature flags, manage users | — | — | ✅ |
+| Tune SRS algorithms, feature flags, review approvals, manage users | — | — | ✅ |
 
-Enforced server-side in route handlers + `src/services/roles.ts` helpers;
-client-side role checks are UX only. Teachers see only students in their own classes.
+- Enforcement is three-layer: route/controller guard (`before_action :authorize_user!` + Pundit), model-level default scopes (public OR owner), and DB RLS as backstop. Client-side role checks are UX only.
+- Teachers see only students in their own classes (scoped in `ClassPolicy` / analytics services).
 
 ## 7. Grading engine (the heart of correctness)
 
-Location: `src/domain/grading.ts`. Pure, dependency-free, deterministic.
+Location: `services/api/app/domain/grading/`. Pure, dependency-free, 100% unit-tested; services call it; nothing else re-implements it.
 
-1. **Cloze** — normalize (NFKC, trim, collapse whitespace) → exact match against any
-   `card_answers.text` → if no exact hit, compare case-folded / punctuation-stripped
-   to classify `case_only` / `punctuation_only` (counts as correct with a gentle note)
-   → else `wrong` and surface the primary answer (red + display answer per brief).
-2. **Flashcard long-form** — required/optional keyword groups; all required + ≥ min
-   optional → correct; partial → `near_miss` with matched/missed phrases and the
-   model answer. Multiple accepted answers are first-class.
-3. **MCQ** — one attempt enforced by idempotent review submission; binary verdict.
+```ruby
+# domain/grading/verdict.rb
+Verdict = Struct.new(:correct, :normalized_user, :matched_answer_id,
+                     :matched_rule, :feedback_kind, keyword_init: true)
+# feedback_kind: :correct | :case_only | :punctuation_only | :whitespace_only
+#              | :near_miss | :wrong | :multiple_choice_wrong
+```
 
-Services persist the verdict into `review_logs.verdict` so the UI replays the exact reasoning.
+1. **Cloze** (`ClozeGrader`): normalize (Unicode NFKC, trim, collapse whitespace) → exact match against any `card_answers.text` → if no exact hit, compare case-folded / punctuation-stripped to classify `:case_only` / `:punctuation_only` (count as correct, show gentle note) → else `:wrong` and surface `primary_answer` (brief: red + display answer).
+2. **Flashcard long-form** (`KeywordGrader`): tokenize answer, stem (light Snowball), then: all `required` keyword groups present AND ≥ `min_points` (default 2) matched → correct; partial → `:near_miss` with "you mentioned X, Y — also include Z" style feedback from `explanation_md`; server-side only, never client-trusted.
+3. **MCQ** (`McqGrader`): one attempt enforced by request idempotency (`reviews.uniq [user, card, session]` + client disables options); verdict is binary, no partial credit.
+4. **Multiple accepted answers**: first-class via `card_answers` rows; ordering by `weight` when explanations differ.
+5. All graders receive an immutable `Card` value object and return a `Verdict`; services persist it into `reviews.graded` so the UI replays the exact reasoning.
 
 ## 8. SRS engine
 
-Location: `src/domain/srs.ts`. Two algorithms behind one `Scheduler` interface —
-the dev "edit/add algorithms" requirement is satisfied by this seam:
+Location: `services/api/app/domain/srs/`. Swappable algorithms behind one interface — dev requirement "edit/add algorithms" is satisfied by this seam, not by forking logic.
 
-- **sm2** (default): classic SM-2 ease/interval math with learning steps.
-- **fsrs-lite**: stability/difficulty model (FSRS-inspired) with requested-retention parameter.
-- Stages: new → learning → review → mastered.
-- **Cram** bypasses scheduling entirely (logged with `mode: 'cram'`).
-- **Daily queue**: due cards across enrolled subjects, prioritizing overdue > new,
-  interleaved by topic, capped per request.
-- Parameters dev-tunable via the admin route (audit-logged).
+```ruby
+class Scheduler
+  def next_interval(card:, rating:, now:) -> ActiveSupport::Duration
+  def on_review(card:, rating:) -> new_state(stability:, difficulty:, stage:, due_at:)
+end
+```
+
+- **v1 default: FSRS-4.5 port** (parameters in `srs_algorithms` table, versioned JSONB) with a simple SM-2 fallback per algorithm selection.
+- Stages retained for UI semantics: new → learning → review → mastered (derived from stability thresholds, not stored independently).
+- **Cram mode** bypasses scheduling: reviews logged with `mode: 'cram'`, cards returned to prior state, `cram_jobs.expires_at` governs the session window.
+- **Daily queue construction** (service `BuildDailyQueue`): due cards across enrolled subjects, interleaved by topic, capped (default 200, user-adjustable), prioritizing overdue > new.
+- Algorithm parameters are tenant-level (one global set + optional per-user overrides later); changes create a new `srs_algorithms` row and are audited (`algorithm_audits`), satisfying the dev requirement safely.
 
 ## 9. Gamification engine
 
-`src/domain/gamification.ts` — pure functions:
-- XP per correct review by kind (cloze 10, mcq 8, flashcard 12) with streak multipliers;
-  wrong answers earn nothing. Level curve `xp_for_level(n) = 50·n^1.5`.
-- Streaks updated transactionally on review submit (current/best, last-active date).
-- Leagues bronze→legend; daily/weekly/monthly leaderboards computed from `xp_events`
-  with opt-out (`leaderboard_opt_out`) filtered at the service layer everywhere.
-- Achievements evaluated post-review (first review, streak milestones, XP milestones).
+- `domain/gamification/xp.rb`: pure functions — base XP per correct review by kind & streak multiplier; level curve `xp_for_level(n) = 50 * n^1.5` (tunable); anti-grind: XP per card decays 50% after 5 same-card reviews/day.
+- Streaks: incremented by a nightly GoodJob job reading `reviews` for yesterday; freeze tokens earned at 7-day milestones (opt-in spending).
+- Leagues: weekly buckets; top-N per league promote, bottom-M demote (Bronze→Silver→Gold→Diamond→Legend); opt-out users (`leaderboard_opt_out`) are excluded from all queries at the service layer and never rendered.
+- Leaderboards: materialized via nightly rollup table `leaderboard_snapshots(daily|weekly|monthly)` — no on-request full-table scans; live "your rank" computed from `xp_events` with an index.
+- Achievements: rule-based evaluator run post-review (`CheckAchievements` job): first review, 7/30/100-day streaks, topic mastery, exam simulator scores.
 
 ## 10. Import pipeline
 
-1. Client uploads file (multipart) → `/api/v1/import`.
-2. Server parses CSV/TSV (Anki export format: front<TAB>back) or `cloze: stem | answer` lines;
-   maps to `cards` + `card_answers` under a user-private topic (auto-created by name).
-3. Row-level errors collected into a report returned to the UI.
+1. Client uploads file → Supabase Storage (presigned) → `POST /imports {file_path, kind}`.
+2. `ParseImportJob` (GoodJob): Anki via `ruby-anki`-style apkg unzip (SQLite `collection.anki2`) or CSV/TSV per template; maps to `cards` + `card_answers`; topics matched by name (fuzzy) else created as user-private.
+3. Row-level errors collected into `imports.report`; UI shows an import report with per-row retry (only failed rows re-run).
+4. Notes imports create `user_content` lessons (Markdown passthrough; sanititized with sanitize gem, allowlist).
 
 ## 11. Export pipeline
 
-`/api/v1/exports?format=csv|json|xlsx` renders the transcript from one data service:
-per-subject spec coverage (covered/uncovered), per-topic mastery ranking, strongest/weakest
-lists. XLSX via `exceljs`, CSV via `csv-stringize`... `csv-stringify`, JSON passthrough.
+- `POST /exports {format, scope}` → `GenerateExportJob` → file to Supabase Storage → signed URL to client.
+- CSV/XLSX via `caxlsx` (topics, spec coverage, per-topic mastery %, weakest/strongest lists).
+- PDF via `Grover` (Puppeteer) rendering a print stylesheet of the same HTML partial — one template, two formats.
+- Coverage computation: for each enrolled subject, spec_points left-joined to linked topics' user_topic_states → covered / in-progress / not started. Teacher-visible class export reuses the same service with a class scope.
 
 ## 12. Exam simulator
 
-- `/api/v1/exam` selects `exam_questions` by topic to the requested count.
-- MCQ auto-graded; free-response graded against `mark_scheme_md` via the keyword grader
-  with per-point feedback; score feeds XP and achievements.
-- Attempts persisted (`exam_attempts`) and listed in the UI.
+- `ExamBuildService` selects `exam_questions` by topic/board/difficulty to a time budget; session persisted (`review_sessions.mode='exam'`).
+- Questions may be MCQ (auto-graded) or free-response with `mark_scheme_md` — free-response graded with `KeywordGrader` + self-assessment ("did your answer include these points?" checklist) since past-paper answers are prose; auto-verdict only for objective parts.
+- Score + per-topic breakdown feeds XP, achievements, and the transcript.
 
-## 13. API surface (REST, `/api/v1`)
+## 13. API surface (REST, versioned `/api/v1`)
+
+Selected endpoints (full OpenAPI generated from rspec request specs via rswag):
 
 ```
-POST /auth/register        POST /auth/login        POST /auth/refresh
-POST /auth/logout          POST /auth/verify-email POST /auth/2fa
-GET  /me                   PATCH /me (preferences, opt-out)
-GET  /subjects             POST /subjects (enroll)
-GET  /content              POST /content (create topic/lessons/cards, publish)
-GET  /lessons?topicId=     GET  /lessons/:id
-GET  /queue/today          POST /reviews
-GET  /cram                 POST /cram
-GET  /gamification?scope=  GET/POST /exam
-GET/POST /import           GET /exports?format=
-POST /classes/join
-GET/POST /teacher          (classes, join codes, roster, publish, subjects)
-GET/POST /admin            (approvals, flags, algorithms, users, publish queue)
+POST /auth/register            POST /auth/login             POST /auth/refresh
+POST /auth/verify-email        POST /auth/2fa/setup         POST /auth/2fa/verify
+GET  /me                       PATCH /me (preferences, opt-out)
+GET  /subjects                 GET  /subjects/:id/topics
+GET  /topics/:id/lessons       GET  /lessons/:id
+POST /reviews/sessions         POST /reviews (batch of verdicts applied server-side)
+POST /cram                     GET  /queue/today
+POST /imports                  GET  /imports/:id
+POST /exports                  GET  /exports/:id (signed URL)
+GET  /leaderboards?scope=daily|weekly|monthly&league=mine
+GET  /achievements             GET  /stats/overview
+--- teacher/dev ---
+POST /classes                  GET  /classes/:id/students  GET  /classes/:id/analytics
+POST /topics                   POST /lessons               POST /cards (bulk)
+POST /exam_questions           POST /publications/:id/review   (dev)
+GET  /admin/algorithms         PUT  /admin/algorithms/:id  (dev)
+GET  /admin/feature_flags      PUT  /admin/feature_flags/:key (dev)
+GET  /admin/approval_requests  PUT  /admin/approval_requests/:id (dev)
 ```
 
-Conventions: JSON bodies, errors as `{ error: string }` with proper status codes,
-cookie-based refresh rotation, `Authorization: Bearer <access>` for API clients.
+Conventions: cursor pagination, `?include=` sparse fieldsets kept minimal, errors as `{error: {code, message, details}}`, idempotency keys on review submission (`Idempotency-Key` header) so retries after flaky mobile networks never double-apply.
 
 ## 14. Frontend architecture (Next.js)
 
-- **App Router**: route group `(app)` for the authed app; `staff/` group for hidden portals;
-  marketing landing at `/`.
-- State: SWR cache = remote state; local UI state via React hooks; no global Redux.
-- Motion: Framer Motion — 150–200ms ease-out entrances, shared card transitions,
-  spring progress bar; `prefers-reduced-motion` respected.
-- Answer UX: single-field cloze with instant server verdict; red reveal on wrong with
-  the answer shown; green pulse on correct; MCQ large tap targets, instant lock.
-- PWA: `public/manifest.webmanifest` + network-first service worker (`public/sw.js`),
-  registered by `components/PwaRegister.tsx`; API calls never cached.
-- Design system: Tailwind with CSS-variable theme tokens (`bg`, `panel`, `edge`, `ink`,
-  `muted`, `accent`, `good`, `bad`); dark-first.
+- **App Router** with RSC for shells (dashboards, browse) and client components for interactive review surfaces; SWR handles all client fetching with a single `fetcher` + typed `ApiError`.
+- Route groups: `(marketing)` landing, `(auth)` login/register/staff, `(app)` everything behind auth, `admin` dev-only.
+- State: SWR cache = remote state; local UI state via React context per feature; **no global Redux**. Optimistic UI for answers (render user input instantly, reconcile with server verdict when it arrives; wrong answers snap with a spring).
+- Motion: Framer Motion with shared tokens (`packages/ui-tokens`): 200ms ease-out entrances, shared-layout transitions between review cards, `prefers-reduced-motion` honored globally via a `MotionConfig`.
+- Answer input UX (Uber/Apple-like): single-field cloze with auto-advance, haptic-equivalent visual ticks, red shake on wrong + answer reveal, green pulse on correct; MCQ uses large tap targets, instant lock, explanation slide-in.
+- PWA: `next-pwa` (service worker, offline shell, install prompt); offline review queue is v2 (conflict-safe because reviews are append-only with client timestamps).
+- Design system: Tailwind + `shadcn/ui`-style primitives (owned in `components/ui/`), dark-mode default with light option.
 
 ## 15. Native port plan (Expo)
 
-- Reuse the same REST API + JWT; refresh token in `expo-secure-store`.
-- Push reminders via Expo Notifications; haptics on verdicts via `expo-haptics`.
-- All logic is server-side — the native app is a thin client.
+- `apps/mobile` (Expo SDK 51+, React Native) reuses `packages/shared-types` (zod schemas) and the same API.
+- Auth: refresh token in `expo-secure-store`, JWT in memory.
+- Push notifications (review reminders) via Expo Notifications; web uses web-push from a Rails job.
+- Haptics on verdicts via `expo-haptics` — the UX the web approximates.
+- Store screenshots/review-notes leverage the streak/league UI; IAP not in scope.
+- Because all logic is server-side, the native app is a thin client: no porting of grading/SRS ever.
 
 ## 16. Environments, CI/CD, testing
 
-- Local: `npm run dev` against a local Postgres or the Supabase pooler (`DATABASE_URL`).
-- Deploy: Vercel (web+API). Set `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`.
-- Schema: `npx drizzle-kit generate` + apply the SQL in `drizzle/` (already applied to Supabase).
-- Seed: `npm run db:seed` (demo users/subjects/topics/cards; idempotent via TRUNCATE).
-- Verification: `npm run typecheck`, `npm run build`, plus an end-to-end smoke of
-  login → queue → review → XP → leaderboard.
+- Environments: local (docker-compose: postgres+rails+web), preview (Vercel per-PR + Rails review app on Fly), staging, production.
+- CI (GitHub Actions): web → `tsc`, `eslint`, `vitest`, `playwright` e2e smoke; api → `rspec` (domain unit tests are the bulk: grading, SRS, XP), `rubocop`, `brakeman`, bundle-audit; migrations reversible check.
+- Test pyramid: domain > services > request specs > e2e. Grading engine has property-based tests (e.g., case-folding invariance).
+- Migrations: expand/contract, no destructive v1; `strong_migrations` enforced.
 
-## 17. Milestones shipped / next
+## 17. Milestones
 
-1. ✅ Auth (register/login/refresh/verify/2FA), roles, hidden staff portal, approvals.
-2. ✅ Content model + daily queue + cloze/flashcard/MCQ review loop with grading engine.
-3. ✅ SM-2 + FSRS-lite scheduling, cram mode.
-4. ✅ Gamification (XP/streak/leagues/leaderboards/achievements + opt-out).
-5. ✅ Teacher tooling (classes, join codes, roster analytics, publish), dev admin
-   (approvals, flags, algorithms, users, publish queue).
-6. ✅ Imports (CSV/TSV/Anki export), exports (CSV/XLSX/JSON), exam simulator.
-7. Next: Expo app, email delivery integration, spec-point coverage tables for the
-   transcript's covered/uncovered view.
+1. **M0 (wk 1–2)**: monorepo, CI, Rails auth (register/login/email/TOTP), roles + approval flow, hidden staff portal.
+2. **M1 (wk 3–5)**: content model (subjects→topics→lessons), student onboarding (subjects + class code), daily queue + cloze/MCQ review loop with grading engine, RSC dashboard shell.
+3. **M2 (wk 6–7)**: FSRS scheduling, flashcard keyword grading, cram, review history.
+4. **M3 (wk 8–9)**: gamification (XP/streak/leagues/leaderboards/achievements), opt-out.
+5. **M4 (wk 10–11)**: teacher tooling (classes, authoring, analytics), publishing + review queue, feature flags/algorithm admin.
+6. **M5 (wk 12–13)**: imports (Anki/CSV), exports (PDF/XLSX/CSV), exam simulator, transcript coverage.
+7. **M6**: PWA hardening, perf budgets, Expo app kickoff.

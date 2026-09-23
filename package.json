@@ -1,5 +1,5 @@
 {
-  "name": "revisio",
+  "name": "srs-platform",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -8,11 +8,13 @@
     "build": "next build",
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit",
+    "db:reset": "rm -f data/app.db && tsx scripts/seed.ts",
     "db:seed": "tsx scripts/seed.ts",
     "lint": "next lint"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
     "csv-parse": "^5.5.6",
     "csv-stringify": "^6.5.0",
     "dotenv": "^16.4.5",
@@ -31,6 +33,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20.14.10",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.5",
