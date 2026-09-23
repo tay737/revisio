@@ -1,0 +1,17 @@
+{
+  "name": "Revisio",
+  "short_name": "Revisio",
+  "description": "Spaced-repetition learning platform",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#fafaf9",
+  "theme_color": "#1c64f2",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
