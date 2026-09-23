@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, setToken } from '@/lib/api';
+import { api, setToken, ApiClientError } from '@/lib/api';
 
 type LoginResponse = {
   accessToken?: string;
   user?: { id: string; role: string };
   mfaRequired?: boolean;
-  verifyEmail?: boolean;
+  verifyUrl?: string;
   pendingApproval?: boolean;
 };
 
@@ -28,6 +28,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [devLink, setDevLink] = useState('');
 
   useEffect(() => {
     // subjects list for the registration picker
@@ -64,14 +66,30 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           setInfo('Account created. A developer must approve staff accounts before first sign-in.');
           return;
         }
-        if (data.verifyEmail) {
-          setInfo('Check the server console for your verification link (dev mode), then sign in.');
+        if (data.verifyUrl) {
+          // Mail provider not configured: show the link directly (dev/self-host).
+          setInfo('Email delivery is not configured on this deployment. Verify with this link:');
+          setDevLink(data.verifyUrl);
           return;
         }
-        setInfo('Account created. Check the server console for the verification link.');
+        setInfo('Account created! Check your inbox for a verification link, then sign in.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      if (err instanceof ApiClientError && err.code === 'email_unverified') setUnverifiedEmail(email);
+      else setError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    setInfo('');
+    setBusy(true);
+    try {
+      await api.put('/api/v1/auth/verify-email', { email: unverifiedEmail });
+      setInfo(`Verification link re-sent to ${unverifiedEmail}. Check your inbox.`);
+    } catch {
+      setError('Could not re-send right now — please try again.');
     } finally {
       setBusy(false);
     }
@@ -159,7 +177,17 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         )}
 
         {error && <p className="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
+        {unverifiedEmail && (
+          <button type="button" onClick={resendVerification} disabled={busy} className="text-sm font-medium text-accent hover:underline">
+            Re-send verification email
+          </button>
+        )}
         {info && <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{info}</p>}
+        {devLink && (
+          <a href={devLink} className="block break-all rounded-xl bg-edge/60 px-3 py-2 text-sm text-accent underline">
+            {devLink}
+          </a>
+        )}
 
         <button type="submit" className="btn-primary w-full py-2.5" disabled={busy}>
           {busy ? '…' : mode === 'login' ? (mfaStage ? 'Verify & sign in' : 'Sign in') : 'Create account'}

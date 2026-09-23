@@ -49,7 +49,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-edge py-8 text-center text-sm text-muted">
-        Staff? Sign in at <code className="rounded bg-edge/60 px-1.5 py-0.5">/staff/login</code>
+        © {new Date().getFullYear()} Revisio — Learn it once.
       </footer>
     </main>
   );

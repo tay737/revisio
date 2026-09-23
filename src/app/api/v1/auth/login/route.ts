@@ -17,6 +17,9 @@ export const POST = route(async (req: NextRequest) => {
     throw new ApiError(401, 'invalid_credentials', 'Invalid email or password.');
   }
   if (user.status === 'suspended') throw new ApiError(403, 'suspended', 'Account suspended.');
+  if (user.status === 'pending' && !user.emailVerifiedAt) {
+    throw new ApiError(403, 'email_unverified', 'Check your inbox and verify your email first.');
+  }
 
   if (user.totpEnabled) {
     if (!totp && !recoveryCode) {
