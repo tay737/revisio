@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
+import { ContentManager } from './ContentManager';
 
 type AdminData = {
   approvals: { id: string; name: string; email: string; roleRequested: string; note: string; status: string; createdAt: string }[];
@@ -49,6 +50,12 @@ export default function AdminPage() {
 
       {message && <p className="rounded-xl bg-good/10 px-3 py-2 text-sm text-good">{message}</p>}
       {error && <p className="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
+
+      <section className="card">
+        <h2 className="font-semibold">Content manager</h2>
+        <p className="mb-4 text-sm text-muted">Edit or delete any topic, lesson, note, flashcard, cloze or MCQ. Click a topic to open its full tree.</p>
+        <ContentManager />
+      </section>
 
       <section className="card">
         <h2 className="font-semibold">Approval requests</h2>

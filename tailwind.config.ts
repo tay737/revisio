@@ -15,9 +15,18 @@ const config: Config = {
         'accent-ink': 'rgb(var(--c-accent-ink) / <alpha-value>)',
         good: 'rgb(var(--c-good) / <alpha-value>)',
         bad: 'rgb(var(--c-bad) / <alpha-value>)',
+        nav: 'rgb(var(--c-nav) / <alpha-value>)',
+      },
+      fontFamily: {
+        display: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+        body: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      letterSpacing: {
+        tightest: '-0.022em',
+        tight2: '-0.014em',
       },
       boxShadow: {
-        card: '0 1px 2px rgb(0 0 0 / 0.35), 0 8px 24px -12px rgb(0 0 0 / 0.5)',
+        media: 'rgba(0, 0, 0, 0.22) 3px 5px 30px 0',
       },
     },
   },

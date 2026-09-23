@@ -1,12 +1,17 @@
 import type { Metadata } from 'next';
 import AuthForm from '@/components/AuthForm';
+import { BlurIn } from '@/components/ui/blur-in';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export const metadata: Metadata = { title: 'Staff registration', robots: { index: false, follow: false } };
 
 export default function StaffRegisterPage() {
   return (
     <main className="grid min-h-screen place-items-center px-6 py-10">
-      <AuthForm mode="register" staff />
+      <div className="absolute right-6 top-6"><ThemeToggle /></div>
+      <BlurIn>
+        <AuthForm mode="register" staff />
+      </BlurIn>
     </main>
   );
 }
