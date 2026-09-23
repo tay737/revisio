@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --c-bg: 250 250 249;
+  --c-panel: 255 255 255;
+  --c-edge: 228 228 224;
+  --c-ink: 28 28 30;
+  --c-muted: 110 110 115;
+  --c-accent: 28 100 242;
+  --c-accent-ink: 255 255 255;
+  --c-good: 22 138 90;
+  --c-bad: 214 69 65;
+}
+
+.dark {
+  --c-bg: 18 18 20;
+  --c-panel: 28 28 32;
+  --c-edge: 52 52 58;
+  --c-ink: 240 240 242;
+  --c-muted: 150 150 158;
+  --c-accent: 64 128 255;
+  --c-accent-ink: 255 255 255;
+  --c-good: 52 180 120;
+  --c-bad: 240 100 95;
+}
+
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-ink antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04';
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-accent-ink hover:brightness-110 shadow-sm;
+  }
+  .btn-ghost {
+    @apply btn border border-edge bg-panel hover:bg-edge/40;
+  }
+  .btn-danger {
+    @apply btn border border-bad/40 text-bad hover:bg-bad/10;
+  }
+  .input {
+    @apply w-full rounded-xl border border-edge bg-panel px-3.5 py-2.5 text-sm outline-none transition-all placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+  }
+  .card {
+    @apply rounded-2xl border border-edge bg-panel p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)];
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-edge bg-panel px-2.5 py-0.5 text-xs font-medium text-muted;
+  }
+}
