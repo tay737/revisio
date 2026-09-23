@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { users } from '@/db/schema';
-import { consumeRefreshToken, issueRefreshToken, signAccessToken } from '@/services/auth';
+import { consumeRefreshToken, signAccessToken } from '@/services/auth';
 import { ApiError, ok, REFRESH_COOKIE, route, setRefreshCookie } from '@/services/api';
 
 export const POST = route(async (req: NextRequest) => {
@@ -14,13 +14,13 @@ export const POST = route(async (req: NextRequest) => {
   const raw = cookieToken || (body as { refreshToken?: string }).refreshToken;
   if (!raw) throw new ApiError(401, 'no_refresh', 'No refresh token.');
 
-  const userId = await consumeRefreshToken(raw);
-  if (!userId) throw new ApiError(401, 'invalid_refresh', 'Refresh token invalid or expired.');
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (!user || user.status === 'suspended') throw new ApiError(403, 'suspended', 'Account suspended.');
+  const rotated = await consumeRefreshToken(raw);
+  if (!rotated) throw new ApiError(401, 'invalid_refresh', 'Refresh token invalid or expired.');
+  const [user] = await db.select().from(users).where(eq(users.id, rotated.userId)).limit(1);
+  if (!user) throw new ApiError(401, 'invalid_refresh', 'Refresh token invalid or expired.');
+  if (user.status === 'suspended') throw new ApiError(403, 'suspended', 'Account suspended.');
 
   const accessToken = await signAccessToken(user);
-  const newRefresh = await issueRefreshToken(user.id);
-  await setRefreshCookie(newRefresh);
+  await setRefreshCookie(rotated.nextRaw);
   return ok({ accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
 });
