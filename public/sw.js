@@ -1,6 +1,6 @@
 // Simple offline-tolerant service worker: network-first with cache fallback
 // for navigations and static assets. API calls are never cached.
-const CACHE = 'revisio-v1';
+const CACHE = 'srs-v1';
 const PRECACHE = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

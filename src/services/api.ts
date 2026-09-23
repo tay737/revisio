@@ -53,7 +53,7 @@ export function route(handler: (req: NextRequest, ctx: { params: Record<string, 
   };
 }
 
-// ── cookies (refresh token; web client only) ───────────────────────────────
+// ── cookies (refresh token; web client only) ────────────────────────────────
 
 export async function setRefreshCookie(raw: string) {
   const store = await cookies();

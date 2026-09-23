@@ -53,9 +53,9 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         setToken(data.accessToken ?? null);
         router.replace('/dashboard');
       } else {
-        const data = await api.post<LoginResponse>('/api/v1/auth/register', {
+        const data = await api.post<LoginResponse>(staff ? '/api/v1/auth/register' : '/api/v1/auth/register', {
           email, password, name,
-          role: staff ? 'teacher' : role,
+          requestedRole: staff ? 'developer' : role,
           note: staff ? note : undefined,
           subjectIds: role === 'student' ? subjectIds : undefined,
           classCode: classCode || undefined,

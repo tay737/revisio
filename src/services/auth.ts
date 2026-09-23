@@ -14,11 +14,11 @@ const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'dev-only-sec
 export const ACCESS_TTL_SECONDS = 15 * 60;
 export const REFRESH_TTL_DAYS = 30;
 
-// ── passwords ──────────────────────────────────────────────────────────────
+// ── passwords ───────────────────────────────────────────────────────────────
 export const hashPassword = (pw: string) => bcrypt.hash(pw, 10);
 export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, hash);
 
-// ── JWT access tokens ──────────────────────────────────────────────────────
+// ── JWT access tokens ───────────────────────────────────────────────────────
 
 export async function signAccessToken(user: { id: string; email: string; role: Role; totpEnabled: boolean }): Promise<string> {
   return new SignJWT({ email: user.email, role: user.role, twofa: user.totpEnabled })
@@ -35,13 +35,14 @@ export async function verifyAccessToken(token: string): Promise<SessionUser | nu
     if (!payload.sub) return null;
     const [row] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1);
     if (!row || row.status === 'suspended') return null;
+    // Pending users may only reach approval-related endpoints; gate here.
     return { id: row.id, email: row.email, name: row.name, role: row.role, status: row.status };
   } catch {
     return null;
   }
 }
 
-// ── refresh tokens (rotating, hashed at rest) ──────────────────────────────
+// ── refresh tokens (rotating, hashed at rest) ───────────────────────────────
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
@@ -68,7 +69,7 @@ export async function revokeAllRefreshTokens(userId: string) {
   await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.userId, userId));
 }
 
-// ── TOTP 2FA ───────────────────────────────────────────────────────────────
+// ── TOTP 2FA ────────────────────────────────────────────────────────────────
 
 export function generateTotpSecret(): string {
   return authenticator.generateSecret();
@@ -95,7 +96,7 @@ export function hashRecoveryCode(code: string): string {
   return sha256(code.trim().toUpperCase());
 }
 
-// ── email tokens (verify/reset) — dev: link logged to console ─────────────
+// ── email tokens (verify/reset) — dev: link logged to console ───────────────
 
 export async function issueEmailToken(userId: string, kind: 'verify' | 'reset'): Promise<string> {
   const raw = randomBytes(24).toString('hex');

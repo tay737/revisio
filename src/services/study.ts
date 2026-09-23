@@ -7,10 +7,10 @@ import {
   leagueMemberships, examAttempts, featureFlags,
 } from '@/db/schema';
 import { gradeCloze, gradeFlashcard, gradeMcq, type AcceptedAnswer } from '@/domain/grading';
-import { getScheduler, newCardState, type CardState, type Rating } from '@/domain/srs';
+import { getScheduler, newCardState, type Rating } from '@/domain/srs';
 import { evaluateAchievements, levelForXp, nextStreak, utcDateKey, xpForReview } from '@/domain/gamification';
 
-// ── visibility (single source of truth for what a user can see) ────────────
+// ── visibility (single source of truth for what a user can see) ─────────────
 
 export function visibleContentCondition(userId: string) {
   return or(
@@ -19,7 +19,7 @@ export function visibleContentCondition(userId: string) {
   );
 }
 
-// ── algorithms config (dev-tunable via feature flag payload) ──────────────
+// ── algorithms config (dev-tunable via feature flag payload) ────────────────
 
 type AlgoConfig = { default: string; params: Record<string, Record<string, number>> };
 
@@ -34,7 +34,7 @@ export async function getAlgorithmConfig(): Promise<AlgoConfig> {
   }
 }
 
-// ── daily queue ────────────────────────────────────────────────────────────
+// ── daily queue ─────────────────────────────────────────────────────────────
 
 export type QueueCard = {
   id: string;
@@ -48,6 +48,8 @@ export type QueueCard = {
   question: string | null;
   options: { id: string; text: string }[] | null;
   stage: string;
+  // answers are sent for cloze/flashcard only after grading (see submitReview);
+  // for the queue we never send accepted answers to the client.
 };
 
 export async function buildDailyQueue(userId: string, limit = 20): Promise<QueueCard[]> {
@@ -100,7 +102,7 @@ export async function buildDailyQueue(userId: string, limit = 20): Promise<Queue
   }));
 }
 
-// ── review submission ──────────────────────────────────────────────────────
+// ── review submission ───────────────────────────────────────────────────────
 
 export type SubmitReviewInput = {
   cardId: string;
@@ -268,7 +270,6 @@ export function mondayOf(d: Date): Date {
 }
 
 async function checkAchievements(userId: string, lastCorrect: boolean) {
-  void lastCorrect;
   const all = await db.select().from(achievements);
   const owned = await db.select({ id: userAchievements.achievementId }).from(userAchievements).where(eq(userAchievements.userId, userId));
   const ownedIds = new Set(owned.map((o) => o.id));
@@ -296,14 +297,13 @@ async function checkAchievements(userId: string, lastCorrect: boolean) {
   };
   const unlocked = evaluateAchievements(all.map((a) => ({ id: a.id, rule: a.rule })), facts).filter((id) => !ownedIds.has(id));
   if (unlocked.length === 0) return [];
-  await db.insert(userAchievements).values(unlocked.map((id) => ({ userId, achievementId: id }))).onConflictDoNothing();
+  await db.insert(userAchievements).values(unlocked.map((id) => ({ id: crypto.randomUUID(), userId, achievementId: id }))).onConflictDoNothing();
   return all.filter((a) => unlocked.includes(a.id)).map((a) => ({ id: a.id, name: a.name, icon: a.icon, description: a.description }));
 }
 
-// ── cram ───────────────────────────────────────────────────────────────────
+// ── cram ────────────────────────────────────────────────────────────────────
 
 export async function buildCramQueue(userId: string, topicIds: string[], maxPerTopic: number): Promise<QueueCard[]> {
-  void userId;
   const rows = await db
     .select({ card: cards, topic: topics, subject: subjects })
     .from(cards)
@@ -326,10 +326,9 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
   }));
 }
 
-// ── exam simulator ─────────────────────────────────────────────────────────
+// ── exam simulator ──────────────────────────────────────────────────────────
 
 export async function buildExam(userId: string, topicIds: string[], questionCount = 5) {
-  void userId;
   const rows = await db
     .select()
     .from(examQuestions)
