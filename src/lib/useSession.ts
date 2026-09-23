@@ -13,8 +13,8 @@ export function useSession() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await api.get<{ user: SessionUser }>('/api/v1/me');
-        if (!cancelled) setUser(data.user);
+        const data = await api.get<SessionUser>('/api/v1/me');
+        if (!cancelled) setUser(data);
       } catch {
         if (!cancelled) setUser(null);
         router.replace('/login');
