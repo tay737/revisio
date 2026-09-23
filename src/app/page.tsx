@@ -61,7 +61,7 @@ export default function LandingPage() {
             <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-accent">Spaced repetition, done properly</p>
           </BlurIn>
           <h1 className="display-tight mx-auto mt-5 max-w-3xl text-5xl leading-[1.07] sm:text-6xl">
-            <BlurIn delay={0.08}>Learn it </BlurIn>
+            <BlurIn delay={0.08}>Learn it&nbsp;</BlurIn>
             <GradientText>once</GradientText>
             <BlurIn delay={0.16}>.</BlurIn>
             <br />
