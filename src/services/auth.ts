@@ -53,16 +53,17 @@ export async function issueRefreshToken(userId: string): Promise<string> {
   return raw;
 }
 
-export async function consumeRefreshToken(raw: string): Promise<string | null> {
+export async function consumeRefreshToken(raw: string): Promise<{ userId: string; nextRaw: string } | null> {
   const [row] = await db
     .select()
     .from(refreshTokens)
     .where(and(eq(refreshTokens.tokenHash, sha256(raw)), isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())))
     .limit(1);
   if (!row) return null;
-  // rotate: revoke old, issue new
+  // rotate: revoke old, issue new (caller must deliver nextRaw to the client)
   await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, row.id));
-  return issueRefreshToken(row.userId);
+  const nextRaw = await issueRefreshToken(row.userId);
+  return { userId: row.userId, nextRaw };
 }
 
 export async function revokeAllRefreshTokens(userId: string) {
