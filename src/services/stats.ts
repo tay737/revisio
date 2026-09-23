@@ -10,25 +10,27 @@ function startOfToday(): Date {
 }
 
 export async function todayStats(userId: string) {
-  const [doneRow] = await db
-    .select({ c: sql<number>`count(*)` })
-    .from(reviewLogs)
-    .where(and(eq(reviewLogs.userId, userId), gte(reviewLogs.reviewedAt, startOfToday())));
-  const [dueRow] = await db
-    .select({ c: sql<number>`count(*)` })
-    .from(cardUserStates)
-    .where(and(eq(cardUserStates.userId, userId), sql`${cardUserStates.dueAt} <= now()`));
-  const [newCards] = await db
-    .select({ c: sql<number>`count(*)` })
-    .from(cards)
-    .innerJoin(topics, eq(cards.topicId, topics.id))
-    .innerJoin(userSubjects, eq(topics.subjectId, userSubjects.subjectId))
-    .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
-    .where(and(eq(userSubjects.userId, userId), eq(cards.visibility, 'public'), sql`${cardUserStates.cardId} IS NULL`));
+  const [doneRow, dueRow, newCards] = await Promise.all([
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(reviewLogs)
+      .where(and(eq(reviewLogs.userId, userId), gte(reviewLogs.reviewedAt, startOfToday()))),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(cardUserStates)
+      .where(and(eq(cardUserStates.userId, userId), sql`${cardUserStates.dueAt} <= now()`)),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(cards)
+      .innerJoin(topics, eq(cards.topicId, topics.id))
+      .innerJoin(userSubjects, eq(topics.subjectId, userSubjects.subjectId))
+      .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+      .where(and(eq(userSubjects.userId, userId), eq(cards.visibility, 'public'), sql`${cardUserStates.cardId} IS NULL`)),
+  ]);
   return {
-    reviewsToday: doneRow?.c ?? 0,
-    dueCount: dueRow?.c ?? 0,
-    newCount: newCards?.c ?? 0,
+    reviewsToday: doneRow[0]?.c ?? 0,
+    dueCount: dueRow[0]?.c ?? 0,
+    newCount: newCards[0]?.c ?? 0,
   };
 }
 

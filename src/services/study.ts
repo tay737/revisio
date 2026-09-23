@@ -127,10 +127,13 @@ export type SubmitReviewResult = {
 };
 
 export async function submitReview(userId: string, input: SubmitReviewInput): Promise<SubmitReviewResult> {
-  const [card] = await db.select().from(cards).where(eq(cards.id, input.cardId)).limit(1);
+  const [cardRes, answersRes] = await Promise.all([
+    db.select().from(cards).where(eq(cards.id, input.cardId)).limit(1),
+    db.select().from(cardAnswers).where(eq(cardAnswers.cardId, input.cardId)),
+  ]);
+  const [card] = cardRes;
   if (!card) throw new Error('card not found');
-  const answers = await db.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id));
-  const accepted: AcceptedAnswer[] = answers.map((a) => ({
+  const accepted: AcceptedAnswer[] = answersRes.map((a) => ({
     id: a.id, text: a.text, isPrimary: a.isPrimary,
     keywords: a.keywords ?? null, minPoints: a.minPoints ?? null,
   }));
@@ -142,12 +145,12 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   else verdict = gradeMcq(input.selectedOptionId ?? null, card.correctOptionId ?? '');
 
   // 2) schedule (unless cram — cram reviews don't move the schedule)
-  const algoConfig = await getAlgorithmConfig();
-  const [state] = await db
-    .select()
-    .from(cardUserStates)
-    .where(and(eq(cardUserStates.userId, userId), eq(cardUserStates.cardId, card.id)))
-    .limit(1);
+  const [algoConfigRes, stateRes] = await Promise.all([
+    getAlgorithmConfig(),
+    db.select().from(cardUserStates).where(and(eq(cardUserStates.userId, userId), eq(cardUserStates.cardId, card.id))).limit(1),
+  ]);
+  const algoConfig = algoConfigRes;
+  const [state] = stateRes;
   const scheduler = getScheduler(algoConfig.default, 'sm2');
   const params = { ...scheduler.defaultParams(), ...(algoConfig.params[algoConfig.default] ?? {}) };
   const prevState = state
@@ -180,11 +183,15 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   let xpAwarded = 0;
   let streakCurrent = 0;
   if (input.mode !== 'exam') {
-    const timesToday = await db
-      .select({ c: sql<number>`count(*)` })
-      .from(reviewLogs)
-      .where(and(eq(reviewLogs.userId, userId), eq(reviewLogs.cardId, card.id), gte(reviewLogs.reviewedAt, startOfToday())));
-    const [streakRow] = await db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1);
+    const [timesTodayRes, streakRes] = await Promise.all([
+      db
+        .select({ c: sql<number>`count(*)` })
+        .from(reviewLogs)
+        .where(and(eq(reviewLogs.userId, userId), eq(reviewLogs.cardId, card.id), gte(reviewLogs.reviewedAt, startOfToday()))),
+      db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1),
+    ]);
+    const timesToday = timesTodayRes;
+    const [streakRow] = streakRes;
     const cur = streakRow ?? { current: 0, best: 0, lastActiveDate: null };
     const updated = nextStreak(cur, utcDateKey());
     streakCurrent = updated.current;
@@ -221,7 +228,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   // 5) achievements
   const newAchievements = await checkAchievements(userId, verdict.correct);
 
-  const primary = answers.find((a) => a.isPrimary) ?? answers[0];
+  const primary = answersRes.find((a) => a.isPrimary) ?? answersRes[0];
   return {
     verdict,
     primaryAnswer: card.kind === 'cloze' ? primary?.text : undefined,
