@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { cards, cardAnswers, lessons, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
-import { canManageContent } from '@/services/roles';
+import { canManageContent, isDeveloper } from '@/services/roles';
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'topic';
@@ -89,9 +89,194 @@ export const POST = route(async (req: NextRequest) => {
   return ok({ topic, lessons: lessonRows }, { status: 201 });
 });
 
-/** GET /content?mine=1 — my topics (any visibility) */
+/** GET /content?mine=1 — my topics; ?topicId=… — full topic tree (lessons + cards)
+ *  with answers for staff/dev editing. */
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
-  const mine = await db.select().from(topics).where(eq(topics.ownerId, user.id));
+  const topicId = req.nextUrl.searchParams.get('topicId');
+  const staff = canManageContent(user);
+
+  if (topicId) {
+    const [topic] = await db.select().from(topics).where(eq(topics.id, topicId)).limit(1);
+    if (!topic) throw new ApiError(404, 'not_found', 'Topic not found.');
+    // owner or staff may inspect; students may read public topics without answers
+    const mayEdit = staff || topic.ownerId === user.id;
+    if (!mayEdit && topic.visibility !== 'public') throw new ApiError(404, 'not_found', 'Topic not found.');
+
+    const topicLessons = await db.select().from(lessons).where(eq(lessons.topicId, topicId)).orderBy(asc(lessons.position));
+    const topicCards = await db.select().from(cards).where(eq(cards.topicId, topicId)).orderBy(asc(cards.createdAt));
+    const cardIds = topicCards.map((c) => c.id);
+    const answers = cardIds.length
+      ? await db.select().from(cardAnswers)
+      : [];
+    const relevantAnswers = answers.filter((a) => cardIds.includes(a.cardId));
+
+    return ok({
+      topic,
+      mayEdit,
+      lessons: topicLessons,
+      cards: topicCards.map((c) => ({
+        ...c,
+        answers: relevantAnswers
+          .filter((a) => a.cardId === c.id)
+          .map((a) => ({ id: a.id, text: a.text, isPrimary: a.isPrimary, keywords: a.keywords, minPoints: a.minPoints })),
+        // mcq correct answer only revealed to editors
+        correctOptionId: mayEdit ? c.correctOptionId : undefined,
+      })),
+    });
+  }
+
+  const mine = staff && isDeveloper(user)
+    ? await db.select().from(topics) // developers see everything
+    : await db.select().from(topics).where(eq(topics.ownerId, user.id));
   return ok({ topics: mine });
+});
+
+/** PATCH /content — update a topic, lesson, or card. */
+export const PATCH = route(async (req: NextRequest) => {
+  const user = await requireUser(req);
+  const body = (await req.json()) as {
+    topicId?: string;
+    lessonId?: string;
+    cardId?: string;
+    name?: string;
+    description?: string;
+    title?: string;
+    detailedMd?: string;
+    summaryMd?: string;
+    specRefs?: string;
+    textWithBlank?: string;
+    prompt?: string;
+    question?: string;
+    explanationMd?: string;
+    answers?: string[];
+    options?: string[];
+    correctIdx?: number;
+    keywords?: { required: boolean; phrase: string; synonyms?: string[] }[];
+    minPoints?: number;
+  };
+  const staff = canManageContent(user);
+
+  const assertCanEditTopic = async (topicId: string) => {
+    const [t] = await db.select().from(topics).where(eq(topics.id, topicId)).limit(1);
+    if (!t) throw new ApiError(404, 'not_found', 'Topic not found.');
+    if (!staff && t.ownerId !== user.id) throw new ApiError(403, 'forbidden', 'Not your content.');
+    return t;
+  };
+
+  // ── topic rename / description ──
+  if (body.topicId && !body.lessonId && !body.cardId) {
+    await assertCanEditTopic(body.topicId);
+    const update: Record<string, unknown> = {};
+    if (typeof body.name === 'string' && body.name.trim()) update.name = body.name.trim();
+    if (typeof body.description === 'string') update.description = body.description;
+    if (Object.keys(update).length) await db.update(topics).set(update).where(eq(topics.id, body.topicId));
+    return ok({ updated: true });
+  }
+
+  // ── lesson update ──
+  if (body.lessonId) {
+    const [lesson] = await db.select().from(lessons).where(eq(lessons.id, body.lessonId)).limit(1);
+    if (!lesson) throw new ApiError(404, 'not_found', 'Lesson not found.');
+    await assertCanEditTopic(lesson.topicId);
+    const update: Record<string, unknown> = {};
+    if (typeof body.title === 'string' && body.title.trim()) update.title = body.title.trim();
+    if (typeof body.detailedMd === 'string') update.detailedMd = body.detailedMd;
+    if (typeof body.summaryMd === 'string') update.summaryMd = body.summaryMd;
+    if (typeof body.specRefs === 'string') update.specRefs = body.specRefs;
+    if (Object.keys(update).length) await db.update(lessons).set(update).where(eq(lessons.id, body.lessonId));
+    return ok({ updated: true });
+  }
+
+  // ── card update ──
+  if (body.cardId) {
+    const [card] = await db.select().from(cards).where(eq(cards.id, body.cardId)).limit(1);
+    if (!card) throw new ApiError(404, 'not_found', 'Card not found.');
+    await assertCanEditTopic(card.topicId);
+
+    const update: Record<string, unknown> = {};
+    if (typeof body.explanationMd === 'string') update.explanationMd = body.explanationMd;
+    if (card.kind === 'cloze' && typeof body.textWithBlank === 'string') {
+      if (!body.textWithBlank.includes('____')) throw new ApiError(400, 'bad_request', 'cloze cards need ____ in textWithBlank');
+      update.textWithBlank = body.textWithBlank;
+    }
+    if (card.kind === 'flashcard' && typeof body.prompt === 'string') update.prompt = body.prompt;
+    if (card.kind === 'mcq') {
+      if (typeof body.question === 'string') update.question = body.question;
+      if (Array.isArray(body.options) && body.options.length >= 2) {
+        update.options = body.options.map((text, i) => ({ id: `o${i}`, text }));
+        if (typeof body.correctIdx === 'number') update.correctOptionId = `o${body.correctIdx}`;
+      } else if (typeof body.correctIdx === 'number') {
+        update.correctOptionId = `o${body.correctIdx}`;
+      }
+    }
+    if (Object.keys(update).length) await db.update(cards).set(update).where(eq(cards.id, body.cardId));
+
+    // answers: cloze/flashcard replace the accepted-answer set
+    if (Array.isArray(body.answers)) {
+      if (card.kind === 'cloze') {
+        await db.delete(cardAnswers).where(eq(cardAnswers.cardId, card.id));
+        await db.insert(cardAnswers).values(body.answers.map((text, i) => ({ id: crypto.randomUUID(), cardId: card.id, text, isPrimary: i === 0 })));
+      } else if (card.kind === 'flashcard') {
+        const [existing] = await db.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
+        const kw = body.keywords ?? null;
+        const mp = typeof body.minPoints === 'number' ? body.minPoints : null;
+        if (existing) {
+          await db.update(cardAnswers).set({ text: body.answers[0] ?? '', keywords: kw, minPoints: mp }).where(eq(cardAnswers.id, existing.id));
+        } else {
+          await db.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId: card.id, text: body.answers[0] ?? '', isPrimary: true, keywords: kw, minPoints: mp });
+        }
+      }
+    } else if ((card.kind === 'flashcard') && (body.keywords !== undefined || body.minPoints !== undefined)) {
+      const [existing] = await db.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
+      if (existing) {
+        await db.update(cardAnswers).set({
+          keywords: body.keywords ?? existing.keywords,
+          minPoints: typeof body.minPoints === 'number' ? body.minPoints : existing.minPoints,
+        }).where(eq(cardAnswers.id, existing.id));
+      }
+    }
+    return ok({ updated: true });
+  }
+
+  throw new ApiError(400, 'bad_request', 'topicId, lessonId or cardId required');
+});
+
+/** DELETE /content?cardId=… | ?lessonId=… | ?topicId=… — remove content. */
+export const DELETE = route(async (req: NextRequest) => {
+  const user = await requireUser(req);
+  const staff = canManageContent(user);
+  const cardId = req.nextUrl.searchParams.get('cardId');
+  const lessonId = req.nextUrl.searchParams.get('lessonId');
+  const topicId = req.nextUrl.searchParams.get('topicId');
+
+  const assertCanEditTopic = async (id: string) => {
+    const [t] = await db.select().from(topics).where(eq(topics.id, id)).limit(1);
+    if (!t) throw new ApiError(404, 'not_found', 'Topic not found.');
+    if (!staff && t.ownerId !== user.id) throw new ApiError(403, 'forbidden', 'Not your content.');
+    return t;
+  };
+
+  if (cardId) {
+    const [card] = await db.select().from(cards).where(eq(cards.id, cardId)).limit(1);
+    if (!card) throw new ApiError(404, 'not_found', 'Card not found.');
+    await assertCanEditTopic(card.topicId);
+    await db.delete(cardAnswers).where(eq(cardAnswers.cardId, cardId));
+    await db.delete(cards).where(eq(cards.id, cardId));
+    return ok({ deleted: true });
+  }
+  if (lessonId) {
+    const [lesson] = await db.select().from(lessons).where(eq(lessons.id, lessonId)).limit(1);
+    if (!lesson) throw new ApiError(404, 'not_found', 'Lesson not found.');
+    await assertCanEditTopic(lesson.topicId);
+    await db.delete(lessons).where(eq(lessons.id, lessonId));
+    return ok({ deleted: true });
+  }
+  if (topicId) {
+    await assertCanEditTopic(topicId);
+    // cascades handle lessons/cards/answers via FK
+    await db.delete(topics).where(and(eq(topics.id, topicId)));
+    return ok({ deleted: true });
+  }
+  throw new ApiError(400, 'bad_request', 'cardId, lessonId or topicId required');
 });

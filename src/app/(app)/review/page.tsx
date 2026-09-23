@@ -175,14 +175,27 @@ export default function ReviewPage() {
 
             {!result && card.kind !== 'mcq' && (
               <form className="mt-5" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-                <textarea
-                  className="input min-h-[90px]"
-                  placeholder={card.kind === 'cloze' ? 'Type the missing word…' : 'Write your answer…'}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  autoFocus
-                />
+                {card.kind === 'cloze' ? (
+                  <input
+                    type="text"
+                    className="input h-12 text-base"
+                    placeholder="Type the missing word…"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    autoFocus
+                    enterKeyHint="done"
+                  />
+                ) : (
+                  <textarea
+                    className="input min-h-[90px]"
+                    placeholder="Write your answer…"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    autoFocus
+                  />
+                )}
                 <button type="submit" className="btn-primary mt-3 w-full" disabled={!input.trim() || busy}>Check answer</button>
+                {card.kind === 'cloze' && <p className="mt-1.5 text-center text-xs text-muted">Press Enter to check ↵</p>}
               </form>
             )}
 
