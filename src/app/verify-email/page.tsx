@@ -3,16 +3,24 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Icon } from '@/components/ui/icons';
+import { GlassCard } from '@/components/ui/motion/glass-card';
+import { Splash } from '@/components/ui/splash';
 
 type State =
   | { kind: 'verifying' }
   | { kind: 'done' }
-  | { kind: 'error'; message: string; email?: string };
+  | { kind: 'error'; message: string };
 
 function VerifyEmailInner() {
   const params = useSearchParams();
   const token = params.get('token');
-  const [state, setState] = useState<State>({ kind: token ? 'verifying' : 'error', message: token ? '' : 'No verification token in link.' });
+  const [state, setState] = useState<State>(
+    token ? { kind: 'verifying' } : { kind: 'error', message: 'That link is missing its verification token.' },
+  );
+  const [email, setEmail] = useState('');
+  const [resent, setResent] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -26,10 +34,11 @@ function VerifyEmailInner() {
         });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.ok) setState({ kind: 'done' });
-        else setState({ kind: 'error', message: data?.error?.message ?? 'Verification failed.' });
+        setState(
+          res.ok ? { kind: 'done' } : { kind: 'error', message: data?.error?.message ?? 'We could not verify that link.' },
+        );
       } catch {
-        if (!cancelled) setState({ kind: 'error', message: 'Network error — please try again.' });
+        if (!cancelled) setState({ kind: 'error', message: 'We could not reach the server. Check your connection and try again.' });
       }
     })();
     return () => {
@@ -37,45 +46,99 @@ function VerifyEmailInner() {
     };
   }, [token]);
 
-  const resend = async () => {
-    const email = window.prompt('Enter your account email to re-send the verification link:');
+  const resend = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!email) return;
-    await fetch('/api/v1/auth/verify-email', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    setState({ kind: 'error', message: 'If that address has an unverified account, a new link is on its way.', email });
+    setBusy(true);
+    try {
+      await fetch('/api/v1/auth/verify-email', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } finally {
+      setBusy(false);
+      setResent(true);
+    }
   };
 
+  if (state.kind === 'verifying') return <Splash show label="Verifying your email" />;
+
   return (
-    <main className="grid min-h-screen place-items-center px-6">
-      <div className="w-full max-w-md text-center">
-        <div className="mb-8 flex items-center justify-center gap-2 text-xl font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent text-accent-ink">R</span>
+    <main className="relative grid min-h-screen place-items-center overflow-hidden px-6 py-14">
+      <div aria-hidden className="absolute inset-x-0 top-0 h-[46%] bg-[#272729]" />
+
+      <div className="relative w-full max-w-md">
+        <Link
+          href="/"
+          className="mb-6 flex items-center justify-center gap-2 text-[17px] font-semibold tracking-[-0.374px] text-white"
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-[6px] bg-accent text-[11px] font-semibold text-accent-ink">
+            R
+          </span>
           Revisio
-        </div>
+        </Link>
 
-        {state.kind === 'verifying' && <p className="animate-pulse text-muted">Verifying your email…</p>}
+        <GlassCard tone="raised" className="p-7 text-center">
+          {state.kind === 'done' ? (
+            <>
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good/10 text-good">
+                <Icon name="reviewed" size={22} />
+              </span>
+              <h1 className="t-tagline mt-4">Email verified</h1>
+              <p className="t-caption mt-2 text-muted">
+                Your account is active. Sign in and we will build today’s queue.
+              </p>
+              <Link href="/login" className="btn-primary mt-6 w-full">
+                Sign in
+              </Link>
+            </>
+          ) : (
+            <>
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-bad/10 text-bad">
+                <Icon name="due" size={22} />
+              </span>
+              <h1 className="t-tagline mt-4">That link didn’t work</h1>
+              <p className="t-caption mt-2 text-muted">{state.message}</p>
 
-        {state.kind === 'done' && (
-          <>
-            <h1 className="text-2xl font-bold tracking-tight">Email verified 🎉</h1>
-            <p className="mt-2 text-muted">Your account is active. Time to learn it once.</p>
-            <Link href="/login" className="btn-primary mt-6 inline-block px-6 py-2.5">Sign in</Link>
-          </>
-        )}
+              {resent ? (
+                <p className="t-caption mt-5 rounded-[11px] bg-accent/10 px-3 py-2.5 text-accent">
+                  If that address has an unverified account, a fresh link is on its way.
+                </p>
+              ) : (
+                <form onSubmit={resend} className="mt-5 space-y-3 text-left">
+                  <div className="relative">
+                    <label className="label" htmlFor="resend-email">
+                      Send me a new link
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-[13px] text-muted">
+                        <Icon name="mail" size={17} />
+                      </span>
+                      <input
+                        id="resend-email"
+                        type="email"
+                        required
+                        className="input pl-11"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@school.edu"
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn-secondary w-full gap-2" disabled={busy}>
+                    <Icon name="rotate" size={16} />
+                    {busy ? 'Sending…' : 'Re-send verification email'}
+                  </button>
+                </form>
+              )}
 
-        {state.kind === 'error' && (
-          <>
-            <h1 className="text-2xl font-bold tracking-tight">Verification problem</h1>
-            <p className="mt-2 text-muted">{state.message}</p>
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <button onClick={resend} className="btn-ghost">Re-send email</button>
-              <Link href="/login" className="btn-primary px-5 py-2.5">Back to sign in</Link>
-            </div>
-          </>
-        )}
+              <Link href="/login" className="btn-primary mt-3 w-full">
+                Back to sign in
+              </Link>
+            </>
+          )}
+        </GlassCard>
       </div>
     </main>
   );
@@ -83,7 +146,7 @@ function VerifyEmailInner() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<main className="grid min-h-screen place-items-center"><p className="animate-pulse text-muted">Loading…</p></main>}>
+    <Suspense fallback={<Splash show label="Verifying your email" />}>
       <VerifyEmailInner />
     </Suspense>
   );

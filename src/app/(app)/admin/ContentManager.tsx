@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icons';
 
 type Topic = { id: string; name: string; description: string | null; visibility: string; ownerId: string | null; subjectId: string };
 type Lesson = { id: string; title: string; detailedMd: string; summaryMd: string | null; specRefs: string | null };
@@ -16,8 +17,9 @@ type Card = {
 };
 type TopicTree = { topic: Topic; mayEdit: boolean; lessons: Lesson[]; cards: Card[] };
 
-const input = 'input w-full';
-const label = 'mb-1 block text-xs font-medium uppercase tracking-wide text-muted';
+// Both come from globals.css so these fields match every other form in the app.
+const input = 'input';
+const label = 'label';
 
 export function ContentManager() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -82,37 +84,45 @@ export function ContentManager() {
 
   return (
     <div className="space-y-4">
-      {note && <p className="rounded-xl bg-good/10 px-3 py-2 text-sm text-good">{note}</p>}
-      {err && <p className="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{err}</p>}
+      {note && <p className="t-caption rounded-[11px] bg-good/10 px-3 py-2.5 text-good">{note}</p>}
+      {err && <p className="t-caption rounded-[11px] bg-bad/10 px-3 py-2.5 text-bad">{err}</p>}
 
       {!open ? (
         <div className="space-y-2">
-          {topics.length === 0 && <p className="text-sm text-muted">No topics yet — create them in Library or Teach.</p>}
+          {topics.length === 0 && <p className="t-caption text-muted">No topics yet — create them in My content or Teaching.</p>}
           {topics.map((t) => (
             <motion.button
               key={t.id}
               layout
               onClick={() => openTopic(t.id)}
-              className="flex w-full items-center justify-between rounded-xl border border-edge bg-panel px-4 py-3 text-left text-sm transition-colors hover:border-accent/50"
+              className="inset flex w-full items-center justify-between px-4 py-3 text-left transition-colors duration-150 hover:border-accent/50"
             >
-              <span>
-                <span className="font-medium">{t.name}</span>
-                <span className={`chip ml-2 capitalize ${t.visibility === 'public' ? '!text-good' : ''}`}>{t.visibility.replace('_', ' ')}</span>
+              <span className="flex items-center gap-2">
+                <span className="t-strong">{t.name}</span>
+                <span className={`chip capitalize ${t.visibility === 'public' ? 'chip-active' : ''}`}>
+                  {t.visibility.replace('_', ' ')}
+                </span>
               </span>
-              <span className="text-xs text-muted">Edit →</span>
+              <span className="t-caption flex items-center gap-1 text-muted">
+                Edit
+                <Icon name="expand" size={14} />
+              </span>
             </motion.button>
           ))}
         </div>
       ) : (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => { setOpen(null); load(); }}>← All topics</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setOpen(null); load(); }}>
+              <Icon name="collapse" size={14} className="rotate-90" />
+              All topics
+            </Button>
             <Button variant="danger" size="sm" onClick={deleteTopic} disabled={busy}>Delete topic</Button>
           </div>
 
           {/* topic fields */}
           <div className="card space-y-3">
-            <h3 className="font-semibold">Topic</h3>
+            <h3 className="t-strong">Topic</h3>
             <div><label className={label}>Name</label>
               <input className={input} value={open.topic.name} onChange={(e) => patchOpen((t) => { t.topic.name = e.target.value; })} /></div>
             <div><label className={label}>Description</label>
@@ -124,7 +134,7 @@ export function ContentManager() {
           {open.lessons.map((l, i) => (
             <div key={l.id} className="card space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Lesson {i + 1}</h3>
+                <h3 className="t-strong">Lesson {i + 1}</h3>
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => saveLesson(l)} disabled={busy}>Save</Button>
                   <Button size="sm" variant="danger" onClick={() => deleteLesson(l.id)} disabled={busy}>Delete</Button>
@@ -133,9 +143,9 @@ export function ContentManager() {
               <div><label className={label}>Title</label>
                 <input className={input} value={l.title} onChange={(e) => patchOpen((t) => { t.lessons[i].title = e.target.value; })} /></div>
               <div><label className={label}>Detailed notes (markdown)</label>
-                <textarea className={`${input} font-mono text-xs`} rows={6} value={l.detailedMd} onChange={(e) => patchOpen((t) => { t.lessons[i].detailedMd = e.target.value; })} /></div>
+                <textarea className={`${input} t-fine min-h-[120px] font-mono`} rows={6} value={l.detailedMd} onChange={(e) => patchOpen((t) => { t.lessons[i].detailedMd = e.target.value; })} /></div>
               <div><label className={label}>Summary notes (markdown)</label>
-                <textarea className={`${input} font-mono text-xs`} rows={3} value={l.summaryMd ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].summaryMd = e.target.value; })} /></div>
+                <textarea className={`${input} t-fine min-h-[72px] font-mono`} rows={3} value={l.summaryMd ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].summaryMd = e.target.value; })} /></div>
               <div><label className={label}>Specification references</label>
                 <input className={input} value={l.specRefs ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].specRefs = e.target.value; })} /></div>
             </div>
@@ -145,7 +155,7 @@ export function ContentManager() {
           {open.cards.map((c, ci) => (
             <div key={c.id} className="card space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold capitalize">{c.kind} card</h3>
+                <h3 className="t-strong capitalize">{c.kind} card</h3>
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => saveCard(c)} disabled={busy}>Save</Button>
                   <Button size="sm" variant="danger" onClick={() => deleteCard(c.id)} disabled={busy}>Delete</Button>

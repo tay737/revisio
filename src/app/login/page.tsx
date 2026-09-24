@@ -1,14 +1,17 @@
+import Link from 'next/link';
 import AuthForm from '@/components/AuthForm';
-import { Aurora } from '@/components/ui/aurora';
-import { BlurIn } from '@/components/ui/blur-in';
+import { AuthShell } from '@/components/AuthShell';
 
 export default function LoginPage() {
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden px-6 py-10">
-      <Aurora />
-      <BlurIn className="relative">
-        <AuthForm mode="login" />
-      </BlurIn>
-    </main>
+    <AuthShell
+      footer={
+        <Link href="/staff/login" className="transition-colors hover:text-ink">
+          Staff sign in
+        </Link>
+      }
+    >
+      <AuthForm mode="login" />
+    </AuthShell>
   );
 }

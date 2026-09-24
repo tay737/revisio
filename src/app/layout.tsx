@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import PwaRegister from '@/components/PwaRegister';
 import { SmoothCursor } from '@/components/ui/smooth-cursor';
-import { InlineThemeScript } from '@/components/ui/inline-theme-script';
+import { MotionProvider } from '@/components/ui/motion/motion-provider';
+import { themeScript } from '@/lib/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -23,11 +24,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <InlineThemeScript />
+        {/* Painted before first byte of body so dark-mode users never flash white.
+            The script text comes from lib/theme, the same module the toggle reads. */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
       </head>
       <body>
-        {children}
-        <SmoothCursor />
+        <MotionProvider>
+          {children}
+          <SmoothCursor />
+        </MotionProvider>
         <PwaRegister />
       </body>
     </html>

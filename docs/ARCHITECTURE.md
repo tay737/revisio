@@ -1,6 +1,13 @@
 # SRS Platform — Architecture
 
 Status: design (v1.0, 2026-09-23)
+
+> **Reading note.** Sections 2–17 below are the original *plan*, written around a
+> separate Rails API service. The system was actually built as a single Next.js
+> application with route handlers and Drizzle (see §18, "As built"), which is the
+> authoritative description of the running system. Treat the Rails sections as
+> the design rationale that survived the change of shape, not as a description
+> of the repository.
 Kind: spaced-repetition learning platform (Bunpro-like) — subjects → topics → lessons/notes → SRS reviews (cloze, flashcard, multiple-choice), cram, learn content, exam simulator, classes/teaching, publishing with review, gamification (XP/streak/leagues/leaderboards/achievements), exports, imports (Anki/CSV), teacher/developer tooling.
 
 ## 1. Context & requirements
@@ -293,3 +300,74 @@ Conventions: cursor pagination, `?include=` sparse fieldsets kept minimal, error
 5. **M4 (wk 10–11)**: teacher tooling (classes, authoring, analytics), publishing + review queue, feature flags/algorithm admin.
 6. **M5 (wk 12–13)**: imports (Anki/CSV), exports (PDF/XLSX/CSV), exam simulator, transcript coverage.
 7. **M6**: PWA hardening, perf budgets, Expo app kickoff.
+
+---
+
+## 18. As built (v1.1, 2026-09-24)
+
+The Rails service in §2 was never built. The API is Next.js route handlers
+against Postgres via Drizzle, deployed as one Vercel project in `dub1`
+(co-located with the Supabase database in `eu-west-1`). The *boundaries*
+proposed in §2 survived the change; only the transport changed.
+
+### 18.1 Layers, and the direction data flows
+
+```
+src/app/**            routes: client pages + /api/v1 route handlers
+  └─ import from ↓
+src/services/**       use cases; server-only. May touch the db and the domain.
+  └─ import from ↓
+src/domain/**         pure logic, dependency-free: srs, grading, gamification
+src/db/**             schema + pooled client
+```
+
+- **Grading and scheduling are pure.** `domain/grading.ts`, `domain/srs.ts` and
+  `domain/gamification.ts` import nothing from `db`, `services` or `app`. The
+  server's verdict is final; the client never re-implements a rule.
+- **Authorization lives in the API layer** (`services/api.ts` → `requireUser`),
+  with RLS on all 26 tables as defence in depth, not as the primary control.
+- **The client never talks to Postgres or Supabase Auth.** It holds a short-lived
+  JWT in memory (`lib/api.ts`) and rotates a refresh cookie transparently.
+
+### 18.2 Frontend structure
+
+```
+src/lib/              non-React logic and cross-cutting policy
+  theme.ts              ← the only owner of theme policy
+  motion.ts             ← the only owner of durations, easings, variants
+  profile.ts            ← the only owner of copy/voice (pure, testable)
+  useMe.ts              ← the only owner of the /me remote state (SWR)
+  api.ts                ← token handling + refresh-on-401
+src/components/       shared presentation
+  AppShell.tsx          chrome, role-gated nav, signed-out redirect
+  PageHeader.tsx        one page-title treatment
+  Notice.tsx            one inline result-message treatment
+  AuthShell.tsx         one shell for the four auth pages
+  PageSkeleton.tsx      one route-loading shape
+  ui/icons.tsx          the only importer of lucide-react
+  ui/motion/*           Magic-UI-derived motion primitives
+  ui/{button,splash,theme-toggle,smooth-cursor}.tsx
+```
+
+Rules this structure encodes:
+
+1. **One owner per piece of state.** Theme, motion policy, `/me`, and the
+   signed-out redirect each have exactly one home. See `docs/DESIGN-NOTES.md` §5.
+2. **Logic apart from rendering.** Personalisation copy, level maths and theme
+   resolution are plain functions, not JSX — so they are testable without a
+   browser and cannot drift between two pages.
+3. **Data apart from presentation.** The icon registry and the nav arrays hold
+   keys, never glyphs or colours; colour comes from `currentColor` and the token
+   variables.
+4. **New pages compose, they do not re-specify.** A page opens with
+   `PageHeader`, wraps in `GlassCard`/`.card`, moves with `lib/motion` tokens,
+   and gets its words from `lib/profile`. The previous drift (eight page titles,
+   eight result-message styles, six hardcoded animation timings, emoji as icons)
+   is what this pass removed.
+
+### 18.3 Verification
+
+Each change is checked with `npx tsc --noEmit`, `npm run build`, and a real run
+against the production build in a browser (light and dark, desktop and phone).
+The design pass additionally verified against `docs/DESIGN.md` by inspection of
+computed styles, not just screenshots.

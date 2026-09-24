@@ -34,7 +34,7 @@ export const GET = route(async (req: NextRequest) => {
   const totalXp = xpRes;
   const { level, intoLevel, forNext } = levelForXp(totalXp);
   const stats = statsRes;
-  const today = { due: stats.dueCount + stats.newCount, reviewed: stats.reviewsToday, correct: stats.reviewsToday };
+  const today = { due: stats.dueCount + stats.newCount, reviewed: stats.reviewsToday, correct: stats.correctToday };
 
   return ok({
     id: row.id,

@@ -1,146 +1,215 @@
 import Link from 'next/link';
-import { Aurora } from '@/components/ui/aurora';
-import { BlurIn } from '@/components/ui/blur-in';
-import { GradientText } from '@/components/ui/gradient-text';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-// Landing — docs/DESIGN.md: full-bleed tile rhythm (white → near-black),
-// Action Blue pill CTAs, Apple-tight display type, no decorative chrome.
+import { BlurFade } from '@/components/ui/motion/blur-fade';
+import { TextReveal } from '@/components/ui/motion/text-reveal';
+import { Icon, type IconName } from '@/components/ui/icons';
 
-const features = [
+/**
+ * Landing page — docs/DESIGN.md read strictly.
+ *
+ * What changed, and why:
+ *   • The blurred accent "aurora" and the gradient-sweep headline are gone. The
+ *     spec bans decorative gradients outright; atmosphere is supposed to come
+ *     from surface alternation, not from colour washes.
+ *   • Sections are now the spec's full-bleed tiles: white → near-black → white
+ *     → near-black → parchment footer, stacked edge-to-edge with **no gap and
+ *     no border**. The colour change *is* the divider.
+ *   • The global nav is 44px of true black with 12px nav-link type, as documented.
+ *   • The tile headline is 40px/600 display type with negative tracking; body
+ *     copy is 17px/400, not 16px. Weight 500 appears nowhere.
+ *   • Feature glyphs come from the icon registry, so they inherit the single
+ *     Action Blue rather than dragging in emoji colour.
+ */
+
+const features: { icon: IconName; title: string; body: string }[] = [
   {
-    title: 'Daily SRS reviews',
-    body: 'Cloze, flashcards and one-attempt MCQs scheduled by a science-backed algorithm so you review right before you forget.',
+    icon: 'review',
+    title: 'Reviews that arrive on time',
+    body: 'Cloze, flashcards and one-attempt MCQs, scheduled the day before you would have forgotten them.',
   },
   {
+    icon: 'cram',
     title: 'Cram mode',
-    body: 'Exam tomorrow? Pick topics, skim the notes, drill as many questions as you want — without disturbing your schedule.',
+    body: 'Exam tomorrow? Read the notes, drill as many questions as you want, and leave your schedule untouched.',
   },
   {
-    title: 'Exam simulator',
-    body: 'Past-paper style questions with mark-scheme marking, instant feedback and score tracking.',
+    icon: 'exam',
+    title: 'Exams that feel real',
+    body: 'Past-paper questions marked against the mark scheme, with a per-question breakdown afterwards.',
   },
   {
-    title: 'Leagues & streaks',
-    body: 'XP, daily streaks and weekly leagues — opt out any time. Progress should feel good, not compulsory.',
+    icon: 'league',
+    title: 'Progress you can feel',
+    body: 'Levels, streaks and weekly leagues. All of it optional — opt out any time and nothing is lost.',
   },
   {
-    title: 'Classes',
-    body: 'Teachers share a join code; your progress (only your progress) shows on their dashboard.',
+    icon: 'class',
+    title: 'Built for classes',
+    body: 'A teacher shares a join code. Your progress stays yours; only what you agree to is visible.',
   },
   {
-    title: 'Bring your own',
-    body: 'Import Anki/CSV/TSV decks, write your own notes and topics, publish for others after review.',
+    icon: 'upload',
+    title: 'Bring your own deck',
+    body: 'Import Anki, CSV or TSV, write your own topics, and publish for review when you want to share.',
   },
+];
+
+const evidence = [
+  { value: 'Two engines', label: 'SM-2 and FSRS, switchable by a developer mid-term.' },
+  { value: 'Server-marked', label: 'Answers are graded on the server — never trusted to the client.' },
+  { value: 'One attempt', label: 'Multiple choice that respects how the real thing works.' },
 ];
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen">
-      {/* global-nav equivalent: slim, black, quiet */}
-      <nav className="sticky top-0 z-40 bg-nav/95 text-white backdrop-blur">
-        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-6">
-          <div className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-            <span className="grid h-6 w-6 place-items-center rounded-md bg-accent text-[11px] font-bold text-white">R</span>
+      {/* ── global-nav: 44px, true black, quiet 12px links ─────────────────── */}
+      <nav className="sticky top-0 z-40 bg-nav text-white">
+        <div className="mx-auto flex h-11 max-w-[980px] items-center justify-between px-6">
+          <span className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.224px]">
+            <span className="grid h-6 w-6 place-items-center rounded-[6px] bg-accent text-[11px] font-semibold text-white">
+              R
+            </span>
             Revisio
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle className="!border-white/20 !bg-white/10 !text-white/80 hover:!text-white" />
-            <Link href="/login" className="text-[13px] text-white/80 transition-colors hover:text-white">Sign in</Link>
-            <Link href="/register" className="rounded-full bg-accent px-4 py-1.5 text-[13px] font-medium text-white transition-transform active:scale-95">
+          </span>
+          <div className="flex items-center gap-5">
+            <Link href="#features" className="t-fine text-white/80 transition-colors hover:text-white">
+              Features
+            </Link>
+            <Link href="#how" className="t-fine hidden text-white/80 transition-colors hover:text-white sm:block">
+              How it works
+            </Link>
+            <ThemeToggle className="!h-8 !w-8 !border-white/20 !bg-white/10 !text-white/80 hover:!text-white" />
+            <Link href="/login" className="t-fine text-white/80 transition-colors hover:text-white">
+              Sign in
+            </Link>
+            <Link href="/register" className="btn-primary btn-sm gap-1.5">
               Get started
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* hero tile — light canvas with a whisper of aurora */}
-      <section className="relative overflow-hidden bg-panel">
-        <Aurora />
-        <div className="relative mx-auto max-w-4xl px-6 pb-28 pt-32 text-center sm:pt-40">
-          <BlurIn delay={0}>
-            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-accent">Spaced repetition, done properly</p>
-          </BlurIn>
-          <h1 className="display-tight mx-auto mt-5 max-w-3xl text-5xl leading-[1.07] sm:text-6xl">
-            <BlurIn delay={0.08}>Learn it&nbsp;</BlurIn>
-            <GradientText>once</GradientText>
-            <BlurIn delay={0.16}>.</BlurIn>
-            <br />
-            <BlurIn delay={0.24}>Remember it for good.</BlurIn>
-          </h1>
-          <BlurIn delay={0.36} className="mx-auto mt-7 block max-w-2xl text-lg text-muted">
-            A spaced-repetition platform for real curricula — notes tied to the spec, reviews scheduled
-            at the perfect moment, and exams that feel like the real thing.
-          </BlurIn>
-          <div className="mt-10 flex items-center justify-center gap-4">
+      {/* ── tile 1: white canvas, centred stack, two pill CTAs ─────────────── */}
+      <section className="bg-panel px-6 py-20 sm:py-28">
+        <div className="mx-auto max-w-[980px] text-center">
+          <BlurFade>
+            <p className="t-eyebrow">Spaced repetition, taken seriously</p>
+          </BlurFade>
 
-          </div>
-        </div>
-      </section>
+          <BlurFade delay={0.08} className="mt-4">
+            <h1 className="display-tight t-display mx-auto max-w-3xl">
+              Learn it once.
+              <br />
+              Keep it for the exam.
+            </h1>
+          </BlurFade>
 
-      {/* dark product tile */}
-      <section className="bg-[#272729] px-6 py-24 text-white">
-        <div className="mx-auto max-w-3xl text-center">
-          <BlurIn>
-            <h2 className="display-tight text-4xl">The schedule knows.</h2>
-          </BlurIn>
-          <BlurIn delay={0.12}>
-            <p className="mx-auto mt-4 max-w-xl text-[17px] leading-relaxed text-[#cccccc]">
-              Every answer moves the next review closer to — or further from — the moment you'd forget.
-              No lists. No folders. Just what you need, today.
+          <BlurFade delay={0.16} className="mx-auto mt-6 max-w-2xl">
+            <p className="t-lead mx-auto max-w-xl text-muted">
+              A spaced-repetition platform built around a real specification — not a folder of flashcards.
             </p>
-          </BlurIn>
-          <div className="mx-auto mt-12 grid max-w-2xl grid-cols-3 gap-6 text-center">
-            {[
-              { k: 'SM-2 + FSRS', v: 'Two scheduling engines, dev-tunable' },
-              { k: 'Server-graded', v: 'Answers never ship to the client' },
-              { k: 'One attempt', v: 'MCQs that respect the mark scheme' },
-            ].map((s, i) => (
-              <BlurIn key={s.k} delay={0.1 + i * 0.08}>
-                <div className="rounded-[18px] border border-white/10 p-5">
-                  <div className="text-[13px] font-semibold text-[#2997ff]">{s.k}</div>
-                  <p className="mt-1 text-[13px] text-[#cccccc]">{s.v}</p>
+          </BlurFade>
+
+          <BlurFade delay={0.24} className="mt-8">
+            <div className="flex items-center justify-center gap-3">
+              <Link href="/register" className="btn-primary gap-2">
+                Create a free account
+                <Icon name="next" size={17} />
+              </Link>
+              <Link href="/login" className="btn-secondary">
+                Sign in
+              </Link>
+            </div>
+          </BlurFade>
+        </div>
+      </section>
+
+      {/* ── tile 2: near-black, the schedule explains itself ───────────────── */}
+      <section id="how" className="bg-[#272729] px-6 py-20 text-white sm:py-28">
+        <div className="mx-auto max-w-[980px]">
+          <BlurFade>
+            <h2 className="display-tight t-display text-center">The schedule knows.</h2>
+          </BlurFade>
+          <BlurFade delay={0.1}>
+            <p className="t-body mx-auto mt-5 max-w-xl text-center text-[#cccccc]">
+              Every answer moves the next review closer to — or further from — the moment you would have forgotten it.
+            </p>
+          </BlurFade>
+
+          <TextReveal
+            text="No lists to maintain. No folders to file. No guessing about what to study tonight. You open the app, and the work that matters most is already waiting for you."
+            className="t-body mx-auto mt-10 max-w-2xl text-white"
+          />
+
+          <div className="mt-14 grid gap-6 sm:grid-cols-3">
+            {evidence.map((item, i) => (
+              <BlurFade key={item.value} delay={0.06 * i} inView>
+                <div className="border-t border-white/15 pt-5">
+                  <div className="t-tagline text-[#2997ff]">{item.value}</div>
+                  <p className="t-caption mt-2 text-[#cccccc]">{item.label}</p>
                 </div>
-              </BlurIn>
+              </BlurFade>
             ))}
           </div>
         </div>
       </section>
 
-      {/* light utility tile: feature grid */}
-      <section className="bg-panel px-6 py-24">
-        <div className="mx-auto max-w-5xl">
-          <BlurIn>
-            <h2 className="display-tight text-center text-4xl">Everything you need.<br className="sm:hidden" /> Nothing you don't.</h2>
-          </BlurIn>
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ── tile 3: parchment, the feature grid ───────────────────────────── */}
+      <section id="features" className="bg-bg px-6 py-20 sm:py-28">
+        <div className="mx-auto max-w-[980px]">
+          <BlurFade inView>
+            <h2 className="display-tight t-display mx-auto max-w-2xl text-center">
+              Everything you need. Nothing you don’t.
+            </h2>
+          </BlurFade>
+
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((f, i) => (
-              <BlurIn key={f.title} delay={0.06 * i}>
-                <div className="h-full rounded-[18px] border border-edge bg-panel p-6 transition-transform active:scale-[0.98]">
-                  <h3 className="text-[17px] font-semibold tracking-tight">{f.title}</h3>
-                  <p className="mt-2 text-[15px] leading-relaxed text-muted">{f.body}</p>
-                  <span className="mt-4 inline-block text-[15px] text-accent">Learn more →</span>
+              <BlurFade key={f.title} delay={0.05 * i} inView>
+                <div className="flex h-full flex-col rounded-[18px] border border-edge/80 bg-panel p-6">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-accent/10 text-accent">
+                    <Icon name={f.icon} size={20} />
+                  </span>
+                  <h3 className="t-strong mt-4">{f.title}</h3>
+                  <p className="t-caption mt-2 text-muted">{f.body}</p>
                 </div>
-              </BlurIn>
+              </BlurFade>
             ))}
           </div>
         </div>
       </section>
 
-      {/* closing dark tile */}
-      <section className="bg-[#272729] px-6 py-28 text-center text-white">
-        <BlurIn>
-          <h2 className="display-tight text-4xl">Start remembering.</h2>
-        </BlurIn>
-        <BlurIn delay={0.12}>
-          <p className="mt-4 text-[17px] text-[#cccccc]">Free for students. Teachers join with an invite.</p>
-        </BlurIn>
-        <BlurIn delay={0.2}>
-          <Link href="/register" className="btn-primary mt-8 px-8 py-3 text-base">Create free account</Link>
-        </BlurIn>
+      {/* ── tile 4: near-black closing CTA ────────────────────────────────── */}
+      <section className="bg-[#272729] px-6 py-24 text-center text-white">
+        <BlurFade inView>
+          <h2 className="display-tight t-display">Start remembering.</h2>
+        </BlurFade>
+        <BlurFade delay={0.1} inView>
+          <p className="t-body mx-auto mt-5 max-w-md text-[#cccccc]">
+            Free for students. Teachers join with a code from their school.
+          </p>
+        </BlurFade>
+        <BlurFade delay={0.18} inView>
+          <Link href="/register" className="btn-primary mt-9 px-8 py-3 text-[18px] font-light">
+            Create your account
+          </Link>
+        </BlurFade>
       </section>
 
-      <footer className="bg-bg py-10 text-center text-[13px] text-muted">
-        © {new Date().getFullYear()} Revisio — Learn it once.
+      {/* ── footer: parchment, fine print ─────────────────────────────────── */}
+      <footer className="bg-bg px-6 py-14">
+        <div className="mx-auto flex max-w-[980px] flex-col items-center gap-2 text-center">
+          <span className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.224px]">
+            <span className="grid h-5 w-5 place-items-center rounded-[5px] bg-accent text-[10px] font-semibold text-white">
+              R
+            </span>
+            Revisio
+          </span>
+          <p className="t-fine text-muted">
+            © {new Date().getFullYear()} Revisio. Built for specifications, not for streaks.
+          </p>
+        </div>
       </footer>
     </main>
   );
