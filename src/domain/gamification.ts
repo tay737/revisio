@@ -33,9 +33,15 @@ export function xpForReview(input: {
   return xp;
 }
 
-/** Level curve: xp_for_level(n) = 50 * n^1.5 (cumulative). */
+/**
+ * Level curve: cumulative XP required to *enter* a level.
+ * `threshold(n) = 50 * (n - 1)^1.5`, so level 1 starts at 0 XP, level 2 at 50,
+ * level 3 at 141, level 4 at 260. The original `50 * n^1.5` made level 1 start
+ * at 50 XP, which left every new account showing a negative progress bar
+ * (`-50 / 91 XP`) and a meter pinned at full width.
+ */
 export function xpForLevel(level: number): number {
-  return Math.round(50 * Math.pow(level, 1.5));
+  return level <= 1 ? 0 : Math.round(50 * Math.pow(level - 1, 1.5));
 }
 
 export function levelForXp(totalXp: number): { level: number; intoLevel: number; forNext: number } {

@@ -4,23 +4,37 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { SPRING } from '@/lib/motion';
 
+/**
+ * Button — the spec's button grammars as a component.
+ *
+ * Deliberately no hover animation: docs/DESIGN.md documents only a default and
+ * an active/pressed state, so hover is signalled by a brightness/colour shift
+ * in CSS and motion is reserved for the press (`scale(0.95)`). The old version
+ * scaled *up* on hover, which is both off-spec and the wrong affordance — a
+ * button should acknowledge a press, not a pointer resting on it.
+ *
+ * Variants mirror the classes in globals.css, and only weight 400 or 600
+ * appear anywhere in this system.
+ */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap text-[15px] font-medium transition-all duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg select-none',
+  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-normal transition-[background-color,color,border-color,opacity] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        primary: 'bg-accent text-accent-ink hover:brightness-110 shadow-none',
-        ghost: 'border border-edge bg-panel text-accent hover:bg-edge/30',
-        danger: 'border border-bad/40 bg-transparent text-bad hover:bg-bad/10',
-        utility: 'rounded-lg bg-ink text-panel hover:opacity-90',
-        link: 'text-accent underline-offset-4 hover:underline px-0 py-0',
+        primary: 'btn-primary',
+        secondary: 'btn-secondary',
+        ghost: 'btn-ghost',
+        utility: 'btn-utility',
+        danger: 'btn-danger',
+        link: 'px-0 py-0 text-accent underline-offset-4 hover:underline',
       },
       size: {
-        sm: 'h-9 px-4 text-[13px]',
-        md: 'h-11 px-[22px]',
-        lg: 'h-13 px-7 text-base',
-        icon: 'h-11 w-11 p-0',
+        sm: 'btn-sm',
+        md: '',
+        /** Icon-only: 44×44, the spec's minimum touch target. */
+        icon: 'h-11 w-11 rounded-full p-0',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },
@@ -33,14 +47,12 @@ export interface ButtonProps
   children?: React.ReactNode;
 }
 
-/** shadcn-style button with the DESIGN.md press interaction (scale 0.95). */
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, children, ...props }, ref) => (
     <motion.button
       ref={ref}
       whileTap={{ scale: 0.95 }}
-      whileHover={{ scale: 1.015 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      transition={SPRING.press}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     >

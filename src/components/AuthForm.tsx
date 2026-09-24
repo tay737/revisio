@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AnimatePresence, motion } from 'framer-motion';
 import { api, setToken, ApiClientError } from '@/lib/api';
+import { Icon, type IconName } from '@/components/ui/icons';
+import { GlassCard } from '@/components/ui/motion/glass-card';
+import { SPRING } from '@/lib/motion';
 
 type LoginResponse = {
   accessToken?: string;
@@ -13,6 +17,18 @@ type LoginResponse = {
   pendingApproval?: boolean;
 };
 
+/**
+ * Sign in / create account.
+ *
+ * Changes that matter to the person using it:
+ *   • fields carry a leading glyph (the spec sanctions this on its own search
+ *     input), so the form is scannable rather than a stack of grey pills;
+ *   • the student/teacher choice is two labelled options with meaning, not a
+ *     pair of bare buttons that require guessing;
+ *   • every response — 2FA, unverified email, pending approval — lands in the
+ *     same place and explains what happens next, instead of only appearing
+ *     after a failed submit.
+ */
 export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; staff?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -32,7 +48,6 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const [devLink, setDevLink] = useState('');
 
   useEffect(() => {
-    // subjects list for the registration picker
     fetch('/api/v1/auth/subjects-public')
       .then((r) => (r.ok ? r.json() : { subjects: [] }))
       .then((d) => setSubjects(d.subjects ?? []))
@@ -46,37 +61,42 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
     setBusy(true);
     try {
       if (mode === 'login') {
-        const data = await api.post<LoginResponse>('/api/v1/auth/login', { email, password, totp: totp || undefined });
+        const data = await api.post<LoginResponse>('/api/v1/auth/login', {
+          email,
+          password,
+          totp: totp || undefined,
+        });
         if (data.mfaRequired) {
           setMfaStage(true);
-          setInfo('Enter the 6-digit code from your authenticator app.');
+          setInfo('Enter the six-digit code from your authenticator app.');
           return;
         }
         setToken(data.accessToken ?? null);
         router.replace('/dashboard');
       } else {
-        const data = await api.post<LoginResponse>(staff ? '/api/v1/auth/register' : '/api/v1/auth/register', {
-          email, password, name,
+        const data = await api.post<LoginResponse>('/api/v1/auth/register', {
+          email,
+          password,
+          name,
           requestedRole: staff ? 'developer' : role,
           note: staff ? note : undefined,
-          subjectIds: role === 'student' ? subjectIds : undefined,
+          subjectIds: role === 'student' && !staff ? subjectIds : undefined,
           classCode: classCode || undefined,
         });
         if (data.pendingApproval) {
-          setInfo('Account created. A developer must approve staff accounts before first sign-in.');
+          setInfo('Account created. A developer reviews staff accounts before the first sign-in — you will get an email once it is approved.');
           return;
         }
         if (data.verifyUrl) {
-          // Mail provider not configured: show the link directly (dev/self-host).
-          setInfo('Email delivery is not configured on this deployment. Verify with this link:');
+          setInfo('Email delivery is not configured on this deployment, so here is your verification link.');
           setDevLink(data.verifyUrl);
           return;
         }
-        setInfo('Account created! Check your inbox for a verification link, then sign in.');
+        setInfo('Account created. Check your inbox for the verification link, then sign in.');
       }
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'email_unverified') setUnverifiedEmail(email);
-      else setError(err instanceof Error ? err.message : 'Something went wrong.');
+      else setError(err instanceof Error ? err.message : 'Something went wrong on our side. Try again in a moment.');
     } finally {
       setBusy(false);
     }
@@ -84,123 +104,318 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
 
   const resendVerification = async () => {
     setInfo('');
+    setError('');
     setBusy(true);
     try {
       await api.put('/api/v1/auth/verify-email', { email: unverifiedEmail });
-      setInfo(`Verification link re-sent to ${unverifiedEmail}. Check your inbox.`);
+      setInfo(`Sent again to ${unverifiedEmail}. It can take a minute to arrive.`);
     } catch {
-      setError('Could not re-send right now — please try again.');
+      setError('We could not re-send that right now. Try again shortly.');
     } finally {
       setBusy(false);
     }
   };
 
+  const title =
+    mode === 'login'
+      ? staff
+        ? 'Staff sign in'
+        : 'Welcome back'
+      : staff
+        ? 'Staff registration'
+        : 'Create your account';
+
+  const subtitle =
+    mode === 'login'
+      ? staff
+        ? 'For teachers and developers.'
+        : 'Your queue is where you left it.'
+      : staff
+        ? 'Developer accounts are approved before activation.'
+        : 'Choose your subjects now — you can change them later.';
+
   return (
-    <div className="w-full max-w-md">
-      <h1 className="text-2xl font-bold tracking-tight">
-        {mode === 'login' ? (staff ? 'Staff sign in' : 'Welcome back') : staff ? 'Staff registration' : 'Create your account'}
-      </h1>
-      <p className="mt-1 text-sm text-muted">
-        {mode === 'login'
-          ? staff ? 'Teachers and developers only.' : 'Sign in to continue your streak.'
-          : staff ? 'Developer accounts require approval before activation.' : 'Pick your subjects and start learning.'}
-      </p>
+    <GlassCard tone="raised" className="p-6 sm:p-7">
+      <h1 className="t-tagline">{title}</h1>
+      <p className="t-caption mt-1.5 text-muted">{subtitle}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
-        {mode === 'register' && (
-          <div>
-            <label className="label" htmlFor="name">Full name</label>
-            <input id="name" className="input" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ada Lovelace" />
-          </div>
+        {mode === 'register' && !staff && (
+          <Field icon="person" label="Full name" htmlFor="name">
+            <input
+              id="name"
+              className="input pl-11"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoComplete="name"
+              placeholder="Ada Lovelace"
+            />
+          </Field>
         )}
-        <div>
-          <label className="label" htmlFor="email">Email</label>
-          <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@school.edu" />
-        </div>
-        <div>
-          <label className="label" htmlFor="password">Password</label>
-          <input id="password" type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} placeholder="At least 8 characters" />
-        </div>
+
+        <Field icon="mail" label="Email" htmlFor="email">
+          <input
+            id="email"
+            type="email"
+            className="input pl-11"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            placeholder="you@school.edu"
+          />
+        </Field>
+
+        <Field icon="secure" label="Password" htmlFor="password">
+          <input
+            id="password"
+            type="password"
+            className="input pl-11"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            placeholder={mode === 'login' ? 'Your password' : 'At least 8 characters'}
+          />
+        </Field>
 
         {mode === 'register' && !staff && (
           <>
-            <div className="flex gap-2 text-sm">
-              {(['student', 'teacher'] as const).map((r) => (
-                <button key={r} type="button" onClick={() => setRole(r)}
-                  className={`flex-1 rounded-xl border px-3 py-2 font-medium capitalize transition-colors ${role === r ? 'border-accent bg-accent/10 text-accent' : 'border-edge'}`}>
-                  {r}
-                </button>
-              ))}
-            </div>
+            <fieldset>
+              <legend className="label">I am joining as</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { value: 'student', label: 'Student', icon: 'start' as IconName, hint: 'Study my own subjects' },
+                    { value: 'teacher', label: 'Teacher', icon: 'teacher' as IconName, hint: 'Run classes and share content' },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setRole(option.value)}
+                    aria-pressed={role === option.value}
+                    className={`option ${role === option.value ? 'option-selected' : 'hover:bg-edge/20'}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Icon name={option.icon} size={17} />
+                      <span className="font-semibold">{option.label}</span>
+                    </span>
+                    <span className="t-caption mt-1 block text-muted">{option.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
             {role === 'student' && (
               <>
-                <div>
-                  <span className="label">Subjects</span>
-                  <div className="flex flex-wrap gap-2">
-                    {subjects.map((s) => (
-                      <button key={s.id} type="button"
-                        onClick={() => setSubjectIds((p) => (p.includes(s.id) ? p.filter((x) => x !== s.id) : [...p, s.id]))}
-                        className={`chip transition-colors ${subjectIds.includes(s.id) ? '!border-accent !text-accent' : ''}`}>
-                        {s.name}
-                      </button>
-                    ))}
+                {subjects.length > 0 && (
+                  <div>
+                    <span className="label">Subjects</span>
+                    <div className="flex flex-wrap gap-2">
+                      {subjects.map((s) => {
+                        const on = subjectIds.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() =>
+                              setSubjectIds((p) => (on ? p.filter((x) => x !== s.id) : [...p, s.id]))
+                            }
+                            className={`chip transition-colors duration-150 ${on ? 'chip-active' : ''}`}
+                          >
+                            {on && <Icon name="correct" size={13} />}
+                            {s.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="label" htmlFor="classCode">Class code (optional)</label>
-                  <input id="classCode" className="input uppercase" value={classCode} onChange={(e) => setClassCode(e.target.value.toUpperCase())} maxLength={6} placeholder="e.g. B7K2QM" />
-                </div>
+                )}
+
+                <Field icon="join" label="Class code (optional)" htmlFor="classCode">
+                  <input
+                    id="classCode"
+                    className="input pl-11 uppercase tracking-[0.2em]"
+                    value={classCode}
+                    onChange={(e) => setClassCode(e.target.value.toUpperCase())}
+                    maxLength={6}
+                    placeholder="B7K2QM"
+                  />
+                </Field>
               </>
             )}
+
             {role === 'teacher' && (
               <div>
-                <label className="label" htmlFor="note">Why do you need a teacher account?</label>
-                <textarea id="note" className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="School, role, subjects…" />
-                <p className="mt-1 text-xs text-muted">Teacher accounts are approved by a developer before activation.</p>
+                <label className="label" htmlFor="note">
+                  Why do you need a teacher account?
+                </label>
+                <textarea
+                  id="note"
+                  className="input min-h-[80px]"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="School, role, subjects you teach…"
+                />
+                <p className="t-caption mt-1.5 text-muted">
+                  A developer reads this before activating the account.
+                </p>
               </div>
             )}
           </>
         )}
 
-        {mode === 'login' && staff && (
+        {mode === 'register' && staff && (
           <div>
-            <label className="label" htmlFor="note">Staff note (registration)</label>
-            <input id="note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Only needed when registering" />
+            <label className="label" htmlFor="staff-note">
+              Why do you need a staff account?
+            </label>
+            <textarea
+              id="staff-note"
+              className="input min-h-[80px]"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Team, role, what you need access to…"
+            />
           </div>
         )}
 
-        {mfaStage && (
-          <div>
-            <label className="label" htmlFor="totp">Two-factor code</label>
-            <input id="totp" className="input tracking-[0.4em]" value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))} maxLength={6} inputMode="numeric" autoFocus />
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {mfaStage && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={SPRING.soft}
+              className="overflow-hidden"
+            >
+              <Field icon="private" label="Two-factor code" htmlFor="totp">
+                <input
+                  id="totp"
+                  className="input pl-11 tracking-[0.4em]"
+                  value={totp}
+                  onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
+                  maxLength={6}
+                  inputMode="numeric"
+                  autoFocus
+                  placeholder="000000"
+                />
+              </Field>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {error && <p className="rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
+        <Notice tone="bad" show={!!error}>
+          {error}
+        </Notice>
+
+        <Notice tone="accent" show={!!info}>
+          <span>{info}</span>
+          {devLink && (
+            <a href={devLink} className="mt-1 block break-all text-accent underline">
+              {devLink}
+            </a>
+          )}
+        </Notice>
+
         {unverifiedEmail && (
-          <button type="button" onClick={resendVerification} disabled={busy} className="text-sm font-medium text-accent hover:underline">
-            Re-send verification email
+          <button
+            type="button"
+            onClick={resendVerification}
+            disabled={busy}
+            className="btn-secondary w-full gap-2"
+          >
+            <Icon name="rotate" size={16} />
+            Re-send the verification email
           </button>
         )}
-        {info && <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{info}</p>}
-        {devLink && (
-          <a href={devLink} className="block break-all rounded-xl bg-edge/60 px-3 py-2 text-sm text-accent underline">
-            {devLink}
-          </a>
-        )}
 
-        <button type="submit" className="btn-primary w-full py-2.5" disabled={busy}>
-          {busy ? '…' : mode === 'login' ? (mfaStage ? 'Verify & sign in' : 'Sign in') : 'Create account'}
+        <button type="submit" className="btn-primary w-full" disabled={busy}>
+          {busy ? 'Just a moment…' : mode === 'login' ? (mfaStage ? 'Verify and sign in' : 'Sign in') : 'Create account'}
         </button>
       </form>
 
-      <p className="mt-4 text-sm text-muted">
+      <p className="t-caption mt-5 text-center text-muted">
         {mode === 'login' ? (
-          <>No account? <Link href={staff ? '/staff/register' : '/register'} className="font-medium text-accent hover:underline">{staff ? 'Register (approval required)' : 'Create one'}</Link></>
+          <>
+            No account yet?{' '}
+            <Link href={staff ? '/staff/register' : '/register'} className="text-accent hover:underline">
+              {staff ? 'Request staff access' : 'Create one'}
+            </Link>
+          </>
         ) : (
-          <>Already registered? <Link href={staff ? '/staff/login' : '/login'} className="font-medium text-accent hover:underline">Sign in</Link></>
+          <>
+            Already registered?{' '}
+            <Link href={staff ? '/staff/login' : '/login'} className="text-accent hover:underline">
+              Sign in
+            </Link>
+          </>
         )}
       </p>
+    </GlassCard>
+  );
+}
+
+/**
+ * Label + leading glyph + control. The glyph is positioned against the control
+ * itself (not the whole field) so it stays centred in the pill whatever the
+ * label above it does.
+ */
+function Field({
+  icon,
+  label,
+  htmlFor,
+  children,
+}: {
+  icon: IconName;
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="label" htmlFor={htmlFor}>
+        {label}
+      </label>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-4 top-[13px] text-muted">
+          <Icon name={icon} size={17} />
+        </span>
+        {children}
+      </div>
     </div>
+  );
+}
+
+function Notice({
+  tone,
+  show,
+  children,
+}: {
+  tone: 'bad' | 'accent';
+  show: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <AnimatePresence initial={false}>
+      {show && (
+        <motion.p
+          role={tone === 'bad' ? 'alert' : 'status'}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={SPRING.soft}
+          className={`t-caption rounded-[11px] px-3 py-2.5 ${
+            tone === 'bad' ? 'bg-bad/10 text-bad' : 'bg-accent/10 text-accent'
+          }`}
+        >
+          {children}
+        </motion.p>
+      )}
+    </AnimatePresence>
   );
 }

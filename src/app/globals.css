@@ -3,36 +3,49 @@
 @tailwind utilities;
 
 /* ── Revisio design tokens (docs/DESIGN.md — Apple system) ──────────────────
-   Action Blue #0066cc is the single interactive color. Light canvas is white /
+   Action Blue #0066cc is the single interactive colour. Light canvas is white /
    parchment #f5f5f7; dark tiles are the near-black #272729 family. Exactly one
-   shadow in the system, reserved for media. SF Pro stack, Inter fallback. */
+   shadow in the system, reserved for media. SF Pro stack, Inter fallback.
+
+   Type ladder is fixed: 300 / 400 / 600 / 700 — weight 500 does not exist in
+   this system. Sizes come from the spec only (10/12/14/17/18/21/24/28/34/40/56);
+   anything between those steps is a bug. The `.t-*` helpers below are the
+   sanctioned way to reach for a step, so pages stop hand-rolling px values. */
 
 :root {
   /* light: white canvas + parchment secondary */
   --c-bg: 245 245 247;            /* parchment  #f5f5f7 */
   --c-panel: 255 255 255;         /* canvas     #ffffff */
+  --c-pearl: 250 250 252;         /* surface-pearl #fafafc */
   --c-edge: 224 224 224;          /* hairline   #e0e0e0 */
   --c-ink: 29 29 31;              /* ink        #1d1d1f */
-  --c-muted: 122 122 122;         /* muted      #7a7a7a */
+  --c-muted: 122 122 122;         /* ink-muted-48 #7a7a7a */
+  --c-soft: 51 51 51;             /* ink-muted-80 #333333 */
   --c-accent: 0 102 204;          /* Action Blue #0066cc */
+  --c-accent-focus: 0 113 227;    /* primary-focus #0071e3 */
   --c-accent-ink: 255 255 255;
   --c-good: 22 138 90;
   --c-bad: 214 69 65;
   --c-nav: 0 0 0;                 /* global-nav black */
+  --glass-sheen: rgb(255 255 255 / 0.55);
 }
 
 .dark {
   /* dark: near-black tile family */
   --c-bg: 37 37 39;               /* surface-tile-3 #252527 */
   --c-panel: 42 42 44;            /* surface-tile-2 #2a2a2c */
+  --c-pearl: 48 48 51;
   --c-edge: 58 58 62;
   --c-ink: 255 255 255;
   --c-muted: 204 204 204;         /* body-muted #cccccc */
+  --c-soft: 229 229 231;
   --c-accent: 41 151 255;         /* Sky Link Blue #2997ff (dark-surface variant) */
+  --c-accent-focus: 41 151 255;
   --c-accent-ink: 255 255 255;
   --c-good: 52 180 120;
   --c-bad: 240 100 95;
   --c-nav: 0 0 0;
+  --glass-sheen: rgb(255 255 255 / 0.07);
 }
 
 html, body {
@@ -43,28 +56,57 @@ body {
   @apply bg-bg text-ink antialiased;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
   font-size: 17px;
+  font-weight: 400;
   letter-spacing: -0.374px;
   line-height: 1.47;
   font-feature-settings: 'ss03';
 }
 
-/* Display type: SF Pro Display stack with Apple-tight tracking */
+/* Display stack. Negative tracking at display sizes is the signature. */
 .display-tight {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
   letter-spacing: -0.022em;
   font-weight: 600;
 }
 
-/* Media shadow — the ONLY shadow in the system (docs/DESIGN.md elevation). */
+/* Media shadow — the ONLY shadow in the system (docs/DESIGN.md elevation).
+   Never apply this to a card, a button or text. */
 .shadow-media {
   box-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
 }
 
-/* Frosted sub-nav / sticky bars (saturate + blur per DESIGN.md) */
+/* Frosted bars: the spec's own glass recipe (sub-nav-frosted, sticky bar). */
 .frosted {
   background: rgb(var(--c-bg) / 0.8);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ── Liquid glass ───────────────────────────────────────────────────────────
+   Translucency + blur + saturation + a 1px specular sheen. Explicitly NOT a
+   background gradient: the spec bans decorative gradients, and sanctions
+   backdrop blur. The sheen is a single hairline of light on the top edge —
+   what makes a pane read as glass rather than as a light-grey box. */
+.glass-hairline::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 42%);
+}
+
+/* Pointer-tracked specular highlight (Magic UI's MagicCard idea). Pure light,
+   a radial accent at ~7% alpha, and only on surfaces that invite the pointer. */
+.glass-spotlight {
+  background: radial-gradient(
+    240px circle at var(--glass-x, 50%) var(--glass-y, 0%),
+    rgb(var(--c-accent) / 0.07),
+    transparent 72%
+  );
+}
+.group:hover .glass-spotlight {
+  opacity: 1;
 }
 
 * {
@@ -75,46 +117,157 @@ body {
   background: rgb(var(--c-accent) / 0.2);
 }
 
+/* Keyboard focus is Action Blue at its focus value — the spec's only ring. */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-accent-focus));
+  outline-offset: 2px;
+}
+
 @layer components {
-  /* Pill button grammar — the signature action shape (rounded.pill).
-     Press = scale(0.95), the system-wide micro-interaction. */
+  /* ── Type steps ─────────────────────────────────────────────────────────
+     Each helper is one row of the spec's typography table. */
+  .t-hero      { font-size: 56px; font-weight: 600; line-height: 1.07; letter-spacing: -0.28px; }
+  .t-display   { font-size: 40px; font-weight: 600; line-height: 1.10; letter-spacing: 0; }
+  .t-display-md{ font-size: 34px; font-weight: 600; line-height: 1.47; letter-spacing: -0.374px; }
+  .t-lead      { font-size: 28px; font-weight: 400; line-height: 1.14; letter-spacing: 0.196px; }
+  .t-lead-airy { font-size: 24px; font-weight: 300; line-height: 1.5;  letter-spacing: 0; }
+  .t-tagline   { font-size: 21px; font-weight: 600; line-height: 1.19; letter-spacing: 0.231px; }
+  .t-strong    { font-size: 17px; font-weight: 600; line-height: 1.24; letter-spacing: -0.374px; }
+  .t-body      { font-size: 17px; font-weight: 400; line-height: 1.47; letter-spacing: -0.374px; }
+  .t-caption   { font-size: 14px; font-weight: 400; line-height: 1.43; letter-spacing: -0.224px; }
+  .t-caption-s { font-size: 14px; font-weight: 600; line-height: 1.29; letter-spacing: -0.224px; }
+  .t-fine      { font-size: 12px; font-weight: 400; line-height: 1.0;  letter-spacing: -0.12px; }
+  .t-micro     { font-size: 10px; font-weight: 400; line-height: 1.3;  letter-spacing: -0.08px; }
+
+  /* Page headline: display-md at rest, hero on wide screens. */
+  .t-title     { @apply t-display-md; }
+  @screen sm { .t-title { font-size: 40px; line-height: 1.1; } }
+
+  /* Section eyebrow — caption-strong, spaced. Derived, not a spec row. */
+  .t-eyebrow   { @apply t-caption-s uppercase text-muted; letter-spacing: 0.08em; }
+
+  /* ── Surfaces ───────────────────────────────────────────────────────────── */
+  /* Utility card per spec (rounded.lg 18px, hairline, 24px padding) rendered
+     as liquid glass. Every existing `class="card"` inherits the upgrade. */
+  .card {
+    @apply relative overflow-hidden rounded-[18px] border border-edge/70 p-6;
+    background: rgb(var(--c-panel) / 0.72);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+  }
+
+  /* Frosted bar: headers, tab bars, floating sticky rows (spec height 52/64). */
+  .glass-bar {
+    @apply relative bg-bg/80;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* Secondary inset surface — quiet fill for nested blocks. */
+  .inset {
+    @apply rounded-[11px] border border-edge/60;
+    background: rgb(var(--c-edge) / 0.22);
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────
+     Two grammars only: pill for actions, compact rect for utility.
+     Press is always scale(0.95) — the system-wide micro-interaction. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-[22px] py-[11px] text-[15px] font-medium transition-all duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full px-[22px] py-[11px] text-[17px] font-normal transition-[transform,background-color,color,opacity] duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
   }
+  /* button-primary: Action Blue pill, on-primary text, body typography. */
   .btn-primary {
-    @apply btn bg-accent text-accent-ink hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+    @apply btn bg-accent text-accent-ink hover:brightness-110;
   }
+  /* button-secondary-pill: the ghost pill (transparent + Action Blue ring). */
+  .btn-secondary {
+    @apply btn border border-accent/70 bg-transparent text-accent hover:bg-accent/10;
+  }
+  /* button-pearl-capsule: pearl fill, ink-muted-80 text, soft ring, rounded.md. */
   .btn-ghost {
-    @apply btn border border-edge bg-panel text-accent hover:bg-edge/30;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border-[3px] border-edge/60 bg-pearl px-[14px] py-2 text-[14px] font-normal leading-[1.29] text-soft transition-[transform,background-color,color] duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+  }
+  /* button-dark-utility: ink fill, rounded.sm, utility typography. */
+  .btn-utility {
+    @apply inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-ink px-[15px] py-2 text-[14px] font-normal leading-[1.29] text-panel transition-transform duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-danger {
-    @apply btn border border-bad/40 bg-transparent text-bad hover:bg-bad/10;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border border-bad/50 bg-transparent px-[14px] py-2 text-[14px] font-normal text-bad transition-[transform,background-color] duration-150 ease-out hover:bg-bad/10 active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
   }
-  /* Utility rect — compact secondary (rounded.sm) */
-  .btn-utility {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-ink px-[15px] py-2 text-[13px] font-medium text-panel transition-all duration-150 active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+  /* Dense pill for inline actions inside tables/lists. */
+  .btn-sm {
+    @apply px-[15px] py-2 text-[14px];
   }
+
+  /* ── Inputs ─────────────────────────────────────────────────────────────
+     search-input: pill, 44px tall, body typography, hairline ring. */
   .input {
-    @apply w-full rounded-full border border-edge bg-panel px-5 py-3 text-[15px] outline-none transition-all placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+    @apply w-full rounded-full border border-edge bg-panel px-5 py-[11px] text-[17px] font-normal leading-[1.47] text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
   }
-  .input-rect {
-    @apply w-full rounded-lg border border-edge bg-panel px-3.5 py-2.5 text-[15px] outline-none transition-all placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+  /* Textareas opt out of the pill and use rounded.md instead. */
+  textarea.input {
+    border-radius: 11px;
+    line-height: 1.47;
   }
-  .card {
-    @apply rounded-[18px] border border-edge bg-panel p-6;
+  /* Selects keep the native affordance — their arrow is the only clue that the
+     control opens, and a custom chevron would add chrome the spec forbids. */
+  select.input {
+    @apply cursor-pointer pr-10;
   }
   .label {
-    @apply mb-1.5 block text-[13px] font-semibold tracking-tight text-muted;
+    @apply mb-1.5 block text-[14px] font-semibold leading-[1.29] tracking-[-0.224px] text-muted;
   }
+
+  /* ── Chips & meters ─────────────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-edge bg-panel px-3 py-1 text-[13px] font-medium text-muted;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-edge/70 bg-panel/70 px-3 py-1 text-[14px] font-normal leading-[1.29] tracking-[-0.224px] text-muted;
+  }
+  .chip-active {
+    @apply border-accent/60 bg-accent/10 text-accent;
+  }
+  .meter {
+    @apply h-1.5 overflow-hidden rounded-full;
+    background: rgb(var(--c-edge) / 0.6);
+  }
+
+  /* Option rows (MCQ answers, pickers) — pill-ish rect, obvious press. */
+  .option {
+    @apply w-full rounded-[11px] border border-edge/70 bg-panel/50 px-4 py-3 text-left text-[17px] font-normal leading-[1.47] transition-[border-color,background-color,transform] duration-150 active:scale-[0.99];
+  }
+  .option-selected {
+    @apply border-accent bg-accent/10 text-accent;
+  }
+  .option-correct {
+    @apply border-good bg-good/10 text-good;
+  }
+  .option-wrong {
+    @apply border-bad bg-bad/10 text-bad;
+  }
+
+  /* Segmented control (density switch, leaderboard scope). */
+  .segment {
+    @apply rounded-[11px] px-3 py-1.5 text-[14px] font-normal text-muted transition-colors duration-150;
+  }
+  .segment-active {
+    @apply bg-accent/10 font-semibold text-accent;
+  }
+
+  /* Route skeleton block: a surface fill that breathes. The spec does not
+     document skeletons ("known gaps"), so this stays inside the token palette
+     rather than inventing a shimmering gradient. */
+  .skeleton {
+    background: rgb(var(--c-edge) / 0.55);
+    animation: skeleton-breathe 1.4s ease-in-out infinite;
   }
 }
 
-/* ── Motion primitives (used by Framer Motion variants) ──────────────────── */
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+@keyframes skeleton-breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; opacity: 0.75; }
 }
 
 @media (prefers-reduced-motion: reduce) {
