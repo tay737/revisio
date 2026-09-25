@@ -5,15 +5,21 @@
  *   NODE_OPTIONS="--import ./scripts/register-stub-loader.mjs" \
  *     npx tsx scripts/verify-api.ts http://127.0.0.1:3100 tayyab@outlook.jp
  *
- * It mints a real access token for the named account with the app's own signing
- * function, then calls the routes the way the browser does. Reading the code is
- * not evidence that a route answers; this is.
+ * It issues a refresh token in the database, exchanges it for an access token
+ * *at the target*, then calls the routes the way the browser does. Reading the
+ * code is not evidence that a route answers; this is.
+ *
+ * Authenticating through the deployment rather than signing locally is
+ * deliberate: an access token is signed with the deployment's own AUTH_SECRET,
+ * so a locally-signed one is rejected by production — and a refresh token is
+ * just a database row, so this works against any environment pointed at the
+ * same database.
  */
 import 'dotenv/config';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db/client';
 import { users } from '../src/db/schema';
-import { signAccessToken } from '../src/services/auth';
+import { issueRefreshToken } from '../src/services/auth';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:3100';
 const email = process.argv[3] ?? 'tayyab@outlook.jp';
@@ -27,7 +33,19 @@ function check(label: string, condition: boolean, detail: unknown = '') {
 async function main() {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   if (!user) throw new Error(`No account ${email}.`);
-  const token = await signAccessToken({ id: user.id, email: user.email, role: user.role, totpEnabled: user.totpEnabled });
+
+  const refresh = await issueRefreshToken(user.id);
+  const session = await fetch(`${base}/api/v1/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: refresh }),
+  });
+  const sessionBody = (await session.json().catch(() => null)) as { accessToken?: string; user?: { email: string } } | null;
+  if (!sessionBody?.accessToken) {
+    throw new Error(`Could not sign in at ${base}: ${session.status} ${JSON.stringify(sessionBody)}`);
+  }
+  const token = sessionBody.accessToken;
+  console.log(`  ok   signed in at the target as ${sessionBody.user?.email ?? email}`);
 
   const call = async <T,>(path: string, init: RequestInit = {}): Promise<{ status: number; body: T }> => {
     const res = await fetch(`${base}${path}`, {
