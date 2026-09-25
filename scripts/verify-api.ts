@@ -342,6 +342,36 @@ async function main() {
     }
   }
 
+  // ── the outage: many requests at once must not exhaust the pool ───────────
+  //
+  // The pool used to be built per query outside production, so every request
+  // leaked clients and the pooler eventually refused *everything*, login
+  // included. A single request proves nothing here — the failure only appeared
+  // under concurrency — so this fires all of it at once and demands clean
+  // answers.
+  console.log('\nConcurrency');
+  const burst = 30;
+  const results = await Promise.all(
+    Array.from({ length: burst }, () =>
+      fetch(`${base}/api/v1/me`, { headers: { Authorization: `Bearer ${token}` } }).then(
+        (r) => r.status,
+        () => 0,
+      ),
+    ),
+  );
+  const ok200 = results.filter((s) => s === 200).length;
+  const capacity = results.filter((s) => s === 503).length;
+  check(`all ${burst} concurrent requests answer 200`, ok200 === burst, {
+    ok: ok200,
+    busy: capacity,
+    failed: burst - ok200 - capacity,
+  });
+  check(
+    'and none of them fail as an internal error',
+    results.every((s) => s === 200 || s === 503),
+    [...new Set(results)],
+  );
+
   // ── admin ─────────────────────────────────────────────────────────────────
   if (user.role === 'developer') {
     console.log('\nAdmin');
