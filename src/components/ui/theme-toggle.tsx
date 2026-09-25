@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { Moon, Sun } from 'lucide-react';
 import { applyTheme, flipTheme, paintTheme, resolveTheme, type Theme } from '@/lib/theme';
 import { SPRING } from '@/lib/motion';
@@ -41,7 +41,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-label={label}
       title={label}
       className={cn(
-        'grid h-11 w-11 shrink-0 place-items-center rounded-full border border-edge bg-panel/60 text-muted backdrop-blur transition-colors duration-150 hover:text-ink active:scale-95',
+        'grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur transition-colors duration-150 hover:text-foreground active:scale-95',
         className,
       )}
     >

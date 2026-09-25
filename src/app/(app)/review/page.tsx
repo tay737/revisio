@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
@@ -9,8 +9,8 @@ import { useRanked } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { TilePanel } from '@/components/ui/tile';
-import { CanvasConfetti, useCelebration } from '@/components/ui/motion/celebrate';
-import { NumberTicker } from '@/components/ui/motion/number-ticker';
+import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
+import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import { emptyQueueLine, sessionSummary } from '@/lib/profile';
 import { rankChange, reviewsForRp, type Rank } from '@/domain/ranked';
@@ -51,17 +51,25 @@ type ReviewResult = {
 const KIND_LABEL: Record<QueueCard['kind'], string> = {
   cloze: 'Fill the blank',
   flashcard: 'Flashcard',
-  mcq: 'Multiple choice',
+  mcq: 'Choose one',
 };
 
 /**
- * Daily review.
+ * Daily review — the loop the whole product exists for.
  *
- * The loop is: read → answer → verdict → next, and every part of it now says
- * something. The header shows how much is left, the card is a glass pane with
- * the previous one cross-fading out beneath it, a correct answer gets a short
- * confetti burst (the only place in the app that earns one), and Enter advances
- * so a session can be run without touching the mouse.
+ * **The one design rule this screen follows:** green means you are earning
+ * something. Everything you press *inside* a session is green with a flat bottom
+ * lip that compresses under your thumb (docs/DESIGN-DUOLINGO.md), and every
+ * action that navigates *away* from the session is ink. That single split is
+ * what makes a review feel like a game round rather than a form, and it is why
+ * the old `btn btn-primary` blue-on-everything version read as flat.
+ *
+ * The rest is the loop itself, unchanged and now much quieter: one card, one
+ * question at display size, one uppercase action, and a verdict that lands as a
+ * full-width band — green with a check, or red with the model answer. Enter
+ * advances, so a session can be run without the mouse. Confetti is MagicUI's,
+ * fired from a ref; it is the only celebratory effect in the app and it is
+ * reserved for a correct answer and for a promotion.
  */
 export default function ReviewPage() {
   // Sharing the shell's cache entries lets the empty state quote a real streak
@@ -78,14 +86,25 @@ export default function ReviewPage() {
   const [sessionXp, setSessionXp] = useState(0);
   const [done, setDone] = useState(0);
   const [correct, setCorrect] = useState(0);
-  // The rank report needs the two ends of the session: the XP the learner held
-  // before the first card, and the XP after the last one. Both come off the
-  // server's own totals rather than being accumulated locally, so the report
-  // can never disagree with `/me`.
+  // The rank report needs both ends of the session: the XP held before the first
+  // card and after the last. Both come off the server's own totals rather than
+  // being accumulated locally, so the report cannot disagree with `/me`.
   const [startXp, setStartXp] = useState<number | null>(null);
   const [latestXp, setLatestXp] = useState<number | null>(null);
   const startRef = useRef<number>(Date.now());
-  const { ref: confettiRef, celebrate } = useCelebration();
+  const confettiRef = useRef<ConfettiRef>(null);
+
+  /** One burst helper, so every celebration in this file is the same gesture. */
+  const burst = useCallback((particleCount: number, y = 0.5) => {
+    void confettiRef.current?.fire({
+      particleCount,
+      spread: 70,
+      origin: { x: 0.5, y },
+      startVelocity: 34,
+      scalar: 0.9,
+      disableForReducedMotion: true,
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setError('');
@@ -139,15 +158,14 @@ export default function ReviewPage() {
       setDone((d) => d + 1);
       if (res.verdict.correct) {
         setCorrect((c) => c + 1);
-        // Small, off-centre burst — a reward, not a firework display.
-        celebrate({ origin: { x: 0.5, y: 0.46 }, count: 46 });
+        burst(46, 0.46); // small and off-centre: a reward, not a firework display
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That answer didn’t reach the server. Try again.');
     } finally {
       setBusy(false);
     }
-  }, [card, busy, result, selected, input, celebrate]);
+  }, [card, busy, result, selected, input, burst]);
 
   const next = useCallback(() => {
     setResult(null);
@@ -158,10 +176,9 @@ export default function ReviewPage() {
     setIdx((i) => i + 1);
   }, []);
 
-  // The session has ended: the rank report is on screen, so the caches that
-  // the shell, the dashboard and the Rank page read are now stale. Refreshing
-  // here (rather than on a timer) is what makes XP land in the same moment the
-  // learner sees it earned.
+  // The session has ended: the rank report is on screen, so the caches the
+  // shell, the dashboard and the Rank page read are now stale. Refreshing here
+  // (rather than on a timer) lands XP in the same moment it is earned.
   const finished = queue !== null && queue.length > 0 && !card;
   const change =
     finished && startXp !== null && latestXp !== null ? rankChange(startXp, latestXp) : null;
@@ -172,12 +189,12 @@ export default function ReviewPage() {
     refreshRanked();
   }, [finished, refreshMe, refreshRanked]);
 
-  // A promotion is worth more than the per-card flicker: a full, slow burst.
+  // A promotion outranks the per-card flicker: a full, slow burst.
   useEffect(() => {
-    if (change?.promoted) celebrate({ origin: { x: 0.5, y: 0.32 }, count: 140 });
-  }, [change?.promoted, celebrate]);
+    if (change?.promoted) burst(140, 0.3);
+  }, [change?.promoted, burst]);
 
-  // Enter advances once a verdict is on screen, so a session can be keyboard-only.
+  // Enter advances once a verdict is on screen, so a session is keyboard-only.
   useEffect(() => {
     if (!result) return;
     const onKey = (e: KeyboardEvent) => {
@@ -194,15 +211,21 @@ export default function ReviewPage() {
 
   if (queue.length === 0) {
     return (
-      <div className="card mx-auto max-w-md p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good/10 text-good">
+      <div className="card mx-auto max-w-md p-7 text-center">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-pressed">
           <Icon name="reviewed" size={22} />
         </span>
-        <h1 className="t-tagline mt-4">Nothing due right now</h1>
-        <p className="t-caption mt-2 text-muted">{emptyQueueLine(0, me?.gamification.streak ?? 0)}</p>
-        <div className="mt-5 flex justify-center gap-2">
-          <Link href="/cram" className="btn-secondary">Cram a topic</Link>
-          <Link href="/learn" className="btn-primary">Read ahead</Link>
+        <h1 className="t-display-sm mt-4">Nothing due</h1>
+        <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+          {emptyQueueLine(0, me?.gamification.streak ?? 0)}
+        </p>
+        <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+          <Link href="/cram" className="btn btn-secondary">
+            Cram a topic
+          </Link>
+          <Link href="/learn" className="btn btn-primary">
+            Read ahead
+          </Link>
         </div>
       </div>
     );
@@ -211,7 +234,7 @@ export default function ReviewPage() {
   if (!card) {
     return (
       <div className="relative mx-auto max-w-xl">
-        <CanvasConfetti ref={confettiRef} />
+        <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-10" />
         <SessionReport
           correct={correct}
           done={done}
@@ -225,146 +248,154 @@ export default function ReviewPage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="t-caption tabular-nums text-muted">
-          {done} <span className="text-edge">/</span> {queue.length}
+      <Confetti ref={confettiRef} className="pointer-events-none fixed inset-0 z-[60]" />
+
+      {/* The session's own progress readout. Green, because you are earning. */}
+      <div className="mb-2 flex items-center justify-between">
+        <span className="num text-[13px] font-semibold text-muted-foreground">
+          {done} / {queue.length}
         </span>
-        <span className="chip">
-          <Icon name="xp" size={14} className="text-accent" />
-          <NumberTicker value={sessionXp} className="tabular-nums" />
-          <span>XP</span>
+        <span className="badge badge-quiet num">
+          <Icon name="xp" size={12} />+{sessionXp} XP
         </span>
       </div>
 
-      <div className="meter mb-5">
+      <div className="meter mb-4 h-2">
         <motion.div
-          className="h-full rounded-full bg-accent"
+          className="meter-fill"
           animate={{ width: `${progress}%` }}
           transition={SPRING.meter}
         />
       </div>
 
-      <div className="relative">
-        <CanvasConfetti ref={confettiRef} />
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={card.id + (result ? ':verdict' : ':question')}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={transition.quick}
-          >
-            <div className="card">
-              <div className="flex items-center justify-between gap-3">
-                <span className="chip chip-active">
-                  <Icon name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'} size={13} />
-                  {KIND_LABEL[card.kind]}
-                </span>
-                <span className="t-caption truncate text-muted">
-                  {card.subjectName} · {card.topicName}
-                </span>
-              </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={card.id + (result ? ':verdict' : ':question')}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={transition.quick}
+        >
+          <div className="card">
+            <div className="flex items-center justify-between gap-3">
+              <span className="badge badge-quiet">
+                <Icon
+                  name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'}
+                  size={13}
+                />
+                {KIND_LABEL[card.kind]}
+              </span>
+              <span className="truncate text-[12px] text-muted-foreground">
+                {card.subjectName} · {card.topicName}
+              </span>
+            </div>
 
-              <div className="mt-5 text-[21px] font-normal leading-[1.4]">
-                {card.kind === 'cloze' && (
-                  <ClozePrompt
-                    text={card.textWithBlank ?? ''}
-                    answer={result && card.kind === 'cloze' ? (result.primaryAnswer ?? null) : null}
-                    revealed={!!result}
+            <div className="mt-5 text-[20px] font-bold leading-[1.35] sm:text-[22px]">
+              {card.kind === 'cloze' && (
+                <ClozePrompt
+                  text={card.textWithBlank ?? ''}
+                  answer={result && card.kind === 'cloze' ? (result.primaryAnswer ?? null) : null}
+                  revealed={!!result}
+                />
+              )}
+              {card.kind === 'flashcard' && card.prompt}
+              {card.kind === 'mcq' && card.question}
+            </div>
+
+            {/* ── Answering ───────────────────────────────────────────────── */}
+            {!result && card.kind === 'mcq' && (
+              <div className="mt-5 space-y-2.5">
+                {card.options?.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setSelected(o.id)}
+                    className={`option ${selected === o.id ? 'option-selected font-bold' : ''}`}
+                  >
+                    <span className="flex-1">{o.text}</span>
+                    {selected === o.id && <Icon name="reviewed" size={18} />}
+                  </button>
+                ))}
+                <button
+                  className="btn btn-good btn-lg mt-1.5 gap-2"
+                  disabled={!selected || busy}
+                  onClick={submit}
+                >
+                  {busy ? 'Marking…' : 'Check'}
+                </button>
+                <p className="text-center text-[12px] text-muted-foreground">One attempt only</p>
+              </div>
+            )}
+
+            {!result && card.kind !== 'mcq' && (
+              <form
+                className="mt-5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submit();
+                }}
+              >
+                {card.kind === 'cloze' ? (
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Type the missing word"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    autoFocus
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    enterKeyHint="done"
+                    aria-label="Your answer"
+                  />
+                ) : (
+                  <textarea
+                    className="input min-h-[110px]"
+                    placeholder="What do you remember? Key ideas count, not wording."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    autoFocus
+                    aria-label="Your answer"
                   />
                 )}
-                {card.kind === 'flashcard' && card.prompt}
-                {card.kind === 'mcq' && card.question}
-              </div>
+                <button type="submit" className="btn btn-good btn-lg mt-3" disabled={!input.trim() || busy}>
+                  {busy ? 'Marking…' : 'Check'}
+                </button>
+                {card.kind === 'cloze' && (
+                  <p className="mt-2 text-center text-[12px] text-muted-foreground">Enter to check</p>
+                )}
+              </form>
+            )}
 
-              {/* ── Answering ─────────────────────────────────────────────── */}
-              {!result && card.kind === 'mcq' && (
-                <div className="mt-5 space-y-2">
-                  {card.options?.map((o) => (
-                    <motion.button
-                      key={o.id}
-                      type="button"
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => setSelected(o.id)}
-                      className={`option ${selected === o.id ? 'option-selected font-semibold' : 'hover:bg-edge/20'}`}
-                    >
-                      {o.text}
-                    </motion.button>
-                  ))}
-                  <button className="btn-primary mt-2 w-full" disabled={!selected || busy} onClick={submit}>
-                    {busy ? 'Marking…' : 'Check answer'}
-                  </button>
-                  <p className="t-caption text-center text-muted">One attempt — that’s the point.</p>
-                </div>
-              )}
+            {/* ── Verdict ────────────────────────────────────────────────── */}
+            {result && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                transition={SPRING.soft}
+                className="overflow-hidden"
+              >
+                <VerdictPanel result={result} kind={card.kind} />
+                <button onClick={next} className="btn btn-primary btn-lg mt-3 gap-2">
+                  Continue
+                  <Icon name="next" size={17} />
+                </button>
+                <p className="mt-2 text-center text-[12px] text-muted-foreground">Enter for next</p>
+              </motion.div>
+            )}
 
-              {!result && card.kind !== 'mcq' && (
-                <form
-                  className="mt-5"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    submit();
-                  }}
-                >
-                  {card.kind === 'cloze' ? (
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="Type the missing word…"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      autoFocus
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      enterKeyHint="done"
-                      aria-label="Your answer"
-                    />
-                  ) : (
-                    <textarea
-                      className="input min-h-[110px]"
-                      placeholder="Write what you remember — the marking looks for key ideas, not exact wording."
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      autoFocus
-                      aria-label="Your answer"
-                    />
-                  )}
-                  <button type="submit" className="btn-primary mt-3 w-full" disabled={!input.trim() || busy}>
-                    {busy ? 'Marking…' : 'Check answer'}
-                  </button>
-                  {card.kind === 'cloze' && (
-                    <p className="t-caption mt-2 text-center text-muted">Press Enter to check</p>
-                  )}
-                </form>
-              )}
-
-              {/* ── Verdict ──────────────────────────────────────────────── */}
-              {result && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  transition={SPRING.soft}
-                  className="mt-5 overflow-hidden"
-                >
-                  <VerdictPanel result={result} kind={card.kind} />
-                  <button onClick={next} className="btn-primary mt-4 w-full gap-2">
-                    Next card
-                    <Icon name="next" size={17} />
-                  </button>
-                  <p className="t-caption mt-2 text-center text-muted">Press Enter for the next one</p>
-                </motion.div>
-              )}
-
-              {error && (
-                <p className="t-caption mt-3 rounded-[11px] bg-bad/10 px-3 py-2 text-bad" role="alert">
-                  {error}
-                </p>
-              )}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+            {error && (
+              <p
+                className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-[13px] text-destructive"
+                role="alert"
+              >
+                {error}
+              </p>
+            )}
+          </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -373,14 +404,13 @@ export default function ReviewPage() {
  * The session report — where the work lands.
  *
  * This is the moment the ranked system exists for: a session ends and the
- * numbers have to *move*. It is a near-black tile because it is the page's
- * headline, and it names the rank by name rather than shoving a bar at you:
- * "Promoted to Silver II" is a sentence you can repeat; a progress bar filling
- * by four percent is not.
+ * numbers have to *move*. It is a near-black band because it is the headline,
+ * and it names the rank rather than shoving a bar at you: "Promoted to Silver II"
+ * is a sentence you can repeat, and a bar filling by four percent is not.
  *
- * Promotion gets the crest, the animation and the confetti. Staying put gets
- * the exact distance to the next rung, because "you are 40 RP short" is a
- * reason to come back tomorrow and "good job" is not.
+ * Promotion gets the crest, the animation and the confetti. Staying put gets the
+ * exact distance to the next rung, because "40 RP short" is a reason to come back
+ * tomorrow and "good job" is not.
  */
 function SessionReport({
   correct,
@@ -406,59 +436,49 @@ function SessionReport({
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           transition={SPRING.pop}
         >
-          <RankCrest rank={rank} size={96} />
+          <RankCrest rank={rank} size={92} />
         </motion.div>
       )}
 
-      <h1 className="display-tight t-display mt-5">
+      <h1 className="t-display mt-4">
         {change?.promoted ? `Promoted to ${change.after.label}` : 'Session complete'}
       </h1>
 
-      <p className="t-body mx-auto mt-2 max-w-md text-white/70">
+      <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-muted-foreground">
         {change?.promoted
           ? change.tierChanged
-            ? `${correct} of ${done} correct, and that carried you into a new tier. Everything above this gets harder — and worth more.`
+            ? `${correct} of ${done} correct — and that carried you into a new tier. Everything above this is harder, and worth more.`
             : `${correct} of ${done} correct, and the crest moved with it.`
           : sessionSummary(correct, done)}
       </p>
 
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
-        <span className="chip !border-white/15 !bg-white/5 !text-white">
-          <Icon name="xp" size={14} className="text-accent" />
-          <span className="tabular-nums">+{sessionXp}</span> XP
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <span className="chip num">
+          <Icon name="xp" size={14} className="text-gold" />+{sessionXp} XP
         </span>
-        <span className="chip !border-white/15 !bg-white/5 !text-white">
-          <Icon name="checked" size={14} className="text-accent" />
-          <span className="tabular-nums">
-            {correct}/{done}
-          </span>{' '}
-          correct
+        <span className="chip num">
+          <Icon name="reviewed" size={14} className="text-good" />
+          {correct}/{done}
         </span>
         {rank && (
-          <span className="chip !border-white/15 !bg-white/5 !text-white">
-            <Icon name="rank" size={14} className="text-accent" />
-            <span className="tabular-nums">
-              {rank.points.toLocaleString()}
-            </span>{' '}
-            RP
+          <span className="chip num">
+            <Icon name="rank" size={14} className="text-muted-foreground" />
+            {rank.points.toLocaleString()} RP
           </span>
         )}
       </div>
 
       {rank && !rank.isApex && (
-        <p className="t-caption mt-4 text-white/60">
-          {rank.remaining} RP to the next rung — about {reviewsForRp(rank.remaining)} more reviews.
+        <p className="mt-3 text-[13px] text-muted-foreground">
+          {rank.remaining} RP to the next rung · about {reviewsForRp(rank.remaining)} more reviews.
         </p>
       )}
 
-      <div className="mt-6 flex flex-wrap justify-center gap-2">
-        <button onClick={onAgain} className="btn-secondary">
+      <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+        <button onClick={onAgain} className="btn btn-ghost">
           Load more
         </button>
-        <Link
-          href="/progress"
-          className="btn inline-flex gap-2 border border-white/25 text-white transition-colors duration-200 hover:bg-white/10"
-        >
+        <Link href="/progress" className="btn btn-primary gap-2">
           See the ladder
           <Icon name="next" size={16} />
         </Link>
@@ -474,8 +494,12 @@ function ClozePrompt({ text, answer, revealed }: { text: string; answer: string 
     <span>
       {before}
       <span
-        className={`mx-1 inline-block min-w-[6rem] border-b-2 px-2 text-center font-semibold ${
-          !revealed ? 'border-accent text-accent' : answer ? 'border-good text-good' : 'border-bad text-bad'
+        className={`mx-1 inline-block min-w-[6rem] border-b-2 px-2 text-center font-bold ${
+          !revealed
+            ? 'border-border-strong text-muted-foreground'
+            : answer
+              ? 'border-good text-good-pressed'
+              : 'border-destructive text-destructive'
         }`}
       >
         {answer ?? '\u00A0'.repeat(8)}
@@ -486,9 +510,11 @@ function ClozePrompt({ text, answer, revealed }: { text: string; answer: string 
 }
 
 /**
- * The verdict. Correct answers get a tinted panel with a check; wrong ones get
- * the model answer and, when the grader found the phrases you did hit, the
- * partial credit is spelled out rather than implied.
+ * The verdict.
+ *
+ * Correct answers get the green wash from the Duolingo component set; wrong ones
+ * get the cardinal wash, the model answer, and — when the grader found phrases
+ * the learner did hit — the partial credit spelled out rather than implied.
  */
 function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard['kind'] }) {
   const { verdict } = result;
@@ -496,41 +522,56 @@ function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard[
   const softened = verdict.feedbackKind !== 'correct' && good;
 
   return (
-    <div className={`rounded-[11px] px-4 py-3.5 ${good ? 'bg-good/10' : 'bg-bad/10'}`}>
-      <div className={`flex items-center gap-2 text-[17px] font-semibold ${good ? 'text-good' : 'text-bad'}`}>
-        <Icon name={good ? 'reviewed' : 'close'} size={18} />
+    <div
+      aria-live="polite"
+      className={`mt-5 rounded-md px-4 py-3.5 ${good ? 'bg-good-soft' : 'bg-destructive/10'}`}
+    >
+      <div
+        className={`flex items-center gap-2.5 text-[17px] font-bold ${
+          good ? 'text-good-pressed' : 'text-destructive'
+        }`}
+      >
+        <span
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+            good ? 'bg-good text-white' : 'bg-destructive text-white'
+          }`}
+        >
+          <Icon name={good ? 'correct' : 'close'} size={16} strokeWidth={3} />
+        </span>
         {good ? (softened ? 'Correct — with a nudge' : 'Correct') : 'Not quite'}
         {result.xpAwarded > 0 && (
-          <span className="ml-auto t-caption font-normal text-muted">+{result.xpAwarded} XP</span>
+          <span className="num ml-auto text-[13px] font-semibold text-good-pressed">
+            +{result.xpAwarded} XP
+          </span>
         )}
       </div>
 
-      {verdict.note && <p className="t-caption mt-2 text-ink">{verdict.note}</p>}
+      {verdict.note && <p className="mt-2 text-[14px] text-foreground">{verdict.note}</p>}
 
       {verdict.matchedPhrases && verdict.matchedPhrases.length > 0 && (
-        <p className="t-caption mt-2 text-muted">
-          <span className="font-semibold text-good">You had: </span>
+        <p className="mt-2 text-[13px] text-foreground">
+          <span className="font-bold">You had: </span>
           {verdict.matchedPhrases.join(', ')}
         </p>
       )}
       {verdict.missedPhrases && verdict.missedPhrases.length > 0 && (
-        <p className="t-caption mt-1 text-muted">
-          <span className="font-semibold text-bad">Missing: </span>
+        <p className="mt-1 text-[13px] text-foreground">
+          <span className="font-bold text-destructive">Missing: </span>
           {verdict.missedPhrases.join(', ')}
         </p>
       )}
 
       {kind === 'flashcard' && result.modelAnswer && (
-        <div className="inset mt-2.5 px-3 py-2">
-          <span className="t-micro uppercase tracking-[0.08em] text-muted">Model answer</span>
-          <p className="t-caption mt-0.5 text-ink">{result.modelAnswer}</p>
+        <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
+          <span className="t-eyebrow">Model answer</span>
+          <p className="mt-0.5 text-[14px] text-foreground">{result.modelAnswer}</p>
         </div>
       )}
 
       {result.explanation && (
-        <div className="inset mt-2.5 px-3 py-2">
-          <span className="t-micro uppercase tracking-[0.08em] text-muted">Why</span>
-          <p className="t-caption mt-0.5 text-ink">{result.explanation}</p>
+        <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
+          <span className="t-eyebrow">Why</span>
+          <p className="mt-0.5 text-[14px] text-foreground">{result.explanation}</p>
         </div>
       )}
 
@@ -540,12 +581,10 @@ function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard[
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={SPRING.soft}
-          className="mt-2.5 flex items-center gap-2 rounded-[11px] bg-accent/10 px-3 py-2 text-accent"
+          className="mt-2.5 flex items-center gap-2 rounded-md bg-card/70 px-3 py-2"
         >
-          <Icon name={achievementIcon(a.id, a.icon)} size={16} />
-          <span className="t-caption">
-            Achievement unlocked — <strong className="font-semibold">{a.name}</strong>
-          </span>
+          <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold" />
+          <span className="text-[13px] font-semibold">{a.name} unlocked</span>
         </motion.div>
       ))}
     </div>

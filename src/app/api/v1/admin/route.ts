@@ -1,12 +1,14 @@
 import { NextRequest } from 'next/server';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { approvalRequests, featureFlags, users } from '@/db/schema';
+import { approvalRequests, cards, featureFlags, lessons, subjects, users } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { isDeveloper } from '@/services/roles';
 import { listSchedulers } from '@/domain/srs';
 import { auditLog } from '@/db/schema';
 import { topics } from '@/db/schema';
+import { makeSlug, setTopicVisibility } from '@/services/content-ops';
+import type { Visibility } from '@/services/visibility';
 
 /** GET /admin — approvals, flags, algorithms, users, pending topics (developers only) */
 export const GET = route(async (req: NextRequest) => {
@@ -14,7 +16,7 @@ export const GET = route(async (req: NextRequest) => {
   if (!isDeveloper(user)) throw new ApiError(403, 'forbidden', 'Developers only.');
   void user;
 
-  const [approvals, flags, allUsers, pendingTopics, audits] = await Promise.all([
+  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, subjectList] = await Promise.all([
     db
       .select({
         id: approvalRequests.id,
@@ -41,6 +43,20 @@ export const GET = route(async (req: NextRequest) => {
       .limit(200),
     db.select().from(topics).where(eq(topics.visibility, 'pending_review')).limit(100),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(50),
+    // The shape of the library, so "0 public questions" is stated at the top of
+    // the page instead of being discovered by a student. That exact reading is
+    // what this deployment was hiding: a subject page listing three topics and
+    // not one answerable card anywhere in it.
+    db.select({ n: sql<number>`count(*)::int` }).from(topics),
+    db.select({ n: sql<number>`count(*)::int` }).from(topics).where(eq(topics.visibility, 'public')),
+    db.select({ n: sql<number>`count(*)::int` }).from(lessons),
+    db.select({ n: sql<number>`count(*)::int` }).from(cards),
+    db.select({ n: sql<number>`count(*)::int` }).from(cards).where(eq(cards.visibility, 'public')),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(topics)
+      .where(sql`not exists (select 1 from ${cards} c where c.topic_id = ${topics.id})`),
+    db.select({ id: subjects.id, name: subjects.name, slug: subjects.slug }).from(subjects).orderBy(subjects.name),
   ]);
 
   return ok({
@@ -50,6 +66,15 @@ export const GET = route(async (req: NextRequest) => {
     users: allUsers,
     pendingTopics,
     audit: audits,
+    contentStats: {
+      topics: topicCount[0]?.n ?? 0,
+      publicTopics: publicTopicCount[0]?.n ?? 0,
+      lessons: lessonCount[0]?.n ?? 0,
+      cards: cardCount[0]?.n ?? 0,
+      publicCards: publicCardCount[0]?.n ?? 0,
+      emptyTopics: emptyTopicCount[0]?.n ?? 0,
+    },
+    subjects: subjectList,
   });
 });
 
@@ -58,7 +83,10 @@ export const POST = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   if (!isDeveloper(user)) throw new ApiError(403, 'forbidden', 'Developers only.');
   const body = (await req.json()) as {
-    action: 'approve_request' | 'reject_request' | 'set_flag' | 'update_algorithm' | 'set_user_role' | 'suspend_user' | 'activate_user' | 'review_topic';
+    action:
+      | 'approve_request' | 'reject_request' | 'set_flag' | 'update_algorithm'
+      | 'set_user_role' | 'suspend_user' | 'activate_user' | 'review_topic'
+      | 'set_topic_visibility' | 'create_subject' | 'rename_subject';
     approvalId?: string;
     flagKey?: string;
     enabled?: boolean;
@@ -68,6 +96,9 @@ export const POST = route(async (req: NextRequest) => {
     role?: 'student' | 'teacher' | 'developer';
     topicId?: string;
     approveTopic?: boolean;
+    visibility?: Visibility;
+    subjectId?: string;
+    name?: string;
   };
 
   const audit = async (action: string, target: string, meta?: Record<string, unknown>) => {
@@ -128,9 +159,34 @@ export const POST = route(async (req: NextRequest) => {
     }
     case 'review_topic': {
       if (!body.topicId) throw new ApiError(400, 'bad_request', 'topicId required');
-      await db.update(topics).set({ visibility: body.approveTopic ? 'public' : 'private' }).where(eq(topics.id, body.topicId));
-      await audit('review_topic', body.topicId, { approveTopic: body.approveTopic });
-      return ok({ ok: true });
+      // Cascades to the lessons and cards, so approving a submitted topic makes
+      // its questions answerable — the difference between a topic that reads as
+      // published and one that is.
+      const counts = await setTopicVisibility(user, body.topicId, body.approveTopic ? 'public' : 'private');
+      await audit('review_topic', body.topicId, { approveTopic: body.approveTopic, ...counts });
+      return ok({ ok: true, ...counts });
+    }
+    case 'set_topic_visibility': {
+      if (!body.topicId || !body.visibility) throw new ApiError(400, 'bad_request', 'topicId and visibility required');
+      const counts = await setTopicVisibility(user, body.topicId, body.visibility);
+      await audit('set_topic_visibility', body.topicId, { visibility: body.visibility, ...counts });
+      return ok({ ok: true, ...counts });
+    }
+    case 'create_subject': {
+      if (!body.name) throw new ApiError(400, 'bad_request', 'name required');
+      const slug = makeSlug(body.name);
+      const [existing] = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.slug, slug)).limit(1);
+      if (existing) throw new ApiError(409, 'conflict', 'A subject with that name already exists.');
+      const [subject] = await db.insert(subjects).values({ id: crypto.randomUUID(), name: body.name, slug }).returning();
+      await audit('create_subject', subject.id, { name: body.name });
+      return ok({ subject }, { status: 201 });
+    }
+    case 'rename_subject': {
+      if (!body.subjectId || !body.name) throw new ApiError(400, 'bad_request', 'subjectId and name required');
+      const [updated] = await db.update(subjects).set({ name: body.name }).where(eq(subjects.id, body.subjectId)).returning();
+      if (!updated) throw new ApiError(404, 'not_found', 'Subject not found.');
+      await audit('rename_subject', body.subjectId, { name: body.name });
+      return ok({ subject: updated });
     }
     default:
       throw new ApiError(400, 'bad_request', 'Unknown action.');

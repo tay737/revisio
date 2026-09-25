@@ -1,18 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { api, downloadFile } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { useRanked, type RankedScope } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
+import { NumberTicker } from '@/components/ui/number-ticker';
+import { BlurFade } from '@/components/ui/blur-fade';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Notice } from '@/components/Notice';
-import { NumberTicker } from '@/components/ui/motion/number-ticker';
-import { StaggerGroup, StaggerItem } from '@/components/ui/motion/stagger';
 import { RankStrip } from '@/components/rank/RankStrip';
 import { LobbyTable } from '@/components/rank/LobbyTable';
-import { cappedDelay, railVariants, SPRING } from '@/lib/motion';
+import { SPRING, cappedDelay } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { lobbyLine } from '@/lib/profile';
 import {
@@ -31,33 +32,33 @@ import PageSkeleton from '@/components/PageSkeleton';
 /**
  * Rank — the competitive hub.
  *
- * This page carries the whole ranked system, and it is deliberately organised
- * the way a competitive game puts its progress screen together:
+ * Organised the way a competitive game puts its progress screen together:
  *
- *   • **The scoreboard first.** A near-black tile with the crest, the rank, the
- *     points and the next rung named. It is the same panel the dashboard shows,
- *     from the same hook, so the two can never disagree.
- *   • **Three views, one at a time.** The ladder (the persistent rank), the
- *     weekly lobby (the promotion/demotion stake), and the raw XP board that
- *     was already here. Each is a tap away rather than stacked, because a
- *     three-column wall of numbers is what made the old page unreadable.
- *   • **Honest empty states.** A lobby with unclaimed seats says so; a ladder
- *     you have not started says "placement" rather than pretending you are
- *     Bronze III.
+ *   • **The scoreboard first.** The same near-black band and the same data the
+ *     dashboard shows, from the same hook, so the two cannot disagree.
+ *   • **Three views, one at a time.** The ladder, the weekly lobby and the raw
+ *     XP ledger are now **tabs** (shadcn's `Tabs`, on Base UI) rather than a
+ *     three-column wall with hand-rolled pill toggles — which is both less code
+ *     and better behaviour, because the primitive brings roving focus and the
+ *     keyboard semantics that the buttons I had written did not.
+ *   • **Short copy.** Every paragraph that explained the mechanic to an adult who
+ *     had already seen a leaderboard is gone; what is left states policy.
+ *   • **Honest empty states.** A lobby with unclaimed seats says so; a learner
+ *     still in placement is told that rather than shown a fake Bronze III.
  */
 
-type View = 'rank' | 'lobby' | 'board';
+const VIEWS = [
+  { id: 'ladder', label: 'Ladder' },
+  { id: 'lobby', label: 'This week' },
+  { id: 'board', label: 'XP' },
+] as const;
 
-const VIEWS: { id: View; label: string; icon: 'rank' | 'league' | 'progress' }[] = [
-  { id: 'rank', label: 'Ladder', icon: 'rank' },
-  { id: 'lobby', label: 'This week', icon: 'league' },
-  { id: 'board', label: 'XP board', icon: 'progress' },
-];
+type View = (typeof VIEWS)[number]['id'];
 
 export default function RankPage() {
   const { me } = useMe();
   const [scope, setScope] = useState<RankedScope>('weekly');
-  const [view, setView] = useState<View>('rank');
+  const [view, setView] = useState<View>('ladder');
   const { ranked, loading } = useRanked(scope);
   const [optOut, setOptOut] = useState(false);
   const [note, setNote] = useState('');
@@ -73,7 +74,7 @@ export default function RankPage() {
     setError('');
     try {
       await api.patch('/api/v1/me', { leaderboardOptOut: next });
-      setNote(next ? 'You are off the boards. Your rank and RP are untouched.' : 'You are back on the boards.');
+      setNote(next ? 'You are off the boards. Your rank is untouched.' : 'You are back on the boards.');
     } catch (e) {
       setOptOut(!next);
       setError(e instanceof Error ? e.message : 'We could not change that setting.');
@@ -85,264 +86,230 @@ export default function RankPage() {
 
   if (loading && !ranked) return <PageSkeleton />;
 
-  const ranked_ = ranked?.ranked;
+  const data = ranked?.ranked;
   const form = me ? formFor(me.today.reviewed, me.today.correct) : null;
+  const unlocked = ranked?.achievements.filter((a) => a.unlocked).length ?? 0;
 
   return (
-    <div className="space-y-5">
-      <Notice tone="accent">{note}</Notice>
-      <Notice tone="bad">{error}</Notice>
+    <div className="space-y-4">
+      <Notice tone="note" show={!!note}>
+        {note}
+      </Notice>
+      <Notice tone="bad" show={!!error}>
+        {error}
+      </Notice>
 
-      {ranked_ && (
+      {data && (
         <>
           <RankStrip
-            rank={ranked_.rank}
-            lobby={ranked_.lobby}
-            week={ranked_.week}
-            placement={ranked_.placement}
-            xpThisWeek={ranked_.xpThisWeek}
+            rank={data.rank}
+            lobby={data.lobby}
+            week={data.week}
+            placement={data.placement}
+            xpThisWeek={data.xpThisWeek}
           />
 
-          {/* ── View switch ─────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-3">
-            <div className="relative flex gap-1 self-start rounded-full border border-edge/80 bg-panel/70 p-1 backdrop-blur">
+          <Tabs value={view} onValueChange={(next) => setView(next as View)}>
+            <TabsList className="h-11 w-full rounded-pill bg-secondary p-1 sm:w-auto">
               {VIEWS.map((v) => (
-                <button
+                <TabsTrigger
                   key={v.id}
-                  type="button"
-                  onClick={() => setView(v.id)}
-                  aria-pressed={view === v.id}
-                  className={cn(
-                    'relative inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] leading-[1.29] tracking-[-0.224px] transition-colors duration-200',
-                    view === v.id ? 'text-accent' : 'text-muted hover:text-ink',
-                  )}
+                  value={v.id}
+                  className="h-9 flex-1 rounded-pill px-4 text-[14px] font-semibold data-[active]:bg-card data-[active]:text-foreground sm:flex-none"
                 >
-                  {view === v.id && (
-                    <motion.span
-                      layoutId="rank-view-pill"
-                      className="absolute inset-0 rounded-full bg-accent/12"
-                      transition={SPRING.layout}
-                    />
-                  )}
-                  <Icon name={v.icon} size={15} className="relative" strokeWidth={view === v.id ? 2.25 : 1.75} />
-                  <span className={cn('relative', view === v.id && 'font-semibold')}>{v.label}</span>
-                </button>
+                  {v.label}
+                </TabsTrigger>
               ))}
-            </div>
+            </TabsList>
 
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={view}
-                variants={railVariants}
-                custom={1}
-                initial="enter"
-                animate="center"
-                exit="exit"
-              >
-                {view === 'rank' && (
-                  <LadderView
-                    rank={ranked_.rank}
-                    placement={ranked_.placement}
-                    form={form}
-                  />
-                )}
+            <TabsContent value="ladder" className="mt-4">
+              <LadderView rank={data.rank} placement={data.placement} form={form} />
+            </TabsContent>
 
-                {view === 'lobby' && (
-                  <section className="card">
-                    <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                      <div>
-                        <h2 className="display-tight t-tagline">Weekly lobby</h2>
-                        <p className="t-caption mt-1 text-muted">{ranked_.week.rangeLabel}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="t-caption-s tabular-nums">
-                          {ranked_.week.daysLeft === 1 ? 'Last day' : `${ranked_.week.daysLeft} days left`}
-                        </p>
-                        <p className="t-fine mt-0.5 text-muted">Lobbies reset every Monday</p>
-                      </div>
-                    </header>
+            <TabsContent value="lobby" className="mt-4">
+              <section className="card">
+                <header className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="t-tagline">{data.rank.label} lobby</h2>
+                    <p className="text-[13px] text-muted-foreground">{data.week.rangeLabel}</p>
+                  </div>
+                  <span className="badge badge-quiet num shrink-0">
+                    {data.week.daysLeft === 1 ? 'Last day' : `${data.week.daysLeft} days left`}
+                  </span>
+                </header>
 
-                    <p className="t-body mb-4 max-w-2xl text-muted">
-                      {lobbyLine({
-                        zone: ranked_.lobby.zone,
-                        position: ranked_.lobby.position,
-                        size: ranked_.lobby.size,
-                        daysLeft: ranked_.week.daysLeft,
-                        rankLabel: ranked_.rank.label,
-                      })}
-                    </p>
+                <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+                  {lobbyLine({
+                    zone: data.lobby.zone,
+                    position: data.lobby.position,
+                    size: data.lobby.size,
+                    daysLeft: data.week.daysLeft,
+                    rankLabel: data.rank.label,
+                  })}
+                </p>
 
-                    {/* Week elapsed — the clock the whole lobby runs on. */}
-                    <div className="mb-5 flex items-center gap-3">
-                      <div className="meter h-1.5 flex-1">
-                        <motion.div
-                          className="h-full rounded-full bg-ink/60"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${ranked_.week.percentElapsed}%` }}
-                          transition={SPRING.meter}
-                        />
-                      </div>
-                      <span className="t-fine shrink-0 text-muted">{100 - ranked_.week.percentElapsed}% of the week left</span>
-                    </div>
+                {/* The clock the whole lobby runs on. */}
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="meter h-1.5 flex-1">
+                    <motion.div
+                      className="meter-fill"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${data.week.percentElapsed}%` }}
+                      transition={SPRING.meter}
+                    />
+                  </div>
+                  <span className="num shrink-0 text-[12px] text-muted-foreground">
+                    {100 - data.week.percentElapsed}% left
+                  </span>
+                </div>
 
-                    {optOut ? (
-                      <div className="flex items-start gap-3 rounded-[11px] bg-sink/60 p-4">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
-                          <Icon name="private" size={17} />
-                        </span>
-                        <p className="t-caption text-muted">
-                          You are opted out, so your name is hidden from everyone else&apos;s lobby. Your RP and rank
-                          still move exactly as normal.{' '}
-                          <button type="button" onClick={toggleOptOut} className="text-accent hover:underline">
-                            Rejoin the boards
-                          </button>
-                        </p>
-                      </div>
-                    ) : (
-                      <LobbyTable lobby={ranked_.lobby} />
-                    )}
-                  </section>
-                )}
-
-                {view === 'board' && (
-                  <section className="card">
-                    <header className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h2 className="display-tight t-tagline">XP board</h2>
-                        <p className="t-caption mt-1 text-muted">
-                          Raw XP, which is what moves your rank. The lobby is the competition; this is the ledger.
-                        </p>
-                      </div>
-                      <div className="flex gap-1 rounded-full border border-edge/80 bg-panel/70 p-1">
-                        {(['daily', 'weekly', 'monthly'] as const).map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setScope(s)}
-                            aria-pressed={scope === s}
-                            className={cn(
-                              'relative rounded-full px-3.5 py-1.5 text-[14px] capitalize transition-colors duration-200',
-                              scope === s ? 'text-accent' : 'text-muted hover:text-ink',
-                            )}
-                          >
-                            {scope === s && (
-                              <motion.span
-                                layoutId="board-scope-pill"
-                                className="absolute inset-0 rounded-full bg-accent/12"
-                                transition={SPRING.layout}
-                              />
-                            )}
-                            <span className="relative">{s}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </header>
-
-                    <ol className="mt-4 space-y-0.5">
-                      {ranked?.board.map((row, i) => (
-                        <motion.li
-                          key={`${row.rank}-${row.name}`}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ ...SPRING.settle, delay: cappedDelay(i, 0.02, 0.24) }}
-                          className={cn(
-                            'flex items-center gap-3 rounded-[11px] px-3 py-2.5',
-                            row.isMe && 'bg-accent/10 ring-1 ring-inset ring-accent/25',
-                          )}
+                <div className="mt-4">
+                  {optOut ? (
+                    <div className="flex items-start gap-3 rounded-md bg-secondary p-3.5">
+                      <Icon name="private" size={17} className="mt-0.5 shrink-0" />
+                      <p className="text-[14px] leading-snug">
+                        Your name is hidden. Your RP still moves.{' '}
+                        <button
+                          type="button"
+                          onClick={toggleOptOut}
+                          className="font-semibold underline underline-offset-4"
                         >
-                          <span
-                            className={cn(
-                              'w-6 shrink-0 text-center text-[14px] tabular-nums',
-                              row.isMe ? 'font-semibold text-accent' : i < 3 ? 'text-ink' : 'text-muted',
-                            )}
-                          >
-                            {row.rank}
-                          </span>
-                          <span className={cn('min-w-0 flex-1 truncate text-[17px]', row.isMe && 'font-semibold text-accent')}>
-                            {row.name}
-                          </span>
-                          <span className="t-caption shrink-0 tabular-nums text-muted">
-                            <NumberTicker value={row.xp} /> XP
-                          </span>
-                        </motion.li>
-                      ))}
-                      {ranked?.board.length === 0 && (
-                        <p className="t-caption mt-2 text-muted">
-                          Nobody has logged XP this {scope === 'daily' ? 'day' : scope === 'weekly' ? 'week' : 'month'} yet.
-                          One review puts you on the board.
-                        </p>
+                          Rejoin
+                        </button>
+                      </p>
+                    </div>
+                  ) : (
+                    <LobbyTable lobby={data.lobby} />
+                  )}
+                </div>
+              </section>
+            </TabsContent>
+
+            <TabsContent value="board" className="mt-4">
+              <section className="card">
+                <header className="flex items-center justify-between gap-3">
+                  <h2 className="t-tagline">XP board</h2>
+                  <div className="flex gap-1.5">
+                    {(['daily', 'weekly', 'monthly'] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setScope(s)}
+                        aria-pressed={scope === s}
+                        className={cn('chip capitalize', scope === s && 'chip-active')}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </header>
+
+                <ol className="mt-4 divide-y divide-border">
+                  {ranked?.board.map((row, i) => (
+                    <motion.li
+                      key={`${row.rank}-${row.name}`}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ ...SPRING.settle, delay: cappedDelay(i, 0.02, 0.24) }}
+                      className={cn(
+                        'flex items-center gap-3 py-2.5',
+                        row.isMe && '-mx-2 rounded-md bg-secondary px-2',
                       )}
-                    </ol>
-
-                    <button
-                      type="button"
-                      onClick={toggleOptOut}
-                      className="t-caption mt-4 text-accent hover:underline"
                     >
-                      {optOut ? 'Join the boards' : 'Hide me from the boards'}
-                    </button>
-                  </section>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+                      <span
+                        className={cn(
+                          'num w-6 shrink-0 text-center text-[13px]',
+                          row.isMe ? 'font-bold' : 'text-muted-foreground',
+                        )}
+                      >
+                        {row.rank}
+                      </span>
+                      <span className={cn('min-w-0 flex-1 truncate text-[15px]', row.isMe && 'font-bold')}>
+                        {row.isMe ? 'You' : row.name}
+                      </span>
+                      <span className="num shrink-0 text-[14px] text-muted-foreground">
+                        <NumberTicker value={row.xp} /> XP
+                      </span>
+                    </motion.li>
+                  ))}
+                </ol>
 
-          {/* ── Achievements ─────────────────────────────────────────────── */}
+                {ranked?.board.length === 0 && (
+                  <p className="mt-3 text-[14px] text-muted-foreground">
+                    Nobody has logged XP this {scope}. One review puts you on the board.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={toggleOptOut}
+                  className="mt-3 text-[14px] font-medium underline underline-offset-4"
+                >
+                  {optOut ? 'Join the boards' : 'Hide me from the boards'}
+                </button>
+              </section>
+            </TabsContent>
+          </Tabs>
+
+          {/* ── Achievements ───────────────────────────────────────────────── */}
           <section className="card">
             <div className="flex items-baseline justify-between gap-3">
-              <h2 className="display-tight t-tagline">Achievements</h2>
-              <span className="t-caption tabular-nums text-muted">
-                {ranked?.achievements.filter((a) => a.unlocked).length} of {ranked?.achievements.length}
+              <h2 className="t-tagline">Achievements</h2>
+              <span className="num text-[13px] text-muted-foreground">
+                {unlocked}/{ranked?.achievements.length}
               </span>
             </div>
-            <p className="t-caption mt-1 text-muted">
-              Optional, permanent, and separate from your rank — a rank can slip, these cannot.
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              Permanent — a rank can slip, these cannot.
             </p>
-            <StaggerGroup className="mt-4 grid gap-2 sm:grid-cols-2" stagger={0.04} inView>
-              {ranked?.achievements.map((a) => (
-                <StaggerItem key={a.id} step="scale">
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {ranked?.achievements.map((a, i) => (
+                <BlurFade key={a.id} delay={cappedDelay(i, 0.03, 0.3)}>
                   <div
                     className={cn(
-                      'flex items-center gap-3 rounded-[11px] border px-3.5 py-3',
-                      a.unlocked ? 'border-accent/40 bg-accent/5' : 'border-edge/70',
+                      'flex items-center gap-3 rounded-md border px-3.5 py-3',
+                      a.unlocked ? 'border-gold/60 bg-gold/10' : 'border-border',
                     )}
                   >
                     <span
                       className={cn(
                         'grid h-9 w-9 shrink-0 place-items-center rounded-full',
-                        a.unlocked ? 'bg-accent/10 text-accent' : 'bg-sink text-muted',
+                        a.unlocked ? 'bg-gold/25 text-foreground' : 'bg-secondary text-muted-foreground',
                       )}
                     >
                       <Icon name={achievementIcon(a.id, a.icon)} size={17} />
                     </span>
                     <div className="min-w-0">
-                      <div className={cn('t-caption-s', !a.unlocked && 'text-muted')}>{a.name}</div>
-                      <div className="t-caption text-muted">{a.description}</div>
+                      <div className={cn('t-caption-s', !a.unlocked && 'text-muted-foreground')}>
+                        {a.name}
+                      </div>
+                      <div className="text-[12px] text-muted-foreground">{a.description}</div>
                     </div>
-                    {a.unlocked && <Icon name="checked" size={16} className="ml-auto shrink-0 text-accent" />}
+                    {a.unlocked && (
+                      <Icon name="checked" size={16} className="ml-auto shrink-0 text-foreground" />
+                    )}
                   </div>
-                </StaggerItem>
+                </BlurFade>
               ))}
-            </StaggerGroup>
+            </div>
           </section>
         </>
       )}
 
-      {/* ── Transcript ───────────────────────────────────────────────────── */}
+      {/* ── Transcript ─────────────────────────────────────────────────────── */}
       <section className="card">
-        <h2 className="display-tight t-tagline">Transcript</h2>
-        <p className="t-caption mt-1 text-muted">
-          Everything you have covered, your strongest topics and the ones that need work — share it with a teacher or
-          keep it for yourself.
+        <h2 className="t-tagline">Transcript</h2>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Your full history — share it with a teacher, or keep it.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => exportAs('csv')} className="btn-secondary gap-2">
-            <Icon name="download" size={16} />
-            Download CSV
-          </button>
-          <button type="button" onClick={() => exportAs('json')} className="btn-ghost gap-2">
+          <button type="button" onClick={() => exportAs('csv')} className="btn btn-secondary btn-sm gap-2">
             <Icon name="download" size={15} />
-            Download JSON
+            CSV
+          </button>
+          <button type="button" onClick={() => exportAs('json')} className="btn btn-ghost gap-2">
+            <Icon name="download" size={15} />
+            JSON
           </button>
         </div>
       </section>
@@ -353,12 +320,12 @@ export default function RankPage() {
 /**
  * The ladder — every rung in the game, with your position marked.
  *
- * A rank means nothing without the rungs above it, so this view always shows
- * the whole climb: five tier bars showing how much of each tier is banked, then
- * the fifteen rungs as a scrollable rail that centres itself on your rank. The
- * rungs you have not reached are drawn in the muted tone with the identical
- * crest — same shape, no colour — which is the only way to show a fifteen-rank
- * ladder inside a one-accent system.
+ * A rank means nothing without the rungs above it, so this view always shows the
+ * whole climb: five tier bars for how much of each tier is banked, then the
+ * fifteen rungs as a rail that centres itself on your rank. Rungs you have not
+ * reached are drawn with the identical crest in the muted tone — same shape, no
+ * colour — which is the only way to show a fifteen-rank ladder inside a
+ * one-colour system.
  */
 function LadderView({
   rank,
@@ -385,13 +352,12 @@ function LadderView({
   }, [rank.points]);
 
   return (
-    <div className="space-y-5">
-      {/* Tier progress — the long arc of the climb, on one line. */}
+    <div className="space-y-4">
       <section className="card">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="display-tight t-tagline">Tier progress</h2>
-          <span className="t-caption tabular-nums text-muted">
-            <NumberTicker value={rank.points} /> RP total
+          <h2 className="t-tagline">Tier progress</h2>
+          <span className="num text-[13px] text-muted-foreground">
+            <NumberTicker value={rank.points} /> RP
           </span>
         </div>
 
@@ -400,15 +366,10 @@ function LadderView({
             const isCurrent = t.tier === rank.tier;
             const cleared = rank.points >= t.base + t.total;
             return (
-              <div key={t.tier} className="flex-1">
-                <div
-                  className={cn(
-                    'h-1.5 overflow-hidden rounded-full',
-                    isCurrent ? 'meter-accent' : 'bg-edge/50',
-                  )}
-                >
+              <div key={t.tier} className="min-w-0 flex-1">
+                <div className="meter h-2">
                   <motion.div
-                    className="h-full rounded-full bg-accent"
+                    className={cn('h-full rounded-pill', cleared || isCurrent ? 'meter-fill' : 'bg-border-strong')}
                     initial={{ width: 0 }}
                     animate={{ width: `${t.percent}%` }}
                     transition={SPRING.meter}
@@ -416,8 +377,8 @@ function LadderView({
                 </div>
                 <p
                   className={cn(
-                    't-micro mt-1.5 truncate',
-                    isCurrent ? 'text-accent' : cleared ? 'text-ink' : 'text-muted',
+                    'mt-1.5 truncate text-[10px] font-bold uppercase tracking-[0.06em]',
+                    isCurrent ? 'text-foreground' : 'text-muted-foreground',
                   )}
                 >
                   {tierName(t.tier)}
@@ -427,28 +388,27 @@ function LadderView({
           })}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-edge/70 pt-4">
-          <span className="t-caption flex items-center gap-1.5 text-muted">
-            <Icon name="form" size={14} className="text-accent" />
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3.5">
+          <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+            <Icon name="form" size={14} />
             Form
-            <strong className="font-semibold text-ink">{form?.label ?? '—'}</strong>
+            <strong className="font-semibold text-foreground">{form?.label ?? '—'}</strong>
           </span>
-          <span className="t-caption flex-1 text-muted">{form?.detail}</span>
+          <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">{form?.detail}</span>
         </div>
       </section>
 
-      {/* The ladder itself. */}
       <section className="card">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="display-tight t-tagline">The ladder</h2>
-          <span className="t-caption text-muted">
+          <h2 className="t-tagline">The ladder</h2>
+          <span className="num text-[13px] text-muted-foreground">
             {placement.placing
-              ? `Placement game ${placement.done} of ${placement.target}`
-              : `${RANK_LADDER.length} ranks · ${rank.label} now`}
+              ? `Placement ${placement.done}/${placement.target}`
+              : `${RANK_LADDER.length} ranks`}
           </span>
         </div>
 
-        <div className="rail mt-5">
+        <div className="rail mt-4">
           {RANK_LADDER.map((rung) => {
             const rungRank = rankFor(rung.base);
             const isCurrent = rung.index === rank.index;
@@ -457,47 +417,39 @@ function LadderView({
               <div
                 key={rung.index}
                 ref={isCurrent ? activeRef : undefined}
-                className="w-[104px] shrink-0"
+                className={cn(
+                  'flex w-[96px] flex-col items-center gap-1.5 rounded-lg border px-2.5 py-3.5 text-center',
+                  isCurrent ? 'border-foreground bg-secondary' : 'border-border',
+                )}
               >
-                <div
+                <RankCrest rank={rungRank} size={42} showProgress={false} muted={!reached} animate={false} />
+                <p
                   className={cn(
-                    'flex flex-col items-center gap-2 rounded-[18px] border px-3 py-4 text-center transition-colors duration-200',
-                    isCurrent
-                      ? 'border-accent/60 bg-accent/8'
-                      : reached
-                        ? 'border-edge/70'
-                        : 'border-edge/40',
+                    'text-[13px] font-semibold',
+                    reached ? 'text-foreground' : 'text-muted-foreground',
                   )}
                 >
-                  <RankCrest rank={rungRank} size={44} showProgress={false} muted={!reached} animate={false} />
-                  <div>
-                    <p className={cn('t-caption-s', reached ? 'text-ink' : 'text-muted', isCurrent && 'text-accent')}>
-                      {DIVISION_LABEL[rung.division]}
-                    </p>
-                    <p className="t-micro mt-0.5 text-muted">{tierName(rung.tier)}</p>
-                  </div>
-                  <p className="t-micro tabular-nums text-muted">{rung.base} RP</p>
-                  {isCurrent && (
-                    <span className="t-micro rounded-full bg-accent/15 px-2 py-0.5 text-accent">You</span>
-                  )}
-                </div>
+                  {DIVISION_LABEL[rung.division]}
+                </p>
+                <p className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                  {tierName(rung.tier)}
+                </p>
+                <p className="num text-[10px] text-muted-foreground">{rung.base} RP</p>
               </div>
             );
           })}
         </div>
 
         {!rank.isApex && (
-          <p className="t-caption mt-4 text-muted">
-            Next rung in {rank.remaining} RP — about {reviewsForRp(rank.remaining)} more correct reviews. Keep an eye on
-            your form: accuracy is what makes RP arrive quickly.
+          <p className="mt-3.5 text-[13px] text-muted-foreground">
+            Next rung in {rank.remaining} RP · about {reviewsForRp(rank.remaining)} reviews.
           </p>
         )}
       </section>
 
-      {/* The one piece of policy a learner actually needs stated in words. */}
-      <p className="t-fine px-1 text-muted">
-        Rank is earned from lifetime XP and never resets. The weekly lobby only decides where you sit inside your tier,
-        so a bad week costs you position, not progress.
+      <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
+        Rank comes from lifetime XP and never resets. The weekly lobby only decides where you sit inside
+        your tier — a bad week costs you position, not progress.
       </p>
     </div>
   );

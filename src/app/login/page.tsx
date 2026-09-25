@@ -6,7 +6,7 @@ export default function LoginPage() {
   return (
     <AuthShell
       footer={
-        <Link href="/staff/login" className="transition-colors hover:text-ink">
+        <Link href="/staff/login" className="transition-colors hover:text-foreground">
           Staff sign in
         </Link>
       }

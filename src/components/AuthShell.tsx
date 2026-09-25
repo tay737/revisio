@@ -1,16 +1,22 @@
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { BlurFade } from '@/components/ui/motion/blur-fade';
+import { BlurFade } from '@/components/ui/blur-fade';
 
 /**
  * One shell for all four auth pages (login, register, staff login, staff
- * register). They previously duplicated the same three lines of layout; this
- * owns it once.
+ * register), so the same three lines of layout are not written four times.
  *
- * The backdrop is the spec's tile rhythm rather than a gradient: a near-black
- * tile occupying the upper 46% of the viewport against the parchment canvas.
- * That is not decoration for its own sake — it is what makes the frosted card
- * legible as glass, because there is finally something behind it to blur.
+ * The previous version put a near-black tile over the upper 46% of the viewport
+ * and floated the form in the middle of it, which meant the opaque white card
+ * landed *across* the tile boundary at a different height on every device — it
+ * read as a misaligned band rather than as a decision. It now does the thing the
+ * spec actually describes: a compact ink band as the header, containing the
+ * wordmark and one line, with the form card overlapping its lower edge by a
+ * fixed 32px. A fixed overlap is what makes the card look placed instead of
+ * fallen.
+ *
+ * The band carries the `.band` scope, so everything inside it — including the
+ * theme toggle — is written once for a light page and comes out white here.
  */
 export function AuthShell({
   children,
@@ -20,31 +26,30 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden">
-      <div aria-hidden className="absolute inset-x-0 top-0 h-[46%] bg-[#272729]" />
-
-      <div className="absolute right-4 top-4 z-10">
-        <ThemeToggle className="!border-white/20 !bg-white/10 !text-white/80 hover:!text-white" />
-      </div>
-
-      <div className="relative w-full max-w-md px-6 py-14">
-        <BlurFade>
-          <Link
-            href="/"
-            className="mb-6 flex items-center justify-center gap-2 text-[17px] font-semibold tracking-[-0.374px] text-white"
-          >
-            <span className="grid h-6 w-6 place-items-center rounded-[6px] bg-accent text-[11px] font-semibold text-accent-ink">
+    <main className="flex min-h-screen flex-col bg-background">
+      <div className="band tile-dark px-5 pt-safe">
+        <div className="mx-auto flex w-full max-w-md items-center justify-between pt-5">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
               R
             </span>
-            Revisio
+            <span className="t-tagline">Revisio</span>
           </Link>
-        </BlurFade>
+          <ThemeToggle />
+        </div>
 
-        <BlurFade delay={0.08}>{children}</BlurFade>
+        <div className="mx-auto w-full max-w-md pb-16 pt-10">
+          <p className="t-eyebrow">Spaced repetition</p>
+          <h2 className="t-display mt-2 max-w-xs">Ten minutes a day.</h2>
+        </div>
+      </div>
+
+      <div className="mx-auto -mt-8 w-full max-w-md flex-1 px-5 pb-12">
+        <BlurFade delay={0.06}>{children}</BlurFade>
 
         {footer && (
-          <div className="mt-6 text-center">
-            <p className="t-fine text-muted">{footer}</p>
+          <div className="mt-5 text-center text-[13px] text-muted-foreground">
+            <p>{footer}</p>
           </div>
         )}
       </div>

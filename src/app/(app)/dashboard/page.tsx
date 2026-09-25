@@ -4,12 +4,10 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { learnerSnapshot, useMe } from '@/lib/useMe';
 import { useRanked } from '@/lib/useRanked';
-import { Icon, achievementIcon, type IconName } from '@/components/ui/icons';
-import { BlurFade } from '@/components/ui/motion/blur-fade';
-import { GlassCard } from '@/components/ui/motion/glass-card';
-import { NumberTicker } from '@/components/ui/motion/number-ticker';
-import { WordRotate } from '@/components/ui/motion/word-rotate';
-import { StaggerGroup, StaggerItem } from '@/components/ui/motion/stagger';
+import { Icon, type IconName } from '@/components/ui/icons';
+import { BlurFade } from '@/components/ui/blur-fade';
+import { NumberTicker } from '@/components/ui/number-ticker';
+import { WordRotate } from '@/components/ui/word-rotate';
 import { TilePanel } from '@/components/ui/tile';
 import { Companion } from '@/components/companion';
 import { RankStrip } from '@/components/rank/RankStrip';
@@ -19,48 +17,40 @@ import PageSkeleton from '@/components/PageSkeleton';
 /**
  * Today — the dashboard.
  *
- * The page is laid out as the spec's **tile rhythm**: a near-black hero tile,
- * light content, a second near-black panel carrying your rank, then light
- * content again. The alternation is the page's structure, not decoration, and
- * it is what makes the two things that matter (what to do now, and where you
- * stand) read as the two halves of the screen.
+ * **What changed, and why.** The page used to open with a near-black hero, then
+ * eight paragraphs of explanation across four cards ("Work through today's queue.
+ * The scheduler has already decided what is worth your time"), a second stats
+ * card repeating numbers the strip above it already showed, and a sixth card of
+ * achievements that the Rank page also lists. On a phone that was roughly four
+ * screens of scrolling to reach two decisions.
  *
- * The companion appears a second time here, and only when it has something
- * genuinely first-run to say — a brand new account or one coming back after a
- * real gap. The rest of the time its line lives in the header, because a
- * presence that repeats itself in three places is not a companion, it is noise.
+ * It is now one screen of decisions in the Duolingo order of operations:
+ *
+ *   1. **The hero** — the greeting, one rotating line of conversation, and the
+ *      single green button that starts a session. On a phone it is the only
+ *      thing above the fold, which is the point: there is one thing to do.
+ *   2. **Four numbers** — due, done, streak, XP. Two columns on a phone so each
+ *      is a comfortable tap-and-read block rather than a 60px sliver.
+ *   3. **Rank** — the same near-black band the Rank page uses, because where you
+ *      stand is the second half of the answer to "what now".
+ *   4. **Four ways in** — one line each. The long copy is gone; a hint is four
+ *      words, and the page that follows can explain itself.
+ *
+ * The tile rhythm still carries the structure (dark hero → light grid → dark
+ * rank band → light grid), which is Uber's polarity flip doing the work that
+ * borders and shadows are not allowed to do here.
  *
  * Data comes from `useMe()` and `useRanked()` — the same two cache entries the
- * shell and the Rank page use, so this page costs no extra requests.
+ * shell and the Rank page read, so this page costs no extra requests.
  */
 
-type Tile = { href: string; icon: IconName; title: string; body: string };
+type Action = { href: string; icon: IconName; title: string; hint: string };
 
-const TILES: Tile[] = [
-  {
-    href: '/review',
-    icon: 'review',
-    title: 'Daily review',
-    body: 'Work through today’s queue. The scheduler has already decided what is worth your time.',
-  },
-  {
-    href: '/cram',
-    icon: 'cram',
-    title: 'Cram a topic',
-    body: 'Notes and rapid questions before an exam. Your SRS schedule is left exactly as it was.',
-  },
-  {
-    href: '/learn',
-    icon: 'learn',
-    title: 'Read the notes',
-    body: 'Every topic, tied to the specification, in detailed or summary density.',
-  },
-  {
-    href: '/exam',
-    icon: 'exam',
-    title: 'Sit a paper',
-    body: 'Past-paper style questions marked against the mark scheme, with a per-question breakdown.',
-  },
+const ACTIONS: Action[] = [
+  { href: '/cram', icon: 'cram', title: 'Cram', hint: 'Before an exam' },
+  { href: '/learn', icon: 'learn', title: 'Notes', hint: 'The full topic' },
+  { href: '/exam', icon: 'exam', title: 'Exam', hint: 'A marked paper' },
+  { href: '/progress', icon: 'rank', title: 'Rank', hint: 'Ladder and lobby' },
 ];
 
 export default function DashboardPage() {
@@ -78,78 +68,74 @@ export default function DashboardPage() {
   }, [me]);
 
   const read = useMemo(() => (me ? companionFor(learnerSnapshot(me)) : null), [me]);
-  const showCompanion = read?.tone === 'welcome' || read?.tone === 'returning';
 
   if (loading) return <PageSkeleton />;
   if (error || !me || !started) {
     return (
       <div className="card text-center">
-        <Icon name="due" size={20} className="mx-auto text-bad" />
+        <Icon name="due" size={20} className="mx-auto text-destructive" />
         <p className="t-strong mt-2">We couldn’t load your dashboard.</p>
-        <p className="t-caption mt-1 text-muted">Check your connection and try again.</p>
+        <p className="t-caption mt-1 text-muted-foreground">Check your connection and try again.</p>
       </div>
     );
   }
 
   const { gamification: gam, today } = me;
+  const accuracy = today.reviewed > 0 ? Math.round((today.correct / today.reviewed) * 100) : null;
 
   return (
-    <div className="space-y-5">
-      {/* ── Hero: a near-black tile. The spec's section divider, used to make
-             the top of the screen unmistakably the headline. ─────────────── */}
-      <TilePanel tone="dark" className="p-6 md:p-9">
-        <BlurFade delay={0}>
-          <p className="t-eyebrow !text-white/55">{greetingFor(me.name)}</p>
-        </BlurFade>
+    <div className="space-y-4">
+      {/* ── 1. The hero: greeting, one line, one green button ─────────────── */}
+      <TilePanel tone="dark" className="p-5 sm:p-7">
+        <p className="t-eyebrow">{greetingFor(me.name)}</p>
 
-        <BlurFade delay={0.06} className="mt-3">
-          <h2 className="display-tight t-display">
-            <WordRotate words={openers(started)} interval={4200} />
-          </h2>
-        </BlurFade>
+        <div className="-my-1 mt-1">
+          <WordRotate words={openers(started)} duration={4600} className="t-display" />
+        </div>
 
-        {/* The companion gets a body here only when it has something first-run
-            to say. Otherwise its line is in the header and this stays clean. */}
-        {showCompanion && read && (
-          <div className="mt-5 rounded-[18px] border border-white/12 bg-white/5 p-4">
+        <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+          {today.due > 0 ? (
+            <Link href="/review" className="btn btn-good btn-lg gap-2.5">
+              <Icon name="review" size={18} />
+              Start review
+              <span className="num rounded-full bg-black/20 px-2 py-0.5 text-[13px] font-bold">
+                {today.due}
+              </span>
+            </Link>
+          ) : (
+            <Link href="/learn" className="btn btn-good btn-lg gap-2.5">
+              <Icon name="learn" size={18} />
+              Get ahead
+            </Link>
+          )}
+          <Link href="/cram" className="btn btn-secondary btn-lg gap-2.5">
+            <Icon name="cram" size={18} />
+            Cram instead
+          </Link>
+        </div>
+
+        {read && (
+          <div className="mt-5 border-t border-border pt-4">
             <Companion snap={learnerSnapshot(me)} onTile compact />
           </div>
         )}
-
-        <BlurFade delay={0.12}>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            {today.due > 0 ? (
-              <Link href="/review" className="btn-primary gap-2">
-                <Icon name="review" size={18} />
-                Start today’s review
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[12px] tabular-nums">{today.due}</span>
-              </Link>
-            ) : (
-              <Link href="/learn" className="btn-primary gap-2">
-                <Icon name="learn" size={18} />
-                Read ahead
-              </Link>
-            )}
-            <Link
-              href="/cram"
-              className="btn inline-flex gap-2 border border-white/25 text-white transition-colors duration-200 hover:bg-white/10"
-            >
-              <Icon name="cram" size={18} />
-              Cram instead
-            </Link>
-          </div>
-        </BlurFade>
       </TilePanel>
 
-      {/* ── Numbers ──────────────────────────────────────────────────────── */}
-      <StaggerGroup className="grid grid-cols-2 gap-3 sm:grid-cols-4" stagger={0.05}>
-        <StatTile icon="due" label="Due now" value={today.due} accent={today.due > 0} />
-        <StatTile icon="reviewed" label="Reviewed today" value={today.reviewed} />
-        <StatTile icon="streak" label="Streak" value={gam.streak} suffix="d" />
-        <StatTile icon="xp" label="Total XP" value={gam.totalXp} />
-      </StaggerGroup>
+      {/* ── 2. Four numbers ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat icon="review" label="Due" value={today.due} tone={today.due > 0 ? 'good' : undefined} />
+        <Stat icon="reviewed" label="Done today" value={today.reviewed} />
+        <Stat
+          icon="streak"
+          label="Streak"
+          value={gam.streak}
+          suffix={gam.streak === 1 ? ' day' : ' days'}
+          tone={gam.streak > 0 ? 'streak' : undefined}
+        />
+        <Stat icon="xp" label="Total XP" value={gam.totalXp} />
+      </div>
 
-      {/* ── Rank: the second dark tile. Light → dark → light is the rhythm. ── */}
+      {/* ── 3. Rank: the second dark band ────────────────────────────────── */}
       {ranked && (
         <BlurFade>
           <RankStrip
@@ -162,150 +148,100 @@ export default function DashboardPage() {
         </BlurFade>
       )}
 
-      {/* ── Subjects and the long view ───────────────────────────────────── */}
-      <StaggerGroup className="grid gap-3 sm:grid-cols-2" delayChildren={0.06} inView>
-        <StaggerItem step="scale">
-          <GlassCard className="h-full p-5">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="t-strong">Your subjects</h2>
-              <Link href="/library" className="t-caption text-accent hover:underline">
-                Manage
-              </Link>
-            </div>
-            {me.subjects.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {me.subjects.map((s) => (
-                  <span key={s.id} className="chip">
-                    <Icon name="topic" size={13} />
-                    {s.name}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="t-caption mt-2 text-muted">
-                No subjects yet.{' '}
-                <Link href="/library" className="text-accent hover:underline">
-                  Pick a few
-                </Link>{' '}
-                and your queue will fill itself.
-              </p>
-            )}
-          </GlassCard>
-        </StaggerItem>
-
-        <StaggerItem step="scale">
-          <GlassCard className="h-full p-5">
-            <h2 className="t-strong">Since you started</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-              <div>
-                <dt className="t-fine text-muted">Best streak</dt>
-                <dd className="t-num-sm mt-0.5">
-                  <NumberTicker value={gam.bestStreak} />
-                  <span className="t-caption text-muted">{gam.bestStreak === 1 ? '\u00A0day' : '\u00A0days'}</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="t-fine text-muted">Rank points</dt>
-                <dd className="t-num-sm mt-0.5">
-                  <NumberTicker value={ranked?.ranked.rank.points ?? gam.totalXp} />
-                </dd>
-              </div>
-              <div>
-                <dt className="t-fine text-muted">Level</dt>
-                <dd className="t-num-sm mt-0.5">{gam.level}</dd>
-              </div>
-              <div>
-                <dt className="t-fine text-muted">Accuracy today</dt>
-                <dd className="t-num-sm mt-0.5">
-                  {today.reviewed > 0 ? `${Math.round((today.correct / today.reviewed) * 100)}%` : '—'}
-                </dd>
-              </div>
-            </dl>
-          </GlassCard>
-        </StaggerItem>
-      </StaggerGroup>
-
-      {/* ── Actions ──────────────────────────────────────────────────────── */}
-      <StaggerGroup className="grid gap-3 sm:grid-cols-2" delayChildren={0.02} inView>
-        {TILES.map((tile) => (
-          <StaggerItem key={tile.href} step="scale">
-            <Link href={tile.href} className="group block h-full">
-              <GlassCard
-                tone="pane"
-                spotlight
-                className="h-full p-5 transition-colors duration-200 group-hover:border-accent/40"
-              >
-                <div className="flex items-start gap-3.5">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent transition-transform duration-200 group-hover:scale-105">
-                    <Icon name={tile.icon} size={20} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="t-strong flex items-center gap-1.5">
-                      {tile.title}
-                      <Icon
-                        name="next"
-                        size={15}
-                        className="translate-x-[-2px] text-accent opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100"
-                      />
-                    </h3>
-                    <p className="t-caption mt-1.5 text-muted">{tile.body}</p>
-                  </div>
-                </div>
-              </GlassCard>
+      {/* ── 4. Four ways in ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {ACTIONS.map((action, i) => (
+          <BlurFade key={action.href} delay={i * 0.04}>
+            <Link
+              href={action.href}
+              className="card flex h-full flex-col gap-2.5 p-4 transition-colors duration-150 active:bg-secondary hover:border-border-strong"
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
+                <Icon name={action.icon} size={18} />
+              </span>
+              <span>
+                <span className="t-strong block">{action.title}</span>
+                <span className="block text-[13px] text-muted-foreground">{action.hint}</span>
+              </span>
             </Link>
-          </StaggerItem>
+          </BlurFade>
         ))}
-      </StaggerGroup>
+      </div>
 
-      {/* ── Achievements ─────────────────────────────────────────────────── */}
-      {me.achievements.length > 0 && (
-        <BlurFade inView>
-          <GlassCard className="p-5">
-            <div className="flex items-baseline justify-between">
-              <h2 className="t-strong">Earned so far</h2>
-              <Link href="/progress" className="t-caption text-accent hover:underline">
-                All progress
-              </Link>
-            </div>
+      {/* ── Subjects, and the two facts worth keeping from the old card ──── */}
+      <BlurFade>
+        <div className="card">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="t-strong">Your subjects</h2>
+            <Link href="/library" className="text-[14px] font-medium underline underline-offset-4">
+              Manage
+            </Link>
+          </div>
+
+          {me.subjects.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              {me.achievements.slice(0, 6).map((a) => (
-                <span key={a.id} className="chip" title={a.description}>
-                  <Icon name={achievementIcon(a.id, a.icon)} size={14} className="text-accent" />
-                  {a.name}
+              {me.subjects.map((s) => (
+                <span key={s.id} className="chip chip-soft">
+                  {s.name}
                 </span>
               ))}
             </div>
-          </GlassCard>
-        </BlurFade>
-      )}
+          ) : (
+            <p className="mt-2 text-[14px] text-muted-foreground">
+              Pick a subject and your queue fills itself.{' '}
+              <Link href="/library" className="text-foreground underline underline-offset-4">
+                Add one
+              </Link>
+            </p>
+          )}
+
+          <dl className="mt-4 flex gap-6 border-t border-border pt-3">
+            <div>
+              <dt className="t-fine text-muted-foreground">Best streak</dt>
+              <dd className="t-strong num mt-0.5">
+                <NumberTicker value={gam.bestStreak} />
+                <span className="text-muted-foreground">{gam.bestStreak === 1 ? ' day' : ' days'}</span>
+              </dd>
+            </div>
+            <div>
+              <dt className="t-fine text-muted-foreground">Accuracy today</dt>
+              <dd className="t-strong num mt-0.5">
+                {accuracy === null ? '—' : `${accuracy}%`}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </BlurFade>
     </div>
   );
 }
 
-function StatTile({
+function Stat({
   icon,
   label,
   value,
   suffix,
-  accent,
+  tone,
 }: {
   icon: IconName;
   label: string;
   value: number;
   suffix?: string;
-  accent?: boolean;
+  tone?: 'good' | 'streak';
 }) {
+  const tint =
+    tone === 'good' ? 'text-good' : tone === 'streak' ? 'text-streak' : 'text-muted-foreground';
+
   return (
-    <StaggerItem step="scale">
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-1.5 text-muted">
-          <Icon name={icon} size={14} className={accent ? 'text-accent' : undefined} />
-          <span className="t-caption">{label}</span>
-        </div>
-        <div className={accent ? 't-num-sm mt-1 text-accent' : 't-num-sm mt-1'}>
-          <NumberTicker value={value} suffix={suffix} />
-        </div>
-      </GlassCard>
-    </StaggerItem>
+    <div className="card p-4">
+      <div className={`flex items-center gap-1.5 ${tone ? tint : 'text-muted-foreground'}`}>
+        <Icon name={icon} size={15} />
+        <span className="t-fine">{label}</span>
+      </div>
+      <div className="t-num-sm mt-1.5">
+        <NumberTicker value={value} className="num" />
+        {suffix && <span className="text-[12px] font-normal text-muted-foreground">{suffix}</span>}
+      </div>
+    </div>
   );
 }

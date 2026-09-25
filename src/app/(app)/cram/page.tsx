@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { NumberTicker } from '@/components/ui/motion/number-ticker';
+import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import { sessionSummary } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
@@ -135,12 +135,12 @@ export default function CramPage() {
   if (session && !card) {
     return (
       <div className="card mx-auto max-w-md p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
           <Icon name="cram" size={22} />
         </span>
         <h1 className="t-tagline mt-4">Cram session done</h1>
-        <p className="t-body mt-2 text-muted">{sessionSummary(score.correct, score.total)}</p>
-        <p className="t-caption mt-2 text-muted">Nothing about your review schedule changed.</p>
+        <p className="t-body mt-2 text-muted-foreground">{sessionSummary(score.correct, score.total)}</p>
+        <p className="t-caption mt-2 text-muted-foreground">Nothing about your review schedule changed.</p>
         <div className="mt-5 flex justify-center gap-2">
           <button
             type="button"
@@ -148,11 +148,11 @@ export default function CramPage() {
               setSession(null);
               setPicked(new Set());
             }}
-            className="btn-secondary"
+            className="btn btn-secondary"
           >
             Cram something else
           </button>
-          <Link href="/review" className="btn-primary">
+          <Link href="/review" className="btn btn-primary">
             Back to reviews
           </Link>
         </div>
@@ -165,11 +165,11 @@ export default function CramPage() {
     return (
       <div className="mx-auto max-w-xl space-y-4">
         <div className="flex items-center justify-between">
-          <span className="t-caption tabular-nums text-muted">
-            {idx + 1} <span className="text-edge">/</span> {session.queue.length}
+          <span className="t-caption tabular-nums text-muted-foreground">
+            {idx + 1} <span className="text-border">/</span> {session.queue.length}
           </span>
           <span className="chip">
-            <Icon name="target" size={14} className="text-accent" />
+            <Icon name="target" size={14} className="text-primary" />
             <NumberTicker value={score.correct} className="tabular-nums" />
             <span>/ {score.total} correct</span>
           </span>
@@ -177,7 +177,7 @@ export default function CramPage() {
 
         <div className="meter">
           <motion.div
-            className="h-full rounded-full bg-accent"
+            className="h-full rounded-full bg-primary"
             animate={{ width: `${session.queue.length ? (idx / session.queue.length) * 100 : 0}%` }}
             transition={SPRING.meter}
           />
@@ -186,20 +186,20 @@ export default function CramPage() {
         {session.notes.length > 0 && (
           <details className="card p-0">
             <summary className="flex cursor-pointer items-center gap-2 px-5 py-4 text-[14px] font-semibold leading-[1.29] tracking-[-0.224px]">
-              <Icon name="notes" size={16} className="text-accent" />
+              <Icon name="notes" size={16} className="text-primary" />
               Revision notes
               <span className="chip ml-1 capitalize">{session.noteDensityLabel}</span>
-              <Icon name="collapse" size={15} className="ml-auto text-muted" />
+              <Icon name="collapse" size={15} className="ml-auto text-muted-foreground" />
             </summary>
-            <div className="space-y-2 border-t border-edge/70 px-5 py-4">
+            <div className="space-y-2 border-t border-border/70 px-5 py-4">
               {session.notes.map((n) => (
                 <details key={n.topicId + n.title} className="inset overflow-hidden">
                   <summary className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-[14px] font-semibold leading-[1.29] tracking-[-0.224px]">
-                    <Icon name="learn" size={14} className="text-accent" />
+                    <Icon name="learn" size={14} className="text-primary" />
                     {n.title}
                     {n.specRefs && <span className="chip ml-auto">{n.specRefs}</span>}
                   </summary>
-                  <pre className="t-body whitespace-pre-wrap border-t border-edge/60 px-3 py-3 font-[inherit] text-ink">
+                  <pre className="t-body whitespace-pre-wrap border-t border-border/60 px-3 py-3 font-[inherit] text-foreground">
                     {n.contentMd}
                   </pre>
                 </details>
@@ -222,7 +222,7 @@ export default function CramPage() {
                   <Icon name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'} size={13} />
                   {KIND_LABEL[card.kind]}
                 </span>
-                <span className="t-caption truncate text-muted">{card.topicName}</span>
+                <span className="t-caption truncate text-muted-foreground">{card.topicName}</span>
               </div>
 
               <div className="mt-5 text-[21px] font-normal leading-[1.4]">
@@ -239,12 +239,12 @@ export default function CramPage() {
                       type="button"
                       whileTap={{ scale: 0.99 }}
                       onClick={() => setSelected(o.id)}
-                      className={`option ${selected === o.id ? 'option-selected font-semibold' : 'hover:bg-edge/20'}`}
+                      className={`option ${selected === o.id ? 'option-selected font-semibold' : 'hover:bg-border/20'}`}
                     >
                       {o.text}
                     </motion.button>
                   ))}
-                  <button className="btn-primary mt-2 w-full" disabled={!selected || busy} onClick={submit}>
+                  <button className="btn btn-primary mt-2 w-full" disabled={!selected || busy} onClick={submit}>
                     {busy ? 'Marking…' : 'Check answer'}
                   </button>
                 </div>
@@ -266,27 +266,27 @@ export default function CramPage() {
                     autoFocus
                     aria-label="Your answer"
                   />
-                  <button type="submit" className="btn-primary mt-3 w-full" disabled={!input.trim() || busy}>
+                  <button type="submit" className="btn btn-primary mt-3 w-full" disabled={!input.trim() || busy}>
                     {busy ? 'Marking…' : 'Check answer'}
                   </button>
                 </form>
               )}
 
               {result && (
-                <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.verdict.correct ? 'bg-good/10' : 'bg-bad/10'}`}>
-                  <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.verdict.correct ? 'text-good' : 'text-bad'}`}>
+                <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.verdict.correct ? 'bg-good/10' : 'bg-destructive/10'}`}>
+                  <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.verdict.correct ? 'text-good' : 'text-destructive'}`}>
                     <Icon name={result.verdict.correct ? 'reviewed' : 'close'} size={18} />
                     {result.verdict.correct ? 'Correct' : 'Not quite'}
-                    {result.xpAwarded > 0 && <span className="t-caption ml-auto font-normal text-muted">+{result.xpAwarded} XP</span>}
+                    {result.xpAwarded > 0 && <span className="t-caption ml-auto font-normal text-muted-foreground">+{result.xpAwarded} XP</span>}
                   </div>
-                  {result.verdict.note && <p className="t-caption mt-2 text-ink">{result.verdict.note}</p>}
+                  {result.verdict.note && <p className="t-caption mt-2 text-foreground">{result.verdict.note}</p>}
                   {result.modelAnswer && (
                     <div className="inset mt-2.5 px-3 py-2">
-                      <span className="t-micro uppercase tracking-[0.08em] text-muted">Model answer</span>
-                      <p className="t-caption mt-0.5 text-ink">{result.modelAnswer}</p>
+                      <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Model answer</span>
+                      <p className="t-caption mt-0.5 text-foreground">{result.modelAnswer}</p>
                     </div>
                   )}
-                  <button onClick={next} className="btn-primary mt-4 w-full gap-2">
+                  <button onClick={next} className="btn btn-primary mt-4 w-full gap-2">
                     Next
                     <Icon name="next" size={17} />
                   </button>
@@ -309,15 +309,15 @@ export default function CramPage() {
       <PageHeader
         icon="cram"
         title="Cram"
-        subtitle="Read the notes, then drill as many questions as you like. Cram reviews are logged but never reschedule your cards."
+        subtitle="Extra practice. Your schedule stays put."
       />
 
       <div className="card space-y-5">
         <div>
           <span className="label">Topics</span>
           {withCards.length === 0 ? (
-            <p className="t-caption text-muted">
-              None of your topics have questions yet. <Link href="/library" className="text-accent hover:underline">Add some</Link> and they will show up here.
+            <p className="t-caption text-muted-foreground">
+              None of your topics have questions yet. <Link href="/library" className="text-primary hover:underline">Add some</Link> and they will show up here.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -340,7 +340,7 @@ export default function CramPage() {
                   >
                     {on && <Icon name="correct" size={13} />}
                     {t.name}
-                    <span className="text-muted">{t.cardCount}</span>
+                    <span className="text-muted-foreground">{t.cardCount}</span>
                   </button>
                 );
               })}
@@ -351,7 +351,7 @@ export default function CramPage() {
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <span className="label">Notes to show</span>
-            <div className="flex gap-1 rounded-[11px] border border-edge/70 bg-panel/60 p-1">
+            <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
               {(['summary', 'detailed'] as const).map((d) => (
                 <button
                   key={d}
@@ -364,7 +364,7 @@ export default function CramPage() {
                 </button>
               ))}
             </div>
-            <p className="t-caption mt-1.5 text-muted">
+            <p className="t-caption mt-1.5 text-muted-foreground">
               Summary notes are the ones to skim five minutes before the exam.
             </p>
           </div>
@@ -381,9 +381,9 @@ export default function CramPage() {
               step={5}
               value={maxPerTopic}
               onChange={(e) => setMaxPerTopic(Number(e.target.value))}
-              className="w-full accent-[rgb(var(--c-accent))]"
+              className="w-full"
             />
-            <p className="t-caption mt-1.5 text-muted">
+            <p className="t-caption mt-1.5 text-muted-foreground">
               {picked.size > 0
                 ? `Up to ${picked.size * maxPerTopic} questions across ${picked.size} ${picked.size === 1 ? 'topic' : 'topics'}.`
                 : 'Pick at least one topic to begin.'}
@@ -391,7 +391,7 @@ export default function CramPage() {
           </div>
         </div>
 
-        <button className="btn-primary w-full gap-2" disabled={picked.size === 0 || starting} onClick={start}>
+        <button className="btn btn-primary w-full gap-2" disabled={picked.size === 0 || starting} onClick={start}>
           <Icon name="start" size={18} />
           {starting ? 'Building your session…' : 'Start cram session'}
         </button>

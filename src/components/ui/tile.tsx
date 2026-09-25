@@ -1,26 +1,27 @@
 import { cn } from '@/lib/utils';
 
 /**
- * Tiles — the spec's section rhythm.
+ * Bands and panels — the section rhythm from docs/DESIGN-UBER.md.
  *
- * docs/DESIGN.md divides every page with **surface change, not chrome**: full
- * "tiles" alternating white → parchment → near-black, edge to edge, with no
- * border and no shadow between them, because "the colour change itself is the
- * section divider". That alternation is the single most recognisable thing
- * about the system, and it was entirely absent from this app — which is why a
- * correct colour palette still read as flat.
+ * The spec divides pages with **surface change, not chrome**: full-bleed bands
+ * alternating canvas → ink → canvas, edge to edge, with no border and no shadow
+ * between them, because the polarity shift *is* the divider. That alternation is
+ * the single most recognisable thing about the system.
  *
  * Two renderings, because the app has two kinds of page:
  *
- *   • `TileBand` — true viewport-width bands, for surfaces that own the whole
- *     window (the landing page, the auth screens).
- *   • `TilePanel` — the same tiles rendered inside the app's content column and
- *     rounded, for pages that live next to the sidebar. A near-black panel on a
- *     light page reads as the same rhythm at a smaller volume, which is exactly
- *     the spec's own "one design language expressed at different volumes".
+ *   • `TileBand` — a true viewport-width band, for surfaces that own the whole
+ *     window (the landing page and the auth screens). It is deliberately a plain
+ *     `w-full` section: the previous version centred itself with
+ *     `left-1/2 w-screen -translate-x-1/2`, which is a `100vw` width on a page
+ *     that also has a vertical scrollbar and therefore a horizontal one too.
+ *   • `TilePanel` — the same idea at app-page scale: a rounded band inside the
+ *     content column. A near-black panel on a light page reads as the same
+ *     rhythm at a lower volume.
  *
- * Anything inside a dark tile gets the `.on-tile` scope, so it is written once
- * and comes out right on either ground — white ink, muted body, Sky Link Blue.
+ * Anything inside a dark band gets the `.band` scope, so it is written once and
+ * comes out right on either ground — white ink, muted body, and a `bg-primary`
+ * pill that inverts to white.
  */
 
 const TONES = {
@@ -41,11 +42,8 @@ export function TileBand({
   id?: string;
 }) {
   return (
-    <section
-      id={id}
-      className={cn(TONES[tone], 'relative left-1/2 w-screen -translate-x-1/2', className)}
-    >
-      <div className="mx-auto w-full max-w-wide px-5 py-16 md:px-10 md:py-24">{children}</div>
+    <section id={id} className={cn(TONES[tone], 'tile', className)}>
+      <div className="mx-auto w-full max-w-[1200px]">{children}</div>
     </section>
   );
 }
@@ -63,16 +61,16 @@ export function TilePanel({
     return (
       <section
         className={cn(
-          'tile-dark relative isolate overflow-hidden rounded-[18px] px-6 py-8 md:px-9 md:py-10',
+          'tile-dark relative isolate overflow-hidden rounded-lg px-5 py-6 sm:px-8 sm:py-8',
           className,
         )}
       >
-        {/* A single specular sheen along the top edge — the same 1px of light
-            the spec's frosted bars rely on, and the reason a near-black panel
-            reads as a surface rather than as a hole in the page. */}
+        {/* A 1px specular sheen along the top edge — the same light the spec's
+            frosted bars rely on, and the reason a near-black panel reads as a
+            surface rather than as a hole in the page. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
         />
         {children}
       </section>
@@ -81,8 +79,8 @@ export function TilePanel({
   return (
     <section
       className={cn(
-        'relative rounded-[18px] border border-edge/70 px-6 py-8 md:px-9 md:py-10',
-        tone === 'parchment' ? 'bg-bg' : 'bg-panel',
+        'relative rounded-lg border border-border px-5 py-6 sm:px-8 sm:py-8',
+        tone === 'parchment' ? 'bg-secondary' : 'bg-card',
         className,
       )}
     >

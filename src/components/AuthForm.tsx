@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { api, setToken, ApiClientError } from '@/lib/api';
 import { Icon, type IconName } from '@/components/ui/icons';
-import { GlassCard } from '@/components/ui/motion/glass-card';
 import { SPRING } from '@/lib/motion';
+import { Notice } from '@/components/Notice';
 
 type LoginResponse = {
   accessToken?: string;
@@ -135,9 +135,11 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         : 'Choose your subjects now — you can change them later.';
 
   return (
-    <GlassCard tone="raised" className="p-6 sm:p-7">
+    // The one card in the app that overlaps a band, so it is the one card that
+    // earns Uber's Level 2 drop: without it the overlap reads as a mistake.
+    <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
       <h1 className="t-tagline">{title}</h1>
-      <p className="t-caption mt-1.5 text-muted">{subtitle}</p>
+      <p className="t-caption mt-1.5 text-muted-foreground">{subtitle}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         {mode === 'register' && !staff && (
@@ -197,13 +199,13 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
                     type="button"
                     onClick={() => setRole(option.value)}
                     aria-pressed={role === option.value}
-                    className={`option ${role === option.value ? 'option-selected' : 'hover:bg-edge/20'}`}
+                    className={`option ${role === option.value ? 'option-selected' : 'hover:bg-border/20'}`}
                   >
                     <span className="flex items-center gap-2">
                       <Icon name={option.icon} size={17} />
                       <span className="font-semibold">{option.label}</span>
                     </span>
-                    <span className="t-caption mt-1 block text-muted">{option.hint}</span>
+                    <span className="t-caption mt-1 block text-muted-foreground">{option.hint}</span>
                   </button>
                 ))}
               </div>
@@ -261,7 +263,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="School, role, subjects you teach…"
                 />
-                <p className="t-caption mt-1.5 text-muted">
+                <p className="t-caption mt-1.5 text-muted-foreground">
                   A developer reads this before activating the account.
                 </p>
               </div>
@@ -313,10 +315,10 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           {error}
         </Notice>
 
-        <Notice tone="accent" show={!!info}>
+        <Notice tone="note" show={!!info}>
           <span>{info}</span>
           {devLink && (
-            <a href={devLink} className="mt-1 block break-all text-accent underline">
+            <a href={devLink} className="mt-1 block break-all text-primary underline">
               {devLink}
             </a>
           )}
@@ -327,36 +329,36 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
             type="button"
             onClick={resendVerification}
             disabled={busy}
-            className="btn-secondary w-full gap-2"
+            className="btn btn-secondary w-full gap-2"
           >
             <Icon name="rotate" size={16} />
             Re-send the verification email
           </button>
         )}
 
-        <button type="submit" className="btn-primary w-full" disabled={busy}>
+        <button type="submit" className="btn btn-primary w-full" disabled={busy}>
           {busy ? 'Just a moment…' : mode === 'login' ? (mfaStage ? 'Verify and sign in' : 'Sign in') : 'Create account'}
         </button>
       </form>
 
-      <p className="t-caption mt-5 text-center text-muted">
+      <p className="t-caption mt-5 text-center text-muted-foreground">
         {mode === 'login' ? (
           <>
             No account yet?{' '}
-            <Link href={staff ? '/staff/register' : '/register'} className="text-accent hover:underline">
+            <Link href={staff ? '/staff/register' : '/register'} className="text-primary hover:underline">
               {staff ? 'Request staff access' : 'Create one'}
             </Link>
           </>
         ) : (
           <>
             Already registered?{' '}
-            <Link href={staff ? '/staff/login' : '/login'} className="text-accent hover:underline">
+            <Link href={staff ? '/staff/login' : '/login'} className="text-primary hover:underline">
               Sign in
             </Link>
           </>
         )}
       </p>
-    </GlassCard>
+    </div>
   );
 }
 
@@ -382,7 +384,7 @@ function Field({
         {label}
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-[13px] text-muted">
+        <span className="pointer-events-none absolute left-4 top-[13px] text-muted-foreground">
           <Icon name={icon} size={17} />
         </span>
         {children}
@@ -391,31 +393,3 @@ function Field({
   );
 }
 
-function Notice({
-  tone,
-  show,
-  children,
-}: {
-  tone: 'bad' | 'accent';
-  show: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <AnimatePresence initial={false}>
-      {show && (
-        <motion.p
-          role={tone === 'bad' ? 'alert' : 'status'}
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={SPRING.soft}
-          className={`t-caption rounded-[11px] px-3 py-2.5 ${
-            tone === 'bad' ? 'bg-bad/10 text-bad' : 'bg-accent/10 text-accent'
-          }`}
-        >
-          {children}
-        </motion.p>
-      )}
-    </AnimatePresence>
-  );
-}
