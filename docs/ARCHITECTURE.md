@@ -371,3 +371,71 @@ Each change is checked with `npx tsc --noEmit`, `npm run build`, and a real run
 against the production build in a browser (light and dark, desktop and phone).
 The design pass additionally verified against `docs/DESIGN.md` by inspection of
 computed styles, not just screenshots.
+
+## 19. As built (v1.2, 2026-09-25)
+
+A design, motion and gamification pass. Behaviour is unchanged except where it
+was wrong; what moved is *structure*. §18 still describes the layering, and this
+section records what the pass added to it.
+
+### 19.1 New modules, and why each exists
+
+```
+src/domain/ranked.ts            pure ranked engine: tiers, divisions, RP ladder,
+                                lobby zones, placements, week bounds, crest geometry
+src/components/nav/routes.ts    the navigation model (destinations + role gating)
+src/components/nav/Sidebar.tsx        desktop chrome
+src/components/nav/SessionHeader.tsx  52px header: companion line, live stats, route hairline
+src/components/nav/MobileTabBar.tsx   floating glass tab bar
+src/components/nav/MoreSheet.tsx      draggable overflow sheet
+src/components/rank/LobbyTable.tsx    weekly lobby with promotion/demotion bands
+src/components/rank/RankStrip.tsx     the dashboard's near-black rank panel
+src/components/ui/tile.tsx            TileBand / TilePanel — the spec's surface rhythm
+src/components/ui/rank-crest.tsx      RankCrest / RankChip — geometry-coded rank badge
+src/components/companion.tsx          the companion's body (its face is your crest)
+src/lib/useRanked.ts                  the one owner of the /gamification payload
+```
+
+`AppShell.tsx` was 380 lines owning the nav model, the sidebar, the tab bar, the
+overflow sheet and the learner card. It is now composition only: the session,
+one boolean (sheet open) and the route transition. Every piece of chrome it used
+to contain has exactly one owner above.
+
+`src/domain/gamification.ts` lost `LEAGUE_META` (a hex colour and an emoji per
+tier, five accents deep in a one-accent system) and re-exports `Tier` from
+`ranked.ts`. It keeps XP, the level curve, streaks and achievement rules.
+
+### 19.2 The one-owner rules this pass had to enforce
+
+| State | Owner | It used to live in |
+|---|---|---|
+| Navigation destinations | `nav/routes.ts` | three arrays inside `AppShell` |
+| Sheet open/closed | `AppShell` boolean | `AppShell`, alongside Escape, scroll lock and drag |
+| Ranked payload | `lib/useRanked.ts` | pages, each with its own `useSWR` + response type |
+| Learner snapshot | `learnerSnapshot()` in `lib/useMe.ts` | reassembled at each call site |
+| Rank / RP / zones | `domain/ranked.ts` | split between the API route and the page |
+| Surface rhythm | `ui/tile.tsx` | hand-rolled `bg-[#272729]` sections |
+
+An inline hex is now a bug: inside `TileBand`/`TilePanel` the `.on-tile` scope
+remaps the surface roles, so a dark band is written with `text-ink`,
+`text-muted` and `text-accent` and still renders white / `#cccccc` / Sky Link
+Blue. That is what removed the remaining hand-copied colour values.
+
+### 19.3 Verification for this pass
+
+`npx tsc --noEmit` clean; `npm run build` clean (33 routes). Verified against a
+running dev server by reading the real DOM and its computed styles rather than
+by screenshots alone:
+
+- `/progress` — rank, placement (`0 of 10`), week bounds, lobby (`1 of 30`,
+  promotion tick), all fifteen ladder rungs at their real RP thresholds,
+  achievements and transcript.
+- `/dashboard` — dark hero, stats, rank panel, subjects, lifetime panel, action
+  tiles; the companion's first-run card renders for a brand-new account.
+- `/` — the five-tile landing page.
+- Light and dark: body `#f5f5f7`/`#1c1c1e`, cards `rgba(255,255,255,.78)` /
+  `rgba(42,42,44,.72)` with `saturate(1.8) blur(20px)`, tile `#272729` in both
+  themes, accent `#0066cc` → `#2997ff` inside the tile scope.
+- Phone (414px) and desktop (1440px): the tab bar floats at 12px inset with five
+  56px touch targets and the sidebar takes over at `md`; the More sheet opens
+  84px above the bar with `role="menu"` and the scroll lock applied.

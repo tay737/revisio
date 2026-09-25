@@ -2,6 +2,8 @@
 
 import useSWR from 'swr';
 import { api, setToken } from '@/lib/api';
+import type { CompanionSnapshot } from '@/lib/profile';
+import { rankFor } from '@/domain/ranked';
 
 /**
  * The one owner of the signed-in learner's state.
@@ -44,6 +46,30 @@ export type Me = {
   today: { due: number; reviewed: number; correct: number };
   achievements: Achievement[];
 };
+
+/**
+ * The learner snapshot, assembled once.
+ *
+ * The companion's voice needs a flat view of the learner, and both the shell and
+ * the dashboard need it — so the mapping from the `/me` payload lives here,
+ * beside the type it reads, rather than being re-derived at each call site
+ * (which is how two surfaces end up disagreeing about the same numbers).
+ */
+export function learnerSnapshot(me: Me): CompanionSnapshot {
+  return {
+    name: me.name,
+    role: me.role,
+    due: me.today.due,
+    reviewed: me.today.reviewed,
+    correct: me.today.correct,
+    streak: me.gamification.streak,
+    bestStreak: me.gamification.bestStreak,
+    level: me.gamification.level,
+    subjects: me.subjects.map((s) => s.name),
+    totalXp: me.gamification.totalXp,
+    rankLabel: rankFor(me.gamification.totalXp).label,
+  };
+}
 
 export function useMe() {
   const { data, error, isLoading, mutate } = useSWR<Me>('/api/v1/me', api.get, {

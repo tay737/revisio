@@ -50,16 +50,19 @@ export function GlassCard({
     [],
   );
 
+  // The fills are near-opaque on purpose. Glass reads as glass only when there
+  // is something behind it to refract; a 60%-opaque pane on a flat canvas is
+  // just a grey box, which is exactly how the previous pass looked.
   const tones = {
-    pane: 'bg-panel/62 backdrop-blur-xl backdrop-saturate-150',
-    raised: 'bg-panel/80 backdrop-blur-xl backdrop-saturate-150',
-    bar: 'bg-bg/80 backdrop-blur-xl backdrop-saturate-[1.8]',
+    pane: 'bg-panel/[0.78] backdrop-blur-xl backdrop-saturate-150',
+    raised: 'bg-panel/90 backdrop-blur-xl backdrop-saturate-150',
+    bar: 'bg-shell/75 backdrop-blur-xl backdrop-saturate-[1.8]',
   } as const;
 
   const classes = cn(
-    'relative overflow-hidden rounded-[18px] border border-edge/70',
+    'relative overflow-hidden rounded-[18px] border border-edge/80',
     tones[tone],
-    hairline && 'glass-hairline',
+    hairline && 'glass-sheen',
     className,
   );
 

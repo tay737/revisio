@@ -1,8 +1,6 @@
 // ── Gamification engine ─────────────────────────────────────────────────────
 // Pure XP math, level curve, league tiers, streak dates. See §9.
 
-export type League = 'bronze' | 'silver' | 'gold' | 'diamond' | 'legend';
-
 export const XP_PER_CORRECT: Record<string, number> = {
   cloze: 10,
   mcq: 8,
@@ -52,26 +50,14 @@ export function levelForXp(totalXp: number): { level: number; intoLevel: number;
   return { level, intoLevel: totalXp - currentFloor, forNext: nextFloor - currentFloor };
 }
 
-// ── leagues ─────────────────────────────────────────────────────────────────
+// ── ranks & leagues ─────────────────────────────────────────────────────────
+// Moved to `domain/ranked.ts`. It is the one owner of tiers, divisions, RP and
+// the weekly lobby's promotion/demotion bands. The old `LEAGUE_META` also lived
+// here and carried a hex colour *and an emoji* per tier — four extra accents
+// and a second illustration language inside a one-accent, one-icon system.
+// Rank is now coded by geometry; see `crestFor()`.
 
-export const LEAGUE_ORDER: League[] = ['bronze', 'silver', 'gold', 'diamond', 'legend'];
-
-export function leagueForWeeklyXp(weeklyXp: number, rankPercentile: number): League {
-  if (weeklyXp <= 0) return 'bronze';
-  if (rankPercentile <= 0.1) return 'legend';
-  if (rankPercentile <= 0.25) return 'diamond';
-  if (rankPercentile <= 0.5) return 'gold';
-  if (rankPercentile <= 0.75) return 'silver';
-  return 'bronze';
-}
-
-export const LEAGUE_META: Record<League, { name: string; icon: string; color: string }> = {
-  bronze: { name: 'Bronze', icon: '🥉', color: '#b08d57' },
-  silver: { name: 'Silver', icon: '🥈', color: '#c0c0c0' },
-  gold: { name: 'Gold', icon: '🥇', color: '#ffd700' },
-  diamond: { name: 'Diamond', icon: '💎', color: '#7ee8fa' },
-  legend: { name: 'Legend', icon: '👑', color: '#b388ff' },
-};
+export type { League, Tier } from './ranked';
 
 // ── streaks ─────────────────────────────────────────────────────────────────
 

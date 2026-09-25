@@ -2,7 +2,7 @@
 // for navigations and static assets. API calls are never cached.
 // Bump CACHE on any change to the shell: the previous version cached the old
 // app HTML, so clients kept rendering the pre-redesign UI until a hard refresh.
-const CACHE = 'revisio-v2';
+const CACHE = 'revisio-v3';
 const PRECACHE = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

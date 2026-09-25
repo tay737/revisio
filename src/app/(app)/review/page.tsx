@@ -5,11 +5,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
+import { useRanked } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
+import { RankCrest } from '@/components/ui/rank-crest';
+import { TilePanel } from '@/components/ui/tile';
 import { CanvasConfetti, useCelebration } from '@/components/ui/motion/celebrate';
 import { NumberTicker } from '@/components/ui/motion/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import { emptyQueueLine, sessionSummary } from '@/lib/profile';
+import { rankChange, reviewsForRp, type Rank } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 
 type QueueCard = {
@@ -60,8 +64,10 @@ const KIND_LABEL: Record<QueueCard['kind'], string> = {
  * so a session can be run without touching the mouse.
  */
 export default function ReviewPage() {
-  // Sharing the shell's cache entry lets the empty state quote a real streak.
-  const { me } = useMe();
+  // Sharing the shell's cache entries lets the empty state quote a real streak
+  // and lets the session report know the rank it started from.
+  const { me, refresh: refreshMe } = useMe();
+  const { refresh: refreshRanked } = useRanked('weekly');
   const [queue, setQueue] = useState<QueueCard[] | null>(null);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState('');
@@ -72,6 +78,12 @@ export default function ReviewPage() {
   const [sessionXp, setSessionXp] = useState(0);
   const [done, setDone] = useState(0);
   const [correct, setCorrect] = useState(0);
+  // The rank report needs the two ends of the session: the XP the learner held
+  // before the first card, and the XP after the last one. Both come off the
+  // server's own totals rather than being accumulated locally, so the report
+  // can never disagree with `/me`.
+  const [startXp, setStartXp] = useState<number | null>(null);
+  const [latestXp, setLatestXp] = useState<number | null>(null);
   const startRef = useRef<number>(Date.now());
   const { ref: confettiRef, celebrate } = useCelebration();
 
@@ -84,6 +96,8 @@ export default function ReviewPage() {
       setSessionXp(0);
       setDone(0);
       setCorrect(0);
+      setStartXp(null);
+      setLatestXp(null);
       setResult(null);
       setInput('');
       setSelected(null);
@@ -120,6 +134,8 @@ export default function ReviewPage() {
       });
       setResult(res);
       setSessionXp((x) => x + res.xpAwarded);
+      setStartXp((s) => s ?? Math.max(0, res.totalXp - res.xpAwarded));
+      setLatestXp(res.totalXp);
       setDone((d) => d + 1);
       if (res.verdict.correct) {
         setCorrect((c) => c + 1);
@@ -141,6 +157,25 @@ export default function ReviewPage() {
     startRef.current = Date.now();
     setIdx((i) => i + 1);
   }, []);
+
+  // The session has ended: the rank report is on screen, so the caches that
+  // the shell, the dashboard and the Rank page read are now stale. Refreshing
+  // here (rather than on a timer) is what makes XP land in the same moment the
+  // learner sees it earned.
+  const finished = queue !== null && queue.length > 0 && !card;
+  const change =
+    finished && startXp !== null && latestXp !== null ? rankChange(startXp, latestXp) : null;
+
+  useEffect(() => {
+    if (!finished) return;
+    refreshMe();
+    refreshRanked();
+  }, [finished, refreshMe, refreshRanked]);
+
+  // A promotion is worth more than the per-card flicker: a full, slow burst.
+  useEffect(() => {
+    if (change?.promoted) celebrate({ origin: { x: 0.5, y: 0.32 }, count: 140 });
+  }, [change?.promoted, celebrate]);
 
   // Enter advances once a verdict is on screen, so a session can be keyboard-only.
   useEffect(() => {
@@ -175,23 +210,15 @@ export default function ReviewPage() {
 
   if (!card) {
     return (
-      <div className="relative card mx-auto max-w-md p-8 text-center">
+      <div className="relative mx-auto max-w-xl">
         <CanvasConfetti ref={confettiRef} />
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
-          <Icon name="checked" size={22} />
-        </span>
-        <h1 className="t-tagline mt-4">Session complete</h1>
-        <p className="t-body mt-2 text-muted">{sessionSummary(correct, done)}</p>
-        <div className="mt-3 flex items-center justify-center gap-2">
-          <span className="chip">
-            <Icon name="xp" size={14} className="text-accent" />
-            <span className="tabular-nums">+{sessionXp}</span> XP this session
-          </span>
-        </div>
-        <div className="mt-5 flex justify-center gap-2">
-          <button onClick={load} className="btn-secondary">Load more</button>
-          <Link href="/dashboard" className="btn-primary">Back to today</Link>
-        </div>
+        <SessionReport
+          correct={correct}
+          done={done}
+          sessionXp={sessionXp}
+          change={change}
+          onAgain={load}
+        />
       </div>
     );
   }
@@ -339,6 +366,104 @@ export default function ReviewPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+/**
+ * The session report — where the work lands.
+ *
+ * This is the moment the ranked system exists for: a session ends and the
+ * numbers have to *move*. It is a near-black tile because it is the page's
+ * headline, and it names the rank by name rather than shoving a bar at you:
+ * "Promoted to Silver II" is a sentence you can repeat; a progress bar filling
+ * by four percent is not.
+ *
+ * Promotion gets the crest, the animation and the confetti. Staying put gets
+ * the exact distance to the next rung, because "you are 40 RP short" is a
+ * reason to come back tomorrow and "good job" is not.
+ */
+function SessionReport({
+  correct,
+  done,
+  sessionXp,
+  change,
+  onAgain,
+}: {
+  correct: number;
+  done: number;
+  sessionXp: number;
+  change: ReturnType<typeof rankChange> | null;
+  onAgain: () => void;
+}) {
+  const rank: Rank | null = change?.after ?? null;
+
+  return (
+    <TilePanel tone="dark" className="text-center">
+      {rank && (
+        <motion.div
+          className="mx-auto w-fit"
+          initial={{ scale: 0.7, opacity: 0, rotate: -6 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          transition={SPRING.pop}
+        >
+          <RankCrest rank={rank} size={96} />
+        </motion.div>
+      )}
+
+      <h1 className="display-tight t-display mt-5">
+        {change?.promoted ? `Promoted to ${change.after.label}` : 'Session complete'}
+      </h1>
+
+      <p className="t-body mx-auto mt-2 max-w-md text-white/70">
+        {change?.promoted
+          ? change.tierChanged
+            ? `${correct} of ${done} correct, and that carried you into a new tier. Everything above this gets harder — and worth more.`
+            : `${correct} of ${done} correct, and the crest moved with it.`
+          : sessionSummary(correct, done)}
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+        <span className="chip !border-white/15 !bg-white/5 !text-white">
+          <Icon name="xp" size={14} className="text-accent" />
+          <span className="tabular-nums">+{sessionXp}</span> XP
+        </span>
+        <span className="chip !border-white/15 !bg-white/5 !text-white">
+          <Icon name="checked" size={14} className="text-accent" />
+          <span className="tabular-nums">
+            {correct}/{done}
+          </span>{' '}
+          correct
+        </span>
+        {rank && (
+          <span className="chip !border-white/15 !bg-white/5 !text-white">
+            <Icon name="rank" size={14} className="text-accent" />
+            <span className="tabular-nums">
+              {rank.points.toLocaleString()}
+            </span>{' '}
+            RP
+          </span>
+        )}
+      </div>
+
+      {rank && !rank.isApex && (
+        <p className="t-caption mt-4 text-white/60">
+          {rank.remaining} RP to the next rung — about {reviewsForRp(rank.remaining)} more reviews.
+        </p>
+      )}
+
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <button onClick={onAgain} className="btn-secondary">
+          Load more
+        </button>
+        <Link
+          href="/progress"
+          className="btn inline-flex gap-2 border border-white/25 text-white transition-colors duration-200 hover:bg-white/10"
+        >
+          See the ladder
+          <Icon name="next" size={16} />
+        </Link>
+      </div>
+    </TilePanel>
   );
 }
 

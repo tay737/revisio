@@ -10,23 +10,34 @@
 // lucide directly, so swapping a glyph is a one-line change in this file.
 
 import {
+  Activity,
   ArrowRight,
+  ArrowUpRight,
   Award,
   BadgeCheck,
   BookOpen,
   CalendarCheck,
+  CalendarClock,
   CalendarDays,
   ChartLine,
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
   CircleAlert,
   CircleCheckBig,
   ClipboardList,
+  Clock,
+  Compass,
+  Crosshair,
+  Crown,
   Download,
+  Ellipsis,
   FileText,
   Flame,
   Footprints,
+  Gauge,
   GraduationCap,
   House,
   Layers,
@@ -35,6 +46,7 @@ import {
   Lock,
   LogOut,
   Mail,
+  Medal,
   Moon,
   Package,
   Pencil,
@@ -83,7 +95,17 @@ export const icons = {
   level: Zap,
   xp: Sparkles,
   league: Trophy,
-  rank: TrendingUp,
+  /** The competitive ladder itself — a medal, not a trend line. */
+  rank: Medal,
+  crown: Crown,
+  clash: Crosshair,
+  /** Form / performance readout. */
+  form: Activity,
+  gauge: Gauge,
+  /** Promotion and demotion bands in the weekly lobby. */
+  zoneUp: ChevronsUp,
+  zoneDown: ChevronsDown,
+  climb: ArrowUpRight,
 
   // ── actions ────────────────────────────────────────────────────────────────
   next: ArrowRight,
@@ -100,6 +122,12 @@ export const icons = {
   signOut: LogOut,
   sun: Sun,
   moon: Moon,
+  /** Overflow affordance for the mobile tab bar. */
+  more: Ellipsis,
+  clock: Clock,
+  week: CalendarClock,
+  resume: Compass,
+  swords: TrendingUp,
 
   // ── domain ─────────────────────────────────────────────────────────────────
   topic: Layers,
