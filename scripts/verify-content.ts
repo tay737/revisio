@@ -12,15 +12,22 @@
  *   2. the visibility rule — that a card you own is studiable without an
  *      enrolment, which is what "no questions are ever added" meant
  *   3. merging two topics, on scratch topics it creates and removes itself
+ *   4. connection hygiene — the pool must be a singleton in production too, or
+ *      a handful of queries walks into the pooler's client ceiling and takes
+ *      down login. Re-run this file with NODE_ENV=production for that check.
  */
 import 'dotenv/config';
-import { eq } from 'drizzle-orm';
-import { db } from '../src/db/client';
-import { cards, lessons, subjects, topics, users } from '../src/db/schema';
+import { createHash } from 'crypto';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { db, isCapacityError } from '../src/db/client';
+import { cards, lessons, refreshTokens, subjects, topics, users } from '../src/db/schema';
 import { parseContent } from '../src/domain/parse-import';
 import { buildCramQueue, buildDailyQueue } from '../src/services/study';
+import { topicReaches } from '../src/services/visibility';
 import { mergeTopics, topicContentCounts } from '../src/services/content-ops';
-import type { SessionUser } from '../src/services/auth';
+import { consumeRefreshToken, issueRefreshToken, type SessionUser } from '../src/services/auth';
+
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
 let failures = 0;
 function check(label: string, actual: unknown, expected: unknown) {
@@ -71,10 +78,13 @@ async function visibilityChecks(user: SessionUser) {
   const queue = await buildDailyQueue(user.id, 50);
   assert('the daily queue deals cards', queue.length > 0, `got ${queue.length}; before this pass it was always 0`);
 
-  const rows = await db.select().from(topics).where(eq(topics.ownerId, user.id));
+  // Every topic this user can reach, not only the ones they wrote: staff content
+  // is owned by nobody, and a picker that counts reachable cards is the promise
+  // under test — so the set has to be defined by reach, the same as the picker.
+  const rows = await db.select().from(topics).where(topicReaches(user.id));
   const counts = await topicContentCounts(user.id, rows.map((r) => r.id), { onlyReachable: true });
   const promised = rows.reduce((n, r) => n + (counts.get(r.id)?.cards ?? 0), 0);
-  assert('the picker counts cards that exist', promised > 0, `got ${promised}`);
+  assert('the picker counts cards that exist', promised > 0, `got ${promised} across ${rows.length} reachable topic(s)`);
 
   // The picker's number and the queue's length must be the same promise.
   for (const topic of rows) {
@@ -140,6 +150,93 @@ async function mergeChecks(user: SessionUser) {
   }
 }
 
+/**
+ * The outage this locks down: the pool was cached on `globalThis` only when
+ * `NODE_ENV !== 'production'`, so in production every query built a new
+ * `pg.Pool` and never ended one. A single `/me` with a `Promise.all` of five
+ * queries opened five pools, and a one-user app reached the pooler's 200-client
+ * ceiling — after which *every* request 500'd, login included.
+ *
+ * Run this file with `NODE_ENV=production` to exercise the path that broke.
+ */
+async function connectionChecks() {
+  console.log(`\n4. Connection hygiene (NODE_ENV=${process.env.NODE_ENV ?? 'unset'})`);
+
+  // Touch the database so a pool is definitely built.
+  await db.select({ n: sql`1` }).from(users).limit(1);
+  assert(
+    'the pool is cached for the life of the process',
+    Boolean(globalThis.__revisioPool),
+    'a pool rebuilt per query is what exhausted the pooler',
+  );
+  assert('the drizzle handle is cached too', Boolean(globalThis.__revisioDb));
+
+  const wrapped = new Error('DrizzleQueryError');
+  wrapped.cause = Object.assign(new Error('max client connections reached, limit: 200'), { code: 'EMAXCONN' });
+  assert('a wrapped pooler refusal is recognised', isCapacityError(wrapped));
+  assert('a bare pooler refusal is recognised', isCapacityError(Object.assign(new Error('x'), { code: 'EMAXCONN' })));
+
+  // The retry policy is deliberately narrow: a failure that could have landed
+  // mid-statement must never be replayed, or a review could award XP twice.
+  assert(
+    'a mid-query reset is NOT treated as retryable',
+    !isCapacityError(Object.assign(new Error('Connection terminated unexpectedly'), { code: 'ECONNRESET' })),
+  );
+  assert('an ordinary error is not retryable', !isCapacityError(new Error('syntax error at or near')));
+}
+
+/**
+ * The refresh exchange, which is what put people back on the login screen.
+ *
+ * Every token used here is minted by the test and deleted by hash afterwards,
+ * so the account's real sessions are never touched.
+ */
+async function rotationChecks(userId: string) {
+  console.log('\n5. Refresh rotation');
+  const minted = new Set<string>();
+  const track = (raw: string) => {
+    minted.add(sha256(raw));
+    return raw;
+  };
+
+  try {
+    const first = track(await issueRefreshToken(userId));
+    const rotated = await consumeRefreshToken(first);
+    assert('a live token exchanges for a replacement', Boolean(rotated?.nextRaw));
+    if (!rotated) return;
+    track(rotated.nextRaw);
+
+    const [spent] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, sha256(first))).limit(1);
+    assert('and the token it replaced is revoked', Boolean(spent?.revokedAt));
+
+    // The race: two tabs refresh at once and the second one arrives with a token
+    // that was revoked a moment ago. Refusing it signs that tab out for no
+    // reason, which is the reported symptom.
+    const raced = await consumeRefreshToken(first);
+    assert('a just-revoked token still exchanges', Boolean(raced?.nextRaw), 'a replayed token inside the window must not log anyone out');
+    if (raced) track(raced.nextRaw);
+
+    // Outside the window it must still be refused, or a stolen copy would work
+    // forever.
+    const stale = track(await issueRefreshToken(userId));
+    const [staleRow] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, sha256(stale))).limit(1);
+    if (staleRow) {
+      await db.update(refreshTokens).set({ revokedAt: new Date(Date.now() - 10 * 60_000) }).where(eq(refreshTokens.id, staleRow.id));
+      const refused = await consumeRefreshToken(stale);
+      check('a token revoked long ago is refused', refused, null);
+    }
+
+    const nonsense = await consumeRefreshToken('not-a-real-token');
+    check('an unknown token is refused', nonsense, null);
+  } finally {
+    for (const hash of minted) {
+      await db.delete(refreshTokens).where(eq(refreshTokens.tokenHash, hash));
+    }
+    const left = await db.select({ id: refreshTokens.id }).from(refreshTokens).where(inArray(refreshTokens.tokenHash, [...minted]));
+    check('every token this check minted was removed', left.length, 0);
+  }
+}
+
 async function main() {
   const [user] = await db.select().from(users).where(eq(users.email, 'tayyab@outlook.jp')).limit(1);
   if (!user) throw new Error('No verification account found.');
@@ -148,6 +245,8 @@ async function main() {
   await parserChecks();
   await visibilityChecks(session);
   await mergeChecks(session);
+  await connectionChecks();
+  await rotationChecks(session.id);
 
   console.log(failures === 0 ? '\nAll content checks passed.\n' : `\n${failures} check(s) failed.\n`);
   process.exit(failures === 0 ? 0 : 1);

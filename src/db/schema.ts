@@ -187,7 +187,9 @@ export const reviewLogs = pgTable('review_logs', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   cardId: text('card_id').notNull().references(() => cards.id, { onDelete: 'cascade' }),
   sessionId: text('session_id'),
-  mode: text('mode', { enum: ['daily', 'cram', 'exam'] }).notNull().default('daily'),
+  // `learn` is first exposure (see services/study.ts) — the column is plain
+  // text with no check constraint, so this is a type-level widening only.
+  mode: text('mode', { enum: ['daily', 'cram', 'exam', 'learn'] }).notNull().default('daily'),
   rating: text('rating', { enum: ['again', 'hard', 'good', 'easy'] }).notNull(),
   userAnswer: text('user_answer'),
   graded: jsonb('graded').$type<{

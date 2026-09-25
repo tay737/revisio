@@ -565,3 +565,66 @@ Two layout bugs were found by looking at it: `.chip` and `.badge` had no
 `white-space` rule, so a two-word label wrapped inside its pill and became a
 circle of stacked words on a phone; and the content row's meta line was squeezed
 into a column beside two buttons instead of taking its own line.
+
+## The first pass, the pool, and the refresh exchange
+
+Three faults found by using the app rather than reading it, and the owner each
+was given. All three shared a shape: **one fact, decided in several places.**
+
+### The pool is a singleton in production too
+
+`src/db/client.ts` cached its `pg.Pool` on `globalThis` only when
+`NODE_ENV !== 'production'`. In production that meant **every query built a new
+pool and never ended one**. A single `/me` — which runs a `Promise.all` of five
+queries — opened five pools of up to three clients each, and every request was
+authenticated by a database lookup in `verifyAccessToken`. A one-user app reached
+the pooler's 200-client ceiling, and from then on *every* request failed,
+login included, which is what "unexpected server error, every time" was.
+
+The pool is now cached unconditionally, and `isCapacityError()` recognises a
+capacity refusal — including one wrapped as a `cause` by Drizzle — so `route()`
+answers **503 `capacity`** instead of a bare 500. The retry policy is
+deliberately narrow: a capacity refusal is safe to replay, a `ECONNRESET` is not,
+because it may have landed mid-statement and replaying a review would award XP
+twice. `lib/api.ts` retries a `503` **only for reads**, and treats an
+`unavailable` refresh as *busy* rather than as a dead session — treating a busy
+database as a dead session is what signed people out mid-study.
+
+### A refresh token is rotated once, atomically
+
+`consumeRefreshToken` was three statements — read, revoke, insert — with the
+revoke first and no transaction, so a failure after the revoke left the browser
+holding a spent token and no replacement: **a session destroyed by a blip.** It
+also refused the second of two concurrent refreshes, logging out whichever tab
+lost the race. It now rotates inside one transaction, where both halves land or
+neither does, and a token revoked within a 60-second grace window still
+exchanges. Outside that window reuse is still refused, because an old token
+turning up later means a copy of it exists.
+
+### First exposure is its own intention
+
+The daily queue is built for material you have *met*: it deals everything due,
+which for a fresh deck is all of it at once with nothing to read first. That is
+why "learn" felt like cram. Learning a topic is a different intention, so it gets
+its own selection rather than a flag on the daily one:
+
+- `buildFirstExposure(userId, topicId, batch)` in `services/study.ts` chooses
+  cards by being **unseen** (`card_user_states` empty for this user), capped to a
+  batch, and returns the topic's **notes alongside them** — a first attempt at
+  material you have not read is a guess, and the reading is part of the question.
+- `GET /api/v1/learn?topicId=…&batch=4` serves it. Grading is unchanged: the
+  session submits to `/api/v1/reviews` with `mode: 'learn'`, so there is **one
+  scheduler and one grading path** and a card met here behaves exactly like a card
+  met anywhere else.
+- Progress is counted over the whole topic, not the batch, so "1 of 3 met" means
+  what it says.
+
+### Authoring refuses a deck it cannot make answerable
+
+`POST /content` used to insert the topic first and validate cards as it walked
+them, so a bad question returned an error *and* left an empty topic behind —
+one of the ways an import looks like it landed separately from its notes. The
+deck is now validated before anything is written, and a card with no accepted
+answer is refused with the line number and the field to send. A card with no
+answer is unanswerable forever and presents as a verdict reading "Answer:" with
+nothing after it.

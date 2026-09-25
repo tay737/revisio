@@ -125,3 +125,31 @@ has simply not been given the scope yet.
 - A class whose *only* effect is a colour (`segment-active`) is not safe on its
   own: it needs its own fill, or it renders white-on-white anywhere the animated
   pill behind it is absent.
+
+## Two display rules this pass settled
+
+**A row of actions never shares a line with a long title on a phone.** The Learn
+page put `Learn` and `Cram` inline beside a topic name; at 390px that squeezed the
+title into a column of one or two words per line and sat the buttons on top of it.
+The row is now one column on a phone — full-width title, then a row of two equal
+targets — and one row from `sm:` up. Same rule for the content row in My content.
+
+**The right answer is stated once.** Grading used to restate it inside the verdict
+note ("Answer: …", "Model answer: …", "… Model answer: …"), while the card already
+showed it — the filled blank for a fill-the-blank, a labelled block for a
+flashcard, the matched/missed lists for a keyword-marked answer. A card could
+print the same sentence three times. The verdict is now only *what was wrong with
+the attempt* ("mind your capitalisation", "Some required points were missing.");
+the answer travels as `primaryAnswer` / `modelAnswer` on the result and each
+surface renders it once.
+
+**And a mobile session brings the next action to the reader.** The verdict lands
+below the fold on a phone, which puts the one control that moves the session
+forward behind the tab bar. When the verdict renders out of sight, it is scrolled
+into view — only when it is actually out of sight, so a screen that fits holds
+still.
+
+**Enter checks the answer.** A `<textarea>` swallows Enter as a newline, so the
+hint under an open answer promised something the form never did and the answer sat
+there unchecked. Enter now checks (Shift+Enter is the line break) on every typed
+answer, which is also the behaviour a conversational app is expected to have.

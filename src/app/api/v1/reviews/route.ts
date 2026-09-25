@@ -5,7 +5,7 @@ import { submitReview } from '@/services/study';
 export const POST = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const body = (await req.json().catch(() => null)) as {
-    cardId?: string; answer?: string; selectedOptionId?: string; durationMs?: number; mode?: 'daily' | 'cram' | 'exam'; sessionId?: string;
+    cardId?: string; answer?: string; selectedOptionId?: string; durationMs?: number; mode?: 'daily' | 'cram' | 'exam' | 'learn'; sessionId?: string;
   } | null;
   if (!body?.cardId) throw new ApiError(400, 'bad_request', 'cardId is required.');
   const result = await submitReview(user.id, {
