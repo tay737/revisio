@@ -1,15 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { BlurFade } from '@/components/ui/motion/blur-fade';
+import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import PageSkeleton from '@/components/PageSkeleton';
+import { toast } from 'sonner';
+
+/**
+ * Copy a join code and say so. The code stays on screen, so the failure path is
+ * recoverable by hand — which is why it is allowed to fail out loud instead of
+ * silently.
+ */
+async function copyCode(code: string) {
+  try {
+    await navigator.clipboard.writeText(code);
+    toast.success(`Join code ${code} copied`);
+  } catch {
+    toast.error('Copy blocked — select the code and copy it manually.');
+  }
+}
 
 type Roster = {
   userId: string;
@@ -39,7 +55,7 @@ export default function TeacherPage() {
   const [newSubject, setNewSubject] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [myTopics, setMyTopics] = useState<{ id: string; name: string; visibility: string }[]>([]);
+  const [myTopics, setMyTopics] = useState<{ id: string; name: string; visibility: string; cardCount?: number; lessonCount?: number }[]>([]);
 
   const load = () =>
     api
@@ -51,22 +67,29 @@ export default function TeacherPage() {
     if (!loading && me && me.role !== 'student') {
       load();
       api
-        .get<{ topics: { id: string; name: string; visibility: string }[] }>('/api/v1/content?mine=1')
+        .get<{ topics: { id: string; name: string; visibility: string; cardCount?: number; lessonCount?: number }[] }>('/api/v1/content?mine=1')
         .then((d) => setMyTopics(d.topics))
         .catch(() => undefined);
     }
   }, [me, loading]);
+
+  /** Re-read the topic list after a publish so the chips stay truthful. */
+  const reloadTopics = () =>
+    api
+      .get<{ topics: { id: string; name: string; visibility: string; cardCount?: number; lessonCount?: number }[] }>('/api/v1/content?mine=1')
+      .then((d) => setMyTopics(d.topics))
+      .catch(() => undefined);
 
   if (loading) return <PageSkeleton />;
 
   if (!me || me.role === 'student') {
     return (
       <div className="card p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-bad/10 text-bad">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
           <Icon name="private" size={22} />
         </span>
         <h1 className="t-tagline mt-4">Teachers only</h1>
-        <p className="t-caption mt-2 text-muted">
+        <p className="t-caption mt-2 text-muted-foreground">
           This page manages classes and rosters. Student accounts do not have access to it.
         </p>
       </div>
@@ -85,15 +108,14 @@ export default function TeacherPage() {
     }
   };
 
-  const unpublished = myTopics.filter((t) => t.visibility !== 'public');
-
   return (
     <div className="space-y-6">
       <PageHeader
         icon="teacher"
         title="Teaching"
-        subtitle="Create classes, share join codes, and see how your students are actually doing — the data they agreed to share by joining."
+        subtitle="Classes, join codes, progress."
       />
+
 
       <Notice tone="good">{message}</Notice>
       <Notice tone="bad">{error}</Notice>
@@ -101,7 +123,7 @@ export default function TeacherPage() {
       {/* ── Create a class ───────────────────────────────────────────────── */}
       <section className="card">
         <h2 className="t-strong">New class</h2>
-        <p className="t-caption mt-1 text-muted">
+        <p className="t-caption mt-1 text-muted-foreground">
           You will get a six-character code to hand out. You can rotate it if it spreads further than you want.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -127,7 +149,7 @@ export default function TeacherPage() {
           </select>
           <button
             type="button"
-            className="btn-primary shrink-0 gap-2"
+            className="btn btn-primary shrink-0 gap-2"
             disabled={!className}
             onClick={() =>
               post(
@@ -145,11 +167,11 @@ export default function TeacherPage() {
       {/* ── Classes ──────────────────────────────────────────────────────── */}
       {data?.classes.length === 0 && (
         <div className="card p-8 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
             <Icon name="class" size={22} />
           </span>
           <h2 className="t-tagline mt-4">No classes yet</h2>
-          <p className="t-caption mt-2 text-muted">
+          <p className="t-caption mt-2 text-muted-foreground">
             Create one above, share the code, and students appear here as they join.
           </p>
         </div>
@@ -160,23 +182,32 @@ export default function TeacherPage() {
           <section className="card">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-accent/10 text-accent">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
                   <Icon name="class" size={17} />
                 </span>
                 <div>
                   <h2 className="t-strong">{c.name}</h2>
-                  <p className="t-caption text-muted">
+                  <p className="t-caption text-muted-foreground">
                     {c.roster.length} {c.roster.length === 1 ? 'student' : 'students'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <code className="rounded-lg bg-edge/50 px-3 py-1.5 font-mono text-[14px] font-semibold tracking-[0.2em]">
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="rounded-md bg-secondary px-3 py-1.5 font-mono text-[14px] font-semibold tracking-[0.2em]">
                   {c.joinCode}
                 </code>
                 <button
                   type="button"
-                  className="btn-ghost gap-1.5"
+                  className="btn btn-secondary btn-sm gap-1.5"
+                  onClick={() => copyCode(c.joinCode)}
+                  aria-label={`Copy join code ${c.joinCode}`}
+                >
+                  <Icon name="notes" size={14} />
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost gap-1.5"
                   onClick={() => post({ action: 'rotate_code', classId: c.id }, 'New code generated. The old one no longer works.')}
                 >
                   <Icon name="rotate" size={14} />
@@ -186,59 +217,52 @@ export default function TeacherPage() {
             </div>
 
             {c.roster.length === 0 ? (
-              <p className="t-caption mt-4 text-muted">
+              <p className="t-caption mt-4 text-muted-foreground">
                 Nobody has joined yet. Share the code above and they will show up here.
               </p>
             ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-left">
-                  <caption className="sr-only">Class roster with weekly activity and mastery</caption>
-                  <thead>
-                    <tr className="t-eyebrow">
-                      <th scope="col" className="pb-2 pr-3 font-semibold">Student</th>
-                      <th scope="col" className="pb-2 pr-3 font-semibold">Reviews (7d)</th>
-                      <th scope="col" className="pb-2 pr-3 font-semibold">XP (7d)</th>
-                      <th scope="col" className="pb-2 pr-3 font-semibold">Streak</th>
-                      <th scope="col" className="pb-2 font-semibold">Mastery</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {c.roster.map((r) => (
-                      <tr key={r.userId} className="border-t border-edge/60">
-                        <td className="py-3 pr-3">
-                          <div className="t-strong">{r.name}</div>
-                          <div className="t-fine text-muted">{r.email}</div>
-                        </td>
-                        <td className="py-3 pr-3 tabular-nums">{r.reviews7d}</td>
-                        <td className="py-3 pr-3 tabular-nums">{r.xp7d}</td>
-                        <td className="py-3 pr-3">
-                          <span className="flex items-center gap-1.5 tabular-nums">
-                            <Icon
-                              name="streak"
-                              size={14}
-                              className={r.streak > 0 ? 'text-accent' : 'text-muted'}
-                            />
-                            {r.streak}d
-                          </span>
-                        </td>
-                        <td className="py-3">
-                          <span className="flex items-center gap-2.5">
-                            <span className="meter w-16">
-                              <motion.span
-                                className="block h-full rounded-full bg-accent"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.max(0, Math.min(100, r.masteryPct))}%` }}
-                                transition={SPRING.meter}
-                              />
-                            </span>
-                            <span className="t-fine w-9 tabular-nums text-muted">{Math.round(r.masteryPct)}%</span>
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              // A roster is a list of people, and a five-column table is the
+              // worst possible presentation of one on a phone: it forces a
+              // horizontal scroll inside a card to read a single row. Each
+              // student is one block that wraps — identity, weekly activity,
+              // then mastery on its own line — with the same information.
+              <ul className="mt-3 divide-y divide-border">
+                {c.roster.map((r) => (
+                  <li key={r.userId} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[15px] font-semibold">{r.name}</div>
+                      <div className="truncate text-[12px] text-muted-foreground">{r.email}</div>
+                    </div>
+
+                    <div className="num flex items-center gap-3.5 text-[13px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Icon
+                          name="streak"
+                          size={13}
+                          className={r.streak > 0 ? 'text-streak' : undefined}
+                        />
+                        {r.streak}d
+                      </span>
+                      <span>{r.reviews7d} rev</span>
+                      <span>{r.xp7d} XP</span>
+                    </div>
+
+                    <div className="flex w-full items-center gap-2.5 sm:w-44">
+                      <span className="meter h-1.5 flex-1">
+                        <motion.span
+                          className="meter-fill block"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.max(0, Math.min(100, r.masteryPct))}%` }}
+                          transition={SPRING.meter}
+                        />
+                      </span>
+                      <span className="num w-10 text-right text-[12px] text-muted-foreground">
+                        {Math.round(r.masteryPct)}%
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         </BlurFade>
@@ -246,43 +270,61 @@ export default function TeacherPage() {
 
       {/* ── Publishing ───────────────────────────────────────────────────── */}
       <section className="card">
-        <h2 className="t-strong">Publish content</h2>
-        <p className="t-caption mt-1 text-muted">
-          Staff topics go public immediately — there is no review queue for teacher accounts.
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="t-strong">Content</h2>
+          <span className="chip">{myTopics.length} topic{myTopics.length === 1 ? '' : 's'}</span>
+        </div>
+        <p className="t-caption mt-1 text-muted-foreground">
+          Staff topics go public immediately, and the questions inside go with them.
         </p>
-        {unpublished.length === 0 ? (
-          <p className="t-caption mt-3 text-muted">
-            {myTopics.length === 0
-              ? 'Create topics in My content first, then publish them from here.'
-              : 'Everything you have written is already public. Nothing waiting.'}
+        {myTopics.length === 0 ? (
+          <p className="t-caption mt-3 text-muted-foreground">
+            Nothing written yet — start in <Link href="/library" className="text-primary hover:underline">My content</Link>.
           </p>
         ) : (
-          <div className="mt-3 space-y-2">
-            {unpublished.map((t) => (
-              <div key={t.id} className="inset flex items-center justify-between gap-3 px-4 py-3">
-                <span className="t-strong flex min-w-0 items-center gap-2">
-                  <Icon name="topic" size={15} className="shrink-0 text-accent" />
-                  <span className="truncate">{t.name}</span>
-                  <span className="chip shrink-0 capitalize">{t.visibility.replace('_', ' ')}</span>
-                </span>
-                <button
-                  type="button"
-                  className="btn-ghost shrink-0 gap-1.5"
-                  onClick={() => post({ action: 'create_public_topic', topicId: t.id }, 'Published — students can find it now.')}
-                >
-                  <Icon name="publish" size={14} />
-                  Publish
-                </button>
-              </div>
-            ))}
-          </div>
+          <ul className="mt-3 divide-y divide-border">
+            {myTopics.map((t) => {
+              const live = t.visibility === 'public';
+              return (
+                <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-[15px] font-semibold">{t.name}</span>
+                      <span className={`chip shrink-0 ${live ? 'chip-active' : ''}`}>
+                        <Icon name={live ? 'publish' : t.visibility === 'pending_review' ? 'schedule' : 'private'} size={12} />
+                        {live ? 'public' : t.visibility.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="num mt-0.5 text-[12px] text-muted-foreground">
+                      <span className={(t.cardCount ?? 0) === 0 ? 'text-destructive' : undefined}>{t.cardCount ?? 0} questions</span>
+                      <span className="mx-1.5">·</span>
+                      <span className={(t.lessonCount ?? 0) === 0 ? 'text-destructive' : undefined}>{t.lessonCount ?? 0} note {(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={live ? 'btn btn-ghost shrink-0 gap-1.5' : 'btn btn-secondary btn-sm shrink-0 gap-1.5'}
+                    onClick={() =>
+                      post(
+                        { action: 'set_topic_visibility', topicId: t.id, visibility: live ? 'private' : 'public' },
+                        live ? `${t.name} withdrawn.` : `${t.name} is live — questions included.`,
+                      ).then(reloadTopics)
+                    }
+                  >
+                    <Icon name={live ? 'unpublish' : 'publish'} size={14} />
+                    {live ? 'Withdraw' : 'Publish'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
       {/* ── New subject ──────────────────────────────────────────────────── */}
       <section className="card">
         <h2 className="t-strong">New subject</h2>
-        <p className="t-caption mt-1 text-muted">Subjects group topics — one per course, usually.</p>
+        <p className="t-caption mt-1 text-muted-foreground">Subjects group topics — one per course, usually.</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <input
             className="input flex-1 sm:min-w-[200px]"
@@ -293,7 +335,7 @@ export default function TeacherPage() {
           />
           <button
             type="button"
-            className="btn-primary shrink-0 gap-2"
+            className="btn btn-primary shrink-0 gap-2"
             disabled={!newSubject}
             onClick={() => post({ action: 'create_subject', name: newSubject }, 'Subject created.').then(() => setNewSubject(''))}
           >

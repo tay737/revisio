@@ -1,7 +1,10 @@
-// The navigation model — one owner of what the app's destinations are, so the
-// sidebar, the mobile tab bar, the sheet and the command surface cannot drift
-// apart. Each surface decides *how many* of these it can show; none of them
-// keeps a second list.
+// The navigation model — the single owner of what the app's destinations are.
+// The sidebar, the bottom bar, the account sheet and the page titles all read
+// this list; none of them keeps a second copy, so a destination can never
+// appear in one surface and be missing from another.
+//
+// Copy rule (docs/DESIGN-DUOLINGO.md, "concise, easy to read"): a label is one
+// word where possible, and a hint is at most four. There is no prose here.
 
 import type { IconName } from '@/components/ui/icons';
 
@@ -9,77 +12,40 @@ export type NavItem = {
   href: string;
   label: string;
   icon: IconName;
-  /** One line explaining the destination — used by the sheet, where there is
-   *  room for it, and by the tooltip/title elsewhere. */
+  /** Four words at most. Shown in the account sheet, never in the bar. */
   hint: string;
   /** Which roles may see it. `student` is the default audience. */
   roles?: ('student' | 'teacher' | 'developer')[];
 };
 
 export const NAV: NavItem[] = [
-  {
-    href: '/dashboard',
-    label: 'Today',
-    icon: 'dashboard',
-    hint: 'Your queue, streak and rank at a glance',
-  },
-  {
-    href: '/review',
-    label: 'Review',
-    icon: 'review',
-    hint: 'Work the cards the scheduler scheduled',
-  },
-  {
-    href: '/learn',
-    label: 'Learn',
-    icon: 'learn',
-    hint: 'Read the notes behind every card',
-  },
-  {
-    href: '/progress',
-    label: 'Rank',
-    icon: 'rank',
-    hint: 'Rank, weekly lobby, achievements and transcript',
-  },
-  {
-    href: '/cram',
-    label: 'Cram',
-    icon: 'cram',
-    hint: 'Rapid questions before an exam, scheme untouched',
-  },
-  {
-    href: '/exam',
-    label: 'Exam',
-    icon: 'exam',
-    hint: 'Sit a paper marked against the mark scheme',
-  },
-  {
-    href: '/library',
-    label: 'My content',
-    icon: 'library',
-    hint: 'Your subjects, topics and imported cards',
-  },
+  { href: '/dashboard', label: 'Today', icon: 'dashboard', hint: 'Your queue and streak' },
+  { href: '/review', label: 'Review', icon: 'review', hint: 'Clear the cards due' },
+  { href: '/learn', label: 'Learn', icon: 'learn', hint: 'Notes behind the cards' },
+  { href: '/progress', label: 'Rank', icon: 'rank', hint: 'Ladder and weekly lobby' },
+  { href: '/cram', label: 'Cram', icon: 'cram', hint: 'Sprint before an exam' },
+  { href: '/exam', label: 'Exam', icon: 'exam', hint: 'Sit a marked paper' },
+  { href: '/library', label: 'Library', icon: 'library', hint: 'Subjects and topics' },
   {
     href: '/teacher',
     label: 'Teaching',
     icon: 'teacher',
-    hint: 'Classes, join codes and student progress',
+    hint: 'Classes and students',
     roles: ['teacher', 'developer'],
   },
   {
     href: '/admin',
     label: 'Admin',
     icon: 'admin',
-    hint: 'Users, content and system configuration',
+    hint: 'Users and content',
     roles: ['developer'],
   },
 ];
 
 /**
- * The four destinations a thumb can reach without a second tap, in order.
- * Everything else lives behind the sheet — which is the whole fix for the old
- * bar, where the five-item truncation silently dropped Progress and My content
- * off a phone entirely.
+ * The four destinations a thumb reaches without a second tap. Everything else
+ * lives one tap behind More — the old bar truncated silently at five items,
+ * which put Rank and Library out of reach on a phone entirely.
  */
 export const PRIMARY_TABS = ['/dashboard', '/review', '/learn', '/progress'];
 
@@ -99,4 +65,10 @@ export function overflowItems(items: NavItem[]): NavItem[] {
 
 export function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The title a screen shows in the mobile bar. One owner for those strings. */
+export function labelForPath(pathname: string): string {
+  const item = NAV.find((i) => isActivePath(pathname, i.href));
+  return item?.label ?? 'Revisio';
 }

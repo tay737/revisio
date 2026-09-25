@@ -1,9 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
-import { cappedDelay, SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { type LobbyZone, type Rank } from '@/domain/ranked';
 
@@ -25,130 +23,116 @@ export type LobbyData = {
 };
 
 /**
- * The weekly lobby table.
+ * The weekly lobby — the Duolingo half of the ranked system.
  *
- * This is the Duolingo half of the ranked system, and the parts that matter are
- * the parts a plain leaderboard leaves out:
+ * It was a table: eight-column, horizontal scroll on a phone, with the seat
+ * numbers repeated in a header. It is now a list of rows that reads top-to-bottom
+ * on a 390px screen without a single horizontal swipe, because a league table is
+ * a sequence — first to last — and a sequence belongs in a list, not a grid.
  *
- *   • **The bands are labelled.** "Top five go up" is the only reason a
- *     leaderboard is worth checking twice.
- *   • **The empty seats are shown.** A league table that hides its empty seats
- *     pretends a table of one is a competition. Unclaimed seats are dimmed and
- *     labelled as such, so the shape of the league is visible and honest.
- *   • **You are always seated.** The learner's row is never missing, even in a
- *     week they have not reviewed yet.
+ * The parts that make it a *league* rather than a leaderboard are kept:
  *
- * Colour does one job here: accent marks the promotion band and your own row,
- * nothing else. Demotion is signalled by direction (a chevron down) and weight,
- * not by a red — demotion is a mechanic, not an error, and the design system
- * reserves its error tone for things that are actually wrong.
+ *   • **The bands are labelled.** "Top five promote" is the entire reason to
+ *     check the table twice.
+ *   • **Empty seats are shown honestly**, dimmed and labelled, so the table
+ *     never pretends a lobby of one is a competition.
+ *   • **You are always seated**, even in a week you have not reviewed yet.
+ *   • **Your own row is the only row in the promotion colour**, so the answer to
+ *     "where am I" takes no reading.
+ *
+ * Colour does one job: green marks the promotion band, cardinal marks the
+ * demotion band, and every other row is ink on canvas.
  */
-export function LobbyTable({
-  lobby,
-  className,
-}: {
-  lobby: LobbyData;
-  className?: string;
-}) {
+export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?: string }) {
   const unclaimed = Math.max(0, lobby.size - lobby.rows.length);
   const demotionFrom = lobby.size - lobby.band + 1;
+  const shownSeats = Math.min(unclaimed, 3);
 
   return (
-    <div className={cn('overflow-hidden', className)}>
-      {/* Zone legend */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
-        <span className="inline-flex items-center gap-1.5 t-fine text-accent">
+    <div className={cn('min-w-0', className)}>
+      {/* Band legend. */}
+      <div className="mb-2.5 flex flex-wrap items-center gap-2">
+        <span className="badge badge-good">
           <Icon name="zoneUp" size={12} />
           Top {lobby.band} promote
         </span>
-        <span className="inline-flex items-center gap-1.5 t-fine text-muted">
+        <span className="badge badge-quiet">
           <Icon name="zoneDown" size={12} />
           Bottom {lobby.band} demote
         </span>
-        <span className="t-fine ml-auto text-muted">
-          {lobby.filled} of {lobby.size} seats taken
+        <span className="num ml-auto text-[12px] text-muted-foreground">
+          {lobby.filled}/{lobby.size} seats
         </span>
       </div>
 
-      <ol className="space-y-0.5">
-        {lobby.rows.map((row, i) => {
-          const inPromotion = row.position <= lobby.band;
-          const inDemotion = row.position >= demotionFrom;
+      <ol className="divide-y divide-border">
+        {lobby.rows.map((row) => {
+          const promoting = row.position <= lobby.band;
+          const demoting = row.position >= demotionFrom;
           return (
-            <motion.li
+            <li
               key={`${row.position}-${row.name}`}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ ...SPRING.settle, delay: cappedDelay(i, 0.02, 0.24) }}
               className={cn(
-                'flex items-center gap-3 rounded-[11px] px-3 py-2.5',
-                row.isMe && 'bg-accent/10 ring-1 ring-inset ring-accent/25',
+                'flex items-center gap-3 py-2.5',
+                row.isMe && '-mx-2 rounded-md bg-secondary px-2',
               )}
             >
               <span
                 className={cn(
-                  'w-6 shrink-0 text-center text-[14px] tabular-nums',
-                  row.isMe ? 'font-semibold text-accent' : inPromotion ? 'font-semibold text-ink' : 'text-muted',
+                  'num w-6 shrink-0 text-center text-[13px]',
+                  row.isMe ? 'font-bold' : 'text-muted-foreground',
                 )}
               >
                 {row.position}
               </span>
 
-              {/* Zone tick — a 2px bar rather than a coloured row. */}
-              <span
-                aria-hidden
-                className={cn(
-                  'h-6 w-[2px] shrink-0 rounded-full',
-                  inPromotion ? 'bg-accent' : inDemotion ? 'bg-muted/60' : 'bg-transparent',
+              {row.isMe && (
+                <RankCrest rank={row.rank} size={30} showProgress={false} animate={false} />
+              )}
+
+              <span className="min-w-0 flex-1">
+                <span className={cn('block truncate text-[15px]', row.isMe && 'font-bold')}>
+                  {row.isMe ? 'You' : row.name}
+                </span>
+                {!row.isMe && (
+                  <span className="block truncate text-[12px] text-muted-foreground">
+                    {row.rank.label}
+                  </span>
                 )}
-              />
-
-              <span
-                className={cn(
-                  'min-w-0 flex-1 truncate text-[17px]',
-                  row.isMe ? 'font-semibold text-accent' : 'text-ink',
-                )}
-              >
-                {row.name}
               </span>
 
-              <span className="hidden shrink-0 sm:block">
-                <RankCrest rank={row.rank} size={22} showProgress={false} animate={false} />
-              </span>
-              <span className="t-fine shrink-0 text-muted">{row.rank.label}</span>
+              {promoting && (
+                <Icon name="zoneUp" size={14} className="shrink-0 text-good" aria-label="Promotion band" />
+              )}
+              {demoting && !promoting && (
+                <Icon
+                  name="zoneDown"
+                  size={14}
+                  className="shrink-0 text-destructive"
+                  aria-label="Demotion band"
+                />
+              )}
 
-              <span className="t-caption w-16 shrink-0 text-right tabular-nums text-muted">
-                {row.xp} XP
-              </span>
-            </motion.li>
-          );
-        })}
-
-        {/* Band label above the demotion zone, so the cut line is explained
-            where it actually falls rather than only in the legend. */}
-        {unclaimed === 0 && demotionFrom > lobby.rows.length + 1 && (
-          <li aria-hidden className="flex items-center gap-2 px-3 py-1">
-            <span className="h-px flex-1 bg-edge/70" />
-            <span className="t-micro uppercase tracking-[0.08em] text-muted">Demotion line</span>
-            <span className="h-px flex-1 bg-edge/70" />
-          </li>
-        )}
-
-        {Array.from({ length: unclaimed }).map((_, i) => {
-          const position = lobby.rows.length + i + 1;
-          return (
-            <li
-              key={`unclaimed-${position}`}
-              className="flex items-center gap-3 rounded-[11px] px-3 py-2 opacity-55"
-            >
-              <span className="w-6 shrink-0 text-center text-[14px] tabular-nums text-muted">{position}</span>
-              <span aria-hidden className="h-6 w-[2px] shrink-0 rounded-full bg-transparent" />
-              <span className="t-caption min-w-0 flex-1 truncate text-muted">Unclaimed seat</span>
-              <span className="t-caption w-16 shrink-0 text-right tabular-nums text-muted">—</span>
+              <span className="num shrink-0 text-[14px] font-semibold">{row.xp} XP</span>
             </li>
           );
         })}
+
+        {Array.from({ length: shownSeats }).map((_, i) => (
+          <li key={`open-${i}`} className="flex items-center gap-3 py-2.5">
+            <span className="num w-6 shrink-0 text-center text-[13px] text-muted-foreground">
+              {lobby.rows.length + i + 1}
+            </span>
+            <span className="min-w-0 flex-1 text-[15px] italic text-muted-foreground">Open seat</span>
+          </li>
+        ))}
       </ol>
+
+      {unclaimed > shownSeats && (
+        <p className="mt-2 text-[12px] text-muted-foreground">
+          +{unclaimed - shownSeats} more open seats
+        </p>
+      )}
     </div>
   );
 }

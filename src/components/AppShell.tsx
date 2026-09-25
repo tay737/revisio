@@ -2,16 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useMe, learnerSnapshot, signOut } from '@/lib/useMe';
-import { Splash } from '@/components/ui/splash';
 import { companionFor, greetingFor } from '@/lib/profile';
-import { rankFor } from '@/domain/ranked';
 import { routeVariants } from '@/lib/motion';
 import { Sidebar } from '@/components/nav/Sidebar';
-import { SessionHeader } from '@/components/nav/SessionHeader';
-import { MobileTabBar } from '@/components/nav/MobileTabBar';
-import { MoreSheet } from '@/components/nav/MoreSheet';
+import { TopBar } from '@/components/nav/TopBar';
+import { BottomNav } from '@/components/nav/BottomNav';
+import { AccountSheet } from '@/components/nav/AccountSheet';
+import PageSkeleton from '@/components/PageSkeleton';
 import {
   isActivePath,
   navForRole,
@@ -22,26 +21,26 @@ import {
 /**
  * The application shell — composition only.
  *
- * It used to be a single 380-line component that also owned the navigation
- * model, the desktop sidebar, the mobile tab bar, the overflow sheet and the
- * learner card. Each of those now has one owner under `components/nav`, and
- * this file does three things:
+ * It owns three things and nothing else:
  *
- *   1. **Owns the session.** It is the only place that fetches `/me` (through
- *      `useMe`, the single cache entry every page reads) and the only place
- *      that redirects a signed-out visitor.
- *   2. **Owns one piece of UI state** — whether the overflow sheet is open.
- *      Everything else about the sheet belongs to the sheet.
- *   3. **Routes the transition.** Content animates *in*; nothing waits for it.
+ *   1. **The session.** It is the only place that reads `/me` (through `useMe`,
+ *      the single SWR entry every page shares) and the only place that redirects
+ *      a signed-out visitor.
+ *   2. **One piece of UI state** — whether the account sheet is open.
+ *   3. **The route transition.** Content animates *in*; nothing waits for it.
  *      `AnimatePresence mode="wait"` used to hold every navigation behind the
- *      outgoing page's exit animation, which is the single biggest reason the
- *      app felt sluggish to move around.
+ *      outgoing page's exit animation, which was the single biggest reason
+ *      moving around the app felt sluggish.
+ *
+ * `--nav-h` is declared here because the shell is what knows the mobile bar's
+ * height; `.nav-offset` (globals.css) consumes it so no page has to guess how
+ * much room to leave at the bottom of a phone screen.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { me, error, loading } = useMe();
   const pathname = usePathname();
   const router = useRouter();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     if (error) router.replace('/login');
@@ -49,24 +48,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // A sheet left open across a navigation would sit on top of the new page.
   useEffect(() => {
-    setSheetOpen(false);
+    setAccountOpen(false);
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [pathname]);
 
   const nav = useMemo(() => navForRole(me?.role), [me?.role]);
   const tabs = useMemo(() => primaryTabs(nav), [nav]);
   const overflow = useMemo(() => overflowItems(nav), [nav]);
-
   const greeting = useMemo(() => (me ? greetingFor(me.name) : ''), [me]);
 
-  const rank = useMemo(() => (me ? rankFor(me.gamification.totalXp) : null), [me]);
-
-  // The companion reads the same snapshot the rest of the app displays, so the
-  // header line and every other surface can never disagree about the state.
+  // The companion reads the same snapshot every other surface displays, so the
+  // sheet's line and the dashboard's can never disagree about the state.
   const companionLine = useMemo(() => (me ? companionFor(learnerSnapshot(me)).line : ''), [me]);
 
-  if (loading) return <Splash show />;
-  if (!me || !rank) return null;
+  if (loading) return <PageSkeleton variant="reader" />;
+  if (!me) return null;
 
   const onSignOut = async () => {
     await signOut();
@@ -76,40 +72,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const overflowActive = overflow.some((item) => isActivePath(pathname, item.href));
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" style={{ '--nav-h': '64px' } as React.CSSProperties}>
       <Sidebar nav={nav} pathname={pathname} me={me} onSignOut={onSignOut} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <SessionHeader
+        <TopBar
           pathname={pathname}
           me={me}
           greeting={greeting}
           companionLine={companionLine}
-          rankPoints={rank.points}
+          onOpenAccount={() => setAccountOpen(true)}
         />
 
-        {/* Bottom padding clears the floating tab bar on a phone. */}
-        <main className="mx-auto w-full max-w-measure flex-1 px-4 py-6 pb-32 md:px-6 md:py-8 md:pb-10">
+        <main className="nav-offset mx-auto w-full max-w-[1080px] flex-1 px-4 pt-5 md:px-8 md:pt-7">
           <motion.div key={pathname} variants={routeVariants} initial="hidden" animate="show">
             {children}
           </motion.div>
         </main>
       </div>
 
-      <MobileTabBar
+      <BottomNav
         tabs={tabs}
         pathname={pathname}
         due={me.today.due}
         overflowActive={overflowActive}
-        onMore={() => setSheetOpen(true)}
+        onMore={() => setAccountOpen(true)}
       />
 
-      <MoreSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+      <AccountSheet
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
         items={overflow}
         pathname={pathname}
         me={me}
+        line={companionLine}
         onSignOut={onSignOut}
       />
     </div>

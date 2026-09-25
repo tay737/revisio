@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
-import { BlurFade } from '@/components/ui/motion/blur-fade';
+import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
+import { ScrollProgress } from '@/components/ui/scroll-progress';
 import PageSkeleton from '@/components/PageSkeleton';
 
 type Subject = { id: string; name: string; description: string; enrolled: boolean; topicCount: number };
@@ -89,12 +90,18 @@ export default function LearnPage() {
 
   return (
     <div className="space-y-6">
+      {/* Reading progress on long notes. Magic UI ships this in its own brand
+          gradient — four colours in a system that allows one, so it is
+          overridden to ink. `!bg-none` is required: the gradient is a
+          background-image and the colour alone would be painted over. */}
+      <ScrollProgress className="h-0.5 !bg-none bg-foreground" />
+
       <PageHeader
         icon="learn"
         title="Learn"
-        subtitle="Every topic written against the specification. Switch between detailed notes and the summary you would revise from."
+        subtitle="Notes for every topic."
         actions={
-          <div className="flex gap-1 rounded-[11px] border border-edge/70 bg-panel/60 p-1 backdrop-blur">
+          <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1 backdrop-blur">
             {(['detailed', 'summary'] as const).map((d) => (
               <button
                 key={d}
@@ -112,14 +119,14 @@ export default function LearnPage() {
 
       {subjects.length === 0 && (
         <div className="card p-8 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
             <Icon name="library2" size={22} />
           </span>
           <h2 className="t-tagline mt-4">Nothing published yet</h2>
-          <p className="t-caption mt-2 text-muted">
+          <p className="t-caption mt-2 text-muted-foreground">
             No subjects are available on this deployment. Create your own in My content, or ask a teacher to publish one.
           </p>
-          <Link href="/library" className="btn-primary mt-5 inline-flex">
+          <Link href="/library" className="btn btn-primary mt-5 inline-flex">
             Go to My content
           </Link>
         </div>
@@ -141,12 +148,12 @@ export default function LearnPage() {
                     aria-expanded={open}
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                       <Icon name="topic" size={17} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="t-strong block">{s.name}</span>
-                      <span className="t-caption mt-0.5 block text-muted">{s.description}</span>
+                      <span className="t-caption mt-0.5 block text-muted-foreground">{s.description}</span>
                     </span>
                     <span className="chip shrink-0">
                       {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
@@ -154,7 +161,7 @@ export default function LearnPage() {
                     <motion.span
                       animate={{ rotate: open ? 90 : 0 }}
                       transition={SPRING.press}
-                      className="shrink-0 text-muted"
+                      className="shrink-0 text-muted-foreground"
                     >
                       <Icon name="expand" size={16} />
                     </motion.span>
@@ -165,7 +172,7 @@ export default function LearnPage() {
                       type="button"
                       onClick={() => enroll(s)}
                       disabled={busyTopic === s.id}
-                      className="btn-secondary btn-sm shrink-0"
+                      className="btn btn-secondary btn-sm shrink-0"
                     >
                       {busyTopic === s.id ? 'Adding…' : 'Follow'}
                     </button>
@@ -181,10 +188,10 @@ export default function LearnPage() {
                       transition={SPRING.soft}
                       className="overflow-hidden"
                     >
-                      <div className="space-y-2 border-t border-edge/70 px-5 py-4">
-                        {topics === undefined && <p className="t-caption text-muted">Loading topics…</p>}
+                      <div className="space-y-2 border-t border-border/70 px-5 py-4">
+                        {topics === undefined && <p className="t-caption text-muted-foreground">Loading topics…</p>}
                         {topics?.length === 0 && (
-                          <p className="t-caption text-muted">No topics under this subject yet.</p>
+                          <p className="t-caption text-muted-foreground">No topics under this subject yet.</p>
                         )}
                         {topics?.map((t) => {
                           const topicOpen = openTopic === t.id;
@@ -198,7 +205,7 @@ export default function LearnPage() {
                                   aria-expanded={topicOpen}
                                   className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
                                 >
-                                  <motion.span animate={{ rotate: topicOpen ? 90 : 0 }} transition={SPRING.press} className="text-muted">
+                                  <motion.span animate={{ rotate: topicOpen ? 90 : 0 }} transition={SPRING.press} className="text-muted-foreground">
                                     <Icon name="expand" size={14} />
                                   </motion.span>
                                   <span className="min-w-0">
@@ -211,10 +218,10 @@ export default function LearnPage() {
                                         </span>
                                       )}
                                     </span>
-                                    <span className="t-caption mt-0.5 block text-muted">{t.description}</span>
+                                    <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
                                   </span>
                                 </button>
-                                <Link href={`/cram?topic=${t.id}`} className="btn-secondary btn-sm shrink-0 gap-1.5">
+                                <Link href={`/cram?topic=${t.id}`} className="btn btn-secondary btn-sm shrink-0 gap-1.5">
                                   <Icon name="cram" size={14} />
                                   Cram
                                 </Link>
@@ -229,10 +236,10 @@ export default function LearnPage() {
                                     transition={SPRING.soft}
                                     className="overflow-hidden"
                                   >
-                                    <div className="space-y-3 border-t border-edge/60 px-4 py-4">
-                                      {lessons === undefined && <p className="t-caption text-muted">Loading notes…</p>}
+                                    <div className="space-y-3 border-t border-border/60 px-4 py-4">
+                                      {lessons === undefined && <p className="t-caption text-muted-foreground">Loading notes…</p>}
                                       {lessons?.length === 0 && (
-                                        <p className="t-caption text-muted">No notes written for this topic yet.</p>
+                                        <p className="t-caption text-muted-foreground">No notes written for this topic yet.</p>
                                       )}
                                       {lessons?.map((l) => (
                                         <article key={l.id}>
@@ -281,7 +288,7 @@ function Markdownish({ text }: { text: string }) {
     s.split(/\*\*(.+?)\*\*/g).map((part, j) => (j % 2 === 1 ? <strong key={j} className="font-semibold">{part}</strong> : part));
 
   return (
-    <div className="t-body mt-3 space-y-2 text-ink">
+    <div className="t-body mt-3 space-y-2 text-foreground">
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1.5" />;
         if (line.startsWith('### ')) return <h5 key={i} className="t-strong pt-1">{bold(line.slice(4))}</h5>;
@@ -289,7 +296,7 @@ function Markdownish({ text }: { text: string }) {
         if (line.startsWith('# ')) return <h3 key={i} className="t-display-md pt-1">{bold(line.slice(2))}</h3>;
         if (line.startsWith('> '))
           return (
-            <blockquote key={i} className="border-l-2 border-accent/50 pl-3 text-muted">
+            <blockquote key={i} className="border-l-2 border-primary/50 pl-3 text-muted-foreground">
               {bold(line.slice(2))}
             </blockquote>
           );

@@ -1,65 +1,62 @@
 'use client';
 
-import * as React from 'react';
+import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { SPRING } from '@/lib/motion';
 
 /**
- * Button — the spec's button grammars as a component.
+ * The button.
  *
- * Deliberately no hover animation: docs/DESIGN.md documents only a default and
- * an active/pressed state, so hover is signalled by a brightness/colour shift
- * in CSS and motion is reserved for the press (`scale(0.95)`). The old version
- * scaled *up* on hover, which is both off-spec and the wrong affordance — a
- * button should acknowledge a press, not a pointer resting on it.
+ * Geometry and states live in `globals.css` (`.btn`, `.btn-*`) — that file is
+ * the single owner of the design language — and this component supplies the
+ * typed API plus the Base UI behaviour (disabled handling, render-as, focus).
+ * Two grammars only, per docs/DESIGN-UBER.md: **pill for actions**, and the
+ * only exception is the compact utility chip.
  *
- * Variants mirror the classes in globals.css, and only weight 400 or 600
- * appear anywhere in this system.
+ * `danger` is the app-wide name for a destructive action (the CSS class, the
+ * variant and every call site agree — there is no second spelling).
  */
-const buttonVariants = cva(
-  'inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-normal transition-[background-color,color,border-color,opacity] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50',
-  {
-    variants: {
-      variant: {
-        primary: 'btn-primary',
-        secondary: 'btn-secondary',
-        ghost: 'btn-ghost',
-        utility: 'btn-utility',
-        danger: 'btn-danger',
-        link: 'px-0 py-0 text-accent underline-offset-4 hover:underline',
-      },
-      size: {
-        sm: 'btn-sm',
-        md: '',
-        /** Icon-only: 44×44, the spec's minimum touch target. */
-        icon: 'h-11 w-11 rounded-full p-0',
-      },
+const buttonVariants = cva('btn [&_svg]:pointer-events-none [&_svg]:shrink-0', {
+  variants: {
+    variant: {
+      primary: 'btn-primary',
+      secondary: 'btn-secondary',
+      subtle: 'btn-subtle',
+      ghost: 'btn-ghost',
+      utility: 'btn-utility',
+      danger: 'btn-danger',
+      /** Inside a study session only — see the note in globals.css. */
+      good: 'btn-good',
+      link: 'h-auto min-h-0 bg-transparent p-0 font-medium text-foreground underline-offset-4 hover:underline',
     },
-    defaultVariants: { variant: 'primary', size: 'md' },
+    size: {
+      default: '',
+      sm: 'btn-sm',
+      lg: 'btn-lg',
+      icon: 'btn-icon',
+      'icon-sm': 'btn-icon min-h-8 w-8',
+      'icon-lg': 'btn-icon min-h-11 w-11',
+    },
   },
-);
+  defaultVariants: {
+    variant: 'primary',
+    size: 'default',
+  },
+});
 
-export interface ButtonProps
-  extends Omit<HTMLMotionProps<'button'>, 'children'>,
-    VariantProps<typeof buttonVariants> {
-  children?: React.ReactNode;
+function Button({
+  className,
+  variant = 'primary',
+  size = 'default',
+  ...props
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  return (
+    <ButtonPrimitive
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  );
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, children, ...props }, ref) => (
-    <motion.button
-      ref={ref}
-      whileTap={{ scale: 0.95 }}
-      transition={SPRING.press}
-      className={cn(buttonVariants({ variant, size }), className)}
-      {...props}
-    >
-      {children}
-    </motion.button>
-  ),
-);
-Button.displayName = 'Button';
-
-export { buttonVariants };
+export { Button, buttonVariants };

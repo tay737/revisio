@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
@@ -12,15 +12,20 @@ import { rankFor } from '@/domain/ranked';
 /**
  * The companion.
  *
- * The brief was "it should feel like a studying companion alongside being a
- * tool". A companion needs a body, so it has one: a small round presence whose
- * face *is your rank crest*, which means the thing speaking to you is visibly
- * the thing you are building. When the crest ticks up a division, your
- * companion changes with it.
+ * The brief was "a studying companion alongside being a tool". A companion needs
+ * a body, so it has one: a round presence whose face **is your rank crest**, so
+ * the thing speaking to you is visibly the thing you are building — and when the
+ * crest ticks up a division, your companion changes with it.
  *
- * What it says is decided entirely by `profile.companionFor` — this component
- * only renders the decision, which is why the shell and the dashboard can both
- * show it without risking two different readings of the same numbers.
+ * What it says is decided entirely by `profile.companionFor`; this component only
+ * renders that decision. That is why the shell, the account sheet and the
+ * dashboard can all show it without any risk of two different readings of the
+ * same numbers.
+ *
+ * Colour is inherited: inside a band it reads as white-on-black through the
+ * scope in globals.css, and on a light card it reads as ink. The action is an
+ * underline rather than a hue, so the companion never introduces an accent of
+ * its own.
  */
 export function Companion({
   snap,
@@ -30,7 +35,7 @@ export function Companion({
 }: {
   snap: CompanionSnapshot;
   className?: string;
-  /** Renders inside a near-black band: the crest picks up Sky Link Blue. */
+  /** Rendered inside a band: the surface comes from the band scope. */
   onTile?: boolean;
   compact?: boolean;
 }) {
@@ -39,12 +44,10 @@ export function Companion({
 
   return (
     <div className={cn('flex items-start gap-3.5', className)}>
-      {/* The presence: the crest, breathing very slightly, so it reads as alive
-          without becoming a mascot that dances at you. */}
       <motion.span
         className={cn(
-          'relative mt-0.5 grid shrink-0 place-items-center rounded-full border',
-          onTile ? 'border-white/15 bg-white/5' : 'border-edge/80 bg-panel/70',
+          'relative mt-0.5 grid shrink-0 place-items-center rounded-full border border-border',
+          onTile ? 'bg-secondary' : 'bg-card',
           compact ? 'h-11 w-11' : 'h-14 w-14',
         )}
         initial={{ scale: 0.85, opacity: 0 }}
@@ -52,9 +55,10 @@ export function Companion({
         transition={SPRING.pop}
       >
         <RankCrest rank={rank} size={compact ? 28 : 36} showProgress={false} animate={false} />
+        {/* A slow halo: enough to read as alive, not enough to dance at you. */}
         <motion.span
           aria-hidden
-          className="absolute inset-0 rounded-full border border-accent/25"
+          className="absolute inset-0 rounded-full border border-foreground/20"
           animate={{ scale: [1, 1.14, 1], opacity: [0.5, 0, 0.5] }}
           transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
         />
@@ -63,26 +67,23 @@ export function Companion({
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            'text-balance',
-            compact ? 't-caption leading-[1.43]' : 't-body',
-            onTile ? 'text-white/90' : 'text-ink',
+            'text-pretty',
+            compact ? 'text-[14px] leading-[1.5]' : 't-body',
+            onTile ? 'text-muted-foreground' : 'text-foreground',
           )}
         >
           {read.line}
         </p>
 
         <motion.div
-          className="mt-3"
+          className="mt-2.5"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...SPRING.settle, delay: 0.15 }}
         >
           <Link
             href={read.action.href}
-            className={cn(
-              'inline-flex items-center gap-1.5 text-[14px] font-normal transition-colors duration-200',
-              onTile ? 'text-[#2997ff] hover:text-white' : 'text-accent hover:underline',
-            )}
+            className="inline-flex items-center gap-1.5 text-[14px] font-semibold underline underline-offset-4 transition-opacity duration-150 hover:opacity-70"
           >
             {read.action.label}
             <Icon name="next" size={14} />

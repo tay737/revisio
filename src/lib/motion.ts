@@ -16,7 +16,7 @@
 //      size (it resamples glyphs and reads soft), never animate `width`.
 //   4. EXITS ARE FASTER THAN ENTRANCES. Leaving is not a performance.
 
-import type { Transition, Variants } from 'framer-motion';
+import type { Transition, Variants } from 'motion/react';
 
 type Cubic = [number, number, number, number];
 

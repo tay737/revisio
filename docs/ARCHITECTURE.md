@@ -439,3 +439,129 @@ by screenshots alone:
 - Phone (414px) and desktop (1440px): the tab bar floats at 12px inset with five
   56px touch targets and the sidebar takes over at `md`; the More sheet opens
   84px above the bar with `role="menu"` and the scroll lock applied.
+
+## 20. As built (v1.3, 2026-09-25) — content ownership, visibility and merge
+
+This pass fixed a class of bug rather than a feature: the app listed content it
+would not let anyone study, and offered no way to join content that had been
+split. Everything below is a consequence of giving two questions a single owner.
+
+### 20.1 Visibility has one owner
+
+`src/services/visibility.ts`. Before it, "may this user see or study this?" was
+answered in nine places with four different rules, and the disagreement was
+load-bearing:
+
+| Question | Old answer | Where |
+|---|---|---|
+| Daily queue | topic public **and** card public **and** subject followed | `study.ts` |
+| Cram queue | card public only — ownership ignored | `study.ts` |
+| Cram picker | topic public **or** owned; counted **all** cards | `cram/route.ts` |
+| Stats | card public, via followed subjects | `stats.ts` |
+| `visibleContentCondition` | the real rule — imported once, **never called** | `study.ts` |
+
+The deployment's actual state: **28 cards, 0 public**. So the cram picker
+advertised "12 questions", the queue it built was empty, and the daily queue was
+empty for every account. "No questions are being added" was literally true.
+
+The rule now, stated once and reused everywhere:
+
+- a topic reaches you if it is public, or you own it
+- a card inside it reaches you if it is public, or you own it
+- *following the subject matters only for content that is not yours*
+
+`studiableCard(userId, enrolled)` and `studiableCardIn(userId, topicIds)` are the
+two conditions; `reachesUser / topicReaches / cardReaches / lessonReaches` are
+their in-memory forms. Authoring rights stay in `services/roles.ts` — conflating
+"may edit" with "may reach" is what made a private deck read as empty *to the
+person whose job is to fix it*.
+
+There is now one less promise to break: the cram picker's count and the cram
+queue are computed from the same condition, so the number beside a topic is the
+number of questions the session contains. `verify-api.ts` asserts exactly that.
+
+### 20.2 Content operations have one owner
+
+`src/services/content-ops.ts`: `makeSlug`, `loadEditableTopic`,
+`setTopicVisibility`, `mergeTopics`, `topicContentCounts`, `answersForCards`.
+
+`setTopicVisibility` cascades to lessons and cards **by design**. A `public`
+topic whose cards are still `private` reads as published and behaves as empty,
+which is how this database got a subject page listing three topics and not one
+answerable question. Publishing a tree publishes the tree.
+
+`mergeTopics` is the operation that undoes a split: lessons first (cards carry
+`lessonId`), then cards, then `user_topic_states` (so nobody loses their place),
+then the source is deleted and the FK cascades clean up. `publish: true` also
+flips the moved rows, which is the "I imported my questions, now make them part
+of the real topic" case.
+
+### 20.3 Import targets, and the parser is pure
+
+- `src/domain/parse-import.ts` — the deck grammar, no database, no framework.
+- `src/services/import.ts` — writes into a target, batched.
+- `src/app/api/v1/import/route.ts` — validates the envelope and nothing else.
+
+Import used to take only a *name* and always mint a fresh **private** topic. That
+is the whole reason questions and notes ended up unjoinable: the deck arrived in
+its own topic, private, and nothing could move a card between topics. It now
+takes a target — `{ topicId }` to attach, or `{ topicName, subjectId }` to create
+— and **inherits the target's visibility** rather than forcing `private`, so a
+deck imported into a public topic is public.
+
+The generated multiple-choice parser was also wrong in two ways: with no explicit
+index it computed the index from the *last option's text* (producing `NaN` and
+silently dropping an option), and it had no `*` marker. Both now parse, and an
+unmarked row is rejected with a line number instead of guessed.
+
+### 20.4 Two request-shaped bugs found by using the app
+
+- `GET /content?subjectId=…` was **not handled**. The Learn page asked for it and
+  received the `?mine=1` payload, so expanding a subject listed *your own*
+  topics. The page looked functional and showed the wrong thing.
+- `GET /content?topicId=…` selected the **entire `card_answers` table** on every
+  topic open and filtered it in JavaScript. Now scoped by `inArray`.
+- The teacher roster cost **four queries per student** — 120 round-trips to
+  another region for a class of thirty. Now four grouped queries in total.
+
+### 20.5 Structure added
+
+```
+src/domain/parse-import.ts       deck grammar (pure)
+src/services/visibility.ts       one owner of "may see / may study"
+src/services/content-ops.ts      slug, publish (cascading), merge, counts
+src/services/import.ts           import into a chosen target
+src/app/api/v1/content/merge/    POST — the one operation that undoes a split
+src/components/content/MergeTopics.tsx   shared by My content and admin
+src/app/(app)/library/{ComposeTopic,ImportDeck}.tsx
+scripts/verify-content.ts        grammar + visibility + merge, against the DB
+scripts/verify-api.ts            the same rules over HTTP, on throwaway topics
+```
+
+`scripts/register-stub-loader.mjs` + `stub-server-only.mjs` exist because
+`import 'server-only'` resolves only inside Next's bundler — the package is now a
+real dependency, and the loader maps that one specifier for scripts without
+touching the guard in the app build.
+
+### 20.6 Verification for this pass
+
+`npx tsc --noEmit` clean, `npm run build` clean, `npm run verify:content`
+(22 checks) and `verify-api.ts` (20 checks) green against a real running
+production server and the real database.
+
+Exercised in the browser at 390×844 as the account that owns the content:
+
+- `/review` — the queue deals **28** cards; a cloze card answered correctly
+  inline, verdict **Correct**, **+10 XP**, "First Steps unlocked", progress
+  `1/20`; the streak counter moved 0 → 1.
+- `/library` — 4 tabs all visible; topic list showing true counts, with `0
+  questions` / `0 note sets` in the destructive tone; the merge panel's selects
+  populated from real data.
+- `/admin` — content stats (28 questions, **0 public** flagged), subject manager,
+  the role select that the API had exposed with no interface, and the content
+  manager now reading 12 questions / 0 note sets for the imported topic.
+
+Two layout bugs were found by looking at it: `.chip` and `.badge` had no
+`white-space` rule, so a two-word label wrapped inside its pill and became a
+circle of stacked words on a phone; and the content row's meta line was squeezed
+into a column beside two buttons instead of taking its own line.

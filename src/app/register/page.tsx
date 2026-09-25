@@ -6,7 +6,7 @@ export default function RegisterPage() {
   return (
     <AuthShell
       footer={
-        <Link href="/" className="transition-colors hover:text-ink">
+        <Link href="/" className="transition-colors hover:text-foreground">
           Back to Revisio
         </Link>
       }

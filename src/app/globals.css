@@ -1,458 +1,952 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
-/* ── Revisio design tokens ────────────────────────────────────────────────────
-   docs/DESIGN.md is the authority. Three of its rules do most of the work, and
-   the previous pass broke two of them:
+/* Class-based dark mode (the toggle writes `.dark` on <html>). */
+@custom-variant dark (&:is(.dark *));
 
-     1. ONE ACCENT. Action Blue #0066cc (Sky Link Blue #2997ff on dark
-        surfaces) is every interactive signal. There is no second brand colour,
-        and no per-tier hex — that is why leagues are coded by geometry.
-     2. THE TILE RHYTHM. The spec's pages are a stack of full-bleed tiles that
-        alternate white / parchment / near-black, and "the colour change itself
-        is the section divider". That alternation is the signature, and it was
-        missing here: everything sat on one flat grey field, which is why the
-        app read as a wireframe rather than as Apple's museum wall.
-     3. ONE SHADOW, FOR MEDIA ONLY. No shadow on cards, buttons or text.
-        Elevation comes from surface-colour change and from backdrop blur.
+/* ── Revisio design language ─────────────────────────────────────────────────
+   Two documents own this file, and they own different halves of it:
 
-   Type ladder is fixed 300 / 400 / 600 / 700 — weight 500 does not exist in
-   this system. Sizes come from the spec only (10/12/14/17/18/21/24/28/34/40/56);
-   the `.t-*` helpers are the sanctioned way to reach a step.
+     • docs/DESIGN-UBER.md — the UI. A two-colour duet (ink #000000 / canvas
+       #ffffff) over a grayscale ramp, a 4px spacing base, a 16px card radius,
+       the 999px pill as the only interactive shape, Inter 700 display type in
+       sentence case, and mid-page polarity-flipped black bands as the depth
+       cue instead of shadow tiers. Level 0 (flat) is the default state.
 
-   The `.on-tile` scope below is the mechanism that lets one page hold both a
-   light canvas and a near-black band *correctly*: inside it, the surface roles
-   are remapped to their on-dark values (white ink, muted #cccccc, Sky Link
-   Blue), so a component written once renders right on either ground. */
+     • docs/DESIGN-DUOLINGO.md — the UX and the feel. A gamified loop, tactile
+       buttons (a flat bottom lip that compresses when pressed, so a tap has
+       weight), uppercase 0.8px-tracked labels, a companion with a body, and
+       colour used only where the game needs it: streak, correct, gold.
+
+   THE RECONCILIATION, which is the one judgement call in this file:
+
+     **Uber owns the chrome; Duolingo owns the state.** Chrome — nav, cards,
+     bands, surfaces, page geometry, the navigating CTA — is the monochrome
+     duet, because that is what makes the app read as premium rather than as a
+     children's app. Colour appears only in *state*: a streak flame, a correct
+     or wrong answer, a promotion, a badge. Green additionally owns the one
+     control that is not navigation — the button you press *inside* a study
+     session to submit an answer. Ink means "you are moving around the app";
+     green means "you are earning something". The two never share a viewport.
+
+   Every colour a shadcn/Magic UI component could ask for (background, card,
+   popover, primary, secondary, muted, accent, destructive, border, input,
+   ring) is defined here and given the Uber value, so a dropped-in component
+   inherits the design language instead of importing Tailwind's defaults. */
 
 :root {
   color-scheme: light;
 
-  --c-bg: 245 245 247;            /* parchment  #f5f5f7 — the app canvas      */
-  --c-shell: 245 245 247;         /* chrome (sidebar, bars)                   */
-  --c-panel: 255 255 255;         /* canvas     #ffffff — cards, sheets       */
-  --c-pearl: 250 250 252;         /* surface-pearl #fafafc                    */
-  --c-raise: 255 255 255;
-  --c-sink: 240 240 242;          /* sunken wells (derived micro-step)        */
-  --c-edge: 224 224 224;          /* hairline   #e0e0e0                       */
-  --c-hair: 0 0 0;                /* hairline alpha driver                    */
-  --c-ink: 29 29 31;              /* ink        #1d1d1f                       */
-  --c-muted: 122 122 122;         /* ink-muted-48 #7a7a7a                     */
-  --c-soft: 51 51 51;             /* ink-muted-80 #333333                     */
-  --c-accent: 0 102 204;          /* Action Blue #0066cc — the one accent     */
-  --c-accent-focus: 0 113 227;    /* primary-focus #0071e3                    */
-  --c-accent-ink: 255 255 255;
-  /* Status semantics. These are NOT brand accents: they exist only so a
-     correct answer and a wrong one are distinguishable at a glance, which a
-     learning product cannot do without. Everything that is merely *positive*
-     — rank, progress, the current item — uses the accent, never these. */
-  --c-good: 22 138 90;
-  --c-bad: 191 60 58;
-  --c-nav: 0 0 0;                 /* global nav — the spec's surface-black    */
-  --c-tile: 39 39 41;             /* surface-tile-1 #272729                   */
-  --c-tile-2: 42 42 44;           /* surface-tile-2 #2a2a2c                   */
-  --c-tile-3: 37 37 39;           /* surface-tile-3 #252527                   */
+  --background: #ffffff; /* canvas     #ffffff */
+  --foreground: #000000; /* ink        #000000 */
+  --card: #ffffff; /* card       #ffffff @ radius 16 */
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000; /* the conversion pill — ink, always */
+  --primary-foreground: #ffffff; /* on-primary #ffffff */
+  --secondary: #efefef; /* canvas-soft  #efefef */
+  --secondary-foreground: #000000;
+  --muted: #f3f3f3; /* canvas-softer #f3f3f3 */
+  --muted-foreground: #5e5e5e; /* body        #5e5e5e */
+  --accent: #efefef; /* hover surface for shadcn primitives */
+  --accent-foreground: #000000;
+  --destructive: #ff4b4b; /* cardinal     #ff4b4b */
+  --destructive-foreground: #ffffff;
+  --border: #e2e2e2; /* surface-pressed #e2e2e2 */
+  --border-strong: #d0d0d0; /* the 2px input stroke */
+  --input: #efefef;
+  --ring: #000000;
 
-  /* Glass: a translucent pane, a top-edge specular sheen, a hairline ring. */
-  --glass-fill: 255 255 255;
-  --glass-fill-a: 0.78;
-  --glass-sheen: rgb(255 255 255 / 0.7);
-  --glass-rim: rgb(0 0 0 / 0.06);
-  --glass-drop: rgb(0 0 0 / 0.05);
+  /* ── Game state (Duolingo) ───────────────────────────────────────────────
+     Five roles, each with exactly one meaning anywhere in the product. */
+  --good: #58cc02; /* owl green  — correct, progress, in-session CTA */
+  --good-pressed: #58a700; /* tree-frog  — the pressed lip below */
+  --good-soft: #d7ffb8; /* sea-sponge — the correct-answer wash */
+  --streak: #ff9600; /* fox        — the day streak, nothing else */
+  --gold: #ffc800; /* bee        — trophies, promotions, achievements */
+  --info: #1cb0f6; /* macaw      — notes and reference material */
 
-  /* Scrim over content when a sheet or dialog opens. */
-  --c-scrim: 29 29 31;
+  /* ── The polarity band ──────────────────────────────────────────────────
+     Mid-page full-bleed black. In light mode this is Uber's most recognisable
+     device; in dark mode it lifts a step off the black page instead of
+     repeating it. Inside `.band`, every semantic role is remapped below, so a
+     component written once is correct on either ground. */
+  --band: #000000;
+  --band-foreground: #ffffff;
+  --band-card: #1a1a1a;
+  --band-border: #333333;
+  --band-muted: #afafaf;
+  --band-secondary: #242424;
+
+  /* The tactile lip (Duolingo's flat bottom shadow). `--lip` belongs to the
+     primary pill; `--lip-soft` to a light pill sitting on a light ground. */
+  --lip: rgb(0 0 0 / 0.28);
+  --lip-soft: #dcdcdc;
+
+  --scrim: rgb(0 0 0 / 0.4);
+  --radius: 16px;
 }
 
 .dark {
   color-scheme: dark;
 
-  /* Micro-steps of the #252527 family: #1c1c1e → #252527 → #2a2a2c → #303032.
-     The spec documents three tile hexes; the outer two are derived steps so a
-     dark app can still show depth without reaching for a shadow. */
-  --c-bg: 28 28 30;
-  --c-shell: 37 37 39;            /* surface-tile-3 #252527                   */
-  --c-panel: 42 42 44;            /* surface-tile-2 #2a2a2c                   */
-  --c-pearl: 48 48 51;
-  --c-raise: 48 48 51;            /* #303032                                  */
-  --c-sink: 24 24 26;
-  --c-edge: 58 58 62;
-  --c-hair: 255 255 255;
-  --c-ink: 255 255 255;
-  --c-muted: 204 204 204;         /* body-muted #cccccc                       */
-  --c-soft: 229 229 231;
-  --c-accent: 41 151 255;         /* Sky Link Blue #2997ff                    */
-  --c-accent-focus: 41 151 255;
-  --c-accent-ink: 255 255 255;
-  --c-good: 52 180 120;
-  --c-bad: 235 106 101;
-  --c-nav: 0 0 0;
-  --c-tile: 37 37 39;
-  --c-tile-2: 42 42 44;
-  --c-tile-3: 30 30 32;
+  /* The same system, polarity-flipped: black becomes canvas, white becomes the
+     ink, and elevation moves *up* the grayscale. */
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #141414;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff; /* inverted pill: white on black */
+  --primary-foreground: #000000;
+  --secondary: #282828; /* black-elevated #282828 */
+  --secondary-foreground: #ffffff;
+  --muted: #1c1c1c;
+  --muted-foreground: #afafaf; /* mute #afafaf */
+  --accent: #282828;
+  --accent-foreground: #ffffff;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #000000;
+  --border: #2e2e2e;
+  --border-strong: #4b4b4b; /* hairline-mid #4b4b4b */
+  --input: #282828;
+  --ring: #ffffff;
 
-  --glass-fill: 255 255 255;
-  --glass-fill-a: 0.06;
-  --glass-sheen: rgb(255 255 255 / 0.09);
-  --glass-rim: rgb(255 255 255 / 0.09);
-  --glass-drop: rgb(0 0 0 / 0.3);
+  --good: #58cc02;
+  --good-pressed: #3f9400;
+  --good-soft: #1f3608;
+  --streak: #ffa53d;
+  --gold: #ffd23f;
+  --info: #1cb0f6;
 
-  --c-scrim: 0 0 0;
+  --band: #141414;
+  --band-foreground: #ffffff;
+  --band-card: #1f1f1f;
+  --band-border: #2e2e2e;
+  --band-muted: #9a9a9a;
+  --band-secondary: #262626;
+
+  --lip: #c9c9c9; /* a white pill's lip is a darker white */
+  --lip-soft: #1f1f1f;
+  --scrim: rgb(0 0 0 / 0.66);
 }
 
-/* ── The on-dark scope ───────────────────────────────────────────────────────
-   Everything inside a near-black tile reads from these instead. One component,
-   two grounds, no conditional classes. */
-.tile-dark,
-.on-tile {
+/* ── The band scope ──────────────────────────────────────────────────────────
+   Applied to a mid-page polarity flip, and to `TilePanel tone="dark"` which is
+   the same idea at app-page scale. Everything below remaps: text turns white,
+   cards go near-black, a `bg-primary` pill turns white with black ink (which is
+   exactly how Uber inverts its CTA on a dark band), and the game colours stay
+   put except where they need contrast help.
+
+   Remapping the *variables* rather than the classes is what lets one component
+   written once — `t-caption text-muted-foreground` — come out right on either
+   ground. Anything inside a dark panel that hardcodes `text-white/70` is a
+   component that has not been given this scope yet. */
+.band,
+.tile-dark {
   color-scheme: dark;
 
-  --c-bg: 39 39 41;
-  --c-shell: 42 42 44;
-  --c-panel: 42 42 44;
-  --c-pearl: 48 48 51;
-  --c-raise: 51 51 54;
-  --c-sink: 30 30 32;
-  --c-edge: 68 68 72;
-  --c-hair: 255 255 255;
-  --c-ink: 255 255 255;
-  --c-muted: 204 204 204;
-  --c-soft: 229 229 231;
-  --c-accent: 41 151 255;         /* Sky Link Blue — Action Blue vanishes here */
-  --c-accent-focus: 41 151 255;
-  --c-good: 62 196 132;
-  --c-bad: 255 128 122;
-
-  --glass-fill: 255 255 255;
-  --glass-fill-a: 0.08;
-  --glass-sheen: rgb(255 255 255 / 0.12);
-  --glass-rim: rgb(255 255 255 / 0.1);
-  --glass-drop: rgb(0 0 0 / 0.28);
+  --background: var(--band);
+  --foreground: var(--band-foreground);
+  --card: var(--band-card);
+  --card-foreground: var(--band-foreground);
+  --popover: var(--band-card);
+  --popover-foreground: var(--band-foreground);
+  --primary: var(--band-foreground);
+  --primary-foreground: var(--band);
+  --secondary: var(--band-secondary);
+  --secondary-foreground: var(--band-foreground);
+  --muted: var(--band-card);
+  --muted-foreground: var(--band-muted);
+  --accent: var(--band-secondary);
+  --accent-foreground: var(--band-foreground);
+  --border: var(--band-border);
+  --input: var(--band-secondary);
+  --ring: var(--band-foreground);
+  --lip: #c9c9c9;
+  --lip-soft: #2a2a2a;
+  --scrim: rgb(0 0 0 / 0.6);
 }
 
-html,
-body {
-  height: 100%;
+/* ── Theme mapping ───────────────────────────────────────────────────────────
+   `inline` so each utility reads the live variable: a `.band` subtree, or the
+   dark theme, re-resolves without a second utility. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-good: var(--good);
+  --color-good-pressed: var(--good-pressed);
+  --color-good-soft: var(--good-soft);
+  --color-streak: var(--streak);
+  --color-gold: var(--gold);
+  --color-info: var(--info);
+  --color-band: var(--band);
+  --color-band-foreground: var(--band-foreground);
+  --color-band-card: var(--band-card);
+
+  --font-sans: var(--font-inter), system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: var(--font-inter), system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Uber's radius ladder: 8 input · 12 small card · 16 canonical card · pill. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 999px;
+
+  /* Uber's three documented drops. Cards stay flat (Level 0). */
+  --shadow-float: 0 2px 8px 0 rgb(0 0 0 / 0.16);
+  --shadow-card: 0 4px 16px 0 rgb(0 0 0 / 0.12);
+  --shadow-overlay: 0 16px 48px -12px rgb(0 0 0 / 0.35);
+  --shadow-media: 0 4px 30px 0 rgb(0 0 0 / 0.22);
+
+  --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-breathe: breathe 1.4s ease-in-out infinite;
+  --animate-dot: dot-pulse 1.1s ease-in-out infinite;
+  --animate-sheen: crest-sweep 1.6s ease-in-out;
 }
 
-body {
-  @apply bg-bg text-ink antialiased;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
-  font-size: 17px;
-  font-weight: 400;
-  letter-spacing: -0.374px;
-  line-height: 1.47;
-  font-feature-settings: 'ss03';
-  /* The canvas carries the faintest vertical shift in value — the same trick
-     the spec uses to stop a long light page reading as flat paper. It is a
-     surface value, not a decorative gradient mark. */
-  background-image: linear-gradient(
-    to bottom,
-    rgb(var(--c-panel) / 0.9),
-    rgb(var(--c-bg) / 0) 420px
-  );
-}
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 
-.dark body {
-  background-image: linear-gradient(to bottom, rgb(48 48 51 / 0.55), rgb(var(--c-bg) / 0) 480px);
-}
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    scroll-padding-top: 64px;
+  }
 
-/* Display stack. Negative tracking at display sizes is the signature. */
-.display-tight {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
-  letter-spacing: -0.022em;
-  font-weight: 600;
-}
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'ss01', 'cv11';
+    overscroll-behavior-y: none;
+  }
 
-/* Media shadow — the ONLY shadow in the system (docs/DESIGN.md elevation).
-   Never apply this to a card, a button or text. */
-.shadow-media {
-  box-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
-}
+  /* Uber's display face is never letter-spaced and never italic; the display
+     scale is set in the `.t-*` helpers below. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0;
+  }
 
-* {
-  scrollbar-width: thin;
-}
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
 
-::selection {
-  background: rgb(var(--c-accent) / 0.2);
-}
+  ::selection {
+    background: var(--good-soft);
+    color: var(--foreground);
+  }
 
-/* Keyboard focus is Action Blue at its focus value — the spec's only ring. */
-:focus-visible {
-  outline: 2px solid rgb(var(--c-accent-focus));
-  outline-offset: 2px;
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Every scrollable pane gets a thin, low-contrast bar. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
 }
 
 @layer components {
-  /* ── Type steps ─────────────────────────────────────────────────────────
-     Each helper is one row of the spec's typography table. */
-  .t-hero      { font-size: 56px; font-weight: 600; line-height: 1.07; letter-spacing: -0.28px; }
-  .t-display   { font-size: 40px; font-weight: 600; line-height: 1.10; letter-spacing: 0; }
-  .t-display-md{ font-size: 34px; font-weight: 600; line-height: 1.47; letter-spacing: -0.374px; }
-  .t-lead      { font-size: 28px; font-weight: 400; line-height: 1.14; letter-spacing: 0.196px; }
-  .t-lead-airy { font-size: 24px; font-weight: 300; line-height: 1.5;  letter-spacing: 0; }
-  .t-tagline   { font-size: 21px; font-weight: 600; line-height: 1.19; letter-spacing: 0.231px; }
-  .t-strong    { font-size: 17px; font-weight: 600; line-height: 1.24; letter-spacing: -0.374px; }
-  .t-body      { font-size: 17px; font-weight: 400; line-height: 1.47; letter-spacing: -0.374px; }
-  .t-caption   { font-size: 14px; font-weight: 400; line-height: 1.43; letter-spacing: -0.224px; }
-  .t-caption-s { font-size: 14px; font-weight: 600; line-height: 1.29; letter-spacing: -0.224px; }
-  .t-fine      { font-size: 12px; font-weight: 400; line-height: 1.0;  letter-spacing: -0.12px; }
-  .t-micro     { font-size: 10px; font-weight: 400; line-height: 1.3;  letter-spacing: -0.08px; }
+  /* ── Type scale ─────────────────────────────────────────────────────────
+     Uber's ladder, with the mobile step folded into each size — a 52px hero
+     on a 390px phone is a wall, not a headline. Weight 700 for display, 400
+     and 500 for everything else. Sentence case, always. */
+  .t-hero {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(32px, 8.4vw, 52px);
+    line-height: 1.08;
+  }
+  .t-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(28px, 6.6vw, 36px);
+    line-height: 1.15;
+  }
+  .t-display-md {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 1.25;
+  }
+  .t-display-sm {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1.3;
+  }
+  .t-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.25;
+  }
+  @media (min-width: 640px) {
+    .t-title {
+      font-size: 26px;
+    }
+  }
+  .t-lead {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .t-lead-airy {
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+  .t-tagline {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .t-strong {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .t-body {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  .t-caption {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.43;
+  }
+  .t-caption-s {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .t-fine {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.35;
+  }
+  .t-micro {
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
 
-  /* Display size for a numeric readout — big, tight, tabular. */
-  .t-num       { font-size: 40px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .t-num-sm    { font-size: 28px; font-weight: 600; line-height: 1.14; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  /* Duolingo's most-used typographic signature: a stamped, uppercased,
+     letter-spaced label. Reserved for controls — never for prose. */
+  .t-label {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .t-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
 
-  /* Page headline: display-md at rest, display on wide screens. */
-  .t-title     { @apply t-display-md; }
-  @screen sm { .t-title { font-size: 40px; line-height: 1.1; } }
+  .t-num {
+    font-family: var(--font-display);
+    font-size: clamp(30px, 7vw, 38px);
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .t-num-sm {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
 
-  /* Section eyebrow — caption-strong, spaced. Derived, not a spec row. */
-  .t-eyebrow   { @apply t-caption-s uppercase text-muted; letter-spacing: 0.08em; }
-
-  /* ── Surfaces ─────────────────────────────────────────────────────────────
-
-     `.card` is the spec's store-utility-card: rounded.lg 18px, 1px hairline,
-     24px padding, NO shadow. It is rendered as glass — the spec sanctions
-     backdrop-blur on its chrome — so it stays legible over the tile bands and
-     photography-free colour fields behind it.
-
-     The previous version filled cards with `panel/62` over a flat parchment
-     page, which produced a grey rectangle with nothing to blur. The fill is now
-     near-opaque white (the spec's canvas) so the card reads as a card, and the
-     blur only matters where a tile band or scrim is genuinely behind it. */
+  /* ── Surfaces ───────────────────────────────────────────────────────────
+     Level 0 flat is the default: a card is a white 16px-radius rectangle with
+     a hairline, no shadow, no gradient. Elevation is expressed by *changing
+     the surface colour* (see `.band`), which is the whole depth system. */
   .card {
-    @apply relative isolate rounded-[18px] border border-edge/80 p-6;
-    background: rgb(var(--glass-fill) / max(var(--glass-fill-a), 0.72));
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    box-shadow: inset 0 1px 0 0 var(--glass-sheen);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 20px;
   }
-  .dark .card {
-    background: rgb(var(--c-panel) / 0.72);
+  @media (min-width: 640px) {
+    .card {
+      padding: 24px;
+    }
   }
-
-  /* Opaque variant — for dense tables and forms where blur is wasted paint. */
   .card-solid {
-    @apply relative rounded-[18px] border border-edge/80 p-6 bg-panel;
-    box-shadow: inset 0 1px 0 0 var(--glass-sheen);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 20px;
+  }
+  .card-soft {
+    border-radius: var(--radius-lg);
+    background: var(--secondary);
+    padding: 20px;
+  }
+  .card-flat {
+    border-radius: var(--radius-md);
+    background: var(--secondary);
+    padding: 14px 16px;
   }
 
-  /* Full-bleed tile: the spec's section divider. `-dark` gives the on-dark
-     scope and the near-black ground; `-parchment` the off-white alternate. */
+  /* Full-bleed polarity band. No border, no shadow between bands — the colour
+     change *is* the divider. */
   .tile {
-    @apply relative w-full px-5 py-14 md:px-8 md:py-16;
+    position: relative;
+    width: 100%;
+    padding: 40px 16px;
+  }
+  @media (min-width: 768px) {
+    .tile {
+      padding: 72px 32px;
+    }
   }
   .tile-dark {
-    background: rgb(var(--c-tile));
-    color: rgb(var(--c-ink));
-    --glass-fill-a: 0.08;
-  }
-  .dark .tile-dark {
-    background: rgb(30 30 32);
-  }
-  .tile-parchment {
-    background: rgb(var(--c-bg));
+    background: var(--band);
+    color: var(--band-foreground);
   }
   .tile-white {
-    background: rgb(var(--c-panel));
+    background: var(--card);
+  }
+  .tile-parchment {
+    background: var(--secondary);
   }
 
-  /* Frosted bar: headers, tab bars, floating sticky rows (spec height 52/64).
-     The spec's own recipe — parchment at 80% over saturate(180%) blur(20px). */
+  /* Sticky chrome. Glass is sanctioned here and only here: a translucent bar
+     that content scrolls *under* is a real optical effect, not decoration. */
   .glass-bar {
-    @apply relative;
-    background: rgb(var(--c-shell) / 0.72);
+    background: color-mix(in oklab, var(--background) 82%, transparent);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
-    box-shadow: inset 0 1px 0 0 var(--glass-sheen);
   }
-
-  /* Floating glass chrome — the detached tab bar and sheets. Sits above
-     content with a 1px rim and a whisper of ambient shade (a rim, not a
-     card shadow: it is what separates the pane from the page it floats over). */
-  .glass-float {
-    background: rgb(var(--glass-fill) / max(var(--glass-fill-a), 0.7));
+  .glass-sheet {
+    background: color-mix(in oklab, var(--background) 92%, transparent);
     backdrop-filter: saturate(180%) blur(24px);
     -webkit-backdrop-filter: saturate(180%) blur(24px);
-    border: 1px solid var(--glass-rim);
-    box-shadow:
-      inset 0 1px 0 0 var(--glass-sheen),
-      0 8px 28px -12px var(--glass-drop);
   }
-  .dark .glass-float {
-    background: rgb(42 42 44 / 0.82);
-  }
-
-  /* Specular top-edge sheen for panes that are not `.card`. */
-  .glass-sheen::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(180deg, var(--glass-sheen), transparent 40%);
+  .glass-float {
+    background: color-mix(in oklab, var(--card) 86%, transparent);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-float);
   }
 
-  /* Pointer-tracked specular highlight (Magic UI's MagicCard idea). Pure light:
-     a radial accent at ~8% alpha following the cursor. */
-  .glass-spotlight {
-    background: radial-gradient(
-      260px circle at var(--glass-x, 50%) var(--glass-y, 0%),
-      rgb(var(--c-accent) / 0.09),
-      transparent 70%
-    );
-  }
-
-  /* Secondary inset surface — quiet well for nested blocks. */
-  .inset {
-    @apply rounded-[11px] border border-edge/70;
-    background: rgb(var(--c-sink) / 0.6);
-  }
-
-  /* Hairline rule that works on either ground. */
   .rule {
-    @apply border-t border-edge/80;
+    border-top: 1px solid var(--border);
+  }
+  .inset {
+    border-radius: var(--radius-md);
+    background: var(--secondary);
   }
 
-  /* ── Buttons ────────────────────────────────────────────────────────────
-     Two grammars only: pill for actions, compact rect for utility.
-     Press is always scale(0.95) — the system-wide micro-interaction. It is a
-     transform, so the spring lives in `Pressable`/`Button` (framer-motion)
-     rather than in a linear CSS transition, which is what made taps feel
-     stiff. */
+  /* ── Controls ───────────────────────────────────────────────────────────
+     The pill is the only interactive shape. Every button carries Duolingo's
+     flat bottom lip and compresses into it on press — that single detail is
+     what turns a tap from a colour change into a physical act, and it is the
+     reason the app no longer feels stiff. 44px is the minimum height. */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full px-[22px] py-[11px] text-[17px] font-normal transition-[background-color,color,opacity,border-color] duration-200 ease-out disabled:pointer-events-none disabled:opacity-50;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: var(--radius-pill);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    user-select: none;
+    transition:
+      transform 90ms var(--ease-snap),
+      box-shadow 90ms var(--ease-snap),
+      background-color 160ms var(--ease-out),
+      color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out),
+      opacity 160ms var(--ease-out);
   }
-  /* button-primary: Action Blue pill, on-primary text, body typography. */
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    pointer-events: none;
+    opacity: 0.45;
+  }
+  @media (min-width: 640px) {
+    .btn {
+      min-height: 48px;
+      padding: 0 22px;
+    }
+  }
+
   .btn-primary {
-    @apply btn bg-accent text-accent-ink enabled:hover:brightness-110;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 3px 0 0 var(--lip);
   }
-  /* button-secondary-pill: the ghost pill (transparent + Action Blue ring). */
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--primary) 88%, var(--foreground));
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 0 var(--lip);
+  }
+
+  /* The in-session action. Green is the only colour permitted to carry a
+     primary action, and only inside a study loop — see the header note. */
+  .btn-good {
+    background: var(--good);
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 0 0 var(--good-pressed);
+  }
+  .btn-good:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--good) 92%, #ffffff);
+  }
+  .btn-good:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 var(--good-pressed);
+  }
+
   .btn-secondary {
-    @apply btn border border-accent/70 bg-transparent text-accent enabled:hover:bg-accent/10;
+    background: var(--card);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    box-shadow: 0 3px 0 0 var(--lip-soft);
   }
-  /* button-pearl-capsule: pearl fill, ink-muted-80 text, soft ring, rounded.md. */
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--secondary);
+  }
+  .btn-secondary:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 0 var(--lip-soft);
+  }
+
+  .btn-subtle {
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+  .btn-subtle:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--secondary) 80%, var(--foreground) 8%);
+  }
+
   .btn-ghost {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border-[3px] border-edge/60 bg-pearl px-[14px] py-2 text-[14px] font-normal leading-[1.29] text-soft transition-[background-color,color,border-color] duration-200 ease-out disabled:pointer-events-none disabled:opacity-50;
+    background: transparent;
+    color: var(--muted-foreground);
+    border: 1px solid var(--border);
+    min-height: 40px;
+    padding: 0 16px;
+    font-size: 14px;
   }
-  .btn-ghost:hover {
-    border-color: rgb(var(--c-accent) / 0.35);
-    color: rgb(var(--c-accent));
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--foreground);
+    border-color: var(--border-strong);
   }
-  /* button-dark-utility: ink fill, rounded.sm, utility typography. */
+
   .btn-utility {
-    @apply inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-ink px-[15px] py-2 text-[14px] font-normal leading-[1.29] text-panel disabled:pointer-events-none disabled:opacity-50;
+    background: var(--foreground);
+    color: var(--background);
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 500;
   }
   .btn-danger {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border border-bad/50 bg-transparent px-[14px] py-2 text-[14px] font-normal text-bad transition-colors duration-200 hover:bg-bad/10 disabled:pointer-events-none disabled:opacity-50;
+    background: transparent;
+    color: var(--destructive);
+    border: 1px solid color-mix(in oklab, var(--destructive) 45%, transparent);
+    min-height: 38px;
+    padding: 0 14px;
+    font-size: 14px;
   }
-  /* Dense pill for inline actions inside tables/lists. */
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--destructive) 12%, transparent);
+  }
+  .btn-icon {
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: var(--radius-pill);
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+  .btn-icon:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--secondary) 82%, var(--foreground) 10%);
+  }
   .btn-sm {
-    @apply px-[15px] py-2 text-[14px];
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+  .btn-lg {
+    min-height: 52px;
+    padding: 0 26px;
+    font-size: 17px;
+    width: 100%;
+  }
+  @media (min-width: 640px) {
+    .btn-lg {
+      width: auto;
+    }
   }
 
   /* ── Inputs ─────────────────────────────────────────────────────────────
-     search-input: pill, body typography, hairline ring. */
+     Duolingo's 48px field with a 2px stroke, filled by Uber's canvas-soft. */
   .input {
-    @apply w-full rounded-full border border-edge bg-panel px-5 py-[11px] text-[17px] font-normal leading-[1.47] text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/25;
+    width: 100%;
+    min-height: 48px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--border);
+    background: var(--card);
+    padding: 10px 14px;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--foreground);
+    outline: none;
+    transition:
+      border-color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out);
+  }
+  .input::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.75;
+  }
+  .input:focus {
+    border-color: var(--ring);
+  }
+  .input:disabled {
+    opacity: 0.55;
   }
   textarea.input {
-    border-radius: 11px;
-    line-height: 1.47;
+    border-radius: var(--radius-md);
+    line-height: 1.5;
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
   select.input {
-    @apply cursor-pointer pr-10;
+    cursor: pointer;
+    padding-right: 36px;
   }
   .label {
-    @apply mb-1.5 block text-[14px] font-semibold leading-[1.29] tracking-[-0.224px] text-muted;
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
   }
 
-  /* ── Chips & meters ─────────────────────────────────────────────────────── */
+  /* ── Chips, badges, meters ──────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-edge/80 bg-panel/80 px-3 py-1 text-[14px] font-normal leading-[1.29] tracking-[-0.224px] text-muted;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 30px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 0 11px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--foreground);
+    /* A chip is a single token, never a paragraph. Without this a two-word
+       label on a narrow screen wraps inside the pill and turns it into a
+       circle of stacked words. */
+    white-space: nowrap;
   }
   .chip-active {
-    @apply border-accent/60 bg-accent/10 text-accent;
+    border-color: transparent;
+    background: var(--foreground);
+    color: var(--background);
   }
-  .meter {
-    @apply h-1.5 overflow-hidden rounded-full;
-    background: rgb(var(--c-edge) / 0.55);
+  .chip-soft {
+    border-color: transparent;
+    background: var(--secondary);
+    color: var(--foreground);
   }
-  /* Rank-tinted meter: the accent is the only fill, the track is a hairline. */
-  .meter-accent {
-    background: rgb(var(--c-accent) / 0.14);
+  /* The three semantic badges from the Duolingo component set. */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: var(--radius-pill);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    /* Uppercase and letterspaced, so a two-word badge needs more room than a
+       chip does — without this it wraps inside the pill and the pill becomes a
+       circle of stacked words on a phone. */
+    white-space: nowrap;
+  }
+  .badge-streak {
+    background: var(--streak);
+    color: #ffffff;
+  }
+  .badge-gold {
+    background: var(--gold);
+    color: #000000;
+  }
+  .badge-good {
+    background: var(--good);
+    color: #ffffff;
+  }
+  .badge-quiet {
+    background: var(--secondary);
+    color: var(--muted-foreground);
   }
 
-  /* Option rows (MCQ answers, pickers) — pill-ish rect, obvious press. */
+  .meter {
+    height: 10px;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    background: var(--secondary);
+  }
+  .meter-fill {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--good);
+  }
+  .meter-ink .meter-fill {
+    background: var(--foreground);
+  }
+
+  /* ── Answer rows (the study loop) ───────────────────────────────────────
+     Options are full-width pills with a 2px stroke and a flat lip, so choosing
+     one is the same physical gesture as pressing a button. */
   .option {
-    @apply w-full rounded-[11px] border border-edge/80 bg-panel/60 px-4 py-3 text-left text-[17px] font-normal leading-[1.47] transition-[border-color,background-color] duration-200;
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--border);
+    background: var(--card);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 500;
+    box-shadow: 0 3px 0 0 var(--lip-soft);
+    transition:
+      transform 90ms var(--ease-snap),
+      box-shadow 90ms var(--ease-snap),
+      border-color 160ms var(--ease-out),
+      background-color 160ms var(--ease-out);
+  }
+  .option:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 0 var(--lip-soft);
   }
   .option-selected {
-    @apply border-accent bg-accent/10 text-accent;
+    border-color: var(--ring);
   }
   .option-correct {
-    @apply border-accent bg-accent/10 text-accent;
+    border-color: var(--good);
+    background: color-mix(in oklab, var(--good) 12%, var(--card));
+    color: var(--good-pressed);
+    box-shadow: 0 3px 0 0 var(--good-pressed);
   }
   .option-wrong {
-    @apply border-bad bg-bad/10 text-bad;
+    border-color: var(--destructive);
+    background: color-mix(in oklab, var(--destructive) 12%, var(--card));
+    color: var(--destructive);
+    box-shadow: 0 3px 0 0 var(--destructive);
   }
 
-  /* Segmented control (leaderboard scope, density switch). The moving pill is
-     a framer `layoutId` element; these classes only style the label. */
   .segment {
-    @apply relative rounded-full px-3.5 py-1.5 text-[14px] font-normal text-muted transition-colors duration-200;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    border-radius: var(--radius-pill);
+    padding: 0 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    transition: color 160ms var(--ease-out);
   }
+  /* The selected segment carries its own fill. The previous version only
+     recoloured the label, which worked while a shared-layout pill was animated
+     behind it — so on any control that did not have one, the active label
+     rendered white on white and vanished. */
   .segment-active {
-    @apply text-accent;
+    background: var(--foreground);
+    color: var(--background);
   }
 
-  /* Route skeleton block: a surface fill that breathes. The spec does not
-     document skeletons ("known gaps"), so this stays inside the token palette
-     rather than inventing a shimmering gradient. */
+  /* ── Range ──────────────────────────────────────────────────────────────
+     A slider left unstyled renders in the browser's own blue, which in a
+     one-colour system is a second accent arriving by accident. */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--secondary);
+    outline: none;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-pill);
+    background: var(--foreground);
+    border: 3px solid var(--background);
+    cursor: pointer;
+  }
+  input[type='range']::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-pill);
+    background: var(--foreground);
+    border: 3px solid var(--background);
+    cursor: pointer;
+  }
+  input[type='range']:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
+
   .skeleton {
-    background: rgb(var(--c-edge) / 0.5);
-    animation: skeleton-breathe 1.4s ease-in-out infinite;
+    background: var(--secondary);
+    border-radius: var(--radius-md);
+    animation: var(--animate-breathe);
   }
 
-  /* Horizontal scrollers (rank ladder) — no visible track, snap to items. */
+  /* Horizontal rails (the rank ladder, chip rows) — snap, no visible track. */
   .rail {
-    @apply flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .rail::-webkit-scrollbar {
     display: none;
   }
   .rail > * {
-    @apply snap-start;
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+
+  /* Safe areas. `--nav-h` is the bottom bar's height, owned by the shell. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .nav-offset {
+    padding-bottom: calc(var(--nav-h, 64px) + env(safe-area-inset-bottom) + 24px);
+  }
+  @media (min-width: 768px) {
+    .nav-offset {
+      padding-bottom: 32px;
+    }
   }
 }
 
-@keyframes skeleton-breathe {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-/* The companion's "speaking" indicator: three dots that breathe in sequence. */
 @keyframes dot-pulse {
-  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-2px); }
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
-/* A slow sweep used once per session on the rank crest when you promote. */
 @keyframes crest-sweep {
-  from { transform: translateX(-120%); }
-  to { transform: translateX(120%); }
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton { animation: none; opacity: 0.75; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

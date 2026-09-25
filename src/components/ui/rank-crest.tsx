@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { SPRING, transition } from '@/lib/motion';
 import { crestFor, type Rank } from '@/domain/ranked';
@@ -41,7 +41,7 @@ export function RankCrest({
   animate?: boolean;
 }) {
   const spec = crestFor(rank);
-  const markTone = muted ? 'text-muted/45' : 'text-accent';
+  const markTone = muted ? 'text-muted-foreground/45' : 'text-primary';
 
   // Dial arc maths. r=45.5 with a 3px stroke sits inside a 100-unit box.
   const R = 45.5;
@@ -62,7 +62,7 @@ export function RankCrest({
       aria-label={`Rank ${rank.label}`}
     >
       {/* Dial ticks — the mechanism. Longer with every tier. */}
-      <g className={cn(muted ? 'text-muted/30' : 'text-edge')}>
+      <g className={cn(muted ? 'text-muted-foreground/30' : 'text-border')}>
         {Array.from({ length: spec.segments }).map((_, i) => {
           const angle = (i / spec.segments) * Math.PI * 2 - Math.PI / 2;
           const x1 = 50 + Math.cos(angle) * 40;
@@ -90,7 +90,7 @@ export function RankCrest({
       {/* Progress ring — division progress. The only place the accent sweeps. */}
       {showProgress && (
         <>
-          <circle cx={50} cy={50} r={R} fill="none" stroke="currentColor" strokeWidth={3} className="text-edge/60" />
+          <circle cx={50} cy={50} r={R} fill="none" stroke="currentColor" strokeWidth={3} className="text-border/60" />
           <g transform="rotate(-90 50 50)">
             <motion.circle
               cx={50}
@@ -113,7 +113,7 @@ export function RankCrest({
       {/* The shield. Outline is ink, interior is the surface it sits on. */}
       <path
         d="M22 26 H78 V50 C78 67 65 79 50 85 C35 79 22 67 22 50 Z"
-        className="fill-panel stroke-ink"
+        className="fill-card stroke-foreground"
         strokeWidth={2.5}
         strokeLinejoin="round"
       />
@@ -182,7 +182,7 @@ export function RankChip({
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
       <RankCrest rank={rank} size={size} showProgress={false} muted={muted} animate={false} />
-      <span className={cn('t-caption-s', muted ? 'text-muted' : 'text-ink')}>{rank.label}</span>
+      <span className={cn('t-caption-s', muted ? 'text-muted-foreground' : 'text-foreground')}>{rank.label}</span>
     </span>
   );
 }

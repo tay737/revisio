@@ -3,21 +3,13 @@ import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
   cards, cardAnswers, cardUserStates, examQuestions, reviewLogs, streaks, subjects,
-  topics, userAchievements, userSubjects, userTopicStates, xpEvents, achievements,
+  topics, userAchievements, userTopicStates, xpEvents, achievements,
   leagueMemberships, examAttempts, featureFlags,
 } from '@/db/schema';
 import { gradeCloze, gradeFlashcard, gradeMcq, type AcceptedAnswer } from '@/domain/grading';
 import { getScheduler, newCardState, type Rating } from '@/domain/srs';
 import { evaluateAchievements, levelForXp, nextStreak, utcDateKey, xpForReview } from '@/domain/gamification';
-
-// ── visibility (single source of truth for what a user can see) ─────────────
-
-export function visibleContentCondition(userId: string) {
-  return or(
-    eq(cards.visibility, 'public'),
-    eq(cards.ownerId, userId)
-  );
-}
+import { enrolledSubjectIds, studiableCard, studiableCardIn } from '@/services/visibility';
 
 // ── algorithms config (dev-tunable via feature flag payload) ────────────────
 
@@ -53,11 +45,13 @@ export type QueueCard = {
 };
 
 export async function buildDailyQueue(userId: string, limit = 20): Promise<QueueCard[]> {
-  const subs = await db.select({ subjectId: userSubjects.subjectId }).from(userSubjects).where(eq(userSubjects.userId, userId));
-  const subjectIds = subs.map((s) => s.subjectId);
-  if (subjectIds.length === 0) return [];
-
+  const enrolled = await enrolledSubjectIds(userId);
   const now = new Date();
+
+  // The early `return []` when unenrolled is gone on purpose: a deck you wrote
+  // or imported yourself is yours to study whether or not you follow the
+  // subject it sits under. That single line is why "no questions are ever
+  // added" — 28 cards existed and none of them could be reached.
   const rows = await db
     .select({
       card: cards,
@@ -74,9 +68,7 @@ export async function buildDailyQueue(userId: string, limit = 20): Promise<Queue
     )
     .where(
       and(
-        inArray(topics.subjectId, subjectIds),
-        eq(topics.visibility, 'public'),
-        eq(cards.visibility, 'public'),
+        studiableCard(userId, enrolled),
         // due: new cards, or state with dueAt <= now
         or(
           isNull(cardUserStates.cardId),
@@ -311,14 +303,28 @@ async function checkAchievements(userId: string, lastCorrect: boolean) {
 // ── cram ────────────────────────────────────────────────────────────────────
 
 export async function buildCramQueue(userId: string, topicIds: string[], maxPerTopic: number): Promise<QueueCard[]> {
-  const rows = await db
-    .select({ card: cards, topic: topics, subject: subjects })
-    .from(cards)
-    .innerJoin(topics, eq(cards.topicId, topics.id))
-    .innerJoin(subjects, eq(topics.subjectId, subjects.id))
-    .where(and(inArray(cards.topicId, topicIds), eq(cards.visibility, 'public')))
-    .limit(topicIds.length * maxPerTopic);
-  return rows.map(({ card, topic, subject }) => ({
+  if (topicIds.length === 0) return [];
+  const condition = studiableCardIn(userId, topicIds);
+
+  // One query per topic rather than one query with a shared LIMIT.
+  // `maxPerTopic` is a promise per topic, and `.limit(topics.length * max)`
+  // broke it the moment a single topic held more cards than the cap: that one
+  // topic consumed the whole budget and the others contributed nothing.
+  const perTopic = await Promise.all(
+    topicIds.map((topicId) =>
+      db
+        .select({ card: cards, topic: topics, subject: subjects, state: cardUserStates })
+        .from(cards)
+        .innerJoin(topics, eq(cards.topicId, topics.id))
+        .innerJoin(subjects, eq(topics.subjectId, subjects.id))
+        .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+        .where(and(condition, eq(cards.topicId, topicId)))
+        .orderBy(cards.createdAt)
+        .limit(maxPerTopic),
+    ),
+  );
+
+  return perTopic.flat().map(({ card, topic, subject, state }) => ({
     id: card.id,
     kind: card.kind,
     topicId: topic.id,
@@ -329,7 +335,7 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     prompt: card.kind === 'flashcard' ? card.prompt : null,
     question: card.kind === 'mcq' ? card.question : null,
     options: card.kind === 'mcq' ? card.options ?? null : null,
-    stage: 'new',
+    stage: state?.stage ?? 'new',
   }));
 }
 

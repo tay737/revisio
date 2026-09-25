@@ -1,13 +1,11 @@
 import { NextRequest } from 'next/server';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { cards, cardAnswers, lessons, topics } from '@/db/schema';
+import { cards, cardAnswers, lessons, subjects, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { canManageContent, isDeveloper } from '@/services/roles';
-
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) || 'topic';
-}
+import { answersForCards, makeSlug, setTopicVisibility, topicContentCounts } from '@/services/content-ops';
+import { reachesUser, topicReaches, type Visibility } from '@/services/visibility';
 
 type CardInput = {
   kind: 'cloze' | 'flashcard' | 'mcq';
@@ -47,7 +45,7 @@ export const POST = route(async (req: NextRequest) => {
       id: crypto.randomUUID(),
       subjectId: body.subjectId,
       name: body.name,
-      slug: `${staff ? 'staff' : 'user'}-${slugify(body.name)}-${user.id.slice(0, 8)}-${Date.now().toString(36)}`,
+      slug: makeSlug(staff ? 'staff' : 'user', body.name, user.id.slice(0, 8), Date.now().toString(36)),
       description: body.description ?? '',
       visibility,
       ownerId: staff ? null : user.id,
@@ -67,7 +65,7 @@ export const POST = route(async (req: NextRequest) => {
   for (const c of body.cards ?? []) {
     const cardId = crypto.randomUUID();
     if (c.kind === 'cloze') {
-      if (!c.textWithBlank?.includes('____')) throw new ApiError(400, 'bad_request', 'cloze cards need ____ in textWithBlank');
+      if (!c.textWithBlank?.includes('____')) throw new ApiError(400, 'bad_request', 'A fill-the-blank question needs ____ where the blank goes.');
       await db.insert(cards).values({ id: cardId, topicId: topic.id, lessonId: c.lessonId ?? null, kind: 'cloze', textWithBlank: c.textWithBlank, explanationMd: c.explanationMd ?? '', visibility, ownerId: topic.ownerId });
       await db.insert(cardAnswers).values((c.answers ?? []).map((text, i) => ({ id: crypto.randomUUID(), cardId, text, isPrimary: i === 0 })));
     } else if (c.kind === 'flashcard') {
@@ -77,7 +75,7 @@ export const POST = route(async (req: NextRequest) => {
         keywords: c.keywords ?? null, minPoints: c.minPoints ?? null,
       });
     } else {
-      if (!c.options || c.options.length < 2) throw new ApiError(400, 'bad_request', 'mcq needs at least 2 options');
+      if (!c.options || c.options.length < 2) throw new ApiError(400, 'bad_request', 'A multiple-choice question needs at least two options.');
       await db.insert(cards).values({
         id: cardId, topicId: topic.id, lessonId: c.lessonId ?? null, kind: 'mcq', question: c.question ?? '',
         options: c.options.map((text, i) => ({ id: `o${i}`, text })), correctOptionId: `o${c.correctIdx ?? 0}`,
@@ -89,50 +87,96 @@ export const POST = route(async (req: NextRequest) => {
   return ok({ topic, lessons: lessonRows }, { status: 201 });
 });
 
-/** GET /content?mine=1 — my topics; ?topicId=… — full topic tree (lessons + cards)
- *  with answers for staff/dev editing. */
+/**
+ * GET /content
+ *
+ *   ?topicId=…    one topic's full tree, with counts and answers for editors
+ *   ?subjectId=…  the topics under a subject that this user may see
+ *   ?mine=1       the topics this user may edit, with counts and subject names
+ *
+ * The subject form is what the Learn page asks for when a subject is expanded.
+ * It previously fell through to the "mine" branch, so opening a subject showed
+ * you your own topics instead of that subject's — the page looked functional
+ * and listed the wrong things.
+ */
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const topicId = req.nextUrl.searchParams.get('topicId');
+  const subjectId = req.nextUrl.searchParams.get('subjectId');
   const staff = canManageContent(user);
 
   if (topicId) {
     const [topic] = await db.select().from(topics).where(eq(topics.id, topicId)).limit(1);
     if (!topic) throw new ApiError(404, 'not_found', 'Topic not found.');
-    // owner or staff may inspect; students may read public topics without answers
     const mayEdit = staff || topic.ownerId === user.id;
-    if (!mayEdit && topic.visibility !== 'public') throw new ApiError(404, 'not_found', 'Topic not found.');
+    if (!mayEdit && !reachesUser(topic.visibility, topic.ownerId, user.id)) {
+      throw new ApiError(404, 'not_found', 'Topic not found.');
+    }
 
-    const topicLessons = await db.select().from(lessons).where(eq(lessons.topicId, topicId)).orderBy(asc(lessons.position));
-    const topicCards = await db.select().from(cards).where(eq(cards.topicId, topicId)).orderBy(asc(cards.createdAt));
-    const cardIds = topicCards.map((c) => c.id);
-    const answers = cardIds.length
-      ? await db.select().from(cardAnswers)
-      : [];
-    const relevantAnswers = answers.filter((a) => cardIds.includes(a.cardId));
+    const [topicLessons, topicCards] = await Promise.all([
+      db.select().from(lessons).where(eq(lessons.topicId, topicId)).orderBy(asc(lessons.position)),
+      db.select().from(cards).where(eq(cards.topicId, topicId)).orderBy(asc(cards.createdAt)),
+    ]);
+    // Only the answers for these cards. This used to select the whole
+    // card_answers table on every topic open and filter it in JavaScript.
+    const answers = await answersForCards(topicCards.map((c) => c.id));
 
     return ok({
       topic,
       mayEdit,
-      lessons: topicLessons,
-      cards: topicCards.map((c) => ({
-        ...c,
-        answers: relevantAnswers
-          .filter((a) => a.cardId === c.id)
-          .map((a) => ({ id: a.id, text: a.text, isPrimary: a.isPrimary, keywords: a.keywords, minPoints: a.minPoints })),
-        // mcq correct answer only revealed to editors
-        correctOptionId: mayEdit ? c.correctOptionId : undefined,
-      })),
+      lessons: mayEdit ? topicLessons : topicLessons.filter((l) => reachesUser(l.visibility, l.ownerId, user.id)),
+      cards: topicCards
+        .filter((c) => mayEdit || reachesUser(c.visibility, c.ownerId, user.id))
+        .map((c) => ({
+          ...c,
+          answers: answers
+            .filter((a) => a.cardId === c.id)
+            .map((a) => ({ id: a.id, text: a.text, isPrimary: a.isPrimary, keywords: a.keywords, minPoints: a.minPoints })),
+          // the correct option is only revealed to someone who can edit
+          correctOptionId: mayEdit ? c.correctOptionId : undefined,
+        })),
     });
   }
 
-  const mine = staff && isDeveloper(user)
-    ? await db.select().from(topics) // developers see everything
-    : await db.select().from(topics).where(eq(topics.ownerId, user.id));
-  return ok({ topics: mine });
+  if (subjectId) {
+    const rows = await db
+      .select()
+      .from(topics)
+      .where(and(eq(topics.subjectId, subjectId), topicReaches(user.id)))
+      .orderBy(asc(topics.position), asc(topics.name));
+    const counts = await topicContentCounts(user.id, rows.map((r) => r.id), { onlyReachable: true });
+    return ok({ topics: rows.map((t) => ({ ...t, ...counts.get(t.id) })) });
+  }
+
+  const rows = isDeveloper(user)
+    ? await db
+        .select({ topic: topics, subjectName: subjects.name })
+        .from(topics)
+        .leftJoin(subjects, eq(topics.subjectId, subjects.id))
+        .orderBy(asc(subjects.name), asc(topics.position))
+    : await db
+        .select({ topic: topics, subjectName: subjects.name })
+        .from(topics)
+        .leftJoin(subjects, eq(topics.subjectId, subjects.id))
+        .where(eq(topics.ownerId, user.id))
+        .orderBy(asc(topics.createdAt));
+
+  // Counts are the *true* totals for staff, and reachable totals for everyone
+  // else. An editor needs to know a topic holds twelve questions; whether they
+  // may personally answer them is a different question, and answering it here
+  // made every private deck read as empty to the person whose job is to fix it.
+  const counts = await topicContentCounts(user.id, rows.map((r) => r.topic.id), { onlyReachable: !staff });
+  return ok({
+    topics: rows.map(({ topic, subjectName }) => ({
+      ...topic,
+      subjectName,
+      cardCount: counts.get(topic.id)?.cards ?? 0,
+      lessonCount: counts.get(topic.id)?.lessons ?? 0,
+    })),
+  });
 });
 
-/** PATCH /content — update a topic, lesson, or card. */
+/** PATCH /content — update a topic, lesson or card; `visibility` publishes a tree. */
 export const PATCH = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const body = (await req.json()) as {
@@ -141,6 +185,7 @@ export const PATCH = route(async (req: NextRequest) => {
     cardId?: string;
     name?: string;
     description?: string;
+    visibility?: Visibility;
     title?: string;
     detailedMd?: string;
     summaryMd?: string;
@@ -164,8 +209,12 @@ export const PATCH = route(async (req: NextRequest) => {
     return t;
   };
 
-  // ── topic rename / description ──
+  // ── topic rename / description / visibility ──
   if (body.topicId && !body.lessonId && !body.cardId) {
+    if (body.visibility) {
+      await setTopicVisibility(user, body.topicId, body.visibility);
+      return ok({ updated: true, published: body.visibility === 'public' });
+    }
     await assertCanEditTopic(body.topicId);
     const update: Record<string, unknown> = {};
     if (typeof body.name === 'string' && body.name.trim()) update.name = body.name.trim();
@@ -197,7 +246,7 @@ export const PATCH = route(async (req: NextRequest) => {
     const update: Record<string, unknown> = {};
     if (typeof body.explanationMd === 'string') update.explanationMd = body.explanationMd;
     if (card.kind === 'cloze' && typeof body.textWithBlank === 'string') {
-      if (!body.textWithBlank.includes('____')) throw new ApiError(400, 'bad_request', 'cloze cards need ____ in textWithBlank');
+      if (!body.textWithBlank.includes('____')) throw new ApiError(400, 'bad_request', 'A fill-the-blank question needs ____ where the blank goes.');
       update.textWithBlank = body.textWithBlank;
     }
     if (card.kind === 'flashcard' && typeof body.prompt === 'string') update.prompt = body.prompt;
@@ -212,7 +261,6 @@ export const PATCH = route(async (req: NextRequest) => {
     }
     if (Object.keys(update).length) await db.update(cards).set(update).where(eq(cards.id, body.cardId));
 
-    // answers: cloze/flashcard replace the accepted-answer set
     if (Array.isArray(body.answers)) {
       if (card.kind === 'cloze') {
         await db.delete(cardAnswers).where(eq(cardAnswers.cardId, card.id));
@@ -227,7 +275,7 @@ export const PATCH = route(async (req: NextRequest) => {
           await db.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId: card.id, text: body.answers[0] ?? '', isPrimary: true, keywords: kw, minPoints: mp });
         }
       }
-    } else if ((card.kind === 'flashcard') && (body.keywords !== undefined || body.minPoints !== undefined)) {
+    } else if (card.kind === 'flashcard' && (body.keywords !== undefined || body.minPoints !== undefined)) {
       const [existing] = await db.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
       if (existing) {
         await db.update(cardAnswers).set({
