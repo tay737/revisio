@@ -6,7 +6,19 @@
 export type SessionUser = { id: string; email: string; name: string; role: 'student' | 'teacher' | 'developer'; status: string };
 
 let accessToken: string | null = null;
-let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * What a refresh attempt actually told us.
+ *
+ * `rejected` means the refresh token is genuinely no good and the session is
+ * over. `unavailable` means we could not find out — a 5xx, a capacity refusal,
+ * a dropped network. The difference matters enormously: treating the second as
+ * the first is what signed people out mid-session when the database was merely
+ * busy, and then made every subsequent attempt look like a fresh failure.
+ */
+type RefreshOutcome = 'ok' | 'rejected' | 'unavailable';
+
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
 export function setToken(token: string | null) {
   accessToken = token;
@@ -16,20 +28,23 @@ export function getToken() {
   return accessToken;
 }
 
-async function tryRefresh(): Promise<boolean> {
+async function tryRefresh(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
-    refreshPromise = fetch('/api/v1/auth/refresh', { method: 'POST' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { accessToken?: string } | null) => {
-        if (data?.accessToken) {
-          accessToken = data.accessToken;
-          return true;
-        }
-        return false;
-      })
-      .finally(() => {
-        refreshPromise = null;
-      });
+    refreshPromise = (async (): Promise<RefreshOutcome> => {
+      try {
+        const res = await fetch('/api/v1/auth/refresh', { method: 'POST' });
+        if (res.status === 401 || res.status === 403) return 'rejected';
+        if (!res.ok) return 'unavailable';
+        const data = (await res.json().catch(() => null)) as { accessToken?: string } | null;
+        if (!data?.accessToken) return 'rejected';
+        accessToken = data.accessToken;
+        return 'ok';
+      } catch {
+        return 'unavailable';
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
   }
   return refreshPromise;
 }
@@ -40,6 +55,9 @@ export class ApiClientError extends Error {
   }
 }
 
+/** Shown whenever the server is reachable but temporarily unable to work. */
+const BUSY_MESSAGE = 'We could not reach the server just now. Try that again in a moment.';
+
 async function request<T>(path: string, init: RequestInit & { retry?: boolean } = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
@@ -49,10 +67,24 @@ async function request<T>(path: string, init: RequestInit & { retry?: boolean } 
   const res = await fetch(path, { ...init, headers });
 
   if (res.status === 401 && !init.retry) {
-    const refreshed = await tryRefresh();
-    if (refreshed) return request<T>(path, { ...init, retry: true });
-    setToken(null);
-    throw new ApiClientError(401, 'unauthorized', 'Session expired.');
+    const outcome = await tryRefresh();
+    if (outcome === 'ok') return request<T>(path, { ...init, retry: true });
+    if (outcome === 'rejected') {
+      setToken(null);
+      throw new ApiClientError(401, 'unauthorized', 'Your session has ended. Sign in again.');
+    }
+    // We never heard back. Keep the session and say so — retrying is the user's
+    // call, and they should still be signed in when they make it.
+    throw new ApiClientError(503, 'capacity', BUSY_MESSAGE);
+  }
+
+  // A busy database is worth one quiet retry, but only for reads: replaying a
+  // write we are not sure landed could award XP twice, so a write is left for
+  // the user to repeat deliberately.
+  const method = (init.method ?? 'GET').toUpperCase();
+  if (res.status === 503 && !init.retry && method === 'GET') {
+    await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500));
+    return request<T>(path, { ...init, retry: true });
   }
 
   const contentType = res.headers.get('content-type') ?? '';

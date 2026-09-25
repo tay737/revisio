@@ -198,18 +198,23 @@ export default function LearnPage() {
                           const lessons = lessonsByTopic[t.id];
                           return (
                             <div key={t.id} className="inset overflow-hidden">
-                              <div className="flex items-center gap-2 pr-3">
+                              {/* One column on a phone, one row on a laptop. Inline,
+                                  the two actions squeezed the title into a sliver
+                                  of one word per line and sat on top of it; the
+                                  title now owns the full width and the actions
+                                  get their own row of two equal targets. */}
+                              <div className="px-4 py-3 sm:flex sm:items-center sm:gap-2 sm:pr-3 sm:py-0">
                                 <button
                                   type="button"
                                   onClick={() => toggleTopic(t.id)}
                                   aria-expanded={topicOpen}
-                                  className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
+                                  className="flex w-full min-w-0 items-center gap-3 text-left sm:flex-1 sm:py-3"
                                 >
-                                  <motion.span animate={{ rotate: topicOpen ? 90 : 0 }} transition={SPRING.press} className="text-muted-foreground">
+                                  <motion.span animate={{ rotate: topicOpen ? 90 : 0 }} transition={SPRING.press} className="shrink-0 text-muted-foreground">
                                     <Icon name="expand" size={14} />
                                   </motion.span>
-                                  <span className="min-w-0">
-                                    <span className="t-strong flex items-center gap-2">
+                                  <span className="min-w-0 flex-1">
+                                    <span className="t-strong flex flex-wrap items-center gap-2">
                                       {t.name}
                                       {t.visibility === 'private' && (
                                         <span className="chip">
@@ -218,13 +223,30 @@ export default function LearnPage() {
                                         </span>
                                       )}
                                     </span>
-                                    <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
+                                    {t.description && (
+                                      <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
+                                    )}
                                   </span>
                                 </button>
-                                <Link href={`/cram?topic=${t.id}`} className="btn btn-secondary btn-sm shrink-0 gap-1.5">
-                                  <Icon name="cram" size={14} />
-                                  Cram
-                                </Link>
+                                {/* Meeting a topic's questions for the first time is a
+                                    different intention from cramming them, so it gets the
+                                    ink button and the notes travel with it. */}
+                                <div className="mt-3 flex gap-2 sm:mt-0 sm:shrink-0">
+                                  <Link
+                                    href={`/review?topic=${t.id}`}
+                                    className="btn btn-primary btn-sm flex-1 justify-center gap-1.5 sm:flex-none"
+                                  >
+                                    <Icon name="learn" size={14} />
+                                    Learn
+                                  </Link>
+                                  <Link
+                                    href={`/cram?topic=${t.id}`}
+                                    className="btn btn-secondary btn-sm flex-1 justify-center gap-1.5 sm:flex-none"
+                                  >
+                                    <Icon name="cram" size={14} />
+                                    Cram
+                                  </Link>
+                                </div>
                               </div>
 
                               <AnimatePresence initial={false}>

@@ -101,13 +101,11 @@ export function gradeCloze(userAnswer: string, accepted: AcceptedAnswer[]): Verd
     };
   }
 
-  // 5) wrong content — show the primary answer
-  const primary = accepted.find((a) => a.isPrimary) ?? accepted[0];
-  return {
-    correct: false,
-    feedbackKind: 'wrong',
-    note: primary ? `Answer: ${primary.text}` : undefined,
-  };
+  // 5) wrong content. The verdict says only *what was wrong with the attempt*;
+  // the right answer travels separately as `primaryAnswer` on the result, so it
+  // is stated once. Repeating it here printed it twice on the same card — once
+  // as the filled blank, once as a note underneath.
+  return { correct: false, feedbackKind: 'wrong' };
 }
 
 // ── flashcards (keyword-based marking) ──────────────────────────────────────
@@ -123,10 +121,7 @@ export function gradeFlashcard(
   opts: { minPoints?: number } = {}
 ): Verdict {
   const user = fullyNormalized(userAnswer);
-  if (!user) {
-    const primary = accepted.find((a) => a.isPrimary) ?? accepted[0];
-    return { correct: false, feedbackKind: 'wrong', note: primary ? `Model answer: ${primary.text}` : 'No answer given.' };
-  }
+  if (!user) return { correct: false, feedbackKind: 'wrong', note: 'No answer given.' };
 
   const rules = accepted.find((a) => a.keywords && a.keywords.length > 0);
   if (!rules?.keywords) {
@@ -179,7 +174,10 @@ export function gradeFlashcard(
     matchedAnswerId: rules.id,
     matchedPhrases,
     missedPhrases,
-    note: `Missing key point(s): ${missedRequired.map((k) => k.phrase).join(', ')}. Model answer: ${rules.text}`,
+    // The matched and missed points are rendered from the lists above and the
+    // right answer arrives as `modelAnswer`, so the note says only how it went.
+    // Naming them again here printed the same sentences three times on one card.
+    note: requiredOk ? 'Close — some required points were missing.' : 'Some required points were missing.',
   };
 }
 

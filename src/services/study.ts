@@ -1,15 +1,15 @@
 import 'server-only';
-import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
-  cards, cardAnswers, cardUserStates, examQuestions, reviewLogs, streaks, subjects,
+  cards, cardAnswers, cardUserStates, examQuestions, lessons, reviewLogs, streaks, subjects,
   topics, userAchievements, userTopicStates, xpEvents, achievements,
   leagueMemberships, examAttempts, featureFlags,
 } from '@/db/schema';
 import { gradeCloze, gradeFlashcard, gradeMcq, type AcceptedAnswer } from '@/domain/grading';
 import { getScheduler, newCardState, type Rating } from '@/domain/srs';
 import { evaluateAchievements, levelForXp, nextStreak, utcDateKey, xpForReview } from '@/domain/gamification';
-import { enrolledSubjectIds, studiableCard, studiableCardIn } from '@/services/visibility';
+import { enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
 
 // ── algorithms config (dev-tunable via feature flag payload) ────────────────
 
@@ -101,7 +101,13 @@ export type SubmitReviewInput = {
   answer?: string;          // cloze/flashcard
   selectedOptionId?: string; // mcq
   durationMs?: number;
-  mode?: 'daily' | 'cram' | 'exam';
+  /**
+   * `learn` is first exposure: the schedule still moves (meeting a card should
+   * put it in the rotation), but the card was chosen as *new* rather than as
+   * due, and the UI shows the notes beside it. It is a mode of the same loop,
+   * not a second loop — grading, XP, streaks and achievements are identical.
+   */
+  mode?: 'daily' | 'cram' | 'exam' | 'learn';
   sessionId?: string;
 };
 
@@ -247,8 +253,11 @@ function startOfToday(): Date {
 }
 
 export async function totalXpFor(userId: string): Promise<number> {
+  // `::int` is load-bearing: a bare `sum` comes back from node-postgres as a
+  // *string*, so the dashboard was adding and comparing text. Every other
+  // aggregate in the app is cast; this one was missed.
   const [row] = await db
-    .select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)` })
+    .select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
     .from(xpEvents)
     .where(eq(xpEvents.userId, userId));
   return row?.total ?? 0;
@@ -298,6 +307,97 @@ async function checkAchievements(userId: string, lastCorrect: boolean) {
   if (unlocked.length === 0) return [];
   await db.insert(userAchievements).values(unlocked.map((id) => ({ id: crypto.randomUUID(), userId, achievementId: id }))).onConflictDoNothing();
   return all.filter((a) => unlocked.includes(a.id)).map((a) => ({ id: a.id, name: a.name, icon: a.icon, description: a.description }));
+}
+
+// ── first exposure ──────────────────────────────────────────────────────────
+
+export type FirstExposure = {
+  topic: { id: string; name: string; description: string; subjectId: string; subjectName: string };
+  notes: { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string }[];
+  batch: QueueCard[];
+  progress: { met: number; total: number; remaining: number };
+};
+
+/**
+ * A topic's unseen cards, a few at a time, with the notes that explain them.
+ *
+ * The review queue is built for material you have already met: it deals
+ * everything due, which for a freshly imported deck is all of it at once, with
+ * nothing to read first. Learning a topic is a different intention, so it gets
+ * its own selection rather than a flag on the daily one — cards are chosen for
+ * being *new*, capped to a batch, and the notes come back with them so the first
+ * attempt is informed rather than a guess.
+ *
+ * Progress is counted over the whole topic, not the batch, so "4 of 12 met"
+ * means what it says and the session has somewhere to finish.
+ */
+export async function buildFirstExposure(userId: string, topicId: string, batchSize = 4): Promise<FirstExposure | null> {
+  const [topic] = await db
+    .select({ topic: topics, subjectName: subjects.name })
+    .from(topics)
+    .innerJoin(subjects, eq(topics.subjectId, subjects.id))
+    .where(and(eq(topics.id, topicId), topicReaches(userId)))
+    .limit(1);
+  if (!topic) return null;
+
+  const limit = Math.min(Math.max(1, batchSize), 20);
+  const reachable = and(studiableCardIn(userId, [topicId]))!;
+
+  const [notes, batchRows, tally] = await Promise.all([
+    db
+      .select()
+      .from(lessons)
+      .where(and(eq(lessons.topicId, topicId), lessonReaches(userId)))
+      .orderBy(asc(lessons.position)),
+    db
+      .select({ card: cards, topic: topics, subject: subjects, state: cardUserStates })
+      .from(cards)
+      .innerJoin(topics, eq(cards.topicId, topics.id))
+      .innerJoin(subjects, eq(topics.subjectId, subjects.id))
+      .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+      .where(and(reachable, isNull(cardUserStates.cardId)))
+      .orderBy(asc(cards.createdAt))
+      .limit(limit),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        met: sql<number>`count(${cardUserStates.cardId})::int`,
+      })
+      .from(cards)
+      .innerJoin(topics, eq(cards.topicId, topics.id))
+      .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+      .where(reachable),
+  ]);
+
+  const total = tally[0]?.total ?? 0;
+  const met = tally[0]?.met ?? 0;
+
+  return {
+    topic: {
+      id: topic.topic.id,
+      name: topic.topic.name,
+      description: topic.topic.description,
+      subjectId: topic.topic.subjectId,
+      subjectName: topic.subjectName,
+    },
+    notes: notes.map((l) => ({
+      id: l.id, title: l.title, detailedMd: l.detailedMd, summaryMd: l.summaryMd, specRefs: l.specRefs,
+    })),
+    batch: batchRows.map(({ card, topic: t, subject, state }) => ({
+      id: card.id,
+      kind: card.kind,
+      topicId: t.id,
+      topicName: t.name,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      textWithBlank: card.kind === 'cloze' ? card.textWithBlank : null,
+      prompt: card.kind === 'flashcard' ? card.prompt : null,
+      question: card.kind === 'mcq' ? card.question : null,
+      options: card.kind === 'mcq' ? card.options ?? null : null,
+      stage: state?.stage ?? 'new',
+    })),
+    progress: { met, total, remaining: Math.max(0, total - met) },
+  };
 }
 
 // ── cram ────────────────────────────────────────────────────────────────────

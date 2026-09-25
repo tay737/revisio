@@ -1,6 +1,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { isCapacityError } from '@/db/client';
 import { verifyAccessToken, type SessionUser, type Role } from '@/services/auth';
 
 export const REFRESH_COOKIE = 'srs_refresh';
@@ -47,6 +48,13 @@ export function route(handler: (req: NextRequest, ctx: { params: Record<string, 
       return await handler(req, ctx);
     } catch (e) {
       if (e instanceof ApiError) return fail(e.status, e.code, e.message);
+      // Capacity pressure is not a bug in the request and not a broken session —
+      // it is a wait. Saying so (and saying it retryably) is the difference
+      // between a user tapping again and a user believing the app has died.
+      if (isCapacityError(e)) {
+        console.error('[api] database is at capacity', e);
+        return fail(503, 'capacity', 'The database is busy. Give it a moment and try again.');
+      }
       console.error('[api]', e);
       return fail(500, 'internal', 'Unexpected server error.');
     }

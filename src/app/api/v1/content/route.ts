@@ -23,6 +23,38 @@ type CardInput = {
 
 type LessonInput = { title: string; detailedMd: string; summaryMd?: string; specRefs?: string };
 
+/**
+ * Reject a malformed deck before anything is written.
+ *
+ * The topic used to be inserted first, so a bad question halfway down the list
+ * answered with an error *and* left an empty topic behind — which is one of the
+ * ways an import ends up looking like it landed separately from the notes it
+ * came with. Checking up front means a rejected import changes nothing at all.
+ *
+ * The flashcard case is the one that used to pass silently: a card created with
+ * no answer is unanswerable, and it presented as a verdict reading "Answer:"
+ * with nothing after it, which teaches the reader nothing and looks like the
+ * app lost their content.
+ */
+function validateCards(input: CardInput[] | undefined) {
+  for (const [i, c] of (input ?? []).entries()) {
+    const at = `Question ${i + 1}`;
+    if (c.kind === 'cloze') {
+      if (!c.textWithBlank?.includes('____')) throw new ApiError(400, 'bad_request', `${at}: a fill-the-blank needs ____ where the blank goes.`);
+      if (!c.answers?.some((a) => a.trim())) throw new ApiError(400, 'bad_request', `${at}: a fill-the-blank needs at least one accepted answer.`);
+    } else if (c.kind === 'flashcard') {
+      if (!c.prompt?.trim()) throw new ApiError(400, 'bad_request', `${at}: a flashcard needs a prompt.`);
+      if (!c.answers?.some((a) => a.trim())) throw new ApiError(400, 'bad_request', `${at}: a flashcard needs its answer — send it as answers: ["…"].`);
+    } else if (c.kind === 'mcq') {
+      const options = c.options ?? [];
+      if (options.length < 2) throw new ApiError(400, 'bad_request', `${at}: a multiple-choice question needs at least two options.`);
+      if ((c.correctIdx ?? 0) < 0 || (c.correctIdx ?? 0) >= options.length) throw new ApiError(400, 'bad_request', `${at}: the correct option is outside the list of options.`);
+    } else {
+      throw new ApiError(400, 'bad_request', `${at}: kind must be cloze, flashcard or mcq.`);
+    }
+  }
+}
+
 /** POST /content — create topic with lessons/cards. Students → private (or
  *  pending_review when publishing); staff → public immediately. */
 export const POST = route(async (req: NextRequest) => {
@@ -36,6 +68,7 @@ export const POST = route(async (req: NextRequest) => {
     cards?: CardInput[];
   };
   if (!body.name || !body.subjectId) throw new ApiError(400, 'bad_request', 'name and subjectId required');
+  validateCards(body.cards);
   const staff = canManageContent(user);
   const visibility = staff ? 'public' : body.publish ? 'pending_review' : 'private';
 
@@ -65,7 +98,6 @@ export const POST = route(async (req: NextRequest) => {
   for (const c of body.cards ?? []) {
     const cardId = crypto.randomUUID();
     if (c.kind === 'cloze') {
-      if (!c.textWithBlank?.includes('____')) throw new ApiError(400, 'bad_request', 'A fill-the-blank question needs ____ where the blank goes.');
       await db.insert(cards).values({ id: cardId, topicId: topic.id, lessonId: c.lessonId ?? null, kind: 'cloze', textWithBlank: c.textWithBlank, explanationMd: c.explanationMd ?? '', visibility, ownerId: topic.ownerId });
       await db.insert(cardAnswers).values((c.answers ?? []).map((text, i) => ({ id: crypto.randomUUID(), cardId, text, isPrimary: i === 0 })));
     } else if (c.kind === 'flashcard') {
@@ -75,10 +107,9 @@ export const POST = route(async (req: NextRequest) => {
         keywords: c.keywords ?? null, minPoints: c.minPoints ?? null,
       });
     } else {
-      if (!c.options || c.options.length < 2) throw new ApiError(400, 'bad_request', 'A multiple-choice question needs at least two options.');
       await db.insert(cards).values({
         id: cardId, topicId: topic.id, lessonId: c.lessonId ?? null, kind: 'mcq', question: c.question ?? '',
-        options: c.options.map((text, i) => ({ id: `o${i}`, text })), correctOptionId: `o${c.correctIdx ?? 0}`,
+        options: (c.options ?? []).map((text, i) => ({ id: `o${i}`, text })), correctOptionId: `o${c.correctIdx ?? 0}`,
         explanationMd: c.explanationMd ?? '', visibility, ownerId: topic.ownerId,
       });
     }
@@ -262,6 +293,10 @@ export const PATCH = route(async (req: NextRequest) => {
     if (Object.keys(update).length) await db.update(cards).set(update).where(eq(cards.id, body.cardId));
 
     if (Array.isArray(body.answers)) {
+      // An edit that empties the accepted answers makes the card unanswerable —
+      // every attempt wrong forever. Refuse the empty list rather than wipe
+      // what was there.
+      if (!body.answers.some((a) => a.trim())) throw new ApiError(400, 'bad_request', 'A question needs at least one accepted answer.');
       if (card.kind === 'cloze') {
         await db.delete(cardAnswers).where(eq(cardAnswers.cardId, card.id));
         await db.insert(cardAnswers).values(body.answers.map((text, i) => ({ id: crypto.randomUUID(), cardId: card.id, text, isPrimary: i === 0 })));
