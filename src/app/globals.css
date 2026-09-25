@@ -2,53 +2,137 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Revisio design tokens (docs/DESIGN.md — Apple system) ──────────────────
-   Action Blue #0066cc is the single interactive colour. Light canvas is white /
-   parchment #f5f5f7; dark tiles are the near-black #272729 family. Exactly one
-   shadow in the system, reserved for media. SF Pro stack, Inter fallback.
+/* ── Revisio design tokens ────────────────────────────────────────────────────
+   docs/DESIGN.md is the authority. Three of its rules do most of the work, and
+   the previous pass broke two of them:
 
-   Type ladder is fixed: 300 / 400 / 600 / 700 — weight 500 does not exist in
+     1. ONE ACCENT. Action Blue #0066cc (Sky Link Blue #2997ff on dark
+        surfaces) is every interactive signal. There is no second brand colour,
+        and no per-tier hex — that is why leagues are coded by geometry.
+     2. THE TILE RHYTHM. The spec's pages are a stack of full-bleed tiles that
+        alternate white / parchment / near-black, and "the colour change itself
+        is the section divider". That alternation is the signature, and it was
+        missing here: everything sat on one flat grey field, which is why the
+        app read as a wireframe rather than as Apple's museum wall.
+     3. ONE SHADOW, FOR MEDIA ONLY. No shadow on cards, buttons or text.
+        Elevation comes from surface-colour change and from backdrop blur.
+
+   Type ladder is fixed 300 / 400 / 600 / 700 — weight 500 does not exist in
    this system. Sizes come from the spec only (10/12/14/17/18/21/24/28/34/40/56);
-   anything between those steps is a bug. The `.t-*` helpers below are the
-   sanctioned way to reach for a step, so pages stop hand-rolling px values. */
+   the `.t-*` helpers are the sanctioned way to reach a step.
+
+   The `.on-tile` scope below is the mechanism that lets one page hold both a
+   light canvas and a near-black band *correctly*: inside it, the surface roles
+   are remapped to their on-dark values (white ink, muted #cccccc, Sky Link
+   Blue), so a component written once renders right on either ground. */
 
 :root {
-  /* light: white canvas + parchment secondary */
-  --c-bg: 245 245 247;            /* parchment  #f5f5f7 */
-  --c-panel: 255 255 255;         /* canvas     #ffffff */
-  --c-pearl: 250 250 252;         /* surface-pearl #fafafc */
-  --c-edge: 224 224 224;          /* hairline   #e0e0e0 */
-  --c-ink: 29 29 31;              /* ink        #1d1d1f */
-  --c-muted: 122 122 122;         /* ink-muted-48 #7a7a7a */
-  --c-soft: 51 51 51;             /* ink-muted-80 #333333 */
-  --c-accent: 0 102 204;          /* Action Blue #0066cc */
-  --c-accent-focus: 0 113 227;    /* primary-focus #0071e3 */
+  color-scheme: light;
+
+  --c-bg: 245 245 247;            /* parchment  #f5f5f7 — the app canvas      */
+  --c-shell: 245 245 247;         /* chrome (sidebar, bars)                   */
+  --c-panel: 255 255 255;         /* canvas     #ffffff — cards, sheets       */
+  --c-pearl: 250 250 252;         /* surface-pearl #fafafc                    */
+  --c-raise: 255 255 255;
+  --c-sink: 240 240 242;          /* sunken wells (derived micro-step)        */
+  --c-edge: 224 224 224;          /* hairline   #e0e0e0                       */
+  --c-hair: 0 0 0;                /* hairline alpha driver                    */
+  --c-ink: 29 29 31;              /* ink        #1d1d1f                       */
+  --c-muted: 122 122 122;         /* ink-muted-48 #7a7a7a                     */
+  --c-soft: 51 51 51;             /* ink-muted-80 #333333                     */
+  --c-accent: 0 102 204;          /* Action Blue #0066cc — the one accent     */
+  --c-accent-focus: 0 113 227;    /* primary-focus #0071e3                    */
   --c-accent-ink: 255 255 255;
+  /* Status semantics. These are NOT brand accents: they exist only so a
+     correct answer and a wrong one are distinguishable at a glance, which a
+     learning product cannot do without. Everything that is merely *positive*
+     — rank, progress, the current item — uses the accent, never these. */
   --c-good: 22 138 90;
-  --c-bad: 214 69 65;
-  --c-nav: 0 0 0;                 /* global-nav black */
-  --glass-sheen: rgb(255 255 255 / 0.55);
+  --c-bad: 191 60 58;
+  --c-nav: 0 0 0;                 /* global nav — the spec's surface-black    */
+  --c-tile: 39 39 41;             /* surface-tile-1 #272729                   */
+  --c-tile-2: 42 42 44;           /* surface-tile-2 #2a2a2c                   */
+  --c-tile-3: 37 37 39;           /* surface-tile-3 #252527                   */
+
+  /* Glass: a translucent pane, a top-edge specular sheen, a hairline ring. */
+  --glass-fill: 255 255 255;
+  --glass-fill-a: 0.78;
+  --glass-sheen: rgb(255 255 255 / 0.7);
+  --glass-rim: rgb(0 0 0 / 0.06);
+  --glass-drop: rgb(0 0 0 / 0.05);
+
+  /* Scrim over content when a sheet or dialog opens. */
+  --c-scrim: 29 29 31;
 }
 
 .dark {
-  /* dark: near-black tile family */
-  --c-bg: 37 37 39;               /* surface-tile-3 #252527 */
-  --c-panel: 42 42 44;            /* surface-tile-2 #2a2a2c */
+  color-scheme: dark;
+
+  /* Micro-steps of the #252527 family: #1c1c1e → #252527 → #2a2a2c → #303032.
+     The spec documents three tile hexes; the outer two are derived steps so a
+     dark app can still show depth without reaching for a shadow. */
+  --c-bg: 28 28 30;
+  --c-shell: 37 37 39;            /* surface-tile-3 #252527                   */
+  --c-panel: 42 42 44;            /* surface-tile-2 #2a2a2c                   */
   --c-pearl: 48 48 51;
+  --c-raise: 48 48 51;            /* #303032                                  */
+  --c-sink: 24 24 26;
   --c-edge: 58 58 62;
+  --c-hair: 255 255 255;
   --c-ink: 255 255 255;
-  --c-muted: 204 204 204;         /* body-muted #cccccc */
+  --c-muted: 204 204 204;         /* body-muted #cccccc                       */
   --c-soft: 229 229 231;
-  --c-accent: 41 151 255;         /* Sky Link Blue #2997ff (dark-surface variant) */
+  --c-accent: 41 151 255;         /* Sky Link Blue #2997ff                    */
   --c-accent-focus: 41 151 255;
   --c-accent-ink: 255 255 255;
   --c-good: 52 180 120;
-  --c-bad: 240 100 95;
+  --c-bad: 235 106 101;
   --c-nav: 0 0 0;
-  --glass-sheen: rgb(255 255 255 / 0.07);
+  --c-tile: 37 37 39;
+  --c-tile-2: 42 42 44;
+  --c-tile-3: 30 30 32;
+
+  --glass-fill: 255 255 255;
+  --glass-fill-a: 0.06;
+  --glass-sheen: rgb(255 255 255 / 0.09);
+  --glass-rim: rgb(255 255 255 / 0.09);
+  --glass-drop: rgb(0 0 0 / 0.3);
+
+  --c-scrim: 0 0 0;
 }
 
-html, body {
+/* ── The on-dark scope ───────────────────────────────────────────────────────
+   Everything inside a near-black tile reads from these instead. One component,
+   two grounds, no conditional classes. */
+.tile-dark,
+.on-tile {
+  color-scheme: dark;
+
+  --c-bg: 39 39 41;
+  --c-shell: 42 42 44;
+  --c-panel: 42 42 44;
+  --c-pearl: 48 48 51;
+  --c-raise: 51 51 54;
+  --c-sink: 30 30 32;
+  --c-edge: 68 68 72;
+  --c-hair: 255 255 255;
+  --c-ink: 255 255 255;
+  --c-muted: 204 204 204;
+  --c-soft: 229 229 231;
+  --c-accent: 41 151 255;         /* Sky Link Blue — Action Blue vanishes here */
+  --c-accent-focus: 41 151 255;
+  --c-good: 62 196 132;
+  --c-bad: 255 128 122;
+
+  --glass-fill: 255 255 255;
+  --glass-fill-a: 0.08;
+  --glass-sheen: rgb(255 255 255 / 0.12);
+  --glass-rim: rgb(255 255 255 / 0.1);
+  --glass-drop: rgb(0 0 0 / 0.28);
+}
+
+html,
+body {
   height: 100%;
 }
 
@@ -60,6 +144,18 @@ body {
   letter-spacing: -0.374px;
   line-height: 1.47;
   font-feature-settings: 'ss03';
+  /* The canvas carries the faintest vertical shift in value — the same trick
+     the spec uses to stop a long light page reading as flat paper. It is a
+     surface value, not a decorative gradient mark. */
+  background-image: linear-gradient(
+    to bottom,
+    rgb(var(--c-panel) / 0.9),
+    rgb(var(--c-bg) / 0) 420px
+  );
+}
+
+.dark body {
+  background-image: linear-gradient(to bottom, rgb(48 48 51 / 0.55), rgb(var(--c-bg) / 0) 480px);
 }
 
 /* Display stack. Negative tracking at display sizes is the signature. */
@@ -73,40 +169,6 @@ body {
    Never apply this to a card, a button or text. */
 .shadow-media {
   box-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
-}
-
-/* Frosted bars: the spec's own glass recipe (sub-nav-frosted, sticky bar). */
-.frosted {
-  background: rgb(var(--c-bg) / 0.8);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-}
-
-/* ── Liquid glass ───────────────────────────────────────────────────────────
-   Translucency + blur + saturation + a 1px specular sheen. Explicitly NOT a
-   background gradient: the spec bans decorative gradients, and sanctions
-   backdrop blur. The sheen is a single hairline of light on the top edge —
-   what makes a pane read as glass rather than as a light-grey box. */
-.glass-hairline::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--glass-sheen), transparent 42%);
-}
-
-/* Pointer-tracked specular highlight (Magic UI's MagicCard idea). Pure light,
-   a radial accent at ~7% alpha, and only on surfaces that invite the pointer. */
-.glass-spotlight {
-  background: radial-gradient(
-    240px circle at var(--glass-x, 50%) var(--glass-y, 0%),
-    rgb(var(--c-accent) / 0.07),
-    transparent 72%
-  );
-}
-.group:hover .glass-spotlight {
-  opacity: 1;
 }
 
 * {
@@ -139,60 +201,153 @@ body {
   .t-fine      { font-size: 12px; font-weight: 400; line-height: 1.0;  letter-spacing: -0.12px; }
   .t-micro     { font-size: 10px; font-weight: 400; line-height: 1.3;  letter-spacing: -0.08px; }
 
-  /* Page headline: display-md at rest, hero on wide screens. */
+  /* Display size for a numeric readout — big, tight, tabular. */
+  .t-num       { font-size: 40px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .t-num-sm    { font-size: 28px; font-weight: 600; line-height: 1.14; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+  /* Page headline: display-md at rest, display on wide screens. */
   .t-title     { @apply t-display-md; }
   @screen sm { .t-title { font-size: 40px; line-height: 1.1; } }
 
   /* Section eyebrow — caption-strong, spaced. Derived, not a spec row. */
   .t-eyebrow   { @apply t-caption-s uppercase text-muted; letter-spacing: 0.08em; }
 
-  /* ── Surfaces ───────────────────────────────────────────────────────────── */
-  /* Utility card per spec (rounded.lg 18px, hairline, 24px padding) rendered
-     as liquid glass. Every existing `class="card"` inherits the upgrade. */
-  .card {
-    @apply relative overflow-hidden rounded-[18px] border border-edge/70 p-6;
-    background: rgb(var(--c-panel) / 0.72);
-    backdrop-filter: saturate(160%) blur(12px);
-    -webkit-backdrop-filter: saturate(160%) blur(12px);
-  }
+  /* ── Surfaces ─────────────────────────────────────────────────────────────
 
-  /* Frosted bar: headers, tab bars, floating sticky rows (spec height 52/64). */
-  .glass-bar {
-    @apply relative bg-bg/80;
+     `.card` is the spec's store-utility-card: rounded.lg 18px, 1px hairline,
+     24px padding, NO shadow. It is rendered as glass — the spec sanctions
+     backdrop-blur on its chrome — so it stays legible over the tile bands and
+     photography-free colour fields behind it.
+
+     The previous version filled cards with `panel/62` over a flat parchment
+     page, which produced a grey rectangle with nothing to blur. The fill is now
+     near-opaque white (the spec's canvas) so the card reads as a card, and the
+     blur only matters where a tile band or scrim is genuinely behind it. */
+  .card {
+    @apply relative isolate rounded-[18px] border border-edge/80 p-6;
+    background: rgb(var(--glass-fill) / max(var(--glass-fill-a), 0.72));
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: inset 0 1px 0 0 var(--glass-sheen);
+  }
+  .dark .card {
+    background: rgb(var(--c-panel) / 0.72);
   }
 
-  /* Secondary inset surface — quiet fill for nested blocks. */
+  /* Opaque variant — for dense tables and forms where blur is wasted paint. */
+  .card-solid {
+    @apply relative rounded-[18px] border border-edge/80 p-6 bg-panel;
+    box-shadow: inset 0 1px 0 0 var(--glass-sheen);
+  }
+
+  /* Full-bleed tile: the spec's section divider. `-dark` gives the on-dark
+     scope and the near-black ground; `-parchment` the off-white alternate. */
+  .tile {
+    @apply relative w-full px-5 py-14 md:px-8 md:py-16;
+  }
+  .tile-dark {
+    background: rgb(var(--c-tile));
+    color: rgb(var(--c-ink));
+    --glass-fill-a: 0.08;
+  }
+  .dark .tile-dark {
+    background: rgb(30 30 32);
+  }
+  .tile-parchment {
+    background: rgb(var(--c-bg));
+  }
+  .tile-white {
+    background: rgb(var(--c-panel));
+  }
+
+  /* Frosted bar: headers, tab bars, floating sticky rows (spec height 52/64).
+     The spec's own recipe — parchment at 80% over saturate(180%) blur(20px). */
+  .glass-bar {
+    @apply relative;
+    background: rgb(var(--c-shell) / 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: inset 0 1px 0 0 var(--glass-sheen);
+  }
+
+  /* Floating glass chrome — the detached tab bar and sheets. Sits above
+     content with a 1px rim and a whisper of ambient shade (a rim, not a
+     card shadow: it is what separates the pane from the page it floats over). */
+  .glass-float {
+    background: rgb(var(--glass-fill) / max(var(--glass-fill-a), 0.7));
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border: 1px solid var(--glass-rim);
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-sheen),
+      0 8px 28px -12px var(--glass-drop);
+  }
+  .dark .glass-float {
+    background: rgb(42 42 44 / 0.82);
+  }
+
+  /* Specular top-edge sheen for panes that are not `.card`. */
+  .glass-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(180deg, var(--glass-sheen), transparent 40%);
+  }
+
+  /* Pointer-tracked specular highlight (Magic UI's MagicCard idea). Pure light:
+     a radial accent at ~8% alpha following the cursor. */
+  .glass-spotlight {
+    background: radial-gradient(
+      260px circle at var(--glass-x, 50%) var(--glass-y, 0%),
+      rgb(var(--c-accent) / 0.09),
+      transparent 70%
+    );
+  }
+
+  /* Secondary inset surface — quiet well for nested blocks. */
   .inset {
-    @apply rounded-[11px] border border-edge/60;
-    background: rgb(var(--c-edge) / 0.22);
+    @apply rounded-[11px] border border-edge/70;
+    background: rgb(var(--c-sink) / 0.6);
+  }
+
+  /* Hairline rule that works on either ground. */
+  .rule {
+    @apply border-t border-edge/80;
   }
 
   /* ── Buttons ────────────────────────────────────────────────────────────
      Two grammars only: pill for actions, compact rect for utility.
-     Press is always scale(0.95) — the system-wide micro-interaction. */
+     Press is always scale(0.95) — the system-wide micro-interaction. It is a
+     transform, so the spring lives in `Pressable`/`Button` (framer-motion)
+     rather than in a linear CSS transition, which is what made taps feel
+     stiff. */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full px-[22px] py-[11px] text-[17px] font-normal transition-[transform,background-color,color,opacity] duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full px-[22px] py-[11px] text-[17px] font-normal transition-[background-color,color,opacity,border-color] duration-200 ease-out disabled:pointer-events-none disabled:opacity-50;
   }
   /* button-primary: Action Blue pill, on-primary text, body typography. */
   .btn-primary {
-    @apply btn bg-accent text-accent-ink hover:brightness-110;
+    @apply btn bg-accent text-accent-ink enabled:hover:brightness-110;
   }
   /* button-secondary-pill: the ghost pill (transparent + Action Blue ring). */
   .btn-secondary {
-    @apply btn border border-accent/70 bg-transparent text-accent hover:bg-accent/10;
+    @apply btn border border-accent/70 bg-transparent text-accent enabled:hover:bg-accent/10;
   }
   /* button-pearl-capsule: pearl fill, ink-muted-80 text, soft ring, rounded.md. */
   .btn-ghost {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border-[3px] border-edge/60 bg-pearl px-[14px] py-2 text-[14px] font-normal leading-[1.29] text-soft transition-[transform,background-color,color] duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border-[3px] border-edge/60 bg-pearl px-[14px] py-2 text-[14px] font-normal leading-[1.29] text-soft transition-[background-color,color,border-color] duration-200 ease-out disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-ghost:hover {
+    border-color: rgb(var(--c-accent) / 0.35);
+    color: rgb(var(--c-accent));
   }
   /* button-dark-utility: ink fill, rounded.sm, utility typography. */
   .btn-utility {
-    @apply inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-ink px-[15px] py-2 text-[14px] font-normal leading-[1.29] text-panel transition-transform duration-150 ease-out active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-ink px-[15px] py-2 text-[14px] font-normal leading-[1.29] text-panel disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border border-bad/50 bg-transparent px-[14px] py-2 text-[14px] font-normal text-bad transition-[transform,background-color] duration-150 ease-out hover:bg-bad/10 active:scale-[0.95] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[11px] border border-bad/50 bg-transparent px-[14px] py-2 text-[14px] font-normal text-bad transition-colors duration-200 hover:bg-bad/10 disabled:pointer-events-none disabled:opacity-50;
   }
   /* Dense pill for inline actions inside tables/lists. */
   .btn-sm {
@@ -200,17 +355,14 @@ body {
   }
 
   /* ── Inputs ─────────────────────────────────────────────────────────────
-     search-input: pill, 44px tall, body typography, hairline ring. */
+     search-input: pill, body typography, hairline ring. */
   .input {
-    @apply w-full rounded-full border border-edge bg-panel px-5 py-[11px] text-[17px] font-normal leading-[1.47] text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20;
+    @apply w-full rounded-full border border-edge bg-panel px-5 py-[11px] text-[17px] font-normal leading-[1.47] text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/25;
   }
-  /* Textareas opt out of the pill and use rounded.md instead. */
   textarea.input {
     border-radius: 11px;
     line-height: 1.47;
   }
-  /* Selects keep the native affordance — their arrow is the only clue that the
-     control opens, and a custom chevron would add chrome the spec forbids. */
   select.input {
     @apply cursor-pointer pr-10;
   }
@@ -220,50 +372,79 @@ body {
 
   /* ── Chips & meters ─────────────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-edge/70 bg-panel/70 px-3 py-1 text-[14px] font-normal leading-[1.29] tracking-[-0.224px] text-muted;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-edge/80 bg-panel/80 px-3 py-1 text-[14px] font-normal leading-[1.29] tracking-[-0.224px] text-muted;
   }
   .chip-active {
     @apply border-accent/60 bg-accent/10 text-accent;
   }
   .meter {
     @apply h-1.5 overflow-hidden rounded-full;
-    background: rgb(var(--c-edge) / 0.6);
+    background: rgb(var(--c-edge) / 0.55);
+  }
+  /* Rank-tinted meter: the accent is the only fill, the track is a hairline. */
+  .meter-accent {
+    background: rgb(var(--c-accent) / 0.14);
   }
 
   /* Option rows (MCQ answers, pickers) — pill-ish rect, obvious press. */
   .option {
-    @apply w-full rounded-[11px] border border-edge/70 bg-panel/50 px-4 py-3 text-left text-[17px] font-normal leading-[1.47] transition-[border-color,background-color,transform] duration-150 active:scale-[0.99];
+    @apply w-full rounded-[11px] border border-edge/80 bg-panel/60 px-4 py-3 text-left text-[17px] font-normal leading-[1.47] transition-[border-color,background-color] duration-200;
   }
   .option-selected {
     @apply border-accent bg-accent/10 text-accent;
   }
   .option-correct {
-    @apply border-good bg-good/10 text-good;
+    @apply border-accent bg-accent/10 text-accent;
   }
   .option-wrong {
     @apply border-bad bg-bad/10 text-bad;
   }
 
-  /* Segmented control (density switch, leaderboard scope). */
+  /* Segmented control (leaderboard scope, density switch). The moving pill is
+     a framer `layoutId` element; these classes only style the label. */
   .segment {
-    @apply rounded-[11px] px-3 py-1.5 text-[14px] font-normal text-muted transition-colors duration-150;
+    @apply relative rounded-full px-3.5 py-1.5 text-[14px] font-normal text-muted transition-colors duration-200;
   }
   .segment-active {
-    @apply bg-accent/10 font-semibold text-accent;
+    @apply text-accent;
   }
 
   /* Route skeleton block: a surface fill that breathes. The spec does not
      document skeletons ("known gaps"), so this stays inside the token palette
      rather than inventing a shimmering gradient. */
   .skeleton {
-    background: rgb(var(--c-edge) / 0.55);
+    background: rgb(var(--c-edge) / 0.5);
     animation: skeleton-breathe 1.4s ease-in-out infinite;
+  }
+
+  /* Horizontal scrollers (rank ladder) — no visible track, snap to items. */
+  .rail {
+    @apply flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    @apply snap-start;
   }
 }
 
 @keyframes skeleton-breathe {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* The companion's "speaking" indicator: three dots that breathe in sequence. */
+@keyframes dot-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* A slow sweep used once per session on the rank crest when you promote. */
+@keyframes crest-sweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
