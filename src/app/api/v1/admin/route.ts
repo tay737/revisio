@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { approvalRequests, cards, featureFlags, lessons, subjects, users } from '@/db/schema';
+import { revokeAllRefreshTokens } from '@/services/auth';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { isDeveloper } from '@/services/roles';
 import { listSchedulers } from '@/domain/srs';
@@ -86,7 +87,8 @@ export const POST = route(async (req: NextRequest) => {
     action:
       | 'approve_request' | 'reject_request' | 'set_flag' | 'update_algorithm'
       | 'set_user_role' | 'suspend_user' | 'activate_user' | 'review_topic'
-      | 'set_topic_visibility' | 'create_subject' | 'rename_subject';
+      | 'set_topic_visibility' | 'create_subject' | 'rename_subject'
+      | 'verify_user_email' | 'revoke_sessions' | 'delete_subject';
     approvalId?: string;
     flagKey?: string;
     enabled?: boolean;
@@ -187,6 +189,47 @@ export const POST = route(async (req: NextRequest) => {
       if (!updated) throw new ApiError(404, 'not_found', 'Subject not found.');
       await audit('rename_subject', body.subjectId, { name: body.name });
       return ok({ subject: updated });
+    }
+    case 'verify_user_email': {
+      // Used when a learner is stuck: the verification email never arrived or
+      // the link expired. Marks verified and activates in one move.
+      if (!body.userId) throw new ApiError(400, 'bad_request', 'userId required');
+      const [updated] = await db
+        .update(users)
+        .set({ emailVerifiedAt: new Date(), status: 'active' })
+        .where(eq(users.id, body.userId))
+        .returning({ id: users.id, email: users.email });
+      if (!updated) throw new ApiError(404, 'not_found', 'User not found.');
+      await audit('verify_user_email', body.userId);
+      return ok({ ok: true });
+    }
+    case 'revoke_sessions': {
+      // For a compromised or shared account: every refresh token dies, so all
+      // devices are signed out at their next refresh. Nothing else changes.
+      if (!body.userId) throw new ApiError(400, 'bad_request', 'userId required');
+      await revokeAllRefreshTokens(body.userId);
+      await audit('revoke_sessions', body.userId);
+      return ok({ ok: true });
+    }
+    case 'delete_subject': {
+      // Cascades to its topics, lessons, cards, classes and enrolments — the
+      // whole subtree. The client confirms before calling; the audit row keeps
+      // the record of what was removed.
+      if (!body.subjectId) throw new ApiError(400, 'bad_request', 'subjectId required');
+      const topicRows = await db.select({ id: topics.id }).from(topics).where(eq(topics.subjectId, body.subjectId));
+      if (topicRows.length > 0) {
+        // Count the cards inside, for the record.
+        const cardRows = await db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(cards)
+          .where(inArray(cards.topicId, topicRows.map((t) => t.id)));
+        await audit('delete_subject', body.subjectId, { topics: topicRows.length, cards: cardRows[0]?.n ?? 0 });
+      } else {
+        await audit('delete_subject', body.subjectId, { topics: 0 });
+      }
+      const [deleted] = await db.delete(subjects).where(eq(subjects.id, body.subjectId)).returning({ id: subjects.id, name: subjects.name });
+      if (!deleted) throw new ApiError(404, 'not_found', 'Subject not found.');
+      return ok({ deleted: true });
     }
     default:
       throw new ApiError(400, 'bad_request', 'Unknown action.');

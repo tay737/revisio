@@ -48,3 +48,32 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
     throw new Error(`Email delivery failed: ${error.message}`);
   }
 }
+
+/** The one-hour link that moves a pending email address onto the account. */
+export async function sendEmailChangeEmail(to: string, token: string): Promise<void> {
+  const url = `${appUrl()}/verify-email?token=${token}&kind=email_change`;
+  const mailer = resend();
+  if (!mailer) {
+    console.log(`[email] (no RESEND_API_KEY — console mode) email-change link for ${to}: ${url}`);
+    return;
+  }
+  const { error } = await mailer.emails.send({
+    from,
+    to,
+    subject: 'Confirm your new Revisio email',
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <div style="font-size:20px;font-weight:800;margin-bottom:16px">Revisio</div>
+        <p style="color:#374151;line-height:1.6">Confirm this address to move your account here:</p>
+        <p style="margin:24px 0">
+          <a href="${url}" style="background:#1c64f2;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Confirm new email</a>
+        </p>
+        <p style="color:#6b7280;font-size:13px;line-height:1.6">This link expires in 24 hours. If you didn't request this, your account is unchanged — ignore the email.</p>
+      </div>`,
+    text: `Confirm your new Revisio email: ${url} (expires in 24 hours)`,
+  });
+  if (error) {
+    console.error(`[email] failed to send change mail to ${to}:`, error);
+    throw new Error(`Email delivery failed: ${error.message}`);
+  }
+}

@@ -10,6 +10,7 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
 import { ScrollProgress } from '@/components/ui/scroll-progress';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Markdown } from '@/components/Markdown';
 
 type Subject = { id: string; name: string; description: string; enrolled: boolean; topicCount: number };
 type Topic = { id: string; name: string; description: string; visibility: string };
@@ -274,8 +275,9 @@ export default function LearnPage() {
                                               </span>
                                             )}
                                           </div>
-                                          <Markdownish
+                                          <Markdown
                                             text={(density === 'detailed' ? l.detailedMd : l.summaryMd) || l.detailedMd}
+                                            className="mt-3"
                                           />
                                         </article>
                                       ))}
@@ -299,43 +301,3 @@ export default function LearnPage() {
   );
 }
 
-/**
- * Minimal markdown renderer: headings, bold, lists, quotes.
- * Runs at the spec's 17px body size — notes are the one place in the product
- * where the reader is genuinely reading, so body copy matters most here.
- */
-function Markdownish({ text }: { text: string }) {
-  const lines = text.split('\n');
-  const bold = (s: string) =>
-    s.split(/\*\*(.+?)\*\*/g).map((part, j) => (j % 2 === 1 ? <strong key={j} className="font-semibold">{part}</strong> : part));
-
-  return (
-    <div className="t-body mt-3 space-y-2 text-foreground">
-      {lines.map((line, i) => {
-        if (!line.trim()) return <div key={i} className="h-1.5" />;
-        if (line.startsWith('### ')) return <h5 key={i} className="t-strong pt-1">{bold(line.slice(4))}</h5>;
-        if (line.startsWith('## ')) return <h4 key={i} className="t-tagline pt-1">{bold(line.slice(3))}</h4>;
-        if (line.startsWith('# ')) return <h3 key={i} className="t-display-md pt-1">{bold(line.slice(2))}</h3>;
-        if (line.startsWith('> '))
-          return (
-            <blockquote key={i} className="border-l-2 border-primary/50 pl-3 text-muted-foreground">
-              {bold(line.slice(2))}
-            </blockquote>
-          );
-        if (/^[-*] /.test(line))
-          return (
-            <li key={i} className="ml-5 list-disc">
-              {bold(line.slice(2))}
-            </li>
-          );
-        if (/^\d+\. /.test(line))
-          return (
-            <li key={i} className="ml-5 list-decimal">
-              {bold(line.replace(/^\d+\. /, ''))}
-            </li>
-          );
-        return <p key={i}>{bold(line)}</p>;
-      })}
-    </div>
-  );
-}

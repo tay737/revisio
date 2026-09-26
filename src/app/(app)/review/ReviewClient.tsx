@@ -28,6 +28,7 @@ import { SPRING, transition } from '@/lib/motion';
 import { emptyQueueLine, sessionSummary } from '@/lib/profile';
 import { rankChange, reviewsForRp, type Rank } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Markdown } from '@/components/Markdown';
 
 type QueueCard = {
   id: string;
@@ -498,9 +499,7 @@ export default function ReviewClient() {
                       <h2 className="t-strong">{n.title}</h2>
                       {n.specRefs && <span className="chip">{n.specRefs}</span>}
                     </div>
-                    <pre className="mt-2 whitespace-pre-wrap font-[inherit] text-[15px] leading-relaxed text-foreground">
-                      {n.summaryMd || n.detailedMd}
-                    </pre>
+                    <Markdown text={n.summaryMd || n.detailedMd} className="mt-2 text-[15px]" />
                   </article>
                 ))}
               </div>

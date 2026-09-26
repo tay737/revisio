@@ -628,3 +628,164 @@ deck is now validated before anything is written, and a card with no accepted
 answer is refused with the line number and the field to send. A card with no
 answer is unanswerable forever and presents as a verdict reading "Answer:" with
 nothing after it.
+
+## 21. As built (v1.4, 2026-09-26) — the Neon mirror, and how data streams
+
+§18.1's client-budget story ended with the pooler's 200-client ceiling and
+`isCapacityError()` answering "wait" instead of "died". This pass gives the
+wait somewhere else to happen: a second Postgres, on **Neon**, that carries
+most of the read traffic, plus a change-capture stream that keeps the two
+honest. The ceiling is a per-*project* budget across every serverless
+instance, so every query moved off the primary is a query that cannot be
+refused a slot at the worst moment — a review submit, a refresh exchange.
+
+### 21.1 One decision, stated once: what may be seconds old
+
+`readDb()` (in `src/db/client.ts`) returns the Neon pool when
+`NEON_DATABASE_URL` is set, else the primary — so the app stays
+single-database when the mirror is absent and no caller branches.
+
+| Reads the mirror | Reads the primary, always |
+|---|---|
+| `/me` payload, dashboard stats | `verifyAccessToken` (JWT check) |
+| leaderboards, lobbies, achievements | refresh-token rotation (§18's transaction) |
+| subjects, topics, lessons, card text | `submitReview` — one scheduler, one grading path |
+| teacher roster, admin listings, content | every queue the learner is *dealt* (`buildDailyQueue`) |
+
+The rule: **a read that must not be stale for correctness of identity, money
+(XP) or scheduling is a primary read; everything else streams.** A review is
+on the replica within seconds (cron every minute + a drain kicked per
+submit), so "stale" means *at most one review behind, briefly*.
+
+### 21.2 The stream: capture at the database, drain in order
+
+`src/db/sync.ts`. No application write path changed shape. On **both**
+databases:
+
+- `_sync_events(seq bigserial, table_name, op, pk, row_data jsonb, captured_at)`;
+- `sync_capture_event()` — an AFTER trigger on all 26 app tables that appends
+  `to_jsonb(NEW)` (or a tombstone for DELETE), unless
+  `current_setting('app.sync_replicated', true) = 'on'`.
+
+A run drains each side into the other oldest-first: upserts are idempotent,
+deletes are real tombstones, and consumed events are deleted only after a
+batch commits — a crash mid-drain replays and converges. Replicated writes
+run inside transactions that set the flag **locally**, so the mirror never
+re-captures (a `set_config(…, true)` outside an explicit transaction would
+have expired with its own statement and produced an echo loop; that is why
+the capture trigger is deliberately absent from `_sync_events` itself —
+the function inserts into the table it would be attached to).
+
+Batches apply in FK order with per-event savepoints; a row stranded by a
+not-yet-arrived parent is parked and retried (up to 4 passes), and a batch
+that cannot land in full raises so the run retries next tick with its source
+events intact. Nothing in this schema uses sequences — every PK is `text` —
+so there is no key minting to disagree between two databases, which is what
+makes trigger-based CDC viable here without a logical-replication slot.
+
+### 21.3 Who runs the drain, and how to turn it on
+
+- **Vercel cron** — `GET /api/v1/sync` every minute (`vercel.json`),
+  authenticated by `CRON_SECRET`; the route is developer-or-cron only.
+- **Per-review kick** — after a successful `POST /reviews`, a fire-and-forget
+  drain (never blocks the response, never throws; cron is the backstop).
+- **Always-on** — `npm run neon:watch` from any long-lived box (5s ticks).
+- **Operator CLI** — `scripts/neon-sync.ts` (`bootstrap` / `init` / `run` /
+  `status` / `watch`, exposed as `npm run neon:*`). `bootstrap` replays
+  `drizzle/0000_init.sql` onto a bare Neon project and backfills every row;
+  `init` installs the triggers on both sides. Order matters: bootstrap, then
+  init, then set `NEON_DATABASE_URL` and deploy.
+
+Setup cost: two Neon-strength pools (`max` 2 each, cached, short idle — the
+same discipline that fixed the ceiling) and one extra round of writes per
+changed row. The primary's own write budget shrinks by every read this
+moves; that shrinking is the point.
+
+### 21.4 What this pass does *not* claim
+
+There is no logical replication and no wall-clock ordering guarantee: events
+are stamped with each writer's clock, and a same-PK update landing after a
+delete is applied as an upsert — the next real write re-captures and
+converges. For an SRS log that trade is right; for a ledger it would not be.
+Clock skew between the two databases should stay small (both are cloud
+Postgres in adjacent regions); `npm run neon:status` shows the backlog per
+side, and `/api/v1/sync?action=status` (developer) the same over HTTP.
+
+## 22. As built (v1.5, 2026-09-26) — the database layer's shape, and failover
+
+### 22.1 Four modules, four concerns
+
+The v1.4 layer lived in two files that each owned more than one thing.
+`client.ts` held the primary pool, the error *policy* and the replica;
+`sync.ts` built its own pools with a second copy of the discipline. The layer
+now reads:
+
+```
+src/db/pool.ts      one owner of pool discipline + error classification
+                    (createAppPool, isCapacityError, isConnectionError)
+src/db/client.ts    the primary `db` — auth, writes, the queues it deals
+src/db/replica.ts   the read side — readReplica(), circuit breaker,
+                    mirrorHealth(); owns the failover policy
+src/db/sync.ts      the streaming engine — triggers, drains, backfill;
+                    builds its handles from pool.ts like everyone else
+```
+
+Rules this encodes: every `pg.Pool` is built by `createAppPool` (one place
+holds the max-2, short-idle, cached-everywhere discipline); error meaning is
+asked of `pool.ts`, never guessed at call sites; and the only module that
+knows the mirror can be *down* is `replica.ts`. The failure history that
+produced the discipline (§18.1's pool-per-query, the 200-client ceiling) is
+told once, in `pool.ts`.
+
+### 22.2 The mirror is an optimization, never a dependency
+
+The one capability v1.4 left implied and unbuilt: a mirror that is *down*
+turned every replica read into a 503 — the mirror had become a new single
+point of failure, the exact shape of bug the whole effort exists to remove.
+
+`readReplica(run)` (in `replica.ts`) is now the one door for mirror reads.
+When the mirror is unreachable, the first connection-class failure opens a
+circuit: reads go to the primary for `NEON_FAILOVER_MS` (default 30s), then
+one real read probes the mirror again. A user's dashboard is served by the
+database they *have* instead of an error from the one they don't; a
+connection error is the one class that fails over — a SQL error is a bug and
+must surface, not hide behind a fallback. `mirrorHealth()` (`disabled` /
+`healthy` / `degraded` + seconds-to-probe) is exposed on
+`/api/v1/sync?action=status`.
+
+Every read-heavy route — `/me`, `/gamification`, `/subjects`, `/lessons`,
+`/lessons/:id` — runs its queries in **one** `readReplica` block, so a dead
+mirror fails a whole request over in one move and no route mixes sources
+mid-request. Verified against two local clusters: healthy (replica answers,
+health `healthy`), mirror stopped (read served from the primary in ~450 ms,
+health `degraded`, 30 s circuit), mirror restored (reads still served during
+the probe window) — plus `tsc --noEmit` and `next build` clean.
+
+## 23. As built (v1.6, 2026-09-26) — profiles, settings, and the privacy boundary
+
+### 23.1 One module owns what a profile shows
+
+`services/profile.ts` is the single boundary between an account and its
+public face. `getPublicProfile(handle, viewer)` resolves a handle (username
+first, user id as fallback address), gathers XP/rank/achievements/subjects in
+one `readReplica` block, and returns only the fields `profile_visibility`
+allows — with the owner always seeing everything. A hidden field comes back
+`null`, never stripped, so the client knows the shape but not the value. The
+public page `/u/[handle]` and `GET /api/v1/profile/:handle` both read it;
+there is no client-side filter to forget.
+
+### 23.2 The email change never trusts the session alone
+
+Changing address requires the current password, stores `pending_email`, and
+mails an `email_change` token to the *new* address. Only clicking that link
+swaps it (auth/verify-email), which re-checks collisions at the last moment.
+Password change (`/me/password`) also requires the current password and then
+revokes every refresh token — other devices sign out, which is the honest
+outcome and the button says so.
+
+### 23.3 Usernames are validated in one place, client-safe
+
+`lib/username.ts` holds the regex and reserved-word list as pure code so the
+settings form gives the same feedback the server enforces
+(`services/profile.ts` imports from it). The server still re-validates and
+translates the unique-index violation into "That username is taken."
