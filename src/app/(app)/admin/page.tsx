@@ -13,6 +13,7 @@ import PageSkeleton from '@/components/PageSkeleton';
 type AdminData = {
   approvals: {
     id: string;
+    userId: string;
     name: string;
     email: string;
     roleRequested: string;
@@ -22,7 +23,7 @@ type AdminData = {
   }[];
   flags: { key: string; description: string; enabled: boolean }[];
   algorithms: { name: string; description: string; defaultParams: Record<string, number> }[];
-  users: { id: string; email: string; name: string; role: string; status: string; totpEnabled: boolean; createdAt: string }[];
+  users: { id: string; email: string; name: string; role: string; status: string; emailVerifiedAt: string | null; totpEnabled: boolean; createdAt: string }[];
   pendingTopics: { id: string; name: string; ownerId: string | null; createdAt: string }[];
   audit: { id: string; action: string; target: string; createdAt: string }[];
   contentStats: {
@@ -179,6 +180,14 @@ export default function AdminPage() {
                     <Icon name="close" size={14} />
                     Reject
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost gap-1.5"
+                    onClick={() => act({ action: 'verify_user_email', userId: a.userId }, `${a.name}'s email marked verified.`)}
+                  >
+                    <Icon name="mail" size={14} />
+                    Verify email
+                  </button>
                 </div>
               </div>
             ))}
@@ -241,7 +250,7 @@ export default function AdminPage() {
           <span className="chip">{data?.subjects.length ?? 0}</span>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
-          The course a topic hangs from. Renaming one keeps its topics.
+          The course a topic hangs from. Renaming keeps its topics; deleting removes everything under it.
         </p>
         <div className="mt-3 space-y-2">
           {data?.subjects.map((s) => (
@@ -261,6 +270,18 @@ export default function AdminPage() {
                 onClick={() => act({ action: 'rename_subject', subjectId: s.id, name: renameTo[s.id]!.trim() }, `${s.name} renamed.`)}
               >
                 Rename
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm shrink-0 text-destructive"
+                onClick={() => {
+                  if (window.confirm(`Delete “${s.name}” and every topic, lesson and question inside it? This cannot be undone.`)) {
+                    act({ action: 'delete_subject', subjectId: s.id }, `${s.name} deleted.`);
+                  }
+                }}
+              >
+                <Icon name="remove" size={14} />
+                Delete
               </button>
             </div>
           ))}
@@ -412,7 +433,7 @@ export default function AdminPage() {
                         u.status === 'active' ? 'chip-active' : u.status === 'suspended' ? 'border-destructive/50 text-destructive' : ''
                       }`}
                     >
-                      {u.status}
+                      {u.status === 'pending' && !u.emailVerifiedAt ? 'unverified' : u.status}
                     </span>
                   </td>
                   <td className="py-3 pr-3">
@@ -423,21 +444,43 @@ export default function AdminPage() {
                     />
                   </td>
                   <td className="py-3 text-right">
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() =>
-                        act(
-                          {
-                            action: u.status === 'suspended' ? 'activate_user' : 'suspend_user',
-                            userId: u.id,
-                          },
-                          `${u.name} ${u.status === 'suspended' ? 'reactivated' : 'suspended'}.`,
-                        )
-                      }
-                    >
-                      {u.status === 'suspended' ? 'Activate' : 'Suspend'}
-                    </button>
+                    <div className="flex justify-end gap-1.5">
+                      {!u.emailVerifiedAt && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={() => act({ action: 'verify_user_email', userId: u.id }, `${u.name}'s email marked verified.`)}
+                        >
+                          Verify email
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => {
+                          if (window.confirm(`Sign ${u.name} out of every device? They can sign back in.`)) {
+                            act({ action: 'revoke_sessions', userId: u.id }, `${u.name} signed out everywhere.`);
+                          }
+                        }}
+                      >
+                        Sign out everywhere
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() =>
+                          act(
+                            {
+                              action: u.status === 'suspended' ? 'activate_user' : 'suspend_user',
+                              userId: u.id,
+                            },
+                            `${u.name} ${u.status === 'suspended' ? 'reactivated' : 'suspended'}.`,
+                          )
+                        }
+                      >
+                        {u.status === 'suspended' ? 'Activate' : 'Suspend'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

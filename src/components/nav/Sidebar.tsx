@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { initials } from '@/lib/profile';
+import { Avatar } from '@/components/ui/avatar';
 import { rankFor } from '@/domain/ranked';
 import { isActivePath, type NavItem } from '@/components/nav/routes';
 import type { Me } from '@/lib/useMe';
@@ -113,11 +113,11 @@ export function Sidebar({
       </Link>
 
       <div className="mt-3 flex items-center gap-2.5 border-t border-border pt-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary text-[13px] font-semibold">
-          {initials(me.name)}
-        </span>
+        <Link href="/settings" className="shrink-0" aria-label="Profile and settings">
+          <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} size={36} />
+        </Link>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-semibold">{me.name}</div>
+          <div className="truncate text-[14px] font-semibold">{me.nickname?.trim() || me.name}</div>
           <div className="text-[12px] capitalize text-muted-foreground">{me.role}</div>
         </div>
         <ThemeToggle className="h-9 w-9" />

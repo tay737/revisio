@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 import { isCapacityError } from '@/db/client';
 import { verifyAccessToken, type SessionUser, type Role } from '@/services/auth';
 
+export type { SessionUser };
+
 export const REFRESH_COOKIE = 'srs_refresh';
 
 export function ok<T>(data: T, init?: ResponseInit) {

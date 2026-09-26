@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, eq, inArray, or, type SQL } from 'drizzle-orm';
-import { db } from '@/db/client';
+import { readReplica } from '@/db/replica';
 import { cards, lessons, topics, userSubjects } from '@/db/schema';
 
 /**
@@ -49,10 +49,12 @@ export function lessonReaches(userId: string): SQL | undefined {
 
 /** Subjects this user follows. Empty is meaningful, not an error. */
 export async function enrolledSubjectIds(userId: string): Promise<string[]> {
-  const rows = await db
-    .select({ subjectId: userSubjects.subjectId })
-    .from(userSubjects)
-    .where(eq(userSubjects.userId, userId));
+  // Followed subjects power queue + stats filters; a mirror a few seconds old
+  // changes nothing that matters — and if the mirror is down, the primary
+  // answers instead (fail-open).
+  const rows = await readReplica((rdb) =>
+    rdb.select({ subjectId: userSubjects.subjectId }).from(userSubjects).where(eq(userSubjects.userId, userId)),
+  );
   return rows.map((r) => r.subjectId);
 }
 

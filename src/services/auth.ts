@@ -148,16 +148,18 @@ export function hashRecoveryCode(code: string): string {
   return sha256(code.trim().toUpperCase());
 }
 
-// ── email tokens (verify/reset) — dev: link logged to console ───────────────
+// ── email tokens (verify/reset/email_change) — dev: link logged to console ──
 
-export async function issueEmailToken(userId: string, kind: 'verify' | 'reset'): Promise<string> {
+export type EmailTokenKind = 'verify' | 'reset' | 'email_change';
+
+export async function issueEmailToken(userId: string, kind: EmailTokenKind): Promise<string> {
   const raw = randomBytes(24).toString('hex');
   const expiresAt = new Date(Date.now() + 24 * 3_600_000);
   await db.insert(emailTokens).values({ id: crypto.randomUUID(), userId, kind, tokenHash: sha256(raw), expiresAt });
   return raw;
 }
 
-export async function consumeEmailToken(raw: string, kind: 'verify' | 'reset'): Promise<string | null> {
+export async function consumeEmailToken(raw: string, kind: EmailTokenKind): Promise<string | null> {
   const [row] = await db
     .select()
     .from(emailTokens)

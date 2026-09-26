@@ -21,3 +21,4 @@ next-env.d.ts
 
 # Local build output and emulator evidence (not shipped).
 dist/
+.neon

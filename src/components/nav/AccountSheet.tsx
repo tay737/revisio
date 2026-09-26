@@ -7,7 +7,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { initials } from '@/lib/profile';
+import { Avatar } from '@/components/ui/avatar';
 import { rankFor } from '@/domain/ranked';
 import { isActivePath, type NavItem } from '@/components/nav/routes';
 import type { Me } from '@/lib/useMe';
@@ -57,15 +57,13 @@ export function AccountSheet({
         <div className="flex items-center gap-3.5 px-5 pb-4 pt-5">
           <RankCrest rank={rank} size={52} />
           <div className="min-w-0 flex-1">
-            <div className="t-strong truncate">{me.name}</div>
+            <div className="t-strong truncate">{me.nickname?.trim() || me.name}</div>
             <div className="t-fine mt-0.5 text-muted-foreground">
               {rank.label} · <NumberTicker value={rank.points} className="num" /> RP ·{' '}
               {me.gamification.streak}d
             </div>
           </div>
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-[14px] font-semibold">
-            {initials(me.name)}
-          </span>
+          <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} size={40} className="shrink-0" />
         </div>
 
         {line && (

@@ -12,6 +12,7 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import { sessionSummary } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Markdown } from '@/components/Markdown';
 
 type CramTopic = { id: string; name: string; visibility: string; subjectId: string; cardCount: number };
 type Note = { topicId: string; title: string; contentMd: string; specRefs: string };
@@ -218,9 +219,9 @@ export default function CramClient() {
                     {n.title}
                     {n.specRefs && <span className="chip ml-auto">{n.specRefs}</span>}
                   </summary>
-                  <pre className="t-body whitespace-pre-wrap border-t border-border/60 px-3 py-3 font-[inherit] text-foreground">
-                    {n.contentMd}
-                  </pre>
+                  <div className="border-t border-border/60 px-3 py-3">
+                    <Markdown text={n.contentMd} />
+                  </div>
                 </details>
               ))}
             </div>

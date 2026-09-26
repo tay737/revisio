@@ -6,10 +6,31 @@ import { issueEmailToken, consumeEmailToken } from '@/services/auth';
 import { sendVerificationEmail } from '@/services/email';
 import { ApiError, ok, route } from '@/services/api';
 
-/** POST /auth/verify-email { token } — confirm an email address. */
+/**
+ * POST /auth/verify-email { token, kind? }
+ *
+ * Two tokens land here. `verify` activates a new account. `email_change`
+ * completes an address move: the pending address is checked for collisions at
+ * the last moment (someone could have registered it in the window), then
+ * swapped in and the pending copy cleared.
+ */
 export const POST = route(async (req: NextRequest) => {
-  const { token } = (await req.json().catch(() => ({}))) as { token?: string };
+  const { token, kind } = (await req.json().catch(() => ({}))) as { token?: string; kind?: string };
   if (!token) throw new ApiError(400, 'bad_request', 'Token required.');
+  if (kind === 'email_change') {
+    const userId = await consumeEmailToken(token, 'email_change');
+    if (!userId) throw new ApiError(400, 'invalid_token', 'Link invalid or expired. Request a new email from Settings.');
+    const [row] = await db.select({ pending: users.pendingEmail }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!row?.pending) throw new ApiError(409, 'conflict', 'No email change is waiting. Request a new one from Settings.');
+    const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, row.pending)).limit(1);
+    if (taken && taken.id !== userId) {
+      await db.update(users).set({ pendingEmail: null }).where(eq(users.id, userId));
+      throw new ApiError(409, 'email_taken', 'That address was registered by someone else in the meantime.');
+    }
+    await db.update(users).set({ email: row.pending, pendingEmail: null }).where(eq(users.id, userId));
+    return ok({ verified: true, email: row.pending });
+  }
+
   const userId = await consumeEmailToken(token, 'verify');
   if (!userId) throw new ApiError(400, 'invalid_token', 'Verification link invalid or expired.');
   await db.update(users).set({ emailVerifiedAt: new Date(), status: 'active' }).where(eq(users.id, userId));

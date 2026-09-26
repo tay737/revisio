@@ -11,6 +11,7 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Markdown } from '@/components/Markdown';
 
 type ExamQuestion = {
   id: string;
@@ -240,7 +241,7 @@ export default function ExamPage() {
                   )}
                 </div>
 
-                <p className="t-body mt-3 font-normal">{q.questionMd}</p>
+                <Markdown text={q.questionMd} className="mt-3" />
 
                 {q.kind === 'mcq' ? (
                   <div className="mt-3 space-y-2">

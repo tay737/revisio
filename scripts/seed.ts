@@ -31,10 +31,17 @@ await db
     { id: 'first-review', name: 'First Steps', description: 'Complete your first review', icon: '🌱', rule: { kind: 'review_count', threshold: 1 } },
     { id: 'reviews-50', name: 'Half Century', description: 'Complete 50 reviews', icon: '⚡', rule: { kind: 'review_count', threshold: 50 } },
     { id: 'reviews-250', name: 'Grindmaster', description: 'Complete 250 reviews', icon: '🔥', rule: { kind: 'review_count', threshold: 250 } },
+    { id: 'reviews-500', name: 'Marathoner', description: 'Complete 500 reviews', icon: '🏃', rule: { kind: 'review_count', threshold: 500 } },
+    { id: 'reviews-1000', name: 'Ten Hundred', description: 'Complete 1,000 reviews', icon: '🚀', rule: { kind: 'review_count', threshold: 1000 } },
     { id: 'streak-7', name: 'Week Warrior', description: 'Reach a 7-day streak', icon: '📅', rule: { kind: 'streak', threshold: 7 } },
     { id: 'streak-30', name: 'Month Monk', description: 'Reach a 30-day streak', icon: '🗓️', rule: { kind: 'streak', threshold: 30 } },
+    { id: 'streak-100', name: 'Hundred Day', description: 'Reach a 100-day streak', icon: '🏔️', rule: { kind: 'streak', threshold: 100 } },
     { id: 'xp-1000', name: 'Kilo-XP', description: 'Earn 1,000 XP total', icon: '💎', rule: { kind: 'xp_total', threshold: 1000 } },
+    { id: 'xp-5000', name: 'Five K', description: 'Earn 5,000 XP total', icon: '👑', rule: { kind: 'xp_total', threshold: 5000 } },
+    { id: 'xp-25000', name: 'Summit', description: 'Earn 25,000 XP total', icon: '⛰️', rule: { kind: 'xp_total', threshold: 25000 } },
     { id: 'perfect-session', name: 'Flawless', description: 'Finish a session with 100% accuracy (10+ reviews)', icon: '🎯', rule: { kind: 'perfect_session', threshold: 10 } },
+    { id: 'perfect-session-20', name: 'Untouchable', description: '100% accuracy across 20 reviews', icon: '🛡️', rule: { kind: 'perfect_session', threshold: 20 } },
+    { id: 'level-25', name: 'Veteran', description: 'Reach level 25', icon: '🎖️', rule: { kind: 'xp_total', threshold: 12000 } },
   ])
   .onConflictDoNothing();
 

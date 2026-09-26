@@ -119,6 +119,7 @@ export const icons = {
   upload: Upload,
   rotate: RefreshCw,
   add: Plus,
+  rocket: Rocket,
   edit: Pencil,
   remove: Trash2,
   close: X,
@@ -178,10 +179,17 @@ const ACHIEVEMENT_BY_ID: Record<string, IconName> = {
   'first-review': 'start',
   'reviews-50': 'level',
   'reviews-250': 'streak',
+  'reviews-500': 'climb',
+  'reviews-1000': 'rocket',
   'streak-7': 'schedule',
   'streak-30': 'checked',
+  'streak-100': 'crown',
   'xp-1000': 'xp',
+  'xp-5000': 'crown',
+  'xp-25000': 'achievements',
   'perfect-session': 'target',
+  'perfect-session-20': 'secure',
+  'level-25': 'league',
 };
 
 const ACHIEVEMENT_BY_EMOJI: Record<string, IconName> = {
@@ -192,6 +200,13 @@ const ACHIEVEMENT_BY_EMOJI: Record<string, IconName> = {
   '🗓️': 'checked',
   '💎': 'xp',
   '🎯': 'target',
+  '🏃': 'climb',
+  '🚀': 'rocket',
+  '🏔️': 'crown',
+  '👑': 'crown',
+  '⛰️': 'achievements',
+  '🛡️': 'secure',
+  '🎖️': 'league',
 };
 
 /** Resolve an achievement row to a registry icon name. */

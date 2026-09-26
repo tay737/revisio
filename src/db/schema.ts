@@ -13,6 +13,24 @@ export const users = pgTable('users', {
   role: text('role', { enum: ['student', 'teacher', 'developer'] }).notNull().default('student'),
   status: text('status', { enum: ['pending', 'active', 'suspended'] }).notNull().default('pending'),
   emailVerifiedAt: timestamp('email_verified_at', { mode: 'date' }),
+  // ── public profile (v1.5) ─────────────────────────────────────────────────
+  // username is the profile address (/u/<username>) and is optional until the
+  // learner picks one; id remains the fallback handle so nobody is forced
+  // through naming on day one. nickname is the display-only name shown beside
+  // or instead of the legal name. Which of these a visitor may see is the
+  // owner's call, held in profileVisibility.
+  username: text('username'),
+  nickname: text('nickname'),
+  bio: text('bio'),
+  avatarEmoji: text('avatar_emoji'),
+  avatarColor: text('avatar_color').notNull().default('ink'),
+  /** Email awaiting confirmation by link — the only thing that swaps it in. */
+  pendingEmail: text('pending_email'),
+  /** Which profile fields a signed-out visitor may see. Absent key = hidden. */
+  profileVisibility: jsonb('profile_visibility')
+    .$type<ProfileVisibility>()
+    .notNull()
+    .default(sql`'{"name":true,"nickname":true,"bio":true,"subjects":true,"stats":true,"achievements":true}'::jsonb`),
   totpSecret: text('totp_secret'),
   totpEnabled: boolean('totp_enabled').notNull().default(false),
   recoveryCodes: jsonb('recovery_codes').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
@@ -24,12 +42,25 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   emailIdx: uniqueIndex('users_email_idx').on(t.email),
+  usernameIdx: uniqueIndex('users_username_idx').on(t.username),
 }));
+
+/** The fields of a profile whose exposure the owner controls. */
+export type ProfileVisibility = {
+  name: boolean;
+  nickname: boolean;
+  bio: boolean;
+  subjects: boolean;
+  stats: boolean;
+  achievements: boolean;
+};
 
 export const emailTokens = pgTable('email_tokens', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  kind: text('kind', { enum: ['verify', 'reset'] }).notNull(),
+  // `email_change` widens the type only — the column is plain text, so old
+  // rows and old databases need no migration for the new kind.
+  kind: text('kind', { enum: ['verify', 'reset', 'email_change'] }).notNull(),
   tokenHash: text('token_hash').notNull(),
   expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
   usedAt: timestamp('used_at', { mode: 'date' }),
