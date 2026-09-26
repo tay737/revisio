@@ -34,7 +34,7 @@ env:
   # `env` replaces the job-level value rather than merging with it, so
   # `${{ vars.NATIVE_APP_URL }}` alone would set it to an empty string and
   # silently strip the server URL out of the build.
-  NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio-tay737.vercel.app' }}
+  NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio-srs.vercel.app' }}
 
 jobs:
   android:
@@ -95,7 +95,11 @@ jobs:
 
       - name: Name the artefact
         run: |
-          VERSION="${GITHUB_REF_NAME:-alpha}"
+          # The name comes from the product version in package.json — the same
+          # source set-version.mjs stamps into the build — not from the ref. On a
+          # tag those agree; on a manual run `${GITHUB_REF_NAME}` is the branch,
+          # which produced artefacts called "Revisio-main-...".
+          VERSION="v$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
           cp android/app/build/outputs/apk/debug/app-debug.apk \
              "Revisio-${VERSION}-android.apk"
           ls -lh Revisio-*.apk
@@ -155,7 +159,7 @@ jobs:
 
       - name: Package the IPA
         run: |
-          VERSION="${GITHUB_REF_NAME:-alpha}"
+          VERSION="v$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
           APP=$(find ios/App/build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -1)
           test -n "$APP" || { echo "no App.app produced"; exit 1; }
           rm -rf Payload && mkdir Payload
@@ -202,7 +206,9 @@ jobs:
             | Android | `Revisio-${{ github.ref_name }}-android.apk` | Enable "Install unknown apps" and open the file. Signed with the debug key, so it installs on any device. |
             | iOS | `Revisio-${{ github.ref_name }}-ios-unsigned.ipa` | Unsigned — re-sign with Sideloadly or AltStore. |
 
-            The apps are thin clients: all grading, scheduling and progress live
-            on the server, so a connection is required.
+            Revisio is a thin client — grading, scheduling and progress all live
+            on the server — but the review queue travels with you: a session can
+            be answered with no connection and settles up when you reconnect.
+            See `docs/MOBILE.md` §7.
 
             See `docs/MOBILE.md` for the full release process.

@@ -45,6 +45,8 @@ Consequences worth stating plainly:
 | Product version | `package.json`, stamped by `scripts/native/set-version.mjs` | Store version and tag can never disagree |
 | Local/CI build entry point | `scripts/native/prepare.mjs` | A developer and CI run the same script |
 | Proof the offline contract holds | `scripts/verify-offline.ts` | The claims above, checked against a running server |
+| Proof a build reaches a deployment | `scripts/native/assert-live-url.mjs` | Static: reads what the artefact baked in |
+| Proof a build is a working app | `scripts/native/smoke.mjs` | Runtime: installs it and drives the real screen |
 
 The generated `android/` and `ios/` directories are **not committed**. They are
 reproducible from the files above, which keeps the repository buildable on a
@@ -137,6 +139,12 @@ implementation of any rule.
    all. That is its main job now; it was briefly disabled in the native shell on
    the mistaken belief that the WebView's HTTP cache covered this. An HTTP cache
    is best-effort and cannot boot an application.
+
+   One precondition, stated plainly: the worker installs on the **first online
+   visit**. An app that has never reached the deployment has nothing to serve,
+   because the shell it would fall back to is the deployment itself. Open it
+   once on wifi, then use it on the train — `verify:native` models exactly that
+   sequence, waiting for the shell to be cached before it pulls the plug.
 3. **Answering grades locally.** `previewVerdict` in `lib/offline.ts` calls the
    same `domain/grading` the server calls, so the verdict, the "case only"
    nudge and the model answer all read exactly as they do online.
@@ -188,3 +196,51 @@ development database.
   would be worse than the honest "not now".
 - **Teacher, admin and library** surfaces are unchanged. They are authoring
   tools; they are not what anyone uses on a train.
+
+## 8. Proving a build is a working app
+
+The native pipeline answers three different questions, and keeping them apart is
+what makes each one trustworthy:
+
+| Question | Answered by | Kind of answer |
+|---|---|---|
+| Does this source produce a project? | `scripts/native/prepare.mjs` | Build |
+| Does this artefact point at a deployment? | `scripts/native/assert-live-url.mjs` | Static, reads a file |
+| Does this artefact *behave* like an app? | `scripts/native/smoke.mjs` | Runtime, drives the screen |
+
+The middle question has a static answer, and it matters: a build with no
+`server.url` compiles, installs and launches, then shows the bundled "not
+connected" shell. That shipped once. But a static check cannot tell you the app
+opens, and "it is configured" is not "it works".
+
+```bash
+export NATIVE_APP_URL=https://your-deployment.example.com
+npm run native:apk        # build
+npm run verify:native     # install it on a device and watch it run
+```
+
+`smoke.mjs` boots an AVD (or uses an attached device), installs the APK, opens
+it, and reads the rendered page over the Chrome DevTools Protocol. It then turns
+the network off, restarts the app and reads it again — because "usable on a
+train" is a claim about the offline case, and a WebView with no connection has
+nothing to show unless the service worker put the app there.
+
+```
+Testing app-debug.apk against https://revisio-srs.vercel.app
+
+  ..   no device attached; booting revisio_test headless
+  ok   the artefact installs on the device
+  ok   online: the app opens on the deployment it was built for
+  ok   online: the app painted something
+  ok   online: the page has interactive controls
+  ok   online: the service worker is available to cache the shell
+  ok   offline: the app still opens with the network off
+  ok   offline: the app painted something without the deployment
+
+The artefact is a working app.
+```
+
+It is the native counterpart of `verify:offline`: that proves the offline
+*contract* against a server, this proves the *artefact* on a device. Neither is
+wired into CI — booting an emulator on a hosted runner is slow and flaky — so
+both are pre-release gates, run by hand before a tag is pushed.
