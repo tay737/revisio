@@ -29,6 +29,11 @@ env:
   # The deployment the shells load. Overridable without a code change by
   # setting the NATIVE_APP_URL repository variable; the default is the app's
   # own production alias, so a fresh tag produces a working build.
+  #
+  # Do not also declare NATIVE_APP_URL on an individual step: a step-level
+  # `env` replaces the job-level value rather than merging with it, so
+  # `${{ vars.NATIVE_APP_URL }}` alone would set it to an empty string and
+  # silently strip the server URL out of the build.
   NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio.vercel.app' }}
 
 jobs:
@@ -68,8 +73,6 @@ jobs:
 
       - name: Generate the native project
         run: npx cap add android
-        env:
-          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
 
       - name: Stamp version, icons, splash
         run: |
@@ -78,8 +81,11 @@ jobs:
 
       - name: Sync web assets and plugins
         run: npx cap sync android
-        env:
-          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
+
+      - name: Assert the app points at a deployment
+        # A build with no server.url compiles, installs and launches — it just
+        # shows the "not connected" shell. That shipped once; this stops it.
+        run: node scripts/native/assert-live-url.mjs android
 
       - name: Build debug APK
         # A debug build is signed with the throwaway debug keystore, so it
@@ -116,8 +122,6 @@ jobs:
 
       - name: Generate the native project
         run: npx cap add ios
-        env:
-          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
 
       - name: Stamp version, icons, splash
         run: |
@@ -126,8 +130,9 @@ jobs:
 
       - name: Sync web assets and plugins
         run: npx cap sync ios
-        env:
-          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
+
+      - name: Assert the app points at a deployment
+        run: node scripts/native/assert-live-url.mjs ios
 
       - name: Build the app
         # No signing identity is available to CI, so this produces an unsigned
