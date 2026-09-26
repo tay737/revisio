@@ -188,6 +188,9 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # Re-tagging a version must replace its artefacts rather than fail on
+          # the ones already there, so a fixed build can supersede a broken one.
+          overwrite_files: true
           body: |
             ## Revisio ${{ github.ref_name }} — alpha
 
