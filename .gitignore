@@ -21,3 +21,6 @@ ios/
 *.apk
 *.ipa
 *.aab
+
+# Local build output and emulator evidence (not shipped).
+dist/
