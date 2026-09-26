@@ -34,7 +34,7 @@ env:
   # `env` replaces the job-level value rather than merging with it, so
   # `${{ vars.NATIVE_APP_URL }}` alone would set it to an empty string and
   # silently strip the server URL out of the build.
-  NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio.vercel.app' }}
+  NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio-tay737.vercel.app' }}
 
 jobs:
   android:
