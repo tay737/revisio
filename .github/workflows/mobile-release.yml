@@ -25,6 +25,12 @@ concurrency:
   group: mobile-release-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # The deployment the shells load. Overridable without a code change by
+  # setting the NATIVE_APP_URL repository variable; the default is the app's
+  # own production alias, so a fresh tag produces a working build.
+  NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio.vercel.app' }}
+
 jobs:
   android:
     name: Android APK
