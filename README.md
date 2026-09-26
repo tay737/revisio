@@ -48,7 +48,9 @@ published.
 **The four rules the product is built on**
 
 1. **The server decides.** Grading, scheduling and XP are computed server-side
-   and are never re-derived in the client, so two clients can never disagree.
+   and are never re-derived in the client, so two clients can never disagree. A
+   review answered offline is graded by the same rules so it can be studied
+   *now*, but it is a preview: the server re-grades it and awards the XP.
 2. **Content that is visible is studyable.** If a topic reaches you, its
    questions are answerable — a rule with exactly one owner.
 3. **Reviewing is append-only.** Every review is logged with its verdict, so a
@@ -104,6 +106,7 @@ bootstrap email with `BOOTSTRAP_DEV_EMAIL` if you want a different one.
 | `npm run db:seed` | Seed the database |
 | `npm run db:reset` | Drop the local SQLite file and re-seed |
 | `npm run verify:content` | Grammar, visibility and merge checks against the database |
+| `npm run verify:offline` | The offline contract: pack keys, queue cleanliness, preview/server agreement |
 | `npm run native:prepare` | Generate the Android and iOS projects, then sync |
 | `npm run native:apk` | Build a debug APK locally |
 | `npm run native:open:android` | Open the Android project in Android Studio |
@@ -143,9 +146,11 @@ What the shell adds:
 
 - a native status bar, splash screen and launcher icon (`assets/`)
 - Android's hardware back button meaning "go back, or leave"
-- an honest offline banner, because a review that only *looks* saved is a lie
-- no service worker inside the shell — the WebView's own cache and the real
-  cookie jar already do that job
+- **reviewing with no connection at all** — the app takes a session with it,
+  grades locally using the same `domain/grading` the server uses, and hands the
+  answers back when the signal returns (see [`docs/MOBILE.md`](docs/MOBILE.md) §7)
+- a ledger, not a refusal, when offline: it counts what is saved and waiting
+  rather than implying the work was lost
 
 The native projects are **generated, not committed**. They are reproducible from
 `capacitor.config.ts` and `assets/`, which means a machine without the Android
