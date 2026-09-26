@@ -25,10 +25,25 @@ export type Achievement = {
   unlockedAt?: string | null;
 };
 
+export type ProfileVisibility = {
+  name: boolean;
+  nickname: boolean;
+  bio: boolean;
+  subjects: boolean;
+  stats: boolean;
+  achievements: boolean;
+};
+
 export type Me = {
   id: string;
   email: string;
   name: string;
+  username: string | null;
+  nickname: string | null;
+  bio: string | null;
+  avatarEmoji: string | null;
+  avatarColor: string;
+  profileVisibility: ProfileVisibility;
   role: 'student' | 'teacher' | 'developer';
   status: string;
   totpEnabled: boolean;
@@ -55,9 +70,14 @@ export type Me = {
  * beside the type it reads, rather than being re-derived at each call site
  * (which is how two surfaces end up disagreeing about the same numbers).
  */
+/** The name a profile surfaces first: nickname when there is one. */
+export function displayName(me: Pick<Me, 'name' | 'nickname'>): string {
+  return me.nickname?.trim() || me.name;
+}
+
 export function learnerSnapshot(me: Me): CompanionSnapshot {
   return {
-    name: me.name,
+    name: displayName(me),
     role: me.role,
     due: me.today.due,
     reviewed: me.today.reviewed,
