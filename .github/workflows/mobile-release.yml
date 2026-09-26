@@ -1,16 +1,16 @@
 name: Mobile release
 
-# Builds the installable artefacts for both stores' sideloading paths and
-# attaches them to a GitHub Release. Run by pushing a tag:
+# Builds the installable artefact and proves both native clients compile and
+# pass their conformance tests. Run by pushing a tag:
 #
-#   git tag v1.0.0-alpha && git push origin v1.0.0-alpha
+#   git tag v1.0.0-alpha.2 && git push origin v1.0.0-alpha.2
 #
-# or by hand from the Actions tab, which builds the same artefacts without
-# publishing a release.
+# or by hand from the Actions tab, which builds without publishing a release.
 #
-# Set the repository variable NATIVE_APP_URL (Settings → Secrets and variables →
-# Actions → Variables) to the deployment the app should load. Without it the
-# build succeeds but boots into the "not connected" shell.
+# There is NO server URL to configure any more. The apps are native clients
+# that speak the backend API directly; the deployment they talk to is compiled
+# in (mobile/android/app/build.gradle.kts and the iOS apiBase constant), so
+# there is no "not connected" shell to ship by accident.
 
 on:
   push:
@@ -25,17 +25,6 @@ concurrency:
   group: mobile-release-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # The deployment the shells load. Overridable without a code change by
-  # setting the NATIVE_APP_URL repository variable; the default is the app's
-  # own production alias, so a fresh tag produces a working build.
-  #
-  # Do not also declare NATIVE_APP_URL on an individual step: a step-level
-  # `env` replaces the job-level value rather than merging with it, so
-  # `${{ vars.NATIVE_APP_URL }}` alone would set it to an empty string and
-  # silently strip the server URL out of the build.
-  NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL || 'https://revisio-srs.vercel.app' }}
-
 jobs:
   android:
     name: Android APK
@@ -43,23 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Ensure the Android SDK
-        # GitHub's Ubuntu runners already ship the SDK; this only tops up the
-        # two packages the Capacitor template pins (compileSdk 35 and matching
-        # build-tools), which avoids depending on a third-party setup action.
         run: |
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           test -d "$SDK" || { echo "no Android SDK found at $SDK"; exit 1; }
@@ -71,36 +49,22 @@ jobs:
           fi
           ls "$SDK/platforms" "$SDK/build-tools"
 
-      - name: Generate the native project
-        run: npx cap add android
+      - name: Stamp the version from package.json
+        run: node scripts/native/set-version.mjs
 
-      - name: Stamp version, icons, splash
+      - name: Test the engine and build the APK
+        # `:engine:test` is the gate that matters: it reproduces the canonical
+        # TypeScript grading engine's golden vectors with the Kotlin port, so a
+        # rule change on the web cannot land here without the native port
+        # following it.
         run: |
-          node scripts/native/set-version.mjs
-          npx capacitor-assets generate --android
-
-      - name: Sync web assets and plugins
-        run: npx cap sync android
-
-      - name: Assert the app points at a deployment
-        # A build with no server.url compiles, installs and launches — it just
-        # shows the "not connected" shell. That shipped once; this stops it.
-        run: node scripts/native/assert-live-url.mjs android
-
-      - name: Build debug APK
-        # A debug build is signed with the throwaway debug keystore, so it
-        # installs on any device. A store build would use a release keystore
-        # and Play App Signing.
-        run: cd android && ./gradlew assembleDebug --no-daemon
+          cd mobile/android
+          ./gradlew :engine:test :app:assembleDebug --no-daemon
 
       - name: Name the artefact
         run: |
-          # The name comes from the product version in package.json — the same
-          # source set-version.mjs stamps into the build — not from the ref. On a
-          # tag those agree; on a manual run `${GITHUB_REF_NAME}` is the branch,
-          # which produced artefacts called "Revisio-main-...".
           VERSION="v$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
-          cp android/app/build/outputs/apk/debug/app-debug.apk \
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk \
              "Revisio-${VERSION}-android.apk"
           ls -lh Revisio-*.apk
 
@@ -111,67 +75,30 @@ jobs:
           if-no-files-found: error
 
   ios:
-    name: iOS IPA
+    name: iOS client (tests + compile)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      - name: Test the Swift engine
+        # Same guarantee as the Kotlin side, against the same vectors.
+        run: cd mobile/ios && swift test
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate the native project
-        run: npx cap add ios
-
-      - name: Stamp version, icons, splash
+      - name: Typecheck the SwiftUI app for iOS
+        # There is no Xcode app target yet, so this compiles the app sources
+        # against the iOS SDK rather than producing an .ipa. It still catches
+        # the thing that matters at this stage: whether the surface builds for
+        # iOS at all. See docs/MOBILE.md for what remains.
         run: |
-          node scripts/native/set-version.mjs
-          npx capacitor-assets generate --ios
-
-      - name: Sync web assets and plugins
-        run: npx cap sync ios
-
-      - name: Assert the app points at a deployment
-        run: node scripts/native/assert-live-url.mjs ios
-
-      - name: Build the app
-        # No signing identity is available to CI, so this produces an unsigned
-        # device build. It is a real, releasable alpha artefact; installing it
-        # needs a re-signing step (Sideloadly, AltStore) or an Apple Developer
-        # certificate, documented in docs/MOBILE.md.
-        run: |
-          cd ios/App
-          xcodebuild \
-            -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_ENTITLEMENTS="" \
-            build
-
-      - name: Package the IPA
-        run: |
-          VERSION="v$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
-          APP=$(find ios/App/build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -1)
-          test -n "$APP" || { echo "no App.app produced"; exit 1; }
-          rm -rf Payload && mkdir Payload
-          cp -R "$APP" Payload/
-          zip -qry "Revisio-${VERSION}-ios-unsigned.ipa" Payload
-          ls -lh Revisio-*.ipa
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: Revisio-*.ipa
-          if-no-files-found: error
+          cd mobile/ios
+          mkdir -p /tmp/revisio-ios
+          xcrun -sdk iphonesimulator swiftc -emit-module \
+            -target arm64-apple-ios16.0-simulator -module-name RevisioEngine \
+            -emit-module-path /tmp/revisio-ios/RevisioEngine.swiftmodule \
+            Sources/RevisioEngine/*.swift
+          xcrun -sdk iphonesimulator swiftc -typecheck \
+            -target arm64-apple-ios16.0-simulator -I /tmp/revisio-ios \
+            -parse-as-library Sources/Revisio/*.swift
 
   release:
     name: Publish release
@@ -186,9 +113,7 @@ jobs:
       - name: Publish
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            Revisio-*.apk
-            Revisio-*.ipa
+          files: Revisio-*.apk
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           generate_release_notes: true
           fail_on_unmatched_files: true
@@ -198,17 +123,20 @@ jobs:
           body: |
             ## Revisio ${{ github.ref_name }} — alpha
 
-            The first native builds of Revisio. Both are **sideload-only alpha
-            artefacts**: they install outside the App Store and Google Play.
+            Native clients, not a wrapper around the website: the Android app is
+            Kotlin + Jetpack Compose over a native engine, and the iOS client is
+            Swift + SwiftUI over the same engine ported to Swift.
 
-            | Platform | File | Install |
+            | Platform | Artefact | Notes |
             |---|---|---|
-            | Android | `Revisio-${{ github.ref_name }}-android.apk` | Enable "Install unknown apps" and open the file. Signed with the debug key, so it installs on any device. |
-            | iOS | `Revisio-${{ github.ref_name }}-ios-unsigned.ipa` | Unsigned — re-sign with Sideloadly or AltStore. |
+            | Android | `Revisio-${{ github.ref_name }}-android.apk` | Sideload: enable "Install unknown apps" and open the file. Debug-signed, so it installs on any device. |
+            | iOS | — | No `.ipa` in this release. The Swift client builds, its engine passes the grading conformance tests, but there is no Xcode app target to archive yet. |
 
-            Revisio is a thin client — grading, scheduling and progress all live
-            on the server — but the review queue travels with you: a session can
-            be answered with no connection and settles up when you reconnect.
-            See `docs/MOBILE.md` §7.
+            **Offline review works.** The app carries today's session on the
+            device: it opens to its own screen with no network, grades answers
+            with a native port of the server's grading engine (proven identical
+            by shared golden vectors), and hands the reviews back when the
+            connection returns. `npm run verify:native` drives exactly that on
+            an emulator with the network off.
 
-            See `docs/MOBILE.md` for the full release process.
+            See `docs/MOBILE.md` for the architecture and what remains.

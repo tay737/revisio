@@ -1,0 +1,561 @@
+{
+  "version": 1,
+  "generatedFrom": "src/domain/grading.ts",
+  "note": "Golden grading vectors. Native ports must reproduce `expected` exactly.",
+  "cases": [
+    {
+      "fn": "gradeCloze",
+      "name": "exact match",
+      "input": {
+        "answer": "ATP",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "a1"
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "whitespace is normalised",
+      "input": {
+        "answer": "  ATP  ",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "a1"
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "case-only difference is correct with a nudge",
+      "input": {
+        "answer": "atp",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "case_only",
+        "matchedAnswerId": "a1",
+        "note": "Correct — mind your capitalisation."
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "punctuation-only difference is correct with a nudge",
+      "input": {
+        "answer": "ATP.",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "punctuation_only",
+        "matchedAnswerId": "a1",
+        "note": "Correct — check your punctuation."
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "case and punctuation together are still correct",
+      "input": {
+        "answer": "atp.",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "punctuation_only",
+        "matchedAnswerId": "a1",
+        "note": "Correct — check your punctuation."
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "accents are ignored on the loose pass",
+      "input": {
+        "answer": "cafe",
+        "accepted": [
+          {
+            "id": "a3",
+            "text": "café",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "case_and_punctuation",
+        "matchedAnswerId": "a3",
+        "note": "Correct — check capitalisation and punctuation."
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "a second accepted answer matches",
+      "input": {
+        "answer": "adenosine triphosphate",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "a2"
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "wrong content",
+      "input": {
+        "answer": "ADP",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "wrong"
+      }
+    },
+    {
+      "fn": "gradeCloze",
+      "name": "empty answer",
+      "input": {
+        "answer": "",
+        "accepted": [
+          {
+            "id": "a1",
+            "text": "ATP",
+            "isPrimary": true
+          },
+          {
+            "id": "a2",
+            "text": "adenosine triphosphate",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "wrong",
+        "note": "No answer given."
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "flashcard with all required points is correct",
+      "input": {
+        "answer": "The mitochondria produces ATP via cristae.",
+        "accepted": [
+          {
+            "id": "f1",
+            "text": "Mitochondria make ATP",
+            "isPrimary": true,
+            "keywords": [
+              {
+                "required": true,
+                "phrase": "atp"
+              },
+              {
+                "required": true,
+                "phrase": "mitochondria",
+                "synonyms": [
+                  "mitochondrion"
+                ]
+              },
+              {
+                "required": false,
+                "phrase": "cristae"
+              },
+              {
+                "required": false,
+                "phrase": "matrix"
+              }
+            ],
+            "minPoints": 2
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "f1",
+        "matchedPhrases": [
+          "atp",
+          "mitochondria",
+          "cristae"
+        ],
+        "missedPhrases": [
+          "matrix"
+        ],
+        "note": "Covered: atp, mitochondria, cristae."
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "synonyms count for a keyword",
+      "input": {
+        "answer": "the mitochondrion makes atp",
+        "accepted": [
+          {
+            "id": "f1",
+            "text": "Mitochondria make ATP",
+            "isPrimary": true,
+            "keywords": [
+              {
+                "required": true,
+                "phrase": "atp"
+              },
+              {
+                "required": true,
+                "phrase": "mitochondria",
+                "synonyms": [
+                  "mitochondrion"
+                ]
+              },
+              {
+                "required": false,
+                "phrase": "cristae"
+              },
+              {
+                "required": false,
+                "phrase": "matrix"
+              }
+            ],
+            "minPoints": 2
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "f1",
+        "matchedPhrases": [
+          "atp",
+          "mitochondria"
+        ],
+        "missedPhrases": [
+          "cristae",
+          "matrix"
+        ],
+        "note": "Covered: atp, mitochondria."
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "all required points but too few total is a near miss",
+      "input": {
+        "answer": "it makes atp",
+        "accepted": [
+          {
+            "id": "f3",
+            "text": "Aerobic respiration",
+            "isPrimary": true,
+            "keywords": [
+              {
+                "required": true,
+                "phrase": "atp"
+              },
+              {
+                "required": false,
+                "phrase": "cristae"
+              },
+              {
+                "required": false,
+                "phrase": "matrix"
+              }
+            ],
+            "minPoints": 2
+          }
+        ]
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "near_miss",
+        "matchedAnswerId": "f3",
+        "matchedPhrases": [
+          "atp"
+        ],
+        "missedPhrases": [
+          "cristae",
+          "matrix"
+        ],
+        "note": "Good start — also include: cristae, matrix."
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "missing a required point is wrong",
+      "input": {
+        "answer": "cristae exist",
+        "accepted": [
+          {
+            "id": "f1",
+            "text": "Mitochondria make ATP",
+            "isPrimary": true,
+            "keywords": [
+              {
+                "required": true,
+                "phrase": "atp"
+              },
+              {
+                "required": true,
+                "phrase": "mitochondria",
+                "synonyms": [
+                  "mitochondrion"
+                ]
+              },
+              {
+                "required": false,
+                "phrase": "cristae"
+              },
+              {
+                "required": false,
+                "phrase": "matrix"
+              }
+            ],
+            "minPoints": 2
+          }
+        ]
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "wrong",
+        "matchedAnswerId": "f1",
+        "matchedPhrases": [
+          "cristae"
+        ],
+        "missedPhrases": [
+          "atp",
+          "mitochondria",
+          "matrix"
+        ],
+        "note": "Some required points were missing."
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "punctuation and case do not matter to keyword matching",
+      "input": {
+        "answer": "ATP! MITOCHONDRIA!",
+        "accepted": [
+          {
+            "id": "f1",
+            "text": "Mitochondria make ATP",
+            "isPrimary": true,
+            "keywords": [
+              {
+                "required": true,
+                "phrase": "atp"
+              },
+              {
+                "required": true,
+                "phrase": "mitochondria",
+                "synonyms": [
+                  "mitochondrion"
+                ]
+              },
+              {
+                "required": false,
+                "phrase": "cristae"
+              },
+              {
+                "required": false,
+                "phrase": "matrix"
+              }
+            ],
+            "minPoints": 2
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "f1",
+        "matchedPhrases": [
+          "atp",
+          "mitochondria"
+        ],
+        "missedPhrases": [
+          "cristae",
+          "matrix"
+        ],
+        "note": "Covered: atp, mitochondria."
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "no keyword rules falls back to cloze grading",
+      "input": {
+        "answer": "mitochondria",
+        "accepted": [
+          {
+            "id": "f2",
+            "text": "mitochondria",
+            "isPrimary": true
+          }
+        ]
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct",
+        "matchedAnswerId": "f2"
+      }
+    },
+    {
+      "fn": "gradeFlashcard",
+      "name": "empty flashcard answer",
+      "input": {
+        "answer": "",
+        "accepted": [
+          {
+            "id": "f1",
+            "text": "Mitochondria make ATP",
+            "isPrimary": true,
+            "keywords": [
+              {
+                "required": true,
+                "phrase": "atp"
+              },
+              {
+                "required": true,
+                "phrase": "mitochondria",
+                "synonyms": [
+                  "mitochondrion"
+                ]
+              },
+              {
+                "required": false,
+                "phrase": "cristae"
+              },
+              {
+                "required": false,
+                "phrase": "matrix"
+              }
+            ],
+            "minPoints": 2
+          }
+        ]
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "wrong",
+        "note": "No answer given."
+      }
+    },
+    {
+      "fn": "gradeMcq",
+      "name": "the right option is correct",
+      "input": {
+        "selectedOptionId": "o2",
+        "correctOptionId": "o2"
+      },
+      "expected": {
+        "correct": true,
+        "feedbackKind": "correct"
+      }
+    },
+    {
+      "fn": "gradeMcq",
+      "name": "the wrong option is wrong",
+      "input": {
+        "selectedOptionId": "o1",
+        "correctOptionId": "o2"
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "wrong",
+        "note": "Incorrect — one attempt only."
+      }
+    },
+    {
+      "fn": "gradeMcq",
+      "name": "no selection is wrong",
+      "input": {
+        "selectedOptionId": null,
+        "correctOptionId": "o2"
+      },
+      "expected": {
+        "correct": false,
+        "feedbackKind": "wrong",
+        "note": "No selection made."
+      }
+    }
+  ]
+}
