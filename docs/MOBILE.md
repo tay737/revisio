@@ -23,9 +23,10 @@ around it. There is no second implementation to keep in step.
 
 Consequences worth stating plainly:
 
-- **A connection is required.** Nothing is graded locally, so an offline device
-  can read a cached page but cannot complete a review. The shell says so instead
-  of pretending (`NativeShell.tsx`).
+- **A session can be finished with no network.** The app takes a reviewable
+  session with it, grades locally, and hands the answers back when the
+  connection returns — see §7. The alternatives were worse: refusing to review
+  at all, or inventing XP the server never awarded.
 - **There are no store submissions yet.** These are sideload artefacts: an APK
   you open, and an unsigned IPA you re-sign. Getting into the App Store and Play
   Store is a signing-and-review task, not a code task.
@@ -36,11 +37,14 @@ Consequences worth stating plainly:
 |---|---|---|
 | Native identity, app id, the URL to load, chrome config | `capacitor.config.ts` | One file describes the shell |
 | "Am I native, and what does that change?" | `src/lib/native.ts` | No Capacitor import exists anywhere else in `src/` |
-| The offline banner | `src/components/NativeShell.tsx` | The app's only native-aware surface |
+| Connectivity status | `src/components/NativeShell.tsx` | The app's only native-aware surface |
 | Service worker policy | `src/lib/native.ts` → consumed by `PwaRegister` | One decision, consulted at its single call site |
+| The offline session, the outbox, the preview rule | `src/lib/offline.ts` | Nothing else reads or writes those keys |
+| The answer key an offline session needs | `src/services/offline.ts` | Assembled server-side, never on the queue |
 | Launcher icon and splash art | `scripts/native/make-assets.mjs` → `assets/` | Generated from the brand, so it cannot drift |
 | Product version | `package.json`, stamped by `scripts/native/set-version.mjs` | Store version and tag can never disagree |
 | Local/CI build entry point | `scripts/native/prepare.mjs` | A developer and CI run the same script |
+| Proof the offline contract holds | `scripts/verify-offline.ts` | The claims above, checked against a running server |
 
 The generated `android/` and `ios/` directories are **not committed**. They are
 reproducible from the files above, which keeps the repository buildable on a
@@ -113,3 +117,74 @@ git push origin main --tags
 the APK on `ubuntu-latest` and the IPA on `macos-14`, and attaches both to the
 GitHub Release. `workflow_dispatch` runs the same builds without publishing, for
 a dry run.
+
+## 7. Reviewing with no network
+
+The app is a thin client, so offline was never going to be free — but it was
+always going to be possible, because grading and scheduling are *pure* modules
+(`domain/grading.ts`, `domain/srs.ts`) with no database and no framework
+dependency. That is what makes a local verdict possible without a second
+implementation of any rule.
+
+### What happens on a train
+
+1. **Online, quietly.** Loading a daily queue also fetches an *offline pack*
+   from `/api/v1/offline/pack` and keeps it in `localStorage`. The pack is the
+   queue plus the key each card kind needs — accepted answers for cloze and
+   flashcards, the correct option for multiple choice.
+2. **Offline, the app still opens.** The service worker's cache serves the HTML,
+   styles and client bundles, so the review screen loads with no connection at
+   all. That is its main job now; it was briefly disabled in the native shell on
+   the mistaken belief that the WebView's HTTP cache covered this. An HTTP cache
+   is best-effort and cannot boot an application.
+3. **Answering grades locally.** `previewVerdict` in `lib/offline.ts` calls the
+   same `domain/grading` the server calls, so the verdict, the "case only"
+   nudge and the model answer all read exactly as they do online.
+4. **The review is owed, not lost.** It goes into an append-only outbox with its
+   client timestamp. The XP is deliberately *not* invented — the chip on screen
+   says `n saved`, and the background banner counts what is waiting.
+5. **Reconnecting settles up.** On the `online` event, and when the review
+   screen opens, the outbox is replayed oldest-first to `/api/v1/reviews`. The
+   server re-grades each one, awards the XP, moves the schedule and writes the
+   log. A review that lands takes itself out of the pack, so it is never dealt
+   twice.
+
+### Why the verdict is a preview
+
+`domain/grading` says of itself: *the server's verdict is final; the client may
+preview but never decide.* Offline honours that literally rather than working
+around it. The learner sees the verdict immediately because that is what makes
+studying possible; the server still decides what it is worth. One implementation
+of every rule, now called from a second place instead of copied into one.
+
+### The split that keeps it honest
+
+| Endpoint | Carries answers? | Fetched |
+|---|---|---|
+| `/api/v1/queue/today` | **no** | constantly |
+| `/api/v1/offline/pack` | **yes** | rarely, deliberately |
+
+Keeping them separate is the point: the key travels only when a client has asked
+for a session to take with it, so an ordinary queue read cannot hand over the
+whole answer set.
+
+### Verifying it
+
+```bash
+npm run build && npm start &
+npm run verify:offline -- http://127.0.0.1:3100 dev@revisio.app
+```
+
+The script asserts the four claims the design rests on: the pack carries the
+right key per kind, the daily queue carries none, a locally previewed verdict
+equals the server's for correct / wrong / case-only answers, and a replayed
+review lands without double-logging. It reviews real cards, so point it at a
+development database.
+
+### What is deliberately not offline
+
+- **First exposure** (`/learn`) stays online-only. Meeting a card for the first
+  time without its notes is a guess, and shipping a degraded version of that
+  would be worse than the honest "not now".
+- **Teacher, admin and library** surfaces are unchanged. They are authoring
+  tools; they are not what anyone uses on a train.

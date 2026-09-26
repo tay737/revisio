@@ -5,6 +5,18 @@ import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import {
+  cachedPack,
+  dropCardFromPack,
+  enqueueReview,
+  pendingCount,
+  previewVerdict,
+  primaryAnswer,
+  savePack,
+  syncOutbox,
+  type OfflineCard,
+  type OfflinePack,
+} from '@/lib/offline';
 import { useMe } from '@/lib/useMe';
 import { useRanked } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
@@ -47,6 +59,8 @@ type ReviewResult = {
   level: number;
   streak: number;
   newAchievements: { id: string; name: string; icon: string; description: string }[];
+  /** Graded here and owed to the server — XP arrives when it lands. */
+  queued?: boolean;
 };
 
 const KIND_LABEL: Record<QueueCard['kind'], string> = {
@@ -98,6 +112,11 @@ export default function ReviewClient() {
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Offline belongs to the *session*, not to a request: once a session is being
+  // graded locally it stays local until it ends, so a verdict the learner has
+  // already read cannot change underneath them mid-session.
+  const [offline, setOffline] = useState(false);
+  const [pending, setPending] = useState(0);
   const [sessionXp, setSessionXp] = useState(0);
   const [done, setDone] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -109,6 +128,10 @@ export default function ReviewClient() {
   const startRef = useRef<number>(Date.now());
   const confettiRef = useRef<ConfettiRef>(null);
   const verdictRef = useRef<HTMLDivElement>(null);
+  // The cached pack's cards by id: the answer keys that make a local preview
+  // possible. Held in a ref because it is looked up per keystroke-free submit
+  // and never rendered.
+  const offlineCards = useRef<Map<string, OfflineCard>>(new Map());
 
   /** One burst helper, so every celebration in this file is the same gesture. */
   const burst = useCallback((particleCount: number, y = 0.5) => {
@@ -122,38 +145,99 @@ export default function ReviewClient() {
     });
   }, []);
 
+  /** Keep the keys from a pack the server just gave us, so a session that loses
+   * the network halfway through can still be finished. */
+  const rememberPack = useCallback((pack: OfflinePack) => {
+    savePack(pack);
+    offlineCards.current = new Map(pack.cards.map((c) => [c.id, c]));
+  }, []);
+
   const load = useCallback(async () => {
     setError('');
-    try {
-      if (topicId) {
-        const data = await api.get<FirstExposure>(`/api/v1/learn?topicId=${encodeURIComponent(topicId)}&batch=4`);
-        setSession(data);
-        setQueue(data.batch);
-      } else {
-        const data = await api.get<{ queue: QueueCard[] }>('/api/v1/queue/today?limit=20');
-        setSession(null);
-        setQueue(data.queue);
+    let cards: QueueCard[] | null = null;
+    let firstExposure: FirstExposure | null = null;
+    let fromCache = false;
+
+    if (topicId) {
+      // First exposure reads a live topic alongside its notes; a card met for
+      // the first time without the reading is a guess, so it stays a
+      // connected-only session rather than a degraded offline one.
+      try {
+        firstExposure = await api.get<FirstExposure>(`/api/v1/learn?topicId=${encodeURIComponent(topicId)}&batch=4`);
+        cards = firstExposure.batch;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load your queue.');
+        cards = [];
       }
-      setIdx(0);
-      setSessionXp(0);
-      setDone(0);
-      setCorrect(0);
-      setStartXp(null);
-      setLatestXp(null);
-      setResult(null);
-      setInput('');
-      setSelected(null);
-      setNotesOpen(false);
-      startRef.current = Date.now();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load your queue.');
-      setQueue([]);
+    } else {
+      try {
+        const data = await api.get<{ queue: QueueCard[] }>('/api/v1/queue/today?limit=20');
+        cards = data.queue;
+        // Take a session with us for next time. Failing to cache is not failing
+        // to load, so this never blocks the queue already on screen.
+        try {
+          rememberPack(await api.get<OfflinePack>('/api/v1/offline/pack?limit=20'));
+        } catch {
+          // keep the queue we have
+        }
+      } catch {
+        // No server. Fall back to the session cached while online — the whole
+        // point of having taken one — and grade it here.
+        const pack = cachedPack();
+        if (pack) {
+          cards = pack.cards;
+          offlineCards.current = new Map(pack.cards.map((c) => [c.id, c]));
+          fromCache = true;
+        } else {
+          setError(
+            'You are offline and no session is saved on this device yet. Open Revisio once with a connection and one will be waiting next time.',
+          );
+          cards = [];
+        }
+      }
     }
-  }, [topicId]);
+
+    setSession(firstExposure);
+    setQueue(cards);
+    setOffline(fromCache);
+    setPending(pendingCount());
+    setIdx(0);
+    setSessionXp(0);
+    setDone(0);
+    setCorrect(0);
+    setStartXp(null);
+    setLatestXp(null);
+    setResult(null);
+    setInput('');
+    setSelected(null);
+    setNotesOpen(false);
+    startRef.current = Date.now();
+  }, [topicId, rememberPack]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Hand back anything the server has not seen: once when this screen opens, and
+  // again the moment the connection returns. This is the only place the outbox
+  // is drained, so two callers can never send the same review.
+  useEffect(() => {
+    let disposed = false;
+    const flush = async () => {
+      if (pendingCount() === 0) return;
+      const { sent } = await syncOutbox();
+      if (disposed || sent === 0) return;
+      setPending(pendingCount());
+      refreshMe();
+      refreshRanked();
+    };
+    void flush();
+    window.addEventListener('online', flush);
+    return () => {
+      disposed = true;
+      window.removeEventListener('online', flush);
+    };
+  }, [refreshMe, refreshRanked]);
 
   const card = queue?.[idx] ?? null;
   const progress = useMemo(
@@ -163,18 +247,68 @@ export default function ReviewClient() {
 
   const submit = useCallback(async () => {
     if (!card || busy || result) return;
+    const current = card;
     setBusy(true);
     setError('');
+
+    const durationMs = Date.now() - startRef.current;
+    const mode = topicId ? 'learn' : 'daily';
+
+    /**
+     * Grade this card here and owe the server the answer.
+     *
+     * Returns false only when we hold no key for the card, which is the one case
+     * where finishing offline is genuinely impossible.
+     */
+    const answerLocally = (): boolean => {
+      const local = offlineCards.current.get(current.id);
+      if (!local) return false;
+      const verdict = previewVerdict(local, { answer: input, selectedOptionId: selected ?? undefined });
+      enqueueReview({
+        cardId: current.id,
+        answer: input,
+        selectedOptionId: selected ?? undefined,
+        durationMs,
+        mode,
+      });
+      // XP is deliberately not invented here. The server awards it when the
+      // review lands, and a number the learner was shown but never earned is
+      // worse than one that arrives late.
+      setResult({
+        verdict,
+        primaryAnswer: primaryAnswer(local),
+        xpAwarded: 0,
+        totalXp: latestXp ?? 0,
+        level: 0,
+        streak: me?.gamification.streak ?? 0,
+        newAchievements: [],
+        queued: true,
+      });
+      setPending(pendingCount());
+      setDone((d) => d + 1);
+      if (verdict.correct) {
+        setCorrect((c) => c + 1);
+        burst(46, 0.46);
+      }
+      setOffline(true);
+      return true;
+    };
+
+    if (offline && answerLocally()) {
+      setBusy(false);
+      return;
+    }
+
     try {
       const body =
-        card.kind === 'mcq'
-          ? { cardId: card.id, selectedOptionId: selected ?? '' }
-          : { cardId: card.id, answer: input };
-      const res = await api.post<ReviewResult>('/api/v1/reviews', {
-        ...body,
-        durationMs: Date.now() - startRef.current,
-        mode: topicId ? 'learn' : 'daily',
-      });
+        current.kind === 'mcq'
+          ? { cardId: current.id, selectedOptionId: selected ?? '' }
+          : { cardId: current.id, answer: input };
+      const res = await api.post<ReviewResult>('/api/v1/reviews', { ...body, durationMs, mode });
+      // LANDED: the server has graded and scheduled it, so it must not be dealt
+      // again from the cached pack.
+      dropCardFromPack(current.id);
+      offlineCards.current.delete(current.id);
       setResult(res);
       setSessionXp((x) => x + res.xpAwarded);
       setStartXp((s) => s ?? Math.max(0, res.totalXp - res.xpAwarded));
@@ -185,11 +319,18 @@ export default function ReviewClient() {
         burst(46, 0.46); // small and off-centre: a reward, not a firework display
       }
     } catch (e) {
+      // The connection can drop mid-session — a tunnel, a train. If we hold the
+      // key, finish the card offline rather than stranding the answer that was
+      // just typed.
+      if (answerLocally()) {
+        setBusy(false);
+        return;
+      }
       setError(e instanceof Error ? e.message : 'That answer didn’t reach the server. Try again.');
     } finally {
       setBusy(false);
     }
-  }, [card, busy, result, selected, input, burst, topicId]);
+  }, [card, busy, result, selected, input, burst, topicId, offline, latestXp, me]);
 
   const next = useCallback(() => {
     setResult(null);
@@ -373,8 +514,16 @@ export default function ReviewClient() {
         <span className="num text-[13px] font-semibold text-muted-foreground">
           {done} / {queue.length}
         </span>
-        <span className="badge badge-quiet num">
-          <Icon name="xp" size={12} />+{sessionXp} XP
+        <span className="flex items-center gap-2">
+          {offline && (
+            <span className="badge badge-quiet" title="Saved on this device and sent when you reconnect">
+              <Icon name="clock" size={12} />
+              {pending > 0 ? `${pending} saved` : 'Offline'}
+            </span>
+          )}
+          <span className="badge badge-quiet num">
+            <Icon name="xp" size={12} />+{sessionXp} XP
+          </span>
         </span>
       </div>
 
@@ -748,9 +897,14 @@ function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard[
             +{result.xpAwarded} XP
           </span>
         )}
-      </div>
+      </div>        {verdict.note && <p className="mt-2 text-[14px] text-foreground">{verdict.note}</p>}
 
-      {verdict.note && <p className="mt-2 text-[14px] text-foreground">{verdict.note}</p>}
+        {result.queued && (
+          <p className="mt-2 text-[13px] text-muted-foreground">
+            Saved on this device. It is graded again by the server when you reconnect, and your XP
+            and schedule land then.
+          </p>
+        )}
 
       {verdict.matchedPhrases && verdict.matchedPhrases.length > 0 && (
         <p className="mt-2 text-[13px] text-foreground">

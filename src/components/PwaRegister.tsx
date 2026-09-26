@@ -5,9 +5,9 @@ import { usesServiceWorker } from '@/lib/native';
 
 export default function PwaRegister() {
   useEffect(() => {
-    // Inside the native shell the app is served from the WebView's own cache
-    // and the refresh token lives in a real cookie jar; a service worker would
-    // add a second, conflicting cache. `lib/native` owns that decision.
+    // The worker is the app's offline shell: without it a WebView with no
+    // network has nothing to render and the app cannot even open. `lib/native`
+    // owns that decision.
     if (usesServiceWorker() && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => undefined);
     }

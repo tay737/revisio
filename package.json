@@ -12,6 +12,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "lint": "next lint",
     "verify:content": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-content.ts",
+    "verify:offline": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-offline.ts",
     "native:assets": "node scripts/native/make-assets.mjs && capacitor-assets generate",
     "native:prepare": "node scripts/native/prepare.mjs",
     "native:sync": "node scripts/native/prepare.mjs --sync-only",

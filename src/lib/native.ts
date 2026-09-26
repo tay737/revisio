@@ -23,9 +23,18 @@ export function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
 
-/** Whether the native app should stop using the web service worker. */
+/**
+ * Whether the app should register the service worker.
+ *
+ * Always yes, including inside the native shell — and the shell needs it most.
+ * The worker is what makes the app itself available with no network: the HTML,
+ * the styles and the client bundles are served from its cache, which is what
+ * lets the review screen open at all on a train. The earlier reasoning here
+ * (that the WebView's own HTTP cache already did this) was wrong: an HTTP cache
+ * is best-effort and cannot be relied on to boot an application.
+ */
 export function usesServiceWorker(): boolean {
-  return !isNative();
+  return true;
 }
 
 export type NativeChrome = {
