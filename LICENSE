@@ -1,0 +1,81 @@
+PROPRIETARY LICENSE — ALL RIGHTS RESERVED
+
+Copyright (c) 2026 Tayyab Mahmood. All rights reserved.
+
+Revisio (the "Software"), including its source code, content, designs,
+documentation, assets, database schema, and everything else in this repository,
+is proprietary and confidential. It is protected by copyright law and by
+international copyright treaties.
+
+By accessing, viewing, or downloading any part of the Software you agree to the
+terms below. If you do not agree, you must not access the Software and must
+delete any copy you hold.
+
+1. NO LICENSE GRANTED
+
+   No license, right, title, or interest in the Software is granted to you,
+   whether by implication, estoppel, or otherwise. All rights not expressly
+   granted in this document are reserved by the copyright holder.
+
+2. PROHIBITED ACTS
+
+   You may NOT, without the prior written permission of the copyright holder:
+
+   (a) copy, reproduce, or store the Software, in whole or in part, except
+       transiently as required to view this repository;
+   (b) modify, adapt, translate, or create derivative works of the Software;
+   (c) distribute, publish, sublicense, sell, rent, lease, lend, or otherwise
+       make the Software or any derivative of it available to any third party;
+   (d) use the Software, or any part of it, to create, train, fine-tune, or
+       evaluate any machine learning or artificial intelligence model, or
+       include it in any training dataset;
+   (e) deploy the Software as a service, in any hosted, self-hosted, or
+       on-premises form, whether or not a fee is charged;
+   (f) remove, obscure, or alter any copyright, trademark, or proprietary
+       notice contained in the Software;
+   (g) use the name "Revisio", its logo, or any confusingly similar mark,
+       without written permission.
+
+3. NO CONTRIBUTIONS
+
+   Contributions are not accepted unless the copyright holder has agreed in
+   writing beforehand. Any contribution you nevertheless submit becomes the
+   exclusive property of the copyright holder, and you waive all moral rights in
+   it to the extent permitted by law.
+
+4. THIRD-PARTY COMPONENTS
+
+   The Software depends on open-source packages that carry their own licenses.
+   Those licenses continue to govern those components and are not affected by
+   this document. A list of dependencies and their licenses is produced by the
+   package manager.
+
+5. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. THE COPYRIGHT
+   HOLDER DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR
+   UNINTERRUPTED, OR THAT IT WILL MEET YOUR REQUIREMENTS.
+
+6. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+   ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+7. TERMINATION
+
+   Any breach of these terms immediately and automatically terminates your right
+   to access the Software. Upon termination you must destroy every copy in your
+   possession or control. Sections 1 to 6 and 8 survive termination.
+
+8. ENFORCEMENT AND GOVERNING LAW
+
+   The copyright holder intends to enforce these terms to the fullest extent
+   permitted by law, including by seeking injunctive relief and damages for any
+   unauthorized use, reproduction, or distribution.
+
+   These terms are governed by the laws of the copyright holder's country of
+   residence, without regard to its conflict-of-law rules.

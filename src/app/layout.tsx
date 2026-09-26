@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import NativeShell from '@/components/NativeShell';
 import PwaRegister from '@/components/PwaRegister';
 import { MotionProvider } from '@/components/ui/motion/motion-provider';
 import { Toaster } from '@/components/ui/sonner';
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Toaster />
         </MotionProvider>
         <PwaRegister />
+        <NativeShell />
       </body>
     </html>
   );

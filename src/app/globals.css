@@ -906,6 +906,25 @@
       padding-bottom: 32px;
     }
   }
+
+  /* Native shell only. Sits under the status bar, above everything the app
+     draws, and never in a browser — `NativeShell` renders it in the app. */
+  .native-offline {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    max-width: calc(100% - 24px);
+    padding: 8px 14px;
+    border-radius: var(--radius-pill);
+    background: var(--destructive, #b42318);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.28);
+  }
 }
 
 @keyframes breathe {

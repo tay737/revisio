@@ -1,6 +1,6 @@
 {
   "name": "srs-platform",
-  "version": "0.1.0",
+  "version": "1.0.0-alpha.1",
   "type": "module",
   "private": true,
   "scripts": {
@@ -11,10 +11,26 @@
     "db:reset": "rm -f data/app.db && tsx scripts/seed.ts",
     "db:seed": "tsx scripts/seed.ts",
     "lint": "next lint",
-    "verify:content": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-content.ts"
+    "verify:content": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-content.ts",
+    "native:assets": "node scripts/native/make-assets.mjs && capacitor-assets generate",
+    "native:prepare": "node scripts/native/prepare.mjs",
+    "native:sync": "node scripts/native/prepare.mjs --sync-only",
+    "native:open:android": "cap open android",
+    "native:open:ios": "cap open ios",
+    "native:apk": "node scripts/native/prepare.mjs --android-only && cd android && ./gradlew assembleDebug",
+    "native:ipa": "node scripts/native/prepare.mjs --ios-only && cd ios/App && xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -archivePath build/App.xcarchive CODE_SIGNING_ALLOWED=NO archive"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/ios": "^7.6.9",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/network": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
     "@types/canvas-confetti": "^1.9.0",
@@ -52,6 +68,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.6.9",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^9.6.0",
@@ -62,6 +80,7 @@
     "@types/uuid": "^10.0.0",
     "drizzle-kit": "^0.31.4",
     "postcss": "^8.4.39",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.16.2",
     "typescript": "^5.5.3"

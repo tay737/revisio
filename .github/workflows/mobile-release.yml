@@ -1,0 +1,181 @@
+name: Mobile release
+
+# Builds the installable artefacts for both stores' sideloading paths and
+# attaches them to a GitHub Release. Run by pushing a tag:
+#
+#   git tag v1.0.0-alpha && git push origin v1.0.0-alpha
+#
+# or by hand from the Actions tab, which builds the same artefacts without
+# publishing a release.
+#
+# Set the repository variable NATIVE_APP_URL (Settings → Secrets and variables →
+# Actions → Variables) to the deployment the app should load. Without it the
+# build succeeds but boots into the "not connected" shell.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Generate the native project
+        run: npx cap add android
+        env:
+          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
+
+      - name: Stamp version, icons, splash
+        run: |
+          node scripts/native/set-version.mjs
+          npx capacitor-assets generate --android
+
+      - name: Sync web assets and plugins
+        run: npx cap sync android
+        env:
+          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
+
+      - name: Build debug APK
+        # A debug build is signed with the throwaway debug keystore, so it
+        # installs on any device. A store build would use a release keystore
+        # and Play App Signing.
+        run: cd android && ./gradlew assembleDebug --no-daemon
+
+      - name: Name the artefact
+        run: |
+          VERSION="${GITHUB_REF_NAME:-alpha}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "Revisio-${VERSION}-android.apk"
+          ls -lh Revisio-*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: Revisio-*.apk
+          if-no-files-found: error
+
+  ios:
+    name: iOS IPA
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the native project
+        run: npx cap add ios
+        env:
+          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
+
+      - name: Stamp version, icons, splash
+        run: |
+          node scripts/native/set-version.mjs
+          npx capacitor-assets generate --ios
+
+      - name: Sync web assets and plugins
+        run: npx cap sync ios
+        env:
+          NATIVE_APP_URL: ${{ vars.NATIVE_APP_URL }}
+
+      - name: Build the app
+        # No signing identity is available to CI, so this produces an unsigned
+        # device build. It is a real, releasable alpha artefact; installing it
+        # needs a re-signing step (Sideloadly, AltStore) or an Apple Developer
+        # certificate, documented in docs/MOBILE.md.
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            build
+
+      - name: Package the IPA
+        run: |
+          VERSION="${GITHUB_REF_NAME:-alpha}"
+          APP=$(find ios/App/build/Build/Products -maxdepth 2 -name 'App.app' -type d | head -1)
+          test -n "$APP" || { echo "no App.app produced"; exit 1; }
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry "Revisio-${VERSION}-ios-unsigned.ipa" Payload
+          ls -lh Revisio-*.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: Revisio-*.ipa
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [android, ios]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Revisio-*.apk
+            Revisio-*.ipa
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            ## Revisio ${{ github.ref_name }} — alpha
+
+            The first native builds of Revisio. Both are **sideload-only alpha
+            artefacts**: they install outside the App Store and Google Play.
+
+            | Platform | File | Install |
+            |---|---|---|
+            | Android | `Revisio-${{ github.ref_name }}-android.apk` | Enable "Install unknown apps" and open the file. Signed with the debug key, so it installs on any device. |
+            | iOS | `Revisio-${{ github.ref_name }}-ios-unsigned.ipa` | Unsigned — re-sign with Sideloadly or AltStore. |
+
+            The apps are thin clients: all grading, scheduling and progress live
+            on the server, so a connection is required.
+
+            See `docs/MOBILE.md` for the full release process.
