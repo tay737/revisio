@@ -143,14 +143,17 @@ async function main() {
 
   const mcq = cards.find((c) => c.kind === 'mcq');
   if (mcq && mcq.key.kind === 'mcq') {
-    const right = await answer(mcq, { selectedOptionId: mcq.key.correctOptionId });
+    // Hoisted out of the callback below: TypeScript drops property narrowing
+    // inside a closure, and a const is the honest way to say "this cannot change".
+    const correctOptionId = mcq.key.correctOptionId;
+    const right = await answer(mcq, { selectedOptionId: correctOptionId });
     check(
       'mcq: preview and server agree on the correct option',
       right.preview.correct === right.server?.correct && right.preview.correct === true,
       { preview: right.preview, server: right.server },
     );
 
-    const wrongOption = mcq.options?.find((o) => o.id !== mcq.key.correctOptionId)?.id;
+    const wrongOption = mcq.options?.find((o) => o.id !== correctOptionId)?.id;
     if (wrongOption) {
       const wrong = await answer(mcq, { selectedOptionId: wrongOption });
       check(
@@ -170,7 +173,11 @@ async function main() {
     .select({ id: reviewLogs.id })
     .from(reviewLogs)
     .where(and(eq(reviewLogs.userId, user.id), eq(reviewLogs.cardId, replayCard.id)));
-  await answer(replayCard, { answer: replayCard.key.kind === 'mcq' ? undefined : 'replay-check', selectedOptionId: replayCard.key.kind === 'mcq' ? replayCard.key.correctOptionId : undefined });
+  const replayInput =
+    replayCard.key.kind === 'mcq'
+      ? { selectedOptionId: replayCard.key.correctOptionId }
+      : { answer: 'replay-check' };
+  await answer(replayCard, replayInput);
   const after = await db
     .select({ id: reviewLogs.id })
     .from(reviewLogs)
