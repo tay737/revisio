@@ -10,10 +10,11 @@ transcript you can export. It is built for students first, with teacher and
 admin surfaces for authoring content, running classes and reviewing what gets
 published.
 
-> **Status: v1.0.0-alpha.1.** The web app is feature-complete for v1. The
-> Android and iOS apps are thin native shells around the same app and ship as
-> sideload-only alpha artefacts — see [Mobile](#mobile) and
-> [`docs/MOBILE.md`](docs/MOBILE.md).
+> **Status: v1.0.0-alpha.2.** The web app is feature-complete for v1. The
+> Android app is a native client — Kotlin + Compose over a native engine — and
+> ships as a sideload-only alpha artefact. The iOS client is the same engine in
+> Swift and builds and tests, but has no app target yet — see
+> [Mobile](#mobile) and [`docs/MOBILE.md`](docs/MOBILE.md).
 
 ---
 
@@ -64,7 +65,9 @@ published.
 - **Postgres via Drizzle ORM** — 27 tables, RLS as defence in depth
 - **Tailwind CSS 4** with a token-based design system, `framer-motion` for motion
 - **SWR** for client data, with a single authenticated fetch helper
-- **Capacitor 7** for the iOS and Android apps (see [Mobile](#mobile))
+- **Kotlin + Jetpack Compose** (Android) and **Swift + SwiftUI** (iOS) for the
+  native apps, each over a native engine that speaks the same `/api/v1` API
+  (see [Mobile](#mobile))
 - Auth is email/password with TOTP 2FA, short-lived JWTs and rotating refresh
   tokens. Passwords use bcrypt.
 
@@ -92,7 +95,6 @@ bootstrap email with `BOOTSTRAP_DEV_EMAIL` if you want a different one.
 | `PGPOOL_MAX` | no | Pool size per instance. Defaults to `5`. |
 | `RESEND_API_KEY` | no | Transactional email (verification, password reset). |
 | `RESEND_FROM` | no | From address. Defaults to Resend's onboarding sender. |
-| `NATIVE_APP_URL` | mobile | The deployment the native apps load. Build-time only. |
 
 ## Scripts
 
@@ -107,9 +109,11 @@ bootstrap email with `BOOTSTRAP_DEV_EMAIL` if you want a different one.
 | `npm run db:reset` | Drop the local SQLite file and re-seed |
 | `npm run verify:content` | Grammar, visibility and merge checks against the database |
 | `npm run verify:offline` | The offline contract: pack keys, queue cleanliness, preview/server agreement |
-| `npm run native:prepare` | Generate the Android and iOS projects, then sync |
-| `npm run native:apk` | Build a debug APK locally |
-| `npm run native:open:android` | Open the Android project in Android Studio |
+| `npm run native:android:apk` | Build a debug APK locally |
+| `npm run native:android:test` | Test the Kotlin engine: grading conformance, pack, outbox |
+| `npm run native:ios:test` | Test the Swift engine against the same vectors |
+| `npm run verify:native` | Boot an emulator and drive the APK with the network off |
+| `npm run vectors:grading` | Regenerate the shared grading vectors from `domain/grading.ts` |
 
 ## Architecture
 
@@ -122,7 +126,7 @@ src/domain/**     pure logic, dependency-free: srs, grading, gamification, ranke
 src/db/**         schema + pooled client
 src/lib/**        non-React logic and cross-cutting policy (theme, motion, api)
 src/components/** shared presentation
-capacitor.config.ts, native-www/   the native shell (see Mobile)
+mobile/**         the native clients: an engine per platform, plus its surface
 ```
 
 `docs/ARCHITECTURE.md` is the authoritative description of the system, including
@@ -132,49 +136,48 @@ rules it encodes.
 
 ## Mobile
 
-The apps in [`Releases`](../../releases) are **Capacitor shells around the same
-app**. Revisio is a thin client — every rule lives on the server — so there is
-one codebase, not a port, and no logic is duplicated for mobile.
+The mobile apps are **native clients**, not a wrapper around this website. They
+speak the same `/api/v1` backend API and reimplement the review surface natively
+(Kotlin + Compose on Android, Swift + SwiftUI on iOS), each over an engine that
+carries the whole client's behaviour and can be tested without a device.
 
 ```bash
-NATIVE_APP_URL=https://your-deployment.example.com npm run native:prepare
-npm run native:apk          # Android — needs the Android SDK and JDK 21
-npm run native:open:ios     # iOS — needs Xcode and CocoaPods
+npm run native:android:apk     # Android — needs the Android SDK and JDK 21
+npm run native:android:test    # engine conformance + offline store tests
+npm run native:ios:test        # the same tests, in Swift
+npm run verify:native          # boot an emulator, cut the network, drive a review
 ```
 
-What the shell adds:
+What is native, and what it buys:
 
-- a native status bar, splash screen and launcher icon (`assets/`)
-- Android's hardware back button meaning "go back, or leave"
-- **reviewing with no connection at all** — the app takes a session with it,
-  grades locally using the same `domain/grading` the server uses, and hands the
-  answers back when the signal returns (see [`docs/MOBILE.md`](docs/MOBILE.md) §7)
-- a ledger, not a refusal, when offline: it counts what is saved and waiting
-  rather than implying the work was lost
+- the screen is compiled in, so the app opens to **its own UI** with no network —
+  no cached landing page, no dead buttons
+- **a review can be completed offline.** The app carries today's session, grades
+  with a native port of `domain/grading`, and queues each review for the server
+  to re-grade
+- the session survives a restart, so losing signal never signs anyone out
 
-The native projects are **generated, not committed**. They are reproducible from
-`capacitor.config.ts` and `assets/`, which means a machine without the Android
-SDK or CocoaPods can still change the product, and CI builds the exact same
-thing a developer does.
-
-`docs/MOBILE.md` has the full story: build requirements, signing, and how a
-release is produced.
+Grading keeps a single owner: `src/domain/grading.ts` emits golden vectors that
+both native ports must reproduce, so a rule change on the web fails the mobile
+builds until they follow. `docs/MOBILE.md` has the architecture, the verification
+status, and what remains — an iOS app target, among other things.
 
 ## Releases
 
-Pushing a tag builds both artefacts and publishes them:
+Pushing a tag builds the artefacts and publishes them:
 
 ```bash
 git tag v1.0.0-alpha.2 && git push origin v1.0.0-alpha.2
 ```
 
-`.github/workflows/mobile-release.yml` compiles the APK on Linux and the IPA on a
-macOS runner, then attaches both to a GitHub Release (marked as a prerelease for
-`alpha`/`beta`/`rc` tags). Set the `NATIVE_APP_URL` repository variable first, or
-the apps will boot into the "not connected" shell.
+`.github/workflows/mobile-release.yml` builds the APK and runs both engines'
+tests — the Kotlin port on Linux, the Swift port on macOS — then attaches the
+APK to a GitHub Release (marked as a prerelease for `alpha`/`beta`/`rc` tags).
+There is no server URL to configure: the apps are native clients and the
+deployment they talk to is compiled in.
 
-The version is written once, in `package.json`; CI stamps it into both native
-projects (`scripts/native/set-version.mjs`).
+The version is written once, in `package.json`; CI stamps it into the Android
+module (`scripts/native/set-version.mjs`).
 
 ## License
 

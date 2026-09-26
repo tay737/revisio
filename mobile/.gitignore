@@ -1,0 +1,16 @@
+# The native clients are committed source, unlike the generated Capacitor
+# projects they replace. Only their build output is ignored.
+
+# Android / Gradle
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/**/build/
+
+# iOS / SwiftPM
+ios/.build/
+ios/.swiftpm/
+ios/*.xcodeproj/
+ios/*.xcworkspace/
+
+.DS_Store
