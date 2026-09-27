@@ -290,11 +290,16 @@ final class AppModel: ObservableObject {
         online = monitor.currentPath.status != .unsatisfied
         monitor.pathUpdateHandler = { [weak self] path in
             let reachable = path.status == .satisfied
+            // Unwrap the weak self out here, before the Task. The handler runs
+            // off the main actor, so it cannot touch `online` itself; but
+            // referring to a captured `self` *inside* a concurrently-executing
+            // closure is rejected outright by some toolchains. Binding it to an
+            // immutable local first leaves the Task capturing a plain value.
+            guard let model = self else { return }
             Task { @MainActor in
-                guard let self else { return }
-                let was = self.online
-                self.online = reachable
-                if reachable && !was { self.refreshHome() }
+                let was = model.online
+                model.online = reachable
+                if reachable && !was { model.refreshHome() }
             }
         }
         monitor.start(queue: DispatchQueue(label: "app.revisio.network"))
