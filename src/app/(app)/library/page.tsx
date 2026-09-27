@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergeTopics, type TopicOption } from '@/components/content/MergeTopics';
 import { ComposeTopic } from './ComposeTopic';
 import { ImportDeck } from './ImportDeck';
+import { MathsSets } from './MathsSets';
 import PageSkeleton from '@/components/PageSkeleton';
 
 type Topic = TopicOption & {
@@ -19,7 +20,7 @@ type Topic = TopicOption & {
   description: string;
   subjectName: string | null;
 };
-type Subject = { id: string; name: string };
+type Subject = { id: string; name: string; mathsEnabled?: boolean };
 
 const VISIBILITY_GLYPH: Record<string, 'publish' | 'schedule' | 'private'> = {
   public: 'publish',
@@ -64,6 +65,12 @@ export default function LibraryPage() {
     api
       .get<{ subjects: Subject[] }>('/api/v1/auth/subjects-public')
       .then((d) => setSubjects(d.subjects))
+      .catch(() => undefined);
+    // The maths tab filters subjects by the practice flag, which the public
+    // payload does not carry.
+    api
+      .get<{ subjects: Subject[] }>('/api/v1/subjects')
+      .then((d) => setSubjects((prev) => prev.map((p) => ({ ...p, mathsEnabled: d.subjects.find((s) => s.id === p.id)?.mathsEnabled }))))
       .catch(() => undefined);
   }, [load]);
 
@@ -133,7 +140,7 @@ export default function LibraryPage() {
         {/* Four equal slots rather than a scroll rail: all four labels are short,
             and the previous version clipped “Class” off the right edge with
             nothing on screen to say it was there. */}
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="topics" className="min-w-0 px-2">
             <Icon name="topic" size={15} />
             Topics
@@ -145,6 +152,10 @@ export default function LibraryPage() {
           <TabsTrigger value="import" className="min-w-0 px-2">
             <Icon name="upload" size={15} />
             Import
+          </TabsTrigger>
+          <TabsTrigger value="maths" className="min-w-0 px-2">
+            <Icon name="practice" size={15} />
+            Maths
           </TabsTrigger>
           <TabsTrigger value="class" className="min-w-0 px-2">
             <Icon name="join" size={15} />
@@ -246,6 +257,19 @@ export default function LibraryPage() {
             </p>
             <div className="mt-5">
               <ImportDeck subjects={subjects} topics={topics} onImported={say} onChanged={load} />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ── Maths sets ──────────────────────────────────────────────────── */}
+        <TabsContent value="maths">
+          <div className="card">
+            <h2 className="t-strong">Maths practice sets</h2>
+            <p className="t-caption mt-1 text-muted-foreground">
+              Pin generator concepts to a topic. Questions are generated fresh at practice time — every student can meet different numbers, forever.
+            </p>
+            <div className="mt-5">
+              <MathsSets topics={topics.map((t) => ({ id: t.id, name: t.name, subjectId: t.subjectId }))} onDone={say} />
             </div>
           </div>
         </TabsContent>

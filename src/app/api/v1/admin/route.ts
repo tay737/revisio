@@ -57,7 +57,7 @@ export const GET = route(async (req: NextRequest) => {
       .select({ n: sql<number>`count(*)::int` })
       .from(topics)
       .where(sql`not exists (select 1 from ${cards} c where c.topic_id = ${topics.id})`),
-    db.select({ id: subjects.id, name: subjects.name, slug: subjects.slug }).from(subjects).orderBy(subjects.name),
+    db.select({ id: subjects.id, name: subjects.name, slug: subjects.slug, mathsEnabled: subjects.mathsEnabled }).from(subjects).orderBy(subjects.name),
   ]);
 
   return ok({
@@ -88,6 +88,7 @@ export const POST = route(async (req: NextRequest) => {
       | 'approve_request' | 'reject_request' | 'set_flag' | 'update_algorithm'
       | 'set_user_role' | 'suspend_user' | 'activate_user' | 'review_topic'
       | 'set_topic_visibility' | 'create_subject' | 'rename_subject'
+      | 'set_subject_maths'
       | 'verify_user_email' | 'revoke_sessions' | 'delete_subject';
     approvalId?: string;
     flagKey?: string;
@@ -188,6 +189,15 @@ export const POST = route(async (req: NextRequest) => {
       const [updated] = await db.update(subjects).set({ name: body.name }).where(eq(subjects.id, body.subjectId)).returning();
       if (!updated) throw new ApiError(404, 'not_found', 'Subject not found.');
       await audit('rename_subject', body.subjectId, { name: body.name });
+      return ok({ subject: updated });
+    }
+    case 'set_subject_maths': {
+      // Practice is a standalone tool — this flag changes nothing about the
+      // SRS, the queue or reviews; it only opens /practice for the subject.
+      if (!body.subjectId) throw new ApiError(400, 'bad_request', 'subjectId required');
+      const [updated] = await db.update(subjects).set({ mathsEnabled: body.enabled ?? false }).where(eq(subjects.id, body.subjectId)).returning();
+      if (!updated) throw new ApiError(404, 'not_found', 'Subject not found.');
+      await audit('set_subject_maths', body.subjectId, { mathsEnabled: updated.mathsEnabled });
       return ok({ subject: updated });
     }
     case 'verify_user_email': {

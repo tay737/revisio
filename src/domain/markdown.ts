@@ -9,6 +9,10 @@
 // > blockquotes (multi-line), ``` fenced code, | tables |, --- rules, and
 // math written between $…$ or $$…$$ rendered as styled math text. Inline
 // formatting is applied uniformly everywhere (headings, quotes, cells).
+//
+// URL policy also lives here: the parser emits raw hrefs/srcs, and `safeUrl`
+// is the single decision the renderer applies so authored links and images can
+// never point at script schemes (javascript:, data:, vbscript:, …).
 
 export type Inline =
   | { t: 'text'; v: string }
@@ -29,7 +33,17 @@ export type Block =
   | { t: 'table'; head: Inline[][]; rows: Inline[][][] }
   | { t: 'hr' };
 
-// ── inline parsing ──────────────────────────────────────────────────────────
+// ── URL safety ─────────────────────────────────────────────────────────────
+
+/** Links and images may point at the web, mail, or this app — never at script.
+ *  Relative paths and #anchors are in-app; a leading `//` is a protocol-relative
+ *  URL to another host, so it is refused. */
+const SAFE_URL = /^(https?:|mailto:|\/(?!\/)|#)/i;
+export function safeUrl(url: string): string {
+  return SAFE_URL.test(url.trim()) ? url : '#';
+}
+
+// ── inline parsing ──────────────────────────────────────────────────────
 
 /** Parse one line's inline content. Ordered: math before code before emphasis,
  *  so `$x_1$` and `**a *b* c**` both come out right. */
@@ -118,7 +132,7 @@ export function parseInline(src: string): Inline[] {
 
 // ── block parsing ───────────────────────────────────────────────────────────
 
-const UNORDERED = /^\s{0,3}[-*]\s+(.*)$/;
+const UNORDERED = /^\s{0,3}([-*])\s+(.*)$/;
 const ORDERED = /^\s{0,3}(\d+)[.)]\s+(.*)$/;
 const HEAD = /^\s{0,3}(#{1,4})\s+(.*)$/;
 const HRULE = /^\s{0,3}(---+|\*\*\*+)\s*$/;

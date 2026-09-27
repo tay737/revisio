@@ -100,6 +100,8 @@ export const subjects = pgTable('subjects', {
   slug: text('slug').notNull(),
   description: text('description').notNull().default(''),
   ownerId: text('owner_id'), // null = official/public subject
+  /** Maths practice is opt-in per subject — it is a standalone tool, not part of the SRS. */
+  mathsEnabled: boolean('maths_enabled').notNull().default(false),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   slugIdx: uniqueIndex('subjects_slug_idx').on(t.slug),
@@ -168,6 +170,28 @@ export const cardAnswers = pgTable('card_answers', {
   minPoints: integer('min_points'),
 }, (t) => ({
   cardIdx: index('card_answers_card_idx').on(t.cardId),
+}));
+
+// ── Maths practice (standalone — never touches the SRS) ─────────────────────
+// A set pins which generator concepts a topic practises. Questions themselves
+// are never stored: they are derived from "concept:difficulty:seed" ids by
+// domain/maths.ts and marked from the same ids, so a set is just curriculum,
+// not content.
+
+export const mathSets = pgTable('math_sets', {
+  id: text('id').primaryKey(),
+  topicId: text('topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  /** concept ids from domain/maths.ts CONCEPTS, e.g. ["linear-eq","expand"] */
+  concepts: jsonb('concepts').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  defaultCount: integer('default_count').notNull().default(10),
+  defaultDifficulty: text('default_difficulty', { enum: ['easy', 'medium', 'hard', 'mixed'] }).notNull().default('mixed'),
+  /** Teachers and developers author sets; kept so staff can list their own. */
+  ownerId: text('owner_id'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  topicIdx: index('math_sets_topic_idx').on(t.topicId),
 }));
 
 // ── User ↔ content state ────────────────────────────────────────────────────

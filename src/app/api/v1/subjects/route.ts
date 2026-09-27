@@ -40,6 +40,7 @@ export const GET = route(async (req: NextRequest) => {
     subjects: rows.map((s) => ({
       id: s.id, name: s.name, slug: s.slug, description: s.description,
       enrolled: enrolledIds.has(s.id),
+      mathsEnabled: s.mathsEnabled,
       topicCount: topicRows.filter((t) => t.subjectId === s.id && (t.visibility === 'public' || t.ownerId === user.id)).length,
     })),
   });

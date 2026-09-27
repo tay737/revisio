@@ -34,7 +34,7 @@ type AdminData = {
     publicCards: number;
     emptyTopics: number;
   };
-  subjects: { id: string; name: string; slug: string }[];
+  subjects: { id: string; name: string; slug: string; mathsEnabled: boolean }[];
 };
 
 const ROLES = ['student', 'teacher', 'developer'] as const;
@@ -250,12 +250,20 @@ export default function AdminPage() {
           <span className="chip">{data?.subjects.length ?? 0}</span>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
-          The course a topic hangs from. Renaming keeps its topics; deleting removes everything under it.
+          The course a topic hangs from. Renaming keeps its topics; deleting removes everything under it. Maths practice is a standalone tool — turning it on opens /practice for that subject and changes nothing about reviews or XP.
         </p>
         <div className="mt-3 space-y-2">
           {data?.subjects.map((s) => (
             <div key={s.id} className="inset flex flex-wrap items-center gap-2 px-4 py-3">
               <span className="t-strong min-w-0 flex-1 truncate">{s.name}</span>
+              <button
+                type="button"
+                className={`btn btn-sm shrink-0 ${s.mathsEnabled ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => act({ action: 'set_subject_maths', subjectId: s.id, enabled: !s.mathsEnabled }, `Maths practice ${s.mathsEnabled ? 'off' : 'on'} for ${s.name}.`)}
+              >
+                <Icon name="practice" size={14} />
+                Maths {s.mathsEnabled ? 'on' : 'off'}
+              </button>
               <input
                 className="input sm:max-w-[220px]"
                 value={renameTo[s.id] ?? ''}

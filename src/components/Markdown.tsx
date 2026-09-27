@@ -1,6 +1,6 @@
 'use client';
 
-import { parseMarkdown, type Block, type Inline } from '@/domain/markdown';
+import { parseMarkdown, safeUrl, type Block, type Inline } from '@/domain/markdown';
 
 /**
  * The one renderer for authored note text.
@@ -141,12 +141,12 @@ function InlineView({ node }: { node: Inline }) {
       );
     case 'link':
       return (
-        <a href={node.href} className="text-primary underline underline-offset-2" rel="noreferrer noopener">
+        <a href={safeUrl(node.href)} className="text-primary underline underline-offset-2" rel="noreferrer noopener">
           {node.c.map((c, i) => <InlineView key={i} node={c} />)}
         </a>
       );
     case 'img':
       // eslint-disable-next-line @next/next/no-img-element
-      return <img src={node.src} alt={node.alt} className="max-h-80 rounded-md" loading="lazy" />;
+      return <img src={safeUrl(node.src)} alt={node.alt} className="max-h-80 rounded-md" loading="lazy" />;
   }
 }
