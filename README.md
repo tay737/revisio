@@ -10,10 +10,10 @@ transcript you can export. It is built for students first, with teacher and
 admin surfaces for authoring content, running classes and reviewing what gets
 published.
 
-> **Status: v1.0.0-alpha.2.** The web app is feature-complete for v1. The
-> Android app is a native client — Kotlin + Compose over a native engine — and
-> ships as a sideload-only alpha artefact. The iOS client is the same engine in
-> Swift and builds and tests, but has no app target yet — see
+> **Status: v1.0.0-alpha.2.** The web app is feature-complete for v1. Both
+> mobile clients are native — Kotlin + Compose over a native engine on Android,
+> Swift + SwiftUI over the same engine on iOS — and each ships as a sideload-only
+> alpha artefact. The iOS `.ipa` is unsigned and has to be re-signed to run; see
 > [Mobile](#mobile) and [`docs/MOBILE.md`](docs/MOBILE.md).
 
 ---
@@ -160,7 +160,7 @@ What is native, and what it buys:
 Grading keeps a single owner: `src/domain/grading.ts` emits golden vectors that
 both native ports must reproduce, so a rule change on the web fails the mobile
 builds until they follow. `docs/MOBILE.md` has the architecture, the verification
-status, and what remains — an iOS app target, among other things.
+status, and what remains — signing, feature coverage, an offline web fallback.
 
 ## Releases
 
@@ -170,14 +170,15 @@ Pushing a tag builds the artefacts and publishes them:
 git tag v1.0.0-alpha.2 && git push origin v1.0.0-alpha.2
 ```
 
-`.github/workflows/mobile-release.yml` builds the APK and runs both engines'
-tests — the Kotlin port on Linux, the Swift port on macOS — then attaches the
-APK to a GitHub Release (marked as a prerelease for `alpha`/`beta`/`rc` tags).
-There is no server URL to configure: the apps are native clients and the
-deployment they talk to is compiled in.
+`.github/workflows/mobile-release.yml` builds both artefacts and runs both
+engines' tests — the Kotlin port on Linux, the Swift port on macOS — then
+attaches the APK and the unsigned `.ipa` to a GitHub Release (marked as a
+prerelease for `alpha`/`beta`/`rc` tags). There is no server URL to configure:
+the apps are native clients and the deployment they talk to is compiled in.
 
 The version is written once, in `package.json`; CI stamps it into the Android
-module (`scripts/native/set-version.mjs`).
+module and the iOS app target (`scripts/native/set-version.mjs`), so the two
+artefacts of one release cannot disagree about what they are.
 
 ## License
 

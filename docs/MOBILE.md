@@ -6,8 +6,8 @@ Revisio ships two **native** mobile clients, not a wrapper around the website:
 |---|---|---|
 | App | Kotlin + Jetpack Compose | Swift + SwiftUI |
 | Engine | Kotlin/JVM library (`:engine`) | Swift package target (`RevisioEngine`) |
-| Project | `mobile/android/` | `mobile/ios/` |
-| Artefact | `app-debug.apk` | *(none yet — see [Remaining work](#remaining-work))* |
+| Project | `mobile/android/` | `mobile/ios/Revisio.xcodeproj` |
+| Artefact | `Revisio-<version>-android.apk` | `Revisio-<version>-ios-unsigned.ipa` |
 
 Both talk to the backend over the same `/api/v1` contract the web app uses, and
 both carry a copy of the grading engine so a review can be marked with no server.
@@ -41,9 +41,17 @@ mobile/android/
   app/      the Android surface — Compose UI and wiring only
 
 mobile/ios/
+  Package.swift            the engine, as a Swift package
   Sources/RevisioEngine/   the same seven concerns, in Swift
   Sources/Revisio/         the SwiftUI surface
+  Revisio.xcodeproj        the app target CI archives — it links RevisioEngine
+  Revisio/                 Info.plist and the icon catalogue
 ```
+
+The Xcode project does not copy the engine. It references the package beside it
+(`XCLocalSwiftPackageReference`) and links the `RevisioEngine` product, so there
+is exactly one copy of the grading rules and the tests still run against the same
+sources `swift test` compiles.
 
 Because the engine has no UI and no Android dependency, the whole client's
 behaviour is unit-testable on a workstation: `./gradlew test` and `swift test`
@@ -112,6 +120,9 @@ npm run native:ios:test          # engine conformance + store tests
 
 # regenerate the shared grading vectors (after changing domain/grading.ts)
 npm run vectors:grading
+
+# regenerate the iOS icon from public/icon.svg
+node scripts/native/make-ios-icon.mjs
 ```
 
 Android needs JDK 21 and the Android SDK (`ANDROID_HOME`). iOS needs Xcode.
@@ -125,6 +136,44 @@ on a server, it would fail.
 There is no `NATIVE_APP_URL` anymore. The deployment is compiled in (the
 `revisioApiBase` Gradle property, or `apiBase` in the iOS app).
 
+### The iOS bundle
+
+CI archives the app target and hand-packages the `.ipa`:
+
+```bash
+cd mobile/ios
+xcodebuild archive \
+  -project Revisio.xcodeproj -scheme Revisio-iOS -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath /tmp/Revisio.xcarchive \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+mkdir -p /tmp/Payload && cp -R /tmp/Revisio.xcarchive/Products/Applications/Revisio.app /tmp/Payload/
+(cd /tmp && zip -qry Revisio-ios-unsigned.ipa Payload)
+```
+
+`-exportArchive` is deliberately not used: it insists on a signing identity this
+repository does not have. An `.ipa` is just a zip with the app under `Payload/`,
+and building it by hand is what lets an unsigned build ship. The result is still
+a real Release device build — sources compiled, `RevisioEngine` linked, the icon
+catalogue compiled into the bundle and the version stamped from `package.json`.
+The workflow then opens the `.ipa` it is about to publish and asserts the bundle
+id, the version and the compiled icon, because an artefact that quietly lost its
+version is worse than one that never built.
+
+Version stamping is one script for both platforms:
+
+```
+package.json  version 1.0.0-alpha.2
+      │  node scripts/native/set-version.mjs
+      ├─▶ mobile/android/app/build.gradle.kts   versionName / versionCode
+      └─▶ mobile/ios/Revisio.xcodeproj           MARKETING_VERSION
+                                                 CURRENT_PROJECT_VERSION
+```
+
+`Info.plist` reads both back out as `CFBundleShortVersionString` and
+`CFBundleVersion`, so no version is ever written twice.
+
 ## Verification status
 
 Against `1.0.0-alpha.2`:
@@ -135,21 +184,21 @@ Against `1.0.0-alpha.2`:
 | Swift grading port ≡ TypeScript engine | `swift test` — 19/19 vectors |
 | The APK opens its own UI offline | `verify:native` on an emulator with the network disabled |
 | A full review completes offline and queues | `verify:native` — cloze, flashcard, MCQ, then the outbox |
-| The Swift client compiles for iOS | `swiftc -typecheck -sdk iphonesimulator` (and CI) |
-| **Not yet:** an installable iOS build | no Xcode app target (below) |
+| iOS produces an installable artefact | the `ios` job archives `Revisio.xcodeproj` and attaches `Revisio-<version>-ios-unsigned.ipa` |
+| The `.ipa` is the app we think it is | the workflow reads back the bundle id, version and compiled icon from the published file |
+| **Not yet:** running on iOS hardware | the `.ipa` is unsigned and has not been launched on a device |
 
 ## Remaining work
 
-- **iOS app target.** `mobile/ios` is a Swift package: the engine and the
-  SwiftUI app compile and are tested, but nothing produces an `.app`/`.ipa`
-  yet. That needs an Xcode app target wrapping the package (which then also
-  carries `Info.plist`, the icon set and version stamping). Until then iOS
-  ships no artefact.
+- **Signing.** The APK is debug-signed, so it installs anywhere. The `.ipa` is
+  **unsigned** and will not install as-is: it needs an Apple developer
+  certificate and provisioning profile to be distributed, or a re-signing tool
+  (Sideloadly, AltStore) to run on a personal device. A store build needs a
+  release keystore with Play App Signing on the Android side and a real
+  distribution profile on the iOS side.
 - **First exposure is online-only.** `/api/v1/learn` answers *which* unseen
   cards to show; the offline pack only covers the daily queue. A learner who
   has never opened a topic needs a connection once.
-- **Signing.** The APK is debug-signed. A store build needs a release keystore
-  and Play App Signing; iOS needs a certificate and provisioning profile.
 - **The web PWA still falls back to `/`.** `public/sw.js` answers a failed
   navigation with the cached landing page. That is no longer the mobile bug it
   was — the native clients do not use it — but the web app would still benefit
