@@ -25,6 +25,7 @@ export const NAV: NavItem[] = [
   { href: '/progress', label: 'Rank', icon: 'rank', hint: 'Ladder and weekly lobby' },
   { href: '/cram', label: 'Cram', icon: 'cram', hint: 'Sprint before an exam' },
   { href: '/exam', label: 'Exam', icon: 'exam', hint: 'Sit a marked paper' },
+  { href: '/practice', label: 'Practice', icon: 'practice', hint: 'Generated maths drills' },
   { href: '/library', label: 'Library', icon: 'library', hint: 'Subjects and topics' },
   { href: '/settings', label: 'Settings', icon: 'person', hint: 'Profile and account' },
   {

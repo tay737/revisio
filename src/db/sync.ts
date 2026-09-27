@@ -63,6 +63,7 @@ const REPLICATED_TABLES = [
   'cards',
   'user_subjects',
   'card_answers',
+  'math_sets',
   'user_topic_states',
   'card_user_states',
   'review_logs',

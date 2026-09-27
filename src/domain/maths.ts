@@ -14,6 +14,7 @@
 // solution, and distractor answers for multiple-choice mode.
 
 import { fullyNormalized } from './grading';
+import { parse as mathParse } from 'mathjs';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
@@ -75,7 +76,7 @@ export type Expected =
   | { kind: 'frac'; num: number; den: number }
   | { kind: 'expr'; accept: string[] }
   | { kind: 'text'; accept: string[] }
-  | { kind: 'pair'; x: number; y: number };
+  | { kind: 'pair'; x: number; y: number; ordered?: boolean };
 
 export type Draft = {
   prompt: string;
@@ -307,14 +308,13 @@ export const CONCEPTS: Concept[] = [
         const d = r.pick([4, 5, 6, 8, 10, 12]);
         const a = r.int(1, d - 2), b = r.int(1, d - a);
         const [n, dd] = reduce(a + b, d);
-        const display = fracDisplay(n, dd);
-        return {
-          prompt: `$\\frac{${a}}{${d}} + \\frac{${b}}{${d}} = ?$  (give your answer as a fraction)`,
-          expected: { kind: 'frac', num: a + b, den: d },
-          display,
-          solution: `Same denominator: add the numerators — ${a} + ${b} = ${a + b}, so $\\frac{${a + b}}{${d}}$${display !== `${a + b}/${d}` ? `, which simplifies to $\\frac{${n}}{${dd}}$` : ''}.`,
-          distractors: [fracDisplay(a * b, d), fracDisplay(a + b, d * 2), fracDisplay(Math.abs(a - b), d)],
-        };
+        return fracDraft(
+          `$\\frac{${a}}{${d}} + \\frac{${b}}{${d}} = ?$  (give your answer as a fraction)`,
+          a + b,
+          d,
+          `Same denominator: add the numerators — ${a} + ${b} = ${a + b}, so $\\frac{${a + b}}{${d}}$${fracDisplay(n, dd) !== `${a + b}/${d}` ? `, which simplifies to $\\frac{${n}}{${dd}}$` : ''}.`,
+          [fracDisplay(a * b, d), fracDisplay(a + b, d * 2), fracDisplay(Math.abs(a - b), d)],
+        );
       },
       medium: (r) => {
         const d1 = r.pick([2, 3, 4, 5, 6]);
@@ -322,14 +322,13 @@ export const CONCEPTS: Concept[] = [
         const a = r.int(1, d1 - 1), b = r.int(1, d2 - 1);
         const sum = a * d2 + b * d1;
         const [n, dd] = reduce(sum, d1 * d2);
-        const display = fracDisplay(n, dd);
-        return {
-          prompt: `$\\frac{${a}}{${d1}} + \\frac{${b}}{${d2}} = ?$  (give your answer as a fraction)`,
-          expected: { kind: 'frac', num: sum, den: d1 * d2 },
-          display,
-          solution: `${d2} is a multiple of ${d1}: $\\frac{${a}}{${d1}} = \\frac{${a * d2}}{${d2 * d1}}$. Then $\\frac{${a * d2}}{${d1 * d2}} + \\frac{${b}}{${d2}} = \\frac{${sum}}{${d1 * d2}}$${display !== `${sum}/${d1 * d2}` ? `, simplified $\\frac{${n}}{${dd}}$` : ''}.`,
-          distractors: [fracDisplay(a + b, d1 + d2), fracDisplay(sum + 1, d1 * d2), fracDisplay(a * b, d1 * d2)],
-        };
+        return fracDraft(
+          `$\\frac{${a}}{${d1}} + \\frac{${b}}{${d2}} = ?$  (give your answer as a fraction)`,
+          sum,
+          d1 * d2,
+          `${d2} is a multiple of ${d1}: $\\frac{${a}}{${d1}} = \\frac{${a * d2}}{${d1 * d2}}$. Then $\\frac{${a * d2}}{${d1 * d2}} + \\frac{${b}}{${d2}} = \\frac{${sum}}{${d1 * d2}}$${fracDisplay(n, dd) !== `${sum}/${d1 * d2}` ? `, simplified $\\frac{${n}}{${dd}}$` : ''}.`,
+          [fracDisplay(a + b, d1 + d2), fracDisplay(sum + 1, d1 * d2), fracDisplay(a * b, d1 * d2)],
+        );
       },
       hard: (r) => {
         const d1 = r.pick([3, 4, 5, 6, 7, 8]);
@@ -338,14 +337,13 @@ export const CONCEPTS: Concept[] = [
         const common = d1 * d2;
         const sum = a * d2 + b * d1;
         const [n, dd] = reduce(sum, common);
-        const display = fracDisplay(n, dd);
-        return {
-          prompt: `$\\frac{${a}}{${d1}} + \\frac{${b}}{${d2}} = ?$  (simplify your answer)`,
-          expected: { kind: 'frac', num: sum, den: common },
-          display,
-          solution: `Common denominator ${common}: $\\frac{${a * d2}}{${common}} + \\frac{${b * d1}}{${common}} = \\frac{${sum}}{${common}}$${display !== `${sum}/${common}` ? `, simplified to $\\frac{${n}}{${dd}}$` : ''}.`,
-          distractors: [fracDisplay(a + b, d1 + d2), fracDisplay(sum, common * 2), fracDisplay(sum + d1, common)],
-        };
+        return fracDraft(
+          `$\\frac{${a}}{${d1}} + \\frac{${b}}{${d2}} = ?$  (simplify your answer)`,
+          sum,
+          common,
+          `Common denominator ${common}: $\\frac{${a * d2}}{${common}} + \\frac{${b * d1}}{${common}} = \\frac{${sum}}{${common}}$${fracDisplay(n, dd) !== `${sum}/${common}` ? `, simplified to $\\frac{${n}}{${dd}}$` : ''}.`,
+          [fracDisplay(a + b, d1 + d2), fracDisplay(sum, common * 2), fracDisplay(sum + d1, common)],
+        );
       },
     },
   },
@@ -754,21 +752,25 @@ export const CONCEPTS: Concept[] = [
         const b = -(p + q), c = p * q;
         return {
           prompt: `Solve: x² ${b > 0 ? '+' : '−'} ${Math.abs(b)}x ${c > 0 ? '+' : '−'} ${Math.abs(c)} = 0. Give both roots.`,
-          expected: { kind: 'pair', x: p, y: q },
+          expected: { kind: 'pair', x: p, y: q, ordered: true },
           display: `${p} or ${q}`,
           solution: `Factorise: (x ${p > 0 ? '−' : '+'} ${Math.abs(p)})(x ${q > 0 ? '−' : '+'} ${Math.abs(q)}) = 0, so x = ${p} or x = ${q}.`,
           distractors: [`${p} or ${-q}`, `${-p} or ${q}`, `${p + q} or ${p * q}`],
         };
       },
       hard: (r) => {
-        const a = r.pick([2, 3]), p = r.nz(-5, 5), q = r.nz(-4, 4);
+        const a = r.pick([2, 3]), q = r.nz(-4, 4);
+        // (ax − p)(x − q) = 0 has roots p/a and q, so the first bracket's
+        // constant is p = a · root1, not the root itself.
+        const root1 = r.pick([-4, -2, -1, 1, 2, 4, -0.5, 0.5, -1.5, 1.5]);
+        const p = a * root1;
         const b = -(a * q + p), c = p * q;
         return {
           prompt: `Solve: ${a}x² ${b > 0 ? '+' : '−'} ${Math.abs(b)}x ${c > 0 ? '+' : '−'} ${Math.abs(c)} = 0. Give both roots.`,
-          expected: { kind: 'pair', x: p, y: q },
-          display: `x = ${p} or x = ${q}`,
-          solution: `Factorise: (${a}x ${p > 0 ? '−' : '+'} ${Math.abs(p)})(x ${q > 0 ? '−' : '+'} ${Math.abs(q)}) = 0, so x = ${p} or x = ${q}.`,
-          distractors: [`x = ${p} or x = ${-q}`, `x = ${-p} or x = ${q}`, `x = ${p * q} or x = 1`],
+          expected: { kind: 'pair', x: root1, y: q, ordered: true },
+          display: `x = ${fmt(root1)} or x = ${q}`,
+          solution: `Factorise: (${a}x ${p > 0 ? '−' : '+'} ${Math.abs(p)})(x ${q > 0 ? '−' : '+'} ${Math.abs(q)}) = 0, so x = ${fmt(root1)} or x = ${q}.`,
+          distractors: [`x = ${fmt(root1)} or x = ${-q}`, `x = ${fmt(-root1)} or x = ${q}`, `x = ${fmt(p)} or x = 1`],
         };
       },
     },
@@ -784,10 +786,11 @@ export const CONCEPTS: Concept[] = [
         const x = r.nz(-5, 6), y = r.nz(-5, 6), a = r.int(2, 5), b = r.int(2, 5);
         return {
           prompt: `Solve: y = ${b}x and y = ${a}x + ${y - a * x}. Give x and y.`,
-          expected: { kind: 'pair', x, y },
+          expected: { kind: 'pair', x, y, ordered: true },
           display: `x = ${x}, y = ${y}`,
           solution: `${b}x = ${a}x + ${y - a * x} → ${b - a}x = ${y - a * x} → x = ${x}, then y = ${b} × ${x} = ${y}.`,
-          distractors: [`x = ${y}, y = ${x}`, `x = ${x + 1}, y = ${y}`, `x = ${x}, y = ${y + 1}`],
+          // The swap distractor degenerates to the answer when x = y.
+          distractors: [x === y ? `x = ${x + 1}, y = ${y - 1}` : `x = ${y}, y = ${x}`, `x = ${x + 1}, y = ${y}`, `x = ${x}, y = ${y + 1}`],
         };
       },
       medium: (r) => {
@@ -795,10 +798,10 @@ export const CONCEPTS: Concept[] = [
         const a1 = r.int(1, 4), b1 = r.int(1, 4), a2 = r.int(1, 4), b2 = -a2 === b1 ? 3 : r.int(1, 4);
         return {
           prompt: `Solve: ${a1}x + ${b1}y = ${a1 * x + b1 * y} and ${a2}x + ${b2}y = ${a2 * x + b2 * y}. Give x and y.`,
-          expected: { kind: 'pair', x, y },
+          expected: { kind: 'pair', x, y, ordered: true },
           display: `x = ${x}, y = ${y}`,
           solution: `Eliminate one variable (multiply the equations as needed) to get x = ${x}, then substitute to get y = ${y}.`,
-          distractors: [`x = ${y}, y = ${x}`, `x = ${x + 1}, y = ${y - 1}`, `x = ${-x}, y = ${y}`],
+          distractors: [x === y ? `x = ${x + 1}, y = ${y - 1}` : `x = ${y}, y = ${x}`, `x = ${x + 1}, y = ${y - 1}`, `x = ${-x}, y = ${y}`],
         };
       },
       hard: (r) => {
@@ -807,7 +810,7 @@ export const CONCEPTS: Concept[] = [
         const a2 = r.int(2, 5), b2 = r.int(2, 5);
         return {
           prompt: `Solve: ${a1}x + ${b1}y = ${a1 * x + b1 * y} and ${a2}x + ${b2}y = ${a2 * x + b2 * y}. Give x and y (either order).`,
-          expected: { kind: 'pair', x, y },
+          expected: { kind: 'pair', x, y, ordered: true },
           display: `x = ${x}, y = ${y}`,
           solution: `Multiply each equation so the x coefficients match, subtract to eliminate x, solve for y = ${y}, then substitute back for x = ${x}.`,
           distractors: [`x = ${x + 2}, y = ${y - 2}`, `x = ${-x}, y = ${-y}`, `x = ${y + 1}, y = ${x - 1}`],
@@ -1032,25 +1035,25 @@ export const CONCEPTS: Concept[] = [
       easy: (r) => {
         const sides = r.pick([4, 6, 8, 10, 12]);
         const n = r.int(1, Math.floor(sides / 2) + 1);
-        return {
-          prompt: `A fair ${sides}-sided spinner numbered 1–${sides} is spun once. What is the probability it lands on a number less than or equal to ${n}? (fraction)`,
-          expected: { kind: 'frac', num: n, den: sides },
-          display: fracDisplay(n, sides),
-          solution: `${n} of the ${sides} outcomes work, so the probability is $\\frac{${n}}{${sides}}$.`,
-          distractors: [fracDisplay(n, sides + 1), fracDisplay(sides - n, sides), fracDisplay(1, sides)],
-        };
+        return fracDraft(
+          `A fair ${sides}-sided spinner numbered 1–${sides} is spun once. What is the probability it lands on a number less than or equal to ${n}? (fraction)`,
+          n,
+          sides,
+          `${n} of the ${sides} outcomes work, so the probability is $\\frac{${n}}{${sides}}$.`,
+          [fracDisplay(n, sides + 1), fracDisplay(sides - n, sides), fracDisplay(1, sides)],
+        );
       },
       medium: (r) => {
         const red = r.int(2, 6), blue = r.int(2, 6), green = r.int(1, 5);
         const total = red + blue + green;
         const notRed = blue + green;
-        return {
-          prompt: `A bag holds ${red} red, ${blue} blue and ${green} green balls. One is drawn at random. What is the probability it is NOT red? (fraction)`,
-          expected: { kind: 'frac', num: notRed, den: total },
-          display: fracDisplay(notRed, total),
-          solution: `P(not red) = ${notRed}/${total} = $\\frac{${blue + green}}{${total}}$.`,
-          distractors: [fracDisplay(red, total), fracDisplay(notRed, total + 1), fracDisplay(blue, total)],
-        };
+        return fracDraft(
+          `A bag holds ${red} red, ${blue} blue and ${green} green balls. One is drawn at random. What is the probability it is NOT red? (fraction)`,
+          notRed,
+          total,
+          `P(not red) = ${notRed}/${total} = $\\frac{${blue + green}}{${total}}$.`,
+          [fracDisplay(red, total), fracDisplay(notRed, total + 1), fracDisplay(blue, total)],
+        );
       },
       hard: (r) => {
         const red = r.int(3, 7), blue = r.int(3, 7);
@@ -1058,13 +1061,13 @@ export const CONCEPTS: Concept[] = [
         const both = red * (red - 1);
         const all = total * (total - 1);
         const g = gcd(both, all);
-        return {
-          prompt: `A bag holds ${red} red and ${blue} blue balls. Two are drawn without replacement. What is the probability BOTH are red? (fraction)`,
-          expected: { kind: 'frac', num: both, den: all },
-          display: fracDisplay(both, all),
-          solution: `$\\frac{${red}}{${total}} × \\frac{${red - 1}}{${total - 1}} = \\frac{${both}}{${all}}$${both / g !== both ? ` = $\\frac{${both / g}}{${all / g}}$` : ''}.`,
-          distractors: [fracDisplay(red * red, total * total), fracDisplay(red, total), fracDisplay(red * (red - 1), total * total + 2)],
-        };
+        return fracDraft(
+          `A bag holds ${red} red and ${blue} blue balls. Two are drawn without replacement. What is the probability BOTH are red? (fraction)`,
+          both,
+          all,
+          `$\\frac{${red}}{${total}} × \\frac{${red - 1}}{${total - 1}} = \\frac{${both}}{${all}}$${both / g !== both ? ` = $\\frac{${both / g}}{${all / g}}$` : ''}.`,
+          [fracDisplay(red * red, total * total), fracDisplay(red, total), fracDisplay(red * (red - 1), total * total + 2)],
+        );
       },
     },
   },
@@ -1084,23 +1087,76 @@ function reduce(n: number, d: number): [number, number] {
   return [n / g, d / g];
 }
 
+/**
+ * Distractors that are value-equal to the answer are the one way a multiple-
+ * choice question can be unfair — two options both pass marking. Every draft
+ * builder filters through here, so the invariant lives in one place rather
+ * than in thirty generators.
+ */
+function cleanDistractors(expected: Expected, raw: (string | number)[]): string[] {
+  const out: string[] = [];
+  for (const d of raw) {
+    const s = typeof d === 'number' ? numDisplay(d, expected.kind === 'num' ? expected.unit : undefined) : d;
+    if (!s.trim()) continue;
+    if (passes(expected, s)) continue; // value-equal to the answer — never offer it
+    if (out.includes(s)) continue;
+    out.push(s);
+  }
+  return out;
+}
+
+/** Raw value check used by cleanDistractors (markAnswer minus the empty case). */
+function passes(expected: Expected, s: string): boolean {
+  switch (expected.kind) {
+    case 'num': {
+      const v = parseNumber(s);
+      return v !== null && Math.abs(v - expected.value) <= (expected.tolerance ?? (Number.isInteger(expected.value) ? 1e-9 : 0.005));
+    }
+    case 'frac': {
+      const f = parseFraction(s);
+      return f !== null && f.n * expected.den === expected.num * f.d;
+    }
+    case 'expr':
+      return expected.accept.some((a) => normalizeExpr(a) === normalizeExpr(s));
+    case 'text':
+      return expected.accept.some((a) => fullyNormalized(a) === fullyNormalized(s));
+    case 'pair': {
+      const nums = extractNumbers(s);
+      return nums.some((n) => Math.abs(n - expected.x) < 1e-9) && nums.some((n) => Math.abs(n - expected.y) < 1e-9);
+    }
+  }
+}
+
 function numDraft(prompt: string, value: number, solution: string, distractors: (string | number)[], _tol?: number, unit?: string): Draft {
+  const expected: Expected = { kind: 'num', value, unit };
   return {
     prompt,
-    expected: { kind: 'num', value, unit },
+    expected,
     display: numDisplay(value, unit),
     solution,
-    distractors: distractors.map((d) => (typeof d === 'number' ? numDisplay(d, unit) : d)),
+    distractors: cleanDistractors(expected, distractors),
+  };
+}
+
+function fracDraft(prompt: string, num: number, den: number, solution: string, distractors: string[]): Draft {
+  const expected: Expected = { kind: 'frac', num, den };
+  return {
+    prompt,
+    expected,
+    display: fracDisplay(num, den),
+    solution,
+    distractors: cleanDistractors(expected, distractors),
   };
 }
 
 function exprDraft(prompt: string, accept: string[], solution: string, distractors: string[]): Draft {
+  const expected: Expected = { kind: 'expr', accept };
   return {
     prompt,
-    expected: { kind: 'expr', accept },
+    expected,
     display: accept[0],
     solution,
-    distractors,
+    distractors: cleanDistractors(expected, distractors),
   };
 }
 
@@ -1184,13 +1240,16 @@ function shuffleOptions(draft: Draft, rng: Rng): string[] {
       pool.push(key);
     }
   }
-  // top up with per-kind mechanical perturbations so MCQ always has 4 options
-  while (pool.length < 3) {
-    const pad = padDistractor(draft, pool.length + 1);
+  // Top up with per-kind perturbations until there are three — the counter k
+  // keeps advancing so a collision (e.g. the value is 1, so +1 and +2 both
+  // collide with something already offered) cannot stall the loop.
+  let k = 1;
+  while (pool.length < 3 && k < 100) {
+    const pad = padDistractor(draft, k++);
     if (!seen.has(pad)) {
       seen.add(pad);
       pool.push(pad);
-    } else break;
+    }
   }
   return rng.shuffle([draft.display, ...pool.slice(0, 3)]);
 }
@@ -1198,12 +1257,19 @@ function shuffleOptions(draft: Draft, rng: Rng): string[] {
 function padDistractor(draft: Draft, k: number): string {
   const e = draft.expected;
   if (e.kind === 'num') return numDisplay(e.value + k, e.unit);
-  if (e.kind === 'frac') return fracDisplay(e.num + k, e.den + k);
+  // Numerator only: (n+k)/(d+k) walks towards 1 and collides with a 1/1 answer forever.
+  if (e.kind === 'frac') return fracDisplay(e.num + k, e.den);
   if (e.kind === 'pair') return `(x = ${e.x + k}, y = ${e.y + k})`;
   return `${draft.display}${'′'.repeat(k)}`;
 }
 
 // ── marking ─────────────────────────────────────────────────────────────────
+// The one deliberate dependency in domain/ is mathjs, and it exists for this
+// section only: "2(x+3)" and "2x+6" are the same answer, and a string compare
+// cannot see that. Equivalence is decided by parsing both expressions and
+// sampling them at a few variable values; if either fails to parse we fall
+// back to the cheap normalised string compare. Generators stay plain
+// arithmetic — mathjs never builds questions.
 
 export type Verdict = { correct: boolean; note?: string };
 
@@ -1231,6 +1297,15 @@ function parseNumber(raw: string): number | null {
     if (d === 0) return null;
     return (Number(m[1]) < 0 ? -1 : 1) * (Math.abs(Number(m[1])) + Number(m[2]) / d);
   }
+  // Last resort: a typed arithmetic expression — 6×7, 2^5, √16, (3+4)/2.
+  // The server marks from the string, so a correct but unevaluated answer is
+  // still a correct answer.
+  try {
+    const ev = mathParse(prepareForMathjs(s))?.evaluate();
+    if (typeof ev === 'number' && Number.isFinite(ev)) return ev;
+  } catch {
+    /* not an expression we can evaluate */
+  }
   return null;
 }
 
@@ -1254,15 +1329,17 @@ function parseFraction(raw: string): { n: number; d: number } | null {
 
 function normalizeExpr(s: string): string {
   return s
-    .normalize('NFKC')
+    .normalize('NFKC') // NFKC folds ² into the digit 2 — see the rule below
     .replace(/\s+/g, '')
-    .replace(/²/g, '^2')
-    .replace(/³/g, '^3')
     .replace(/[×·]/g, '*')
     .replace(/[−–—]/g, '-')
     .replace(/÷/g, '/')
-    .replace(/\*/g, '')
     .toLowerCase()
+    // After NFKC, a superscript is a bare digit glued to its letter (x² → x2);
+    // turn that back into the exponent form mathjs parses. A digit *before*
+    // the letter (9x) is a coefficient and is left alone.
+    .replace(/([a-z])([2-9])/g, '$1^$2')
+    .replace(/\*/g, '')
     .replace(/\.+$/, '');
 }
 
@@ -1300,8 +1377,7 @@ export function markAnswer(draft: Draft, raw: string | null | undefined): Verdic
       return { correct: false };
     }
     case 'expr': {
-      const u = normalizeExpr(user);
-      if (e.accept.some((a) => normalizeExpr(a) === u)) return { correct: true };
+      if (e.accept.some((a) => expressionsEqual(a, user))) return { correct: true };
       return { correct: false };
     }
     case 'text': {
@@ -1310,14 +1386,55 @@ export function markAnswer(draft: Draft, raw: string | null | undefined): Verdic
       return { correct: false };
     }
     case 'pair': {
+      // The answer states both values as numbers — "3 or -4", "x = 3, y = -4".
+      // Unordered (quadratic roots): both values present, each matched by a
+      // different number. Ordered (simultaneous): the first number is x and
+      // the second is y, so a swap cannot pass.
       const nums = extractNumbers(user);
-      const hit = nums.some((n) => Math.abs(n - e.x) < 1e-9) && nums.some((n) => Math.abs(n - e.y) < 1e-9);
-      if (hit && new Set(nums.map((n) => (Math.abs(n - e.x) < 1e-9 ? 'x' : Math.abs(n - e.y) < 1e-9 ? 'y' : 'z'))).size >= (e.x === e.y ? 1 : 2)) {
-        return { correct: true };
+      if (e.ordered) {
+        if (nums.length >= 2 && Math.abs(nums[0] - e.x) < 1e-9 && Math.abs(nums[1] - e.y) < 1e-9) return { correct: true };
+      } else {
+        const hitsX = nums.filter((n) => Math.abs(n - e.x) < 1e-9).length;
+        const hitsY = nums.filter((n) => Math.abs(n - e.y) < 1e-9).length;
+        if (e.x === e.y ? hitsX >= 2 : hitsX >= 1 && hitsY >= 1) return { correct: true };
       }
+      if (/\?|unknown/i.test(user) && nums.length > 0) return { correct: false, note: 'Give both values.' };
       return { correct: false };
     }
   }
+}
+
+/**
+ * Are two algebraic expressions the same function? Parse both with mathjs and
+ * sample them at a few variable values; identical outputs everywhere we look
+ * (and at a couple of wilder points) is the practical definition of equal
+ * here. Falls back to the normalised string compare when either fails to
+ * parse — an unparseable answer can still be right, it just needs the cheap
+ * test.
+ */
+export function expressionsEqual(a: string, b: string): boolean {
+  const na = normalizeExpr(a);
+  const nb = normalizeExpr(b);
+  if (na === nb) return true;
+  try {
+    const pa = mathParse(prepareForMathjs(na));
+    const pb = mathParse(prepareForMathjs(nb));
+    if (!pa || !pb) return false;
+    for (const x of [1.234, -2.718, 3.14159]) {
+      const va = pa.evaluate({ x });
+      const vb = pb.evaluate({ x });
+      if (typeof va !== 'number' || typeof vb !== 'number') return false;
+      if (Math.abs(va - vb) > 1e-9 * Math.max(1, Math.abs(va))) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** mathjs needs explicit multiplication: 2x → 2*x, x(x+1) → x*(x+1). */
+function prepareForMathjs(s: string): string {
+  return s.replace(/(\d)([a-z(])/g, '$1*$2').replace(/([a-z)])\(/g, '$1*(');
 }
 
 // ── session composition ─────────────────────────────────────────────────────

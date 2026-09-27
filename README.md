@@ -40,6 +40,7 @@ published.
 | Learn | `/learn` | First exposure to a topic: its notes, plus its unseen cards |
 | Cram | `/cram` | Time-boxed practice that bypasses scheduling |
 | Exam | `/exam` | Timed exam-style sessions with mark schemes |
+| Practice | `/practice` | Generated maths drills per topic and difficulty — never touches scheduling or XP |
 | Progress | `/progress` | Rank ladder, lobbies, achievements, transcript |
 | Library | `/library` | Your content: author, import, merge, publish |
 | Teacher | `/teacher` | Classes, rosters, per-student progress |
@@ -65,6 +66,7 @@ published.
 - **Postgres via Drizzle ORM** — 27 tables, RLS as defence in depth
 - **Tailwind CSS 4** with a token-based design system, `framer-motion` for motion
 - **SWR** for client data, with a single authenticated fetch helper
+- **mathjs** for semantic expression equality in the maths practice engine
 - **Kotlin + Jetpack Compose** (Android) and **Swift + SwiftUI** (iOS) for the
   native apps, each over a native engine that speaks the same `/api/v1` API
   (see [Mobile](#mobile))
@@ -114,6 +116,8 @@ bootstrap email with `BOOTSTRAP_DEV_EMAIL` if you want a different one.
 | `npm run native:ios:test` | Test the Swift engine against the same vectors |
 | `npm run verify:native` | Boot an emulator and drive the APK with the network off |
 | `npm run vectors:grading` | Regenerate the shared grading vectors from `domain/grading.ts` |
+| `npx tsx scripts/verify-maths.ts` | Maths engine invariants: determinism, self-consistency, MCQ shape (no DB needed) |
+| `npx tsx scripts/verify-markdown.ts` | Note renderer checks: block/inline parsing, safe-URL policy (no DB needed) |
 
 ## Architecture
 

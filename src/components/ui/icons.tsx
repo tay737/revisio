@@ -46,6 +46,8 @@ import {
   Layers,
   Library,
   ListChecks,
+  ListFilter,
+  Calculator,
   Lock,
   LogOut,
   Mail,
@@ -155,6 +157,11 @@ export const icons = {
   checked: CalendarCheck,
   library2: Library,
   target: Target,
+  /** The generated-maths practice tool (deliberately not a repeat/loop glyph —
+   *  that family means the SRS). */
+  practice: Calculator,
+  /** Concept filters. */
+  filter: ListFilter,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;

@@ -789,3 +789,70 @@ outcome and the button says so.
 settings form gives the same feedback the server enforces
 (`services/profile.ts` imports from it). The server still re-validates and
 translates the unique-index violation into "That username is taken."
+
+## 24. As built (v1.7, 2026-09-26) — real markdown, and the maths practice engine
+
+Two additions that touch nothing of each other's state, recorded together
+because they shipped in one pass.
+
+### 24.1 Notes render markdown — one parser, one component
+
+Notes are authored as markdown, but Learn rendered it through a headings-and-
+bold-only stub and Review/Cram showed the raw text in `<pre>` blocks — so `##`,
+`|` and `$` reached students as literal characters. The rule now has one owner
+per half:
+
+- `src/domain/markdown.ts` — a pure parser turning markdown into a block tree
+  (headings, emphasis, inline code, math `$…$`/`$$…$$`, links, images, nested
+  lists, blockquotes, fenced code, tables, rules). Dependency-free, tsc-checkable.
+- `src/components/Markdown.tsx` — the one renderer, producing React elements
+  (never `dangerouslySetInnerHTML`, so authored content cannot inject markup).
+
+Learn, Review, Cram and the exam paper all render note/question text through
+it. The inline math is deliberately styled text rather than full LaTeX — a
+future KaTeX integration has a seam to land in without touching call sites.
+
+### 24.2 The maths practice engine is outside the SRS by construction
+
+`/practice` is a generator students open on demand: pick a topic, pick a
+difficulty, answer, read the worked solution. Nothing answered there is
+scheduled, logged, or worth XP — no review log, no queue, no `card_user_state`
+is read or written. The layering:
+
+```
+src/domain/maths.ts    the engine, pure: 28 concepts × 3 difficulties, seeded
+                       RNG (mulberry32), five answer kinds, MCQ distractors
+src/services/maths.ts  access + sessions + marking + set CRUD (server-only)
+src/app/api/v1/maths/  one route: catalogue/start/mark + staff set actions
+src/app/(app)/practice/  the student surface
+library/MathsSets.tsx  staff authoring (pin concepts to a topic)
+```
+
+The load-bearing decision: **a question is derived from its id**
+(`concept:difficulty:seed`). A session is just ids in the client; the server
+holds no session state and marks each answer by re-deriving the draft from the
+id. That makes marking stateless (scale for free, nothing to expire) at the
+price of one invariant that must never bend — the same id must always build the
+same draft. `scripts/verify-maths.ts` enforces the invariants mechanically:
+for every concept × difficulty × 40 seeds, determinism, the draft's own answer
+passing its own marking, and MCQ papers where exactly one option passes.
+
+Marking uses one deliberate dependency in `domain/`: mathjs, for expression
+*equivalence* ("2(x+3)" and "2x+6" are the same answer; a string compare
+cannot see that) and to evaluate typed arithmetic ("6×7" for 42). Generators
+stay plain arithmetic.
+
+Access rule: a subject carries `maths_enabled` (dev toggle in Admin); a topic
+reaches a student by the usual visibility rule; staff pin concepts to topics as
+`math_sets` rows (the only new table). Enabling maths changes nothing about
+reviews — the flag gates `/practice` and nothing else.
+
+### 24.3 Verification for this pass
+
+`npx tsc --noEmit` clean; `next build` clean; `scripts/verify-maths.ts` green
+(3,360 questions, 0 failures); `scripts/verify-markdown.ts` green (block and
+inline parsing, safe-URL policy). The API playtest drove the full maths flow
+against a real Postgres — login, flag, subject, topic, set authoring, session,
+marking, guard-rails — with the production build serving it. URL policy lives in
+`domain/markdown.safeUrl`: web, mail and in-app links render; script schemes
+collapse to `#`.
