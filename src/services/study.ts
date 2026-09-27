@@ -6,7 +6,8 @@ import {
   topics, userAchievements, userTopicStates, xpEvents, achievements,
   leagueMemberships, examAttempts, featureFlags,
 } from '@/db/schema';
-import { gradeCloze, gradeFlashcard, gradeMcq, type AcceptedAnswer } from '@/domain/grading';
+import { gradeClozeWithPolicy, gradeFlashcard, gradeMcq, type AcceptedAnswer, type Verdict } from '@/domain/grading';
+import { resolveClozeMarking } from '@/services/grading-policy';
 import { getScheduler, newCardState, type Rating } from '@/domain/srs';
 import { evaluateAchievements, levelForXp, nextStreak, utcDateKey, xpForReview } from '@/domain/gamification';
 import { enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
@@ -112,7 +113,7 @@ export type SubmitReviewInput = {
 };
 
 export type SubmitReviewResult = {
-  verdict: ReturnType<typeof gradeCloze>;
+  verdict: Verdict;
   primaryAnswer?: string;
   modelAnswer?: string;
   explanation?: string;
@@ -136,9 +137,14 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     keywords: a.keywords ?? null, minPoints: a.minPoints ?? null,
   }));
 
-  // 1) grade (server-side, final)
+  // 1) grade (server-side, final). Cloze marking resolves its strictness
+  // per card: topic override, else subject, else the global default.
   let verdict: SubmitReviewResult['verdict'];
-  if (card.kind === 'cloze') verdict = gradeCloze(input.answer ?? '', accepted);
+  if (card.kind === 'cloze') {
+    const [topicRow] = await db.select({ subjectId: topics.subjectId }).from(topics).where(eq(topics.id, card.topicId)).limit(1);
+    const policy = await resolveClozeMarking(topicRow?.subjectId ?? null, card.topicId);
+    verdict = gradeClozeWithPolicy(input.answer ?? '', accepted, policy);
+  }
   else if (card.kind === 'flashcard') verdict = gradeFlashcard(input.answer ?? '', accepted);
   else verdict = gradeMcq(input.selectedOptionId ?? null, card.correctOptionId ?? '');
 
@@ -219,7 +225,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     id: crypto.randomUUID(), userId, cardId: card.id, sessionId: input.sessionId ?? null,
     mode: input.mode ?? 'daily', rating: ratingFromVerdict(verdict, card.kind),
     userAnswer: input.answer ?? input.selectedOptionId ?? null,
-    graded: { correct: verdict.correct, feedbackKind: verdict.feedbackKind, matchedAnswerId: verdict.matchedAnswerId, note: verdict.note },
+    graded: { correct: verdict.correct, feedbackKind: verdict.feedbackKind, matchedAnswerId: verdict.matchedAnswerId, note: verdict.note, similarity: verdict.similarity },
     durationMs: input.durationMs ?? 0, xpAwarded,
   });
 

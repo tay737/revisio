@@ -1,6 +1,18 @@
 // ── Grading engine ──────────────────────────────────────────────────────────
 // Pure, dependency-free, deterministic. The server's verdict is final; the
 // client may preview but never decide. See ARCHITECTURE.md §7.
+//
+// Cloze marking has two modes. `legacy` is the ladder below, byte-identical to
+// the behaviour the grading vectors pin for the native ports — the default, and
+// what `gradeCloze` always means. `similar` adds one final rung before
+// "wrong": a word that *means* the accepted answer (inflection, synonym,
+// strong-typo band, via `domain/similarity`) is marked **incorrect** with a
+// warning instead of silently wrong. The warning travels as a `similarity`
+// field, never as a new feedbackKind — the native engines decode
+// feedbackKind as a closed enum, and an unknown string would break their
+// decoding of every review.
+
+import { bestRelation, type WordRelation } from './similarity';
 
 export type FeedbackKind =
   | 'correct'
@@ -19,6 +31,12 @@ export type Verdict = {
   /** which keyword groups were matched / missed (flashcards) */
   matchedPhrases?: string[];
   missedPhrases?: string[];
+  /**
+   * Set only when similar-marking is on and the attempt meant the right thing
+   * with the wrong word. The verdict is still incorrect — this field explains
+   * why it was close, so the UI can warn instead of just going red.
+   */
+  similarity?: { relation: Exclude<WordRelation, 'exact' | 'none'>; matchedAnswer: string };
 };
 
 export type AcceptedAnswer = {
@@ -56,7 +74,35 @@ export function fullyNormalized(input: string): string {
 
 // ── cloze ───────────────────────────────────────────────────────────────────
 
+/** How strictly cloze answers are marked. Defaults reproduce legacy grading. */
+export type ClozeMarkPolicy = {
+  /** `legacy` = today's ladder only; `similar` adds the meaning-aware rung. */
+  mode: 'legacy' | 'similar';
+  /** Dice-coefficient floor for typo-band matches (0–1). */
+  typoThreshold?: number;
+  /** Tighter floor for words under five letters, where one wrong letter is
+   *  more often a different word than a typo. */
+  shortWordThreshold?: number;
+  /** Staff-added same-meaning groups, e.g. [["phishing","fraud"]]. Merged
+   *  with the built-in dictionary at compare time. */
+  extraSynonyms?: string[][];
+};
+
+export const DEFAULT_CLOZE_POLICY: Required<Omit<ClozeMarkPolicy, 'extraSynonyms'>> & Pick<ClozeMarkPolicy, 'extraSynonyms'> = {
+  mode: 'legacy',
+  typoThreshold: 0.84,
+  shortWordThreshold: 0.92,
+};
+
 export function gradeCloze(userAnswer: string, accepted: AcceptedAnswer[]): Verdict {
+  return gradeClozeWithPolicy(userAnswer, accepted, DEFAULT_CLOZE_POLICY);
+}
+
+export function gradeClozeWithPolicy(
+  userAnswer: string,
+  accepted: AcceptedAnswer[],
+  policy: ClozeMarkPolicy,
+): Verdict {
   const user = normalize(userAnswer);
   if (!user) return { correct: false, feedbackKind: 'wrong', note: 'No answer given.' };
 
@@ -101,7 +147,46 @@ export function gradeCloze(userAnswer: string, accepted: AcceptedAnswer[]): Verd
     };
   }
 
-  // 5) wrong content. The verdict says only *what was wrong with the attempt*;
+  // 5) wrong content — or, when similar-marking is on, one last rung: the
+  // attempt may *mean* the answer without being it. Marked incorrect either
+  // way; the similarity field is the warning that says how close it was. The
+  // feedbackKind stays `wrong` (native engines decode it as a closed enum),
+  // and the schedule treats it as a lapse — knowing the idea is not knowing
+  // the word, and the word is what was asked.
+  if (policy.mode === 'similar') {
+    const relation = bestRelation(
+      user,
+      accepted.map((a) => a.text),
+      policy.extraSynonyms ?? [],
+      { typoThreshold: policy.typoThreshold, shortWordThreshold: policy.shortWordThreshold },
+    );
+    if (relation.relation === 'inflection') {
+      return {
+        correct: false,
+        feedbackKind: 'wrong',
+        note: `Right word, wrong form — the answer is written as “${relation.matchedText}”.`,
+        similarity: { relation: 'inflection', matchedAnswer: relation.matchedText },
+      };
+    }
+    if (relation.relation === 'synonym') {
+      return {
+        correct: false,
+        feedbackKind: 'wrong',
+        note: `Close in meaning, but “${relation.matchedText}” was the answer. Learn the exact term.`,
+        similarity: { relation: 'synonym', matchedAnswer: relation.matchedText },
+      };
+    }
+    if (relation.relation === 'typo') {
+      return {
+        correct: false,
+        feedbackKind: 'wrong',
+        note: `Nearly the answer, but not it — the blank wants “${relation.matchedText}”. Spelling is part of the recall.`,
+        similarity: { relation: 'typo', matchedAnswer: relation.matchedText },
+      };
+    }
+  }
+
+  // 6) wrong content. The verdict says only *what was wrong with the attempt*;
   // the right answer travels separately as `primaryAnswer` on the result, so it
   // is stated once. Repeating it here printed it twice on the same card — once
   // as the filled blank, once as a note underneath.

@@ -12,6 +12,9 @@ import { MergeTopics, type TopicOption } from '@/components/content/MergeTopics'
 import { ComposeTopic } from './ComposeTopic';
 import { ImportDeck } from './ImportDeck';
 import { MathsSets } from './MathsSets';
+import { ClozeMarking } from './ClozeMarking';
+import { GenerateCloze } from './GenerateCloze';
+import { useMe } from '@/lib/useMe';
 import PageSkeleton from '@/components/PageSkeleton';
 
 type Topic = TopicOption & {
@@ -43,6 +46,7 @@ const VISIBILITY_GLYPH: Record<string, 'publish' | 'schedule' | 'private'> = {
  * questions without anyone noticing.
  */
 export default function LibraryPage() {
+  const { me } = useMe();
   const [topics, setTopics] = useState<Topic[] | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [message, setMessage] = useState('');
@@ -137,10 +141,10 @@ export default function LibraryPage() {
       </Notice>
 
       <Tabs defaultValue="topics">
-        {/* Four equal slots rather than a scroll rail: all four labels are short,
-            and the previous version clipped “Class” off the right edge with
-            nothing on screen to say it was there. */}
-        <TabsList className="grid w-full grid-cols-5">
+        {/* Equal slots rather than a scroll rail: all labels are short, and a
+            previous version clipped “Class” off the right edge with nothing on
+            screen to say it was there. */}
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="topics" className="min-w-0 px-2">
             <Icon name="topic" size={15} />
             Topics
@@ -153,9 +157,17 @@ export default function LibraryPage() {
             <Icon name="upload" size={15} />
             Import
           </TabsTrigger>
+          <TabsTrigger value="generate" className="min-w-0 px-2">
+            <Icon name="rocket" size={15} />
+            Generate
+          </TabsTrigger>
           <TabsTrigger value="maths" className="min-w-0 px-2">
             <Icon name="practice" size={15} />
             Maths
+          </TabsTrigger>
+          <TabsTrigger value="marking" className="min-w-0 px-2">
+            <Icon name="gauge" size={15} />
+            Marking
           </TabsTrigger>
           <TabsTrigger value="class" className="min-w-0 px-2">
             <Icon name="join" size={15} />
@@ -261,6 +273,23 @@ export default function LibraryPage() {
           </div>
         </TabsContent>
 
+        {/* ── Generate (cloze from notes) ────────────────────────────────── */}
+        <TabsContent value="generate">
+          <div className="card">
+            <h2 className="t-strong">Generate fill-the-blank questions</h2>
+            <p className="t-caption mt-1 text-muted-foreground">
+              Proposals come from this topic's own notes, ranked by how well they test recall. You approve each one —
+              nothing is added without you. Importing is unchanged.
+            </p>
+            <div className="mt-5">
+              <GenerateCloze
+                topics={topics.map((t) => ({ id: t.id, name: t.name, subjectName: t.subjectName ?? '' }))}
+                onDone={(m) => { say(m); load(); }}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
         {/* ── Maths sets ──────────────────────────────────────────────────── */}
         <TabsContent value="maths">
           <div className="card">
@@ -270,6 +299,20 @@ export default function LibraryPage() {
             </p>
             <div className="mt-5">
               <MathsSets topics={topics.map((t) => ({ id: t.id, name: t.name, subjectId: t.subjectId }))} onDone={say} />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ── Cloze marking ───────────────────────────────────────────────── */}
+        <TabsContent value="marking">
+          <div className="card">
+            <h2 className="t-strong">Cloze marking</h2>
+            <p className="t-caption mt-1 text-muted-foreground">
+              How strictly fill-the-blank answers are marked. Applies to your subjects and topics; developers set the
+              default for everyone.
+            </p>
+            <div className="mt-5">
+              <ClozeMarking isDeveloper={me?.role === 'developer'} />
             </div>
           </div>
         </TabsContent>

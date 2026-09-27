@@ -113,6 +113,9 @@ export default function ReviewClient() {
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /** True when the typed cloze answer is already exactly right — the input
+   *  ticks green and Enter becomes "continue" instead of "check". */
+  const [autoMark, setAutoMark] = useState(false);
   // Offline belongs to the *session*, not to a request: once a session is being
   // graded locally it stays local until it ends, so a verdict the learner has
   // already read cannot change underneath them mid-session.
@@ -212,6 +215,7 @@ export default function ReviewClient() {
     setInput('');
     setSelected(null);
     setNotesOpen(false);
+    setAutoMark(false);
     startRef.current = Date.now();
   }, [topicId, rememberPack]);
 
@@ -246,8 +250,31 @@ export default function ReviewClient() {
     [done, queue],
   );
 
-  const submit = useCallback(async () => {
-    if (!card || busy || result) return;
+  // Instant marking: while a cloze answer is being typed, grade it with the
+  // same rules the server will apply (the pack already carries the answer keys
+  // for exactly this). The moment it is right the input ticks green — the
+  // learner stops typing and presses Enter once to move on. First-exposure
+  // sessions carry no keys by design (the notes are on screen; a first attempt
+  // is a guess), so there the button flow is unchanged. Wrong answers never
+  // auto-mark: nothing red appears until the learner actually submits.
+  useEffect(() => {
+    if (!card || result || busy || card.kind !== 'cloze' || !input.trim()) {
+      setAutoMark(false);
+      return;
+    }
+    const key = offlineCards.current.get(card.id);
+    if (!key) {
+      setAutoMark(false);
+      return;
+    }
+    setAutoMark(previewVerdict(key, { answer: input }).correct);
+  }, [input, card, result, busy]);
+
+  /** Grade this card. Resolves with the recorded result — server or local —
+   *  or null when the answer never landed, so a caller that wants to advance
+   *  on a correct answer can read the verdict it just produced. */
+  const submit = useCallback(async (): Promise<ReviewResult | null> => {
+    if (!card || busy || result) return null;
     const current = card;
     setBusy(true);
     setError('');
@@ -256,14 +283,13 @@ export default function ReviewClient() {
     const mode = topicId ? 'learn' : 'daily';
 
     /**
-     * Grade this card here and owe the server the answer.
-     *
-     * Returns false only when we hold no key for the card, which is the one case
-     * where finishing offline is genuinely impossible.
+     * Grade this card here and owe the server the answer. Returns the local
+     * result, or null when we hold no key for the card — the one case where
+     * finishing offline is genuinely impossible.
      */
-    const answerLocally = (): boolean => {
+    const answerLocally = (): ReviewResult | null => {
       const local = offlineCards.current.get(current.id);
-      if (!local) return false;
+      if (!local) return null;
       const verdict = previewVerdict(local, { answer: input, selectedOptionId: selected ?? undefined });
       enqueueReview({
         cardId: current.id,
@@ -275,7 +301,7 @@ export default function ReviewClient() {
       // XP is deliberately not invented here. The server awards it when the
       // review lands, and a number the learner was shown but never earned is
       // worse than one that arrives late.
-      setResult({
+      const localResult: ReviewResult = {
         verdict,
         primaryAnswer: primaryAnswer(local),
         xpAwarded: 0,
@@ -284,7 +310,8 @@ export default function ReviewClient() {
         streak: me?.gamification.streak ?? 0,
         newAchievements: [],
         queued: true,
-      });
+      };
+      setResult(localResult);
       setPending(pendingCount());
       setDone((d) => d + 1);
       if (verdict.correct) {
@@ -292,12 +319,13 @@ export default function ReviewClient() {
         burst(46, 0.46);
       }
       setOffline(true);
-      return true;
+      return localResult;
     };
 
-    if (offline && answerLocally()) {
+    if (offline) {
+      const localResult = answerLocally();
       setBusy(false);
-      return;
+      return localResult;
     }
 
     try {
@@ -319,15 +347,14 @@ export default function ReviewClient() {
         setCorrect((c) => c + 1);
         burst(46, 0.46); // small and off-centre: a reward, not a firework display
       }
+      return res;
     } catch (e) {
       // The connection can drop mid-session — a tunnel, a train. If we hold the
       // key, finish the card offline rather than stranding the answer that was
       // just typed.
-      if (answerLocally()) {
-        setBusy(false);
-        return;
-      }
-      setError(e instanceof Error ? e.message : 'That answer didn’t reach the server. Try again.');
+      const localResult = answerLocally();
+      setBusy(false);
+      return localResult;
     } finally {
       setBusy(false);
     }
@@ -338,6 +365,7 @@ export default function ReviewClient() {
     setInput('');
     setSelected(null);
     setError('');
+    setAutoMark(false);
     startRef.current = Date.now();
     setIdx((i) => i + 1);
   }, []);
@@ -598,13 +626,20 @@ export default function ReviewClient() {
                 className="mt-5"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  submit();
+                  // One Enter does the whole loop on a correct cloze: the
+                  // keystrokes already marked it green, so this submit records
+                  // the answer and advances in the same press. Wrong or
+                  // unfinished answers stop at the verdict as before.
+                  void (async () => {
+                    const recorded = await submit();
+                    if (recorded?.verdict.correct && card.kind === 'cloze') next();
+                  })();
                 }}
               >
                 {card.kind === 'cloze' ? (
                   <input
                     type="text"
-                    className="input"
+                    className={`input ${autoMark ? 'border-good text-good-pressed' : ''}`}
                     placeholder="Type the missing word"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -635,10 +670,14 @@ export default function ReviewClient() {
                   />
                 )}
                 <button type="submit" className="btn btn-good btn-lg mt-3" disabled={!input.trim() || busy}>
-                  {busy ? 'Marking…' : 'Check'}
+                  {busy ? 'Marking…' : autoMark ? 'Correct — press Enter' : 'Check'}
                 </button>
                 <p className="mt-2 text-center text-[12px] text-muted-foreground">
-                  {card.kind === 'cloze' ? 'Enter to check' : 'Enter to check · Shift + Enter for a new line'}
+                  {card.kind === 'cloze'
+                    ? autoMark
+                      ? 'Enter to continue'
+                      : 'Enter to check'
+                    : 'Enter to check · Shift + Enter for a new line'}
                 </p>
               </form>
             )}

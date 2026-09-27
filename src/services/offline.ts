@@ -2,8 +2,9 @@ import 'server-only';
 import { inArray } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { cardAnswers, cards } from '@/db/schema';
-import type { AcceptedAnswer } from '@/domain/grading';
+import type { AcceptedAnswer, ClozeMarkPolicy } from '@/domain/grading';
 import { buildDailyQueue, type QueueCard } from '@/services/study';
+import { getClozeMarkingPayload, resolveFromPayload } from '@/services/grading-policy';
 
 /**
  * The offline pack.
@@ -30,7 +31,7 @@ import { buildDailyQueue, type QueueCard } from '@/services/study';
  * from a second place rather than copied into one.
  */
 export type OfflineKey =
-  | { kind: 'cloze' | 'flashcard'; accepted: AcceptedAnswer[] }
+  | { kind: 'cloze' | 'flashcard'; accepted: AcceptedAnswer[]; /** the marking rule this card is graded by, resolved server-side */ policy?: ClozeMarkPolicy }
   | { kind: 'mcq'; correctOptionId: string };
 
 export type OfflineCard = QueueCard & { key: OfflineKey };
@@ -39,6 +40,12 @@ export type OfflinePack = {
   cards: OfflineCard[];
   /** When the pack was taken, so the app can say how stale it is. */
   builtAt: string;
+  /**
+   * The cloze marking policy resolved for this pack, so a preview graded
+   * offline warns about near-answers by the same rules the server will apply
+   * when the reviews land. Absent on packs taken before similar-marking.
+   */
+  clozePolicy?: ClozeMarkPolicy;
 };
 
 export async function buildOfflinePack(userId: string, limit = 20): Promise<OfflinePack> {
@@ -69,13 +76,27 @@ export async function buildOfflinePack(userId: string, limit = 20): Promise<Offl
 
   const correctOptionByCard = new Map(cardRows.map((row) => [row.id, row.correctOptionId] as const));
 
+  // Resolve each card's marking rule once per pack: one flag read, then a
+  // lookup per distinct topic, so offline previews grade by exactly the rules
+  // the server will apply to the queued reviews.
+  const payload = await getClozeMarkingPayload();
+  const policyByTopic = new Map<string, ClozeMarkPolicy>();
+  const policyFor = (card: QueueCard): ClozeMarkPolicy | undefined => {
+    if (card.kind !== 'cloze') return undefined;
+    const cached = policyByTopic.get(card.topicId);
+    if (cached) return cached;
+    const resolved = resolveFromPayload(payload, card.subjectId, card.topicId);
+    policyByTopic.set(card.topicId, resolved);
+    return resolved;
+  };
+
   return {
     cards: queue.map((card) => ({
       ...card,
       key:
         card.kind === 'mcq'
           ? { kind: 'mcq', correctOptionId: correctOptionByCard.get(card.id) ?? '' }
-          : { kind: card.kind, accepted: acceptedByCard.get(card.id) ?? [] },
+          : { kind: card.kind, accepted: acceptedByCard.get(card.id) ?? [], policy: policyFor(card) },
     })),
     builtAt: new Date().toISOString(),
   };

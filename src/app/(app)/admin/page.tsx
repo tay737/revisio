@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { ContentManager } from './ContentManager';
+import { ClozeMarking } from '../library/ClozeMarking';
 import PageSkeleton from '@/components/PageSkeleton';
 
 type AdminData = {
@@ -311,6 +312,18 @@ export default function AdminPage() {
           >
             Create
           </button>
+        </div>
+      </section>
+
+      {/* ── Cloze marking ────────────────────────────────────────────────── */}
+      <section className="card">
+        <h2 className="t-strong">Cloze marking</h2>
+        <p className="t-caption mt-1 text-muted-foreground">
+          How strictly fill-the-blank answers are marked across the platform. A similar-but-wrong answer stays wrong —
+          the learner is warned how close it was. Teachers can override this per subject or topic.
+        </p>
+        <div className="mt-5">
+          <ClozeMarking isDeveloper />
         </div>
       </section>
 
