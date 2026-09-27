@@ -10,6 +10,13 @@
 		AA0000000000000000000013 /* RevisioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000010 /* RevisioApp.swift */; };
 		AA0000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* Assets.xcassets */; };
 		AA0000000000000000000015 /* RevisioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000017 /* RevisioEngine */; };
+		AA0000000000000000000019 /* Common.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000018 /* Common.swift */; };
+		AA000000000000000000001B /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000001A /* SessionView.swift */; };
+		AA000000000000000000001D /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000001C /* TodayView.swift */; };
+		AA000000000000000000001F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000001E /* LearnView.swift */; };
+		AA0000000000000000000021 /* CramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* CramView.swift */; };
+		AA0000000000000000000023 /* RankView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* RankView.swift */; };
+		AA0000000000000000000025 /* YouView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* YouView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,6 +24,13 @@
 		AA0000000000000000000010 /* RevisioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/RevisioApp.swift; sourceTree = "<group>"; };
 		AA0000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0000000000000000000018 /* Common.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Common.swift; sourceTree = "<group>"; };
+		AA000000000000000000001A /* SessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/SessionView.swift; sourceTree = "<group>"; };
+		AA000000000000000000001C /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/TodayView.swift; sourceTree = "<group>"; };
+		AA000000000000000000001E /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/LearnView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000020 /* CramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/CramView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000022 /* RankView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/RankView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000024 /* YouView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/YouView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,6 +49,13 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000010 /* RevisioApp.swift */,
+				AA0000000000000000000018 /* Common.swift */,
+				AA000000000000000000001A /* SessionView.swift */,
+				AA000000000000000000001C /* TodayView.swift */,
+				AA000000000000000000001E /* LearnView.swift */,
+				AA0000000000000000000020 /* CramView.swift */,
+				AA0000000000000000000022 /* RankView.swift */,
+				AA0000000000000000000024 /* YouView.swift */,
 				AA0000000000000000000004 /* RevisioAppSupport */,
 				AA0000000000000000000003 /* Products */,
 			);
@@ -133,6 +154,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0000000000000000000013 /* RevisioApp.swift in Sources */,
+				AA0000000000000000000019 /* Common.swift in Sources */,
+				AA000000000000000000001B /* SessionView.swift in Sources */,
+				AA000000000000000000001D /* TodayView.swift in Sources */,
+				AA000000000000000000001F /* LearnView.swift in Sources */,
+				AA0000000000000000000021 /* CramView.swift in Sources */,
+				AA0000000000000000000023 /* RankView.swift in Sources */,
+				AA0000000000000000000025 /* YouView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

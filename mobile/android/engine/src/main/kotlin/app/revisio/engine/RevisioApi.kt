@@ -29,6 +29,16 @@ private data class SubmitReviewRequest(
 )
 
 @kotlinx.serialization.Serializable
+private data class SubmitRequest(
+    val cardId: String,
+    val answer: String? = null,
+    val selectedOptionId: String? = null,
+    val durationMs: Long = 0,
+    val mode: String = "daily",
+    val sessionId: String? = null,
+)
+
+@kotlinx.serialization.Serializable
 private data class ApiErrorEnvelope(val error: ApiErrorBody? = null)
 
 @kotlinx.serialization.Serializable
@@ -55,7 +65,7 @@ class RevisioApi(
         val builder = Request.Builder().url("$base$path")
         if (token != null) builder.header("Authorization", "Bearer $token")
         if (body != null) builder.method(method, body.toRequestBody(jsonType))
-        else if (method == "POST") builder.post(ByteArray(0).toRequestBody(null))
+        else if (method != "GET") builder.method(method, ByteArray(0).toRequestBody(null))
         return builder.build()
     }
 
@@ -131,6 +141,121 @@ class RevisioApi(
         )
         send(request("/api/v1/reviews", token = token, body = body, method = "POST")) {
             json.decodeFromString(ReviewResult.serializer(), it)
+        }
+    }
+
+    /**
+     * One review, in any mode.
+     *
+     * `mode` is how the same grading path serves today's queue (`daily`), first
+     * exposure (`learn`), cram (`cram`) and the exam simulator. A card met in
+     * one of them is graded, scheduled and rewarded exactly like any other —
+     * which is the point of it being a mode rather than a second loop.
+     */
+    suspend fun submit(
+        token: String,
+        cardId: String,
+        answer: String? = null,
+        selectedOptionId: String? = null,
+        durationMs: Long = 0,
+        mode: String = "daily",
+        sessionId: String? = null,
+    ): ReviewResult = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(
+            SubmitRequest.serializer(),
+            SubmitRequest(cardId, answer, selectedOptionId, durationMs, mode, sessionId),
+        )
+        send(request("/api/v1/reviews", token = token, body = body, method = "POST")) {
+            json.decodeFromString(ReviewResult.serializer(), it)
+        }
+    }
+
+    // ── the catalogue ───────────────────────────────────────────────────────
+
+    /** Every public subject, flagged with whether this learner follows it. */
+    suspend fun subjects(token: String): List<Subject> = withContext(Dispatchers.IO) {
+        send(request("/api/v1/subjects", token = token)) { json.decodeFromString(SubjectList.serializer(), it) }.subjects
+    }
+
+    suspend fun enroll(token: String, subjectId: String): Boolean = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(EnrollRequest.serializer(), EnrollRequest(subjectId))
+        send(request("/api/v1/subjects", token = token, body = body, method = "POST")) {
+            json.decodeFromString(EnrollResult.serializer(), it)
+        }.enrolled
+    }
+
+    /** The topics under a subject that this learner may actually study. */
+    suspend fun topics(token: String, subjectId: String): List<Topic> = withContext(Dispatchers.IO) {
+        send(request("/api/v1/content?subjectId=$subjectId", token = token)) {
+            json.decodeFromString(TopicList.serializer(), it)
+        }.topics
+    }
+
+    /** A topic's notes, in both densities. */
+    suspend fun lessons(token: String, topicId: String): List<Lesson> = withContext(Dispatchers.IO) {
+        send(request("/api/v1/lessons?topicId=$topicId", token = token)) {
+            json.decodeFromString(LessonList.serializer(), it)
+        }.lessons
+    }
+
+    /** A topic's unseen cards, with the notes that explain them. */
+    suspend fun firstExposure(token: String, topicId: String, batch: Int = 4): FirstExposure = withContext(Dispatchers.IO) {
+        send(request("/api/v1/learn?topicId=$topicId&batch=$batch", token = token)) {
+            json.decodeFromString(FirstExposure.serializer(), it)
+        }
+    }
+
+    /** Today's queue, without answer keys — the client asks the server to mark. */
+    suspend fun todayQueue(token: String, limit: Int = 20): List<QueueCard> = withContext(Dispatchers.IO) {
+        send(request("/api/v1/queue/today?limit=$limit", token = token)) {
+            json.decodeFromString(QueueList.serializer(), it)
+        }.queue
+    }
+
+    /** Topics available to cram, with counts that match the queue it will deal. */
+    suspend fun cramTopics(token: String): List<Topic> = withContext(Dispatchers.IO) {
+        send(request("/api/v1/cram", token = token)) { json.decodeFromString(TopicList.serializer(), it) }.topics
+    }
+
+    /** Start a cram session: the notes at the chosen density, plus the queue. */
+    suspend fun cram(
+        token: String,
+        topicIds: List<String>,
+        maxPerTopic: Int = 20,
+        noteDensity: String = "detailed",
+    ): CramSession = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(CramRequest.serializer(), CramRequest(topicIds, maxPerTopic, noteDensity))
+        send(request("/api/v1/cram", token = token, body = body, method = "POST")) {
+            json.decodeFromString(CramSession.serializer(), it)
+        }
+    }
+
+    // ── rank, lobby, achievements ───────────────────────────────────────────
+
+    suspend fun gamification(token: String, scope: String = "weekly"): GamificationPayload = withContext(Dispatchers.IO) {
+        send(request("/api/v1/gamification?scope=$scope", token = token)) {
+            json.decodeFromString(GamificationPayload.serializer(), it)
+        }
+    }
+
+    // ── the account ─────────────────────────────────────────────────────────
+
+    suspend fun meDetail(token: String): MeDetail = withContext(Dispatchers.IO) {
+        send(request("/api/v1/me", token = token)) { json.decodeFromString(MeDetail.serializer(), it) }
+    }
+
+    suspend fun patchMe(token: String, patch: MePatch): Unit = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(MePatch.serializer(), patch)
+        send(request("/api/v1/me", token = token, body = body, method = "PATCH")) { it }
+    }
+
+    /**
+     * A public profile. Deliberately unauthenticated: a shared link has to open
+     * for someone who is not signed in, and privacy is applied server-side.
+     */
+    suspend fun profile(handle: String, token: String? = null): PublicProfile = withContext(Dispatchers.IO) {
+        send(request("/api/v1/profile/$handle", token = token)) {
+            json.decodeFromString(PublicProfile.serializer(), it)
         }
     }
 

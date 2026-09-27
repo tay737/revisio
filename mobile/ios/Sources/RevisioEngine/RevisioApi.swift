@@ -28,6 +28,28 @@ private struct ApiErrorEnvelope: Decodable {
     let error: Body?
 }
 
+private struct EnrollBody: Encodable { let subjectId: String }
+private struct EnrollResult: Decodable { let enrolled: Bool }
+private struct CramBody: Encodable {
+    let topicIds: [String]
+    let maxPerTopic: Int
+    let noteDensity: String
+}
+private struct WroteResult: Decodable { let updated: Bool? }
+private struct SubmitRequest: Encodable {
+    let cardId: String
+    let answer: String?
+    let selectedOptionId: String?
+    let durationMs: Int
+    let mode: String
+    let sessionId: String?
+}
+
+/// Percent-encode a path segment or query value.
+private func escaped(_ value: String) -> String {
+    value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? value
+}
+
 /// The native client's one door to the backend — same `/api/v1` contract as web.
 public final class RevisioApi: ReviewApi {
     private let base: String
@@ -135,6 +157,120 @@ public final class RevisioApi: ReviewApi {
             durationMs: review.durationMs,
             mode: review.mode
         )
+    }
+
+    /// One review, in any mode.
+    ///
+    /// `mode` is how the same grading path serves today's queue (`daily`), first
+    /// exposure (`learn`), cram (`cram`) and the exam simulator: a card met in any
+    /// of them is graded, scheduled and rewarded exactly like any other.
+    public func submit(
+        token: String,
+        cardId: String,
+        answer: String?,
+        selectedOptionId: String?,
+        durationMs: Int,
+        mode: String = "daily",
+        sessionId: String? = nil
+    ) async throws -> ReviewResult {
+        let body = try encoder.encode(
+            SubmitRequest(
+                cardId: cardId,
+                answer: answer,
+                selectedOptionId: selectedOptionId,
+                durationMs: durationMs,
+                mode: mode,
+                sessionId: sessionId
+            )
+        )
+        let (result, _) = try await send("/api/v1/reviews", method: "POST", token: token, body: body, as: ReviewResult.self)
+        return result
+    }
+
+    // ── the catalogue ───────────────────────────────────────────────────────
+
+    /// Every public subject, flagged with whether this learner follows it.
+    public func subjects(token: String) async throws -> [Subject] {
+        let (parsed, _) = try await send("/api/v1/subjects", token: token, as: SubjectList.self)
+        return parsed.subjects
+    }
+
+    public func enroll(token: String, subjectId: String) async throws -> Bool {
+        let body = try encoder.encode(EnrollBody(subjectId: subjectId))
+        let (parsed, _) = try await send("/api/v1/subjects", method: "POST", token: token, body: body, as: EnrollResult.self)
+        return parsed.enrolled
+    }
+
+    /// The topics under a subject that this learner may actually study.
+    public func topics(token: String, subjectId: String) async throws -> [Topic] {
+        let (parsed, _) = try await send("/api/v1/content?subjectId=\(escaped(subjectId))", token: token, as: TopicList.self)
+        return parsed.topics
+    }
+
+    /// A topic's notes, in both densities.
+    public func lessons(token: String, topicId: String) async throws -> [Lesson] {
+        let (parsed, _) = try await send("/api/v1/lessons?topicId=\(escaped(topicId))", token: token, as: LessonList.self)
+        return parsed.lessons
+    }
+
+    /// A topic's unseen cards, with the notes that explain them.
+    public func firstExposure(token: String, topicId: String, batch: Int = 4) async throws -> FirstExposure {
+        let (parsed, _) = try await send(
+            "/api/v1/learn?topicId=\(escaped(topicId))&batch=\(batch)",
+            token: token,
+            as: FirstExposure.self
+        )
+        return parsed
+    }
+
+    /// Today's queue, without answer keys — the client asks the server to mark.
+    public func todayQueue(token: String, limit: Int = 20) async throws -> [QueueCard] {
+        let (parsed, _) = try await send("/api/v1/queue/today?limit=\(limit)", token: token, as: QueueList.self)
+        return parsed.queue
+    }
+
+    /// Topics available to cram, with counts that match the queue it will deal.
+    public func cramTopics(token: String) async throws -> [Topic] {
+        let (parsed, _) = try await send("/api/v1/cram", token: token, as: TopicList.self)
+        return parsed.topics
+    }
+
+    /// Start a cram session: the notes at the chosen density, plus the queue.
+    public func cram(
+        token: String,
+        topicIds: [String],
+        maxPerTopic: Int = 20,
+        noteDensity: String = "detailed"
+    ) async throws -> CramSession {
+        let body = try encoder.encode(CramBody(topicIds: topicIds, maxPerTopic: maxPerTopic, noteDensity: noteDensity))
+        let (parsed, _) = try await send("/api/v1/cram", method: "POST", token: token, body: body, as: CramSession.self)
+        return parsed
+    }
+
+    // ── rank, lobby, achievements ───────────────────────────────────────────
+
+    public func gamification(token: String, scope: String = "weekly") async throws -> GamificationPayload {
+        let (parsed, _) = try await send("/api/v1/gamification?scope=\(escaped(scope))", token: token, as: GamificationPayload.self)
+        return parsed
+    }
+
+    // ── the account ─────────────────────────────────────────────────────────
+
+    public func meDetail(token: String) async throws -> MeDetail {
+        let (parsed, _) = try await send("/api/v1/me", token: token, as: MeDetail.self)
+        return parsed
+    }
+
+    public func patchMe(token: String, patch: MePatch) async throws {
+        let body = try encoder.encode(patch)
+        _ = try await send("/api/v1/me", method: "PATCH", token: token, body: body, as: WroteResult.self)
+    }
+
+    /// A public profile. Deliberately unauthenticated: a shared link has to open
+    /// for someone who is not signed in, and privacy is applied server-side.
+    public func profile(handle: String, token: String? = nil) async throws -> PublicProfile {
+        let (parsed, _) = try await send("/api/v1/profile/\(escaped(handle))", token: token, as: PublicProfile.self)
+        return parsed
     }
 
     /// Pull `srs_refresh` out of the login response's Set-Cookie header.

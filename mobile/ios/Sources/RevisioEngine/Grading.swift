@@ -171,4 +171,27 @@ public enum Grading {
         let accepted = card.key.accepted ?? []
         return (accepted.first(where: { $0.isPrimary == true }) ?? accepted.first)?.text
     }
+
+    // ── the same preview, for a card that may have no key ────────────────────
+    //
+    // A card the server picked (today's queue, first exposure, cram) carries no
+    // answer key, so there is nothing to grade locally and pretending otherwise
+    // would be the app inventing a mark. These return nil in that case, and the
+    // caller says so out loud instead.
+
+    public static func previewVerdict(_ card: QuizCard, answer: String?, selectedOptionId: String?) -> Verdict? {
+        guard let key = card.key else { return nil }
+        if key.kind == "mcq" { return gradeMcq(selectedOptionId, key.correctOptionId ?? "") }
+        if card.kind == "flashcard" { return gradeFlashcard(answer ?? "", key.accepted ?? []) }
+        return gradeCloze(answer ?? "", key.accepted ?? [])
+    }
+
+    public static func primaryAnswer(_ card: QuizCard) -> String? {
+        guard let key = card.key else { return nil }
+        if key.kind == "mcq" {
+            return card.options?.first(where: { $0.id == key.correctOptionId })?.text
+        }
+        let accepted = key.accepted ?? []
+        return (accepted.first(where: { $0.isPrimary == true }) ?? accepted.first)?.text
+    }
 }
