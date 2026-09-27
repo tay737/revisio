@@ -141,7 +141,7 @@ rules it encodes.
 ## Mobile
 
 The mobile apps are **native clients**, not a wrapper around this website. They
-speak the same `/api/v1` backend API and reimplement the review surface natively
+speak the same `/api/v1` backend API and reimplement the learner surface natively
 (Kotlin + Compose on Android, Swift + SwiftUI on iOS), each over an engine that
 carries the whole client's behaviour and can be tested without a device.
 
@@ -160,11 +160,16 @@ What is native, and what it buys:
   with a native port of `domain/grading`, and queues each review for the server
   to re-grade
 - the session survives a restart, so losing signal never signs anyone out
+- all five learner destinations are compiled in — **Today**, **Learn** (subjects,
+  topics, reading notes), **Cram**, **Rank** (rank, weekly lobby, placement) and
+  **You** (profile, privacy switches, preferences, achievements). Each one opens
+  with no network and says what it is waiting on rather than failing
 
 Grading keeps a single owner: `src/domain/grading.ts` emits golden vectors that
 both native ports must reproduce, so a rule change on the web fails the mobile
 builds until they follow. `docs/MOBILE.md` has the architecture, the verification
-status, and what remains — signing, feature coverage, an offline web fallback.
+status, and what remains — signing, the web-only authoring surfaces (exam,
+library, teacher, admin), and an offline web fallback.
 
 ## Releases
 

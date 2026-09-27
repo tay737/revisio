@@ -14,9 +14,10 @@
  * So this test seeds a signed-in session and a session's worth of cards into the
  * app's private storage (a debug build is debuggable, so `run-as` can reach it),
  * turns the network off, and then drives the real screen: open, read the home
- * screen, start a review, answer three cards, and check that the marks are
- * correct and the reviews are queued for the server. No deployment is contacted
- * at any point — if any of it depended on a server, this would fail.
+ * screen, start a review, answer three cards, check that the marks are correct
+ * and the reviews are queued for the server, then walk every other destination
+ * and the loop again. No deployment is contacted at any point — if any of it
+ * depended on a server, this would fail.
  *
  * Requirements: ANDROID_HOME (or ANDROID_SDK_ROOT) with platform-tools, and an
  * attached device or an AVD it can boot itself.
@@ -176,6 +177,16 @@ async function waitForText(serial, text, timeoutMs = 30_000) {
     if (Date.now() > deadline) return last;
     await sleep(1200);
   }
+}
+
+/**
+ * Tap a destination in the tab bar, then wait for the screen it opens to prove
+ * itself. `tap` has to be exact — the tab label and the screen heading are often
+ * the same word — while `expect` is a substring of copy only that screen carries.
+ */
+async function waitForTextAfter(serial, tap, expect, timeoutMs = 20_000) {
+  if (!(await tapText(serial, tap, timeoutMs))) return '';
+  return waitForText(serial, expect, timeoutMs);
 }
 
 async function tapText(serial, text, timeoutMs = 20_000) {
@@ -409,6 +420,50 @@ async function main() {
       'offline: the queue carries the answers, ready to be re-graded',
       queued.map((r) => r.cardId).join(',') === 'c1,c2,c3',
       outbox,
+    );
+
+    // ── 4. the rest of the app is compiled in, not fetched ───────────────────
+    // Every destination is a screen in this binary rather than a page behind a
+    // URL, so losing the network cannot blank them. Each one has to say what it
+    // is missing instead of failing, and the ones that are pure reading or pure
+    // drilling have to keep working.
+    check('offline: the summary closes back to the app', await tapText(serial, 'Done'));
+
+    const learn = await waitForTextAfter(serial, 'Learn', 'Notes for every topic', 20_000);
+    check(
+      'offline: Learn opens to its own notes screen',
+      hasText(learn, 'Notes for every topic'),
+      textsOnScreen(learn).join(' | '),
+    );
+
+    const cram = await waitForTextAfter(serial, 'Cram', 'Practice without touching the schedule', 20_000);
+    check(
+      'offline: Cram opens to its own session builder',
+      hasText(cram, 'Practice without touching the schedule'),
+      textsOnScreen(cram).join(' | '),
+    );
+
+    const rank = await waitForTextAfter(serial, 'Rank', 'rank needs a connection', 20_000);
+    check(
+      'offline: Rank explains what it cannot compute yet',
+      hasText(rank, 'rank needs a connection'),
+      textsOnScreen(rank).join(' | '),
+    );
+
+    const you = await waitForTextAfter(serial, 'You', 'account details need a connection', 20_000);
+    check(
+      'offline: You explains what it cannot show yet',
+      hasText(you, 'account details need a connection'),
+      textsOnScreen(you).join(' | '),
+    );
+    info(`account: ${clip(textsOnScreen(you).join(' | '), 180)}`);
+
+    // Back to the loop, which must still be the loop.
+    const back = await waitForTextAfter(serial, 'Today', 'cards ready', 20_000);
+    check(
+      'offline: Today still offers the offline session after the tour',
+      hasText(back, 'cards ready') && hasText(back, 'Offline'),
+      textsOnScreen(back).join(' | '),
     );
 
     await setNetwork(serial, true);

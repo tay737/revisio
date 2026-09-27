@@ -24,6 +24,27 @@ bug, and it was structural: a cached website has no app of its own to open.
 The fix is not a better cache. It is that the screen the user sees is compiled
 into the app, so it exists before, during and after any network call.
 
+## What the clients do
+
+Both clients implement the learner surface itself, not a subset of it. Nothing
+here is a WebView, and no screen is fetched at runtime — the five destinations
+are compiled in, so losing the network can never blank one.
+
+| Surface | Native screen | Needs a server? |
+|---|---|---|
+| The daily loop | `TodayScreen` / `TodayView` | table · no — works from the stored session |
+| Marking a card (cloze, flashcard, MCQ) | `SessionScreen` / `SessionView` | table · no — graded by the port, queued |
+| Cram | `CramScreen` / `CramView` | list yes, session no |
+| Learn — subjects, topics, notes | `LearnScreen` / `LearnView` | yes for the catalogue; notes render offline once read |
+| Rank — rank, weekly lobby, placement | `RankScreen` / `RankView` | yes (computed from full history) |
+| You — profile, privacy switches, prefs, achievements | `YouScreen` / `YouView` | yes |
+| Sign in / sign out, session persistence | `AuthScreen` / `AuthView` | first sign-in only |
+
+The content, session and rank payloads are the ones the web already returns, so
+the phone and the web cannot disagree about a card, a note or a rank. Counting
+and ranking live in `src/domain/` and `src/services/` on the server; the clients
+draw what they are handed.
+
 ## Architecture: engine apart from interface
 
 Each client is split the same way, and the split is load-bearing.
@@ -46,6 +67,14 @@ mobile/ios/
   Sources/Revisio/         the SwiftUI surface
   Revisio.xcodeproj        the app target CI archives — it links RevisioEngine
   Revisio/                 Info.plist and the icon catalogue
+```
+
+```
+mobile/ios/Sources/Revisio/    one file per destination
+  RevisioApp.swift   the shell, the tabs and the state owner
+  TodayView.swift    SessionView.swift   CramView.swift
+  LearnView.swift    RankView.swift      YouView.swift
+  Common.swift       the shared pieces (panel, stat, notes, avatar)
 ```
 
 The Xcode project does not copy the engine. It references the package beside it
@@ -115,6 +144,10 @@ npm run native:android:test      # engine conformance + store tests
 npm run native:android:apk       # debug APK
 npm run verify:native            # boots an emulator and drives the app offline
 
+# the clients and the server, against a running server (development database)
+npx next start -p 3123 &
+npm run verify:native:api -- http://127.0.0.1:3123 dev@revisio.app
+
 # iOS
 npm run native:ios:test          # engine conformance + store tests
 
@@ -130,11 +163,25 @@ Android needs JDK 21 and the Android SDK (`ANDROID_HOME`). iOS needs Xcode.
 `verify:native` is the strongest gate in the repo: it installs the APK, seeds a
 signed-in session and a session's worth of cards, **turns the network off**, and
 then drives the real screen — open, start a review, answer a cloze, a flashcard
-and a multiple choice, and confirm the marks and the queue. If anything depended
-on a server, it would fail.
+and a multiple choice, confirm the marks and the queue, then walk every other
+destination and come back to the loop. If anything depended on a server, it
+would fail.
 
 There is no `NATIVE_APP_URL` anymore. The deployment is compiled in (the
 `revisioApiBase` Gradle property, or `apiBase` in the iOS app).
+
+`verify:native:api` is the other half of the gate. `verify:native` proves the app
+runs with no server; this one proves it reads the *right* server. It signs in
+against a running target and walks every route the two clients call, asserting
+the fields their models require. It reads rather than writes — no review is
+submitted, so nothing is re-scheduled.
+
+It exists because a phone decodes silently. The web client has a console and a
+human; the native clients turn a renamed field into a default, and a screen that
+says "0 questions" looks like an empty topic rather than a broken contract. This
+is not hypothetical: `/content` sends a topic's counts as `cards`/`lessons` while
+`/cram` sends the same two numbers as `cardCount`/`lessonCount`, and a model that
+knows only one spelling passes every test and shows nothing.
 
 ### The iOS bundle
 
@@ -184,6 +231,9 @@ Against `1.0.0-alpha.2`:
 | Swift grading port ≡ TypeScript engine | `swift test` — 19/19 vectors |
 | The APK opens its own UI offline | `verify:native` on an emulator with the network disabled |
 | A full review completes offline and queues | `verify:native` — cloze, flashcard, MCQ, then the outbox |
+| Every destination is compiled in, not fetched | `verify:native` — Learn, Cram, Rank and You each open offline and say what they are missing instead of failing |
+| The native models match what the server sends | `verify:native:api` — every learner route, against a running server, field by field |
+| Offline is never reported as being signed out | `verify:native` — the account banner reads "You're offline" while the network is off |
 | iOS produces an installable artefact | the `ios` job archives `Revisio.xcodeproj` and attaches `Revisio-<version>-ios-unsigned.ipa` |
 | The `.ipa` is the app we think it is | the workflow reads back the bundle id, version and compiled icon from the published file |
 | **Not yet:** running on iOS hardware | the `.ipa` is unsigned and has not been launched on a device |
@@ -203,6 +253,10 @@ Against `1.0.0-alpha.2`:
   navigation with the cached landing page. That is no longer the mobile bug it
   was — the native clients do not use it — but the web app would still benefit
   from a route-aware offline fallback.
-- **Feature coverage.** The native clients implement auth, the home summary and
-  the daily review loop. Cram, exam, learn, progress, library, teacher and
-  admin remain web-only.
+- **Feature coverage.** The learner surface is native on both platforms — the
+  loop, cram, learn and notes, rank, profile and settings. Still web-only:
+  exam mode, the library, teacher tools and the admin console. Those are
+  authoring and operations surfaces, and they are the natural next port.
+- **Notes are read online first.** `LearnView`/`LearnScreen` fetch the lesson
+  text from the server; a topic read once is not yet kept for offline reading
+  the way the daily pack is.

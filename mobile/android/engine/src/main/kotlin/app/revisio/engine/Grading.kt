@@ -182,4 +182,32 @@ object Grading {
             val accepted = card.key.accepted ?: emptyList()
             (accepted.firstOrNull { it.isPrimary } ?: accepted.firstOrNull())?.text
         }
+
+    // ── the same preview, for a card that may have no key ────────────────────
+    //
+    // A card the server picked (today's queue, first exposure, cram) carries no
+    // answer key, so there is nothing to grade locally and pretending otherwise
+    // would be the app inventing a mark. These return null in that case, and the
+    // caller says so out loud instead.
+
+    fun previewVerdict(card: QuizCard, answer: String?, selectedOptionId: String?): Verdict? {
+        val key = card.key ?: return null
+        return if (key.kind == "mcq") {
+            gradeMcq(selectedOptionId, key.correctOptionId ?: "")
+        } else if (card.kind == "flashcard") {
+            gradeFlashcard(answer ?: "", key.accepted ?: emptyList())
+        } else {
+            gradeCloze(answer ?: "", key.accepted ?: emptyList())
+        }
+    }
+
+    fun primaryAnswer(card: QuizCard): String? {
+        val key = card.key ?: return null
+        return if (key.kind == "mcq") {
+            card.options?.firstOrNull { it.id == key.correctOptionId }?.text
+        } else {
+            val accepted = key.accepted ?: emptyList()
+            (accepted.firstOrNull { it.isPrimary } ?: accepted.firstOrNull())?.text
+        }
+    }
 }

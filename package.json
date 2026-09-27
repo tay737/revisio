@@ -19,6 +19,7 @@
     "verify:content": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-content.ts",
     "verify:offline": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-offline.ts",
     "verify:native": "node scripts/native/android-smoke.mjs",
+    "verify:native:api": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/native/verify-native-api.ts",
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",
     "native:android:apk": "cd mobile/android && ./gradlew :app:assembleDebug",

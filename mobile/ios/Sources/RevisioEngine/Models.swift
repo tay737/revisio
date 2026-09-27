@@ -116,14 +116,14 @@ public struct RefreshResponse: Codable {
     public var user: ApiUser?
 }
 
-public struct Gamification: Codable {
+public struct Gamification: Codable, Equatable {
     public var totalXp: Int?
     public var level: Int?
     public var streak: Int?
     public var bestStreak: Int?
 }
 
-public struct TodaySummary: Codable {
+public struct TodaySummary: Codable, Equatable {
     public var due: Int?
     public var reviewed: Int?
     public var correct: Int?

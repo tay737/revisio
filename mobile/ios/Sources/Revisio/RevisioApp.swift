@@ -5,32 +5,30 @@ import RevisioEngine
 /// The deployment the app talks to. A native client owns this, rather than
 /// loading a website that owns it.
 private let apiBase = "https://revisio-srs.vercel.app"
-private let accent = Color(red: 28 / 255, green: 100 / 255, blue: 242 / 255)
-private let surface1 = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
-private let muted = Color(red: 152 / 255, green: 152 / 255, blue: 157 / 255)
-private let good = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
-private let near = Color(red: 255 / 255, green: 214 / 255, blue: 10 / 255)
 
-/// iOS-only keyboard hints, applied only where they exist.
-///
-/// The package also builds on macOS (that is how the engine is verified), and
-/// these modifiers do not exist there — so the hints are attached through this
-/// one guarded seam instead of forcing an iOS-only build.
-private extension View {
-    @ViewBuilder func revisioTextInput() -> some View {
-        #if os(iOS)
-        self.textInputAutocapitalization(.never)
-        #else
-        self
-        #endif
+/// The five places the app can be.
+enum Tab: String, CaseIterable {
+    case today, learn, cram, rank, you
+
+    var label: String {
+        switch self {
+        case .today: return "Today"
+        case .learn: return "Learn"
+        case .cram: return "Cram"
+        case .rank: return "Rank"
+        case .you: return "You"
+        }
     }
 
-    @ViewBuilder func revisioEmailInput() -> some View {
-        #if os(iOS)
-        self.textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never)
-        #else
-        self
-        #endif
+    /// Glyphs rather than an icon font this build does not ship.
+    var glyph: String {
+        switch self {
+        case .today: return "◎"
+        case .learn: return "▤"
+        case .cram: return "⚡"
+        case .rank: return "★"
+        case .you: return "☺"
+        }
     }
 }
 
@@ -39,12 +37,15 @@ struct Home {
     var level = 0
     var streak = 0
     var due = 0
+    var reviewedToday = 0
+    var correctToday = 0
     var packCards = 0
     var fromCache = false
 }
 
 struct Feedback {
-    var verdict: Verdict
+    /// Nil when the answer was queued and this build had no key to mark it.
+    var verdict: Verdict?
     var correctAnswer: String?
     var explanation: String?
     var xpAwarded: Int
@@ -56,17 +57,20 @@ struct Feedback {
 ///
 /// It decides one thing on the user's behalf: whether an answer goes to the
 /// server now or into the outbox for later. Everything else — grading, the pack,
-/// the outbox — is the engine's job.
+/// the outbox, the queue the server picked — is the engine's job.
 @MainActor
 final class AppModel: ObservableObject {
     @Published var loading = true
     @Published var signedIn = false
     @Published var name = ""
     @Published var online = true
+    @Published var tab: Tab = .today
     @Published var home: Home?
     @Published var pending = 0
     @Published var message: String?
-    @Published var cards: [OfflineCard] = []
+
+    // the review loop, in whichever mode it was started
+    @Published var cards: [QuizCard] = []
     @Published var index = 0
     @Published var answer = ""
     @Published var selection: String?
@@ -75,6 +79,35 @@ final class AppModel: ObservableObject {
     @Published var correct = 0
     @Published var finished = false
     @Published var inReview = false
+    @Published var mode: StudyMode = .daily
+    @Published var sessionTitle = ""
+    @Published var sessionNotes: [Note] = []
+    @Published var sessionId: String?
+    @Published var notesOpen = true
+    @Published var met = 0
+    @Published var total = 0
+
+    // the catalogue
+    @Published var subjects: [Subject] = []
+    @Published var subjectsLoaded = false
+    @Published var openSubject: String?
+    @Published var topicsBySubject: [String: [Topic]] = [:]
+    @Published var openTopic: String?
+    @Published var lessonsByTopic: [String: [Lesson]] = [:]
+    @Published var density = "detailed"
+
+    // cram
+    @Published var cramTopics: [Topic] = []
+    @Published var cramSelected: Set<String> = []
+    @Published var maxPerTopic = 20
+
+    // rank
+    @Published var ranked: GamificationPayload?
+    @Published var boardScope = "weekly"
+
+    // the account
+    @Published var me: MeDetail?
+    @Published var busy = false
 
     private let store: OfflineStore
     private let sessionStore: SessionStore
@@ -105,8 +138,8 @@ final class AppModel: ObservableObject {
             signedIn = false
             return
         }
-        // Signed in *even offline*: the app opens to the learner's home, not a
-        // sign-in wall, which is the point of an app that works without a network.
+        // Signed in *even offline*: the app opens to the learner's own screen, not
+        // a sign-in wall, which is the point of an app that works without a network.
         loading = false
         signedIn = true
         name = stored.user.name
@@ -126,6 +159,7 @@ final class AppModel: ObservableObject {
                 signedIn = true
                 loading = false
                 refreshHome()
+                loadSubjects()
             } catch {
                 loading = false
                 message = (error as? LocalizedError)?.errorDescription ?? "Sign in failed."
@@ -141,6 +175,10 @@ final class AppModel: ObservableObject {
         name = ""
         home = nil
         pending = 0
+        subjects = []
+        subjectsLoaded = false
+        ranked = nil
+        me = nil
     }
 
     private func ensureToken() async -> String? {
@@ -150,6 +188,33 @@ final class AppModel: ObservableObject {
         accessToken = session.accessToken
         sessionStore.save(session)
         return session.accessToken
+    }
+
+    /// Run a call if there is a token, reporting failures as a banner rather than
+    /// a crash: the app is offline-first, so "no network" is an ordinary state.
+    private func withToken<T>(
+        _ work: @escaping (String) async throws -> T,
+        then: @escaping (T) -> Void
+    ) {
+        Task {
+            guard let token = await ensureToken() else {
+                busy = false
+                // A token we could not renew while offline is not a signed-out
+                // user, so do not tell them to sign in: the session on the device
+                // is still good and will renew by itself once the network is back.
+                message = online
+                    ? "Sign in again to reach the server."
+                    : "You're offline — this needs a connection."
+                return
+            }
+            do {
+                let result = try await work(token)
+                then(result)
+            } catch {
+                busy = false
+                message = (error as? LocalizedError)?.errorDescription ?? "That did not work."
+            }
+        }
     }
 
     // ── home ────────────────────────────────────────────────────────────────
@@ -167,6 +232,8 @@ final class AppModel: ObservableObject {
                     snapshot.level = me?.gamification?.level ?? 0
                     snapshot.streak = me?.gamification?.streak ?? 0
                     snapshot.due = me?.today?.due ?? (pack?.cards.count ?? 0)
+                    snapshot.reviewedToday = me?.today?.reviewed ?? 0
+                    snapshot.correctToday = me?.today?.correct ?? 0
                     snapshot.packCards = pack?.cards.count ?? 0
                     snapshot.fromCache = false
                     if let serverName = me?.name, !serverName.isEmpty { name = serverName }
@@ -192,9 +259,144 @@ final class AppModel: ObservableObject {
         pending = outcome.remaining
     }
 
-    // ── the review loop ─────────────────────────────────────────────────────
+    // ── navigation ──────────────────────────────────────────────────────────
 
-    func startReview() {
+    func selectTab(_ next: Tab) {
+        tab = next
+        message = nil
+        switch next {
+        case .learn: if !subjectsLoaded { loadSubjects() }
+        case .cram: if cramTopics.isEmpty { loadCramTopics() }
+        case .rank: loadProgress()
+        case .you: loadMe()
+        case .today: refreshHome()
+        }
+    }
+
+    func dismissMessage() { message = nil }
+    func toggleNotes() { notesOpen.toggle() }
+    func setDensity(_ value: String) { density = value }
+    func setMaxPerTopic(_ value: Int) { maxPerTopic = min(max(value, 1), 50) }
+
+    // ── the catalogue: subjects → topics → notes ─────────────────────────────
+
+    func loadSubjects() {
+        busy = true
+        withToken({ try await self.api.subjects(token: $0) }) { subjects in
+            self.subjects = subjects
+            self.subjectsLoaded = true
+            self.busy = false
+        }
+    }
+
+    func toggleSubject(_ subjectId: String) {
+        let wasOpen = openSubject == subjectId
+        openSubject = wasOpen ? nil : subjectId
+        openTopic = nil
+        if wasOpen || topicsBySubject[subjectId] != nil { return }
+        withToken({ try await self.api.topics(token: $0, subjectId: subjectId) }) { topics in
+            self.topicsBySubject[subjectId] = topics
+            self.busy = false
+        }
+    }
+
+    func toggleTopic(_ topicId: String) {
+        let wasOpen = openTopic == topicId
+        openTopic = wasOpen ? nil : topicId
+        if wasOpen || lessonsByTopic[topicId] != nil { return }
+        withToken({ try await self.api.lessons(token: $0, topicId: topicId) }) { lessons in
+            self.lessonsByTopic[topicId] = lessons
+            self.busy = false
+        }
+    }
+
+    func enroll(_ subjectId: String) {
+        withToken({ try await self.api.enroll(token: $0, subjectId: subjectId) }) { _ in
+            self.subjects = self.subjects.map { subject in
+                var copy = subject
+                if copy.id == subjectId { copy.enrolled = true }
+                return copy
+            }
+            self.busy = false
+        }
+    }
+
+    // ── cram ────────────────────────────────────────────────────────────────
+
+    func loadCramTopics() {
+        busy = true
+        withToken({ try await self.api.cramTopics(token: $0) }) { topics in
+            self.cramTopics = topics
+            self.busy = false
+        }
+    }
+
+    func toggleCramTopic(_ topicId: String) {
+        if cramSelected.contains(topicId) { cramSelected.remove(topicId) } else { cramSelected.insert(topicId) }
+    }
+
+    // ── rank ────────────────────────────────────────────────────────────────
+
+    func loadProgress(scope: String? = nil) {
+        let wanted = scope ?? boardScope
+        boardScope = wanted
+        busy = true
+        withToken({ try await self.api.gamification(token: $0, scope: wanted) }) { payload in
+            self.ranked = payload
+            self.busy = false
+        }
+    }
+
+    // ── the account ─────────────────────────────────────────────────────────
+
+    func loadMe() {
+        withToken({ try await self.api.meDetail(token: $0) }) { me in
+            self.me = me
+            self.busy = false
+        }
+    }
+
+    func saveProfile(name: String, username: String, nickname: String, bio: String, emoji: String, color: String) {
+        let patch = MePatch(
+            name: name.trimmed.isEmpty ? nil : name.trimmed,
+            nickname: nickname.trimmed.isEmpty ? nil : nickname.trimmed,
+            username: username.trimmed.isEmpty ? nil : username.trimmed,
+            bio: bio.trimmed.isEmpty ? nil : bio.trimmed,
+            avatarEmoji: emoji.trimmed.isEmpty ? nil : emoji.trimmed,
+            avatarColor: color
+        )
+        patchMe(patch, okMessage: "Saved.")
+    }
+
+    func setVisibility(_ visibility: RevisioEngine.Visibility) {
+        patchMe(MePatch(profileVisibility: visibility), okMessage: nil)
+    }
+
+    func setLeaderboardOptOut(_ optOut: Bool) {
+        patchMe(MePatch(leaderboardOptOut: optOut), okMessage: nil)
+    }
+
+    func setNoteDensity(_ value: String) {
+        density = value
+        patchMe(MePatch(prefs: Prefs(noteDensity: value, reducedMotion: false)), okMessage: nil)
+    }
+
+    private func patchMe(_ patch: MePatch, okMessage: String?) {
+        busy = true
+        withToken({ token -> MeDetail in
+            try await self.api.patchMe(token: token, patch: patch)
+            return try await self.api.meDetail(token: token)
+        }) { me in
+            self.me = me
+            self.busy = false
+            self.message = okMessage
+        }
+    }
+
+    // ── the review loop, in any mode ────────────────────────────────────────
+
+    /// Today's queue: the session the app carries offline, keys and all.
+    func startTodayReview() {
         Task {
             if online, let token = await ensureToken(), let fresh = try? await api.fetchPack(token: token) {
                 store.savePack(fresh)
@@ -203,18 +405,102 @@ final class AppModel: ObservableObject {
                 message = "No cards saved on this device yet. Connect once to download today's session."
                 return
             }
-            cards = pack.cards
-            index = 0
-            answer = ""
-            selection = nil
-            feedback = nil
-            answered = 0
-            correct = 0
-            finished = false
-            inReview = true
-            cardStartedAt = Date()
+            begin(
+                cards: pack.cards.map { QuizCard(offline: $0) },
+                mode: .daily, notes: [], title: "Today", sessionId: nil, met: 0, total: 0
+            )
         }
     }
+
+    /// First exposure: the server picks the *unseen* cards and sends the notes
+    /// with them, because a first attempt at unread material is a guess.
+    func startLearn(_ topicId: String) {
+        busy = true
+        withToken({ try await self.api.firstExposure(token: $0, topicId: topicId, batch: 4) }) { exposure in
+            self.busy = false
+            let cards = exposure.batch.map { QuizCard(queue: $0) }
+            guard !cards.isEmpty else {
+                self.message = "Every card in \(exposure.topic.name) has been met. Try cramming it instead."
+                return
+            }
+            self.begin(
+                cards: cards,
+                mode: .learn,
+                notes: exposure.notes.map { note in
+                    var copy = note
+                    if copy.topicId == nil { copy.topicId = topicId }
+                    return copy
+                },
+                title: exposure.topic.name,
+                sessionId: nil,
+                met: exposure.progress.met,
+                total: exposure.progress.total
+            )
+        }
+    }
+
+    /// Cram: a fixed number per topic, notes at the chosen density, and nothing
+    /// here touches the scheduler — that is what cramming means.
+    func startCram() {
+        let selected = Array(cramSelected)
+        guard !selected.isEmpty else {
+            message = "Pick at least one topic to cram."
+            return
+        }
+        let density = self.density
+        let max = maxPerTopic
+        busy = true
+        withToken({ try await self.api.cram(token: $0, topicIds: selected, maxPerTopic: max, noteDensity: density) }) { session in
+            self.busy = false
+            let cards = session.queue.map { QuizCard(queue: $0) }
+            guard !cards.isEmpty else {
+                self.message = "Those topics have no questions to cram yet."
+                return
+            }
+            let names = self.cramTopics.filter { selected.contains($0.id) }.map(\.name)
+            self.begin(
+                cards: cards,
+                mode: .cram,
+                notes: session.notes,
+                title: names.count == 1 ? (names.first ?? "Cram") : "\(names.count) topics",
+                sessionId: session.sessionId,
+                met: 0,
+                total: cards.count
+            )
+        }
+    }
+
+    private func begin(
+        cards: [QuizCard],
+        mode: StudyMode,
+        notes: [Note],
+        title: String,
+        sessionId: String?,
+        met: Int,
+        total: Int
+    ) {
+        self.cards = cards
+        index = 0
+        answer = ""
+        selection = nil
+        feedback = nil
+        answered = 0
+        correct = 0
+        finished = false
+        inReview = true
+        self.mode = mode
+        sessionNotes = notes
+        sessionTitle = title
+        self.sessionId = sessionId
+        notesOpen = true
+        self.met = met
+        self.total = total
+        message = nil
+        cardStartedAt = Date()
+    }
+
+    func setAnswer(_ value: String) { answer = value }
+    func setSelection(_ value: String) { selection = value }
 
     func submit() {
         guard let card = cards[safe: index], feedback == nil else { return }
@@ -225,14 +511,18 @@ final class AppModel: ObservableObject {
 
         let duration = Int(Date().timeIntervalSince(cardStartedAt) * 1000)
         let wasOnline = online
+        let mode = self.mode.rawValue
+        let sessionId = self.sessionId
         Task {
             if wasOnline, let token = await ensureToken() {
-                if let result = try? await api.submitDirect(
+                if let result = try? await api.submit(
                     token: token,
                     cardId: card.id,
                     answer: given,
                     selectedOptionId: selection,
-                    durationMs: duration
+                    durationMs: duration,
+                    mode: mode,
+                    sessionId: sessionId
                 ) {
                     store.dropCardFromPack(card.id)
                     apply(
@@ -245,17 +535,24 @@ final class AppModel: ObservableObject {
                     return
                 }
             }
-            // No server: grade it here, and owe the server the review.
-            store.enqueueReview(cardId: card.id, answer: given, selectedOptionId: selection, durationMs: duration)
-            let verdict = Grading.previewVerdict(card, answer: given, selectedOptionId: selection)
-            apply(verdict, Grading.primaryAnswer(card), nil, 0, provisional: true)
+            // No server: owe it the review. With a key we can still mark it here;
+            // without one, say the mark is coming rather than invent a verdict the
+            // server may disagree with.
+            store.enqueueReview(cardId: card.id, answer: given, selectedOptionId: selection, durationMs: duration, mode: mode)
+            apply(
+                Grading.previewVerdict(card, answer: given, selectedOptionId: selection),
+                Grading.primaryAnswer(card),
+                nil,
+                0,
+                provisional: true
+            )
         }
     }
 
-    private func apply(_ verdict: Verdict, _ correctAnswer: String?, _ explanation: String?, _ xp: Int, provisional: Bool) {
+    private func apply(_ verdict: Verdict?, _ correctAnswer: String?, _ explanation: String?, _ xp: Int, provisional: Bool) {
         feedback = Feedback(verdict: verdict, correctAnswer: correctAnswer, explanation: explanation, xpAwarded: xp, provisional: provisional)
         answered += 1
-        if verdict.correct { correct += 1 }
+        if verdict?.correct == true { correct += 1 }
         pending = store.pendingCount()
     }
 
@@ -281,7 +578,20 @@ final class AppModel: ObservableObject {
         answered = 0
         correct = 0
         feedback = nil
+        sessionNotes = []
+        sessionId = nil
+        met = 0
+        total = 0
         refreshHome()
+        if ranked != nil { loadProgress() }
+    }
+
+    /// The notes for the card on screen, if this session carried any.
+    func notesFor(_ card: QuizCard?) -> [Note] {
+        guard let card else { return [] }
+        guard !sessionNotes.isEmpty else { return [] }
+        let mine = sessionNotes.filter { $0.topicId == nil || $0.topicId == card.topicId }
+        return mine.isEmpty ? sessionNotes : mine
     }
 
     // ── connectivity ────────────────────────────────────────────────────────
@@ -290,27 +600,30 @@ final class AppModel: ObservableObject {
         online = monitor.currentPath.status != .unsatisfied
         monitor.pathUpdateHandler = { [weak self] path in
             let reachable = path.status == .satisfied
-            // Unwrap the weak self out here, before the Task. The handler runs
-            // off the main actor, so it cannot touch `online` itself; but
-            // referring to a captured `self` *inside* a concurrently-executing
-            // closure is rejected outright by some toolchains. Binding it to an
-            // immutable local first leaves the Task capturing a plain value.
+            // Unwrap the weak self out here, before the Task. The handler runs off
+            // the main actor, so it cannot touch `online` itself; but referring to
+            // a captured `self` *inside* a concurrently-executing closure is
+            // rejected outright by some toolchains. Binding it to a local first
+            // leaves the Task capturing a plain value.
             guard let model = self else { return }
             Task { @MainActor in
                 let was = model.online
                 model.online = reachable
-                if reachable && !was { model.refreshHome() }
+                if reachable && !was {
+                    model.refreshHome()
+                    if model.signedIn { model.loadSubjects() }
+                }
             }
         }
         monitor.start(queue: DispatchQueue(label: "app.revisio.network"))
     }
 }
 
-private extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
+private extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
-// ── views ───────────────────────────────────────────────────────────────────
+// ── root ────────────────────────────────────────────────────────────────────
 
 @main
 struct RevisioApp: App {
@@ -329,7 +642,7 @@ private struct RootView: View {
             Color.black.ignoresSafeArea()
             content
             if let message = model.message {
-                Banner(message: message) { model.message = nil }
+                Banner(message: message) { model.dismissMessage() }
             }
         }
     }
@@ -340,20 +653,47 @@ private struct RootView: View {
         } else if !model.signedIn {
             AuthView(model: model)
         } else if model.inReview {
-            ReviewView(model: model)
+            SessionView(model: model)
         } else {
-            HomeView(model: model)
+            VStack(spacing: 0) {
+                Group {
+                    switch model.tab {
+                    case .today: TodayView(model: model)
+                    case .learn: LearnView(model: model)
+                    case .cram: CramView(model: model)
+                    case .rank: RankView(model: model)
+                    case .you: YouView(model: model)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                TabBar(current: model.tab) { model.selectTab($0) }
+            }
         }
     }
 }
 
-private struct Crest: View {
-    var size: CGFloat = 64
+private struct TabBar: View {
+    let current: Tab
+    let onSelect: (Tab) -> Void
+
     var body: some View {
-        RoundedRectangle(cornerRadius: size / 4)
-            .fill(accent)
-            .frame(width: size, height: size)
-            .overlay(Text("R").font(.system(size: size * 0.55, weight: .heavy)).foregroundColor(.white))
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                Button { onSelect(tab) } label: {
+                    VStack(spacing: 3) {
+                        Text(tab.glyph).font(.system(size: 15))
+                        Text(tab.label).font(.system(size: 11))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .foregroundColor(current == tab ? accent : muted)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .background(Color(red: 19 / 255, green: 19 / 255, blue: 21 / 255))
     }
 }
 
@@ -361,13 +701,13 @@ private struct Banner: View {
     let message: String
     let dismiss: () -> Void
     var body: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 6) {
             Text(message).font(.footnote)
-            Spacer()
             Button("Dismiss", action: dismiss).font(.footnote)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(surface1)
+        .background(surface2)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .padding()
     }
@@ -401,238 +741,5 @@ private struct AuthView: View {
             }
             .padding(28)
         }
-    }
-}
-
-private struct HomeView: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 14) {
-                    Crest(size: 44)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(model.name.isEmpty ? "Welcome back" : "Hi, \(model.name)").font(.title3).bold()
-                        Text(model.online ? "Online" : "Offline — your saved session still works")
-                            .font(.caption).foregroundColor(model.online ? good : near)
-                    }
-                    Spacer()
-                }
-
-                if let home = model.home {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Today").font(.caption).foregroundColor(muted)
-                        Text("\(home.due) cards ready").font(.title2).bold()
-                        HStack(spacing: 22) {
-                            Stat("Level", "\(home.level)")
-                            Stat("XP", "\(home.totalXp)")
-                            Stat("Streak", "\(home.streak)d")
-                        }
-                        if home.fromCache {
-                            Text("Showing the session saved on this device.").font(.caption).foregroundColor(near)
-                        }
-                    }
-                    .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(surface1).clipShape(RoundedRectangle(cornerRadius: 18))
-
-                    Button {
-                        model.startReview()
-                    } label: {
-                        Text(home.packCards > 0 ? "Start review" : "Connect once to download cards")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent).tint(accent)
-                    .disabled(home.packCards == 0)
-
-                    if model.pending > 0 {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(model.pending) review\(model.pending == 1 ? "" : "s") waiting to sync").font(.subheadline)
-                                Text("They'll be graded by the server once you're back online.")
-                                    .font(.caption).foregroundColor(muted)
-                            }
-                            Spacer()
-                            if model.online { Button("Sync") { model.refreshHome() } }
-                        }
-                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(surface1).clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
-                } else {
-                    ProgressView().tint(accent)
-                }
-
-                HStack {
-                    Button("Refresh") { model.refreshHome() }
-                    Spacer()
-                    Button("Sign out") { model.signOut() }.foregroundColor(muted)
-                }
-                Spacer()
-            }
-            .padding(24)
-        }
-    }
-
-    private func Stat(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption2).foregroundColor(muted)
-            Text(value).font(.headline)
-        }
-    }
-}
-
-private struct ReviewView: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        if model.finished {
-            SummaryView(model: model)
-        } else if let card = model.cards[safe: model.index] {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    ProgressView(value: Double(model.index + 1), total: Double(model.cards.count))
-                        .tint(accent)
-                    HStack {
-                        Text("\(card.subjectName) · \(card.topicName)").font(.caption).foregroundColor(muted)
-                        Spacer()
-                        Text("\(model.index + 1) / \(model.cards.count)").font(.caption).foregroundColor(muted)
-                    }
-                    Text(prompt(card)).font(.title3).bold()
-
-                    if card.kind == "mcq" {
-                        VStack(spacing: 10) {
-                            ForEach(card.options ?? [], id: \.id) { option in
-                                if model.selection == option.id {
-                                    Button {
-                                        if model.feedback == nil { model.selection = option.id }
-                                    } label: {
-                                        Text(option.text).frame(maxWidth: .infinity, alignment: .leading)
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(accent)
-                                    .disabled(model.feedback != nil)
-                                } else {
-                                    Button {
-                                        if model.feedback == nil { model.selection = option.id }
-                                    } label: {
-                                        Text(option.text).frame(maxWidth: .infinity, alignment: .leading)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .disabled(model.feedback != nil)
-                                }
-                            }
-                        }
-                    } else {
-                        TextField(
-                            card.kind == "flashcard" ? "Say it in your own words" : "Your answer",
-                            text: $model.answer
-                        )
-                        .revisioTextInput()
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(model.feedback != nil)
-                    }
-
-                    if let feedback = model.feedback {
-                        FeedbackPanel(feedback: feedback)
-                        Button {
-                            model.next()
-                        } label: {
-                            Text(model.index + 1 >= model.cards.count ? "Finish" : "Next card").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent).tint(accent)
-                    } else {
-                        Button {
-                            model.submit()
-                        } label: {
-                            Text("Check").frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent).tint(accent)
-                        .disabled(!inputReady(card))
-                    }
-                    Spacer()
-                }
-                .padding(24)
-            }
-        }
-    }
-
-    private func inputReady(_ card: OfflineCard) -> Bool {
-        card.kind == "mcq" ? model.selection != nil : !model.answer.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-}
-
-private struct FeedbackPanel: View {
-    let feedback: Feedback
-
-    private var label: (String, Color) {
-        switch feedback.verdict.feedbackKind {
-        case .correct: return ("Correct", good)
-        case .caseOnly, .punctuationOnly, .caseAndPunctuation: return ("Correct — check your spelling", good)
-        case .nearMiss: return ("Nearly there", near)
-        case .wrong: return ("Not quite", Color(red: 1, green: 0.27, blue: 0.23))
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(label.0).font(.headline).foregroundColor(label.1)
-                Spacer()
-                if feedback.xpAwarded > 0 {
-                    Text("+\(feedback.xpAwarded) XP").font(.subheadline).foregroundColor(good)
-                }
-            }
-            if let note = feedback.verdict.note, !note.isEmpty {
-                Text(note).font(.subheadline)
-            }
-            if let answer = feedback.correctAnswer, !answer.isEmpty {
-                Text("Answer: \(answer)").font(.subheadline).bold()
-            }
-            if let missed = feedback.verdict.missedPhrases, !missed.isEmpty {
-                Text("Missing: \(missed.joined(separator: ", "))").font(.caption).foregroundColor(muted)
-            }
-            if let explanation = feedback.explanation, !explanation.isEmpty {
-                Text(explanation).font(.caption)
-            }
-            if feedback.provisional {
-                Text("Saved on this device. The server will confirm this mark when you reconnect.")
-                    .font(.caption).foregroundColor(near)
-            }
-        }
-        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .background(surface1).clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private struct SummaryView: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Crest(size: 72)
-            Text("Session complete").font(.title).bold()
-            Text("\(model.correct) of \(model.answered) correct").foregroundColor(muted)
-            if model.pending > 0 {
-                Text("\(model.pending) review\(model.pending == 1 ? "" : "s") will sync when you're online.")
-                    .font(.footnote).foregroundColor(near).multilineTextAlignment(.center)
-            }
-            Button {
-                model.endReview()
-            } label: {
-                Text("Done").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent).tint(accent)
-            Spacer()
-        }
-        .padding(32)
-    }
-}
-
-private func prompt(_ card: OfflineCard) -> String {
-    switch card.kind {
-    case "cloze": return card.textWithBlank ?? "Fill in the blank"
-    case "flashcard": return card.prompt ?? "Recall the answer"
-    default: return card.question ?? "Choose the best answer"
     }
 }
