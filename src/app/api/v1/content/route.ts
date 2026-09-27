@@ -6,6 +6,7 @@ import { ApiError, ok, requireUser, route } from '@/services/api';
 import { canManageContent, isDeveloper } from '@/services/roles';
 import { answersForCards, makeSlug, setTopicVisibility, topicContentCounts } from '@/services/content-ops';
 import { reachesUser, topicReaches, type Visibility } from '@/services/visibility';
+import { generateClozeProposals } from '@/domain/cloze-gen';
 
 type CardInput = {
   kind: 'cloze' | 'flashcard' | 'mcq';
@@ -211,6 +212,9 @@ export const GET = route(async (req: NextRequest) => {
 export const PATCH = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const body = (await req.json()) as {
+    action?: 'generate_cloze' | 'insert_cloze';
+    proposals?: { answer: string; textWithBlank: string; lessonTitle?: string }[];
+    count?: number;
     topicId?: string;
     lessonId?: string;
     cardId?: string;
@@ -239,6 +243,53 @@ export const PATCH = route(async (req: NextRequest) => {
     if (!staff && t.ownerId !== user.id) throw new ApiError(403, 'forbidden', 'Not your content.');
     return t;
   };
+
+  // ── cloze generation from the topic's own notes ──
+  // `generate_cloze` proposes fill-the-blank questions and writes nothing;
+  // `insert_cloze` stores an edited-or-accepted subset. Deliberately separate
+  // actions: the author keeps the veto. Importing is untouched — this only
+  // ever adds cards, never edits or removes existing ones.
+  if (body.action === 'generate_cloze') {
+    if (!body.topicId) throw new ApiError(400, 'bad_request', 'topicId required.');
+    await assertCanEditTopic(body.topicId);
+    const [topicLessons, existingCloze] = await Promise.all([
+      db.select({ title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd }).from(lessons).where(eq(lessons.topicId, body.topicId)),
+      db.select({ textWithBlank: cards.textWithBlank }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'cloze'))),
+    ]);
+    const proposals = generateClozeProposals(
+      topicLessons.map((l) => ({ title: l.title, detailedMd: l.detailedMd, summaryMd: l.summaryMd })),
+      existingCloze.map((c) => c.textWithBlank ?? '').filter(Boolean),
+      { max: Math.min(Math.max(1, body.count ?? 10), 30) },
+    );
+    return ok({ proposals });
+  }
+
+  if (body.action === 'insert_cloze') {
+    if (!body.topicId) throw new ApiError(400, 'bad_request', 'topicId required.');
+    const topic = await assertCanEditTopic(body.topicId);
+    const incoming = (body.proposals ?? []).filter(
+      (p) => typeof p?.textWithBlank === 'string' && p.textWithBlank.includes('____') && typeof p?.answer === 'string' && p.answer.trim().length > 0,
+    );
+    if (incoming.length === 0) throw new ApiError(400, 'bad_request', 'proposals must carry at least one { answer, textWithBlank }.');
+    if (incoming.length > 30) throw new ApiError(400, 'bad_request', 'Insert at most 30 questions at a time.');
+
+    // Re-check against what is stored now, so two tabs cannot double-insert.
+    const existing = await db.select({ textWithBlank: cards.textWithBlank }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'cloze')));
+    const seen = new Set(existing.map((c) => c.textWithBlank ?? ''));
+    let inserted = 0;
+    for (const p of incoming) {
+      if (seen.has(p.textWithBlank)) continue;
+      seen.add(p.textWithBlank);
+      const cardId = crypto.randomUUID();
+      await db.insert(cards).values({
+        id: cardId, topicId: topic.id, kind: 'cloze', textWithBlank: p.textWithBlank,
+        explanationMd: '', visibility: topic.visibility, ownerId: topic.ownerId,
+      });
+      await db.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId, text: p.answer.trim(), isPrimary: true });
+      inserted += 1;
+    }
+    return ok({ inserted });
+  }
 
   // ── topic rename / description / visibility ──
   if (body.topicId && !body.lessonId && !body.cardId) {

@@ -856,3 +856,72 @@ against a real Postgres — login, flag, subject, topic, set authoring, session,
 marking, guard-rails — with the production build serving it. URL policy lives in
 `domain/markdown.safeUrl`: web, mail and in-app links render; script schemes
 collapse to `#`.
+
+## 25. As built (v1.8, 2026-09-27) — cloze marking, question generation, instant review
+
+### 25.1 Similar-marking: wrong is wrong, but now it explains itself
+
+`gradeCloze` keeps its exact ladder unchanged — `mobile/shared/grading-vectors.json`
+pins it and the Kotlin/Swift ports must keep reproducing it, so the default
+policy (`legacy`) is byte-identical to the behaviour above. A second mode,
+`similar`, adds one rung before "wrong": when the attempt *means* the accepted
+answer — an inflection (`passwords`→`password`), a dictionary synonym
+(`data`→`information`), or a strong typo band (`encrypton`→`encryption`) — the
+verdict stays incorrect but carries a `similarity` warning naming the exact
+answer. The warning rides a new field, never a new `feedbackKind`: the native
+engines decode feedbackKind as a closed enum, and an unknown string would break
+decoding of every review. Knowing the idea is not knowing the word, so the
+schedule still treats it as a lapse.
+
+The dictionary lives in `domain/similarity.ts`: ~100 conservative groups curated
+so no pair a marker would distinguish is conflated (threat≠risk, virus≠malware
+by design). Staff can extend it per scope (`extraSynonyms`). Typo tolerance is
+normalised Damerau–Levenshtein with tunable floors; a single edit in a word of
+six+ letters is safe to call a typo, shorter words need the tuned ratio.
+`thesaurus-js` was rejected for this role — it is a live scraper, and grading
+must be instant, offline and deterministic.
+
+### 25.2 Policy: one flag, three scopes, resolved server-side
+
+`cloze_marking` (a feature flag payload, same home as `srs_algorithms`) holds a
+default plus subject/topic overrides. Resolution is topic → subject → global,
+computed at grade time by `services/grading-policy.ts`. The offline pack
+resolves the policy per card and carries it in the key, so a preview graded on
+a train warns by the same rules the server will apply. Writes are role-gated:
+developers set the global default (Admin → Cloze marking), staff override their
+subjects and topics (Library → Marking). Both surfaces render the same
+`ClozeMarking` component with a live "how would this be marked" preview.
+
+### 25.3 Question generation: the notes are the bank
+
+`domain/cloze-gen.ts` turns lesson markdown into fill-the-blank proposals:
+sentences in, every blankable token scored (repeated key terms, length, no
+title words, no glue words), then picked with a cooldown — used sentences and
+answers step aside so N proposals cover N different facts. The same sentence
+blanked at a different word is a *different question* and is allowed through:
+variety is the point, repetition is not. Nothing is written without the author:
+`generate_cloze` proposes, `Library → Generate` lets them edit or discard, and
+`insert_cloze` stores the kept ones (re-checked against the topic, so two tabs
+cannot double-insert). Importing is untouched — generation only ever adds.
+
+### 25.4 Instant marking in the review loop
+
+While a cloze answer is typed, `ReviewClient` grades it per keystroke with the
+pack's answer keys (the same `domain/grading` rules the server will apply) and
+ticks the input green the moment it is exactly right. Enter then does the whole
+loop — records the answer and advances. Wrong answers never auto-mark: nothing
+red appears before a real submit. First-exposure sessions carry no keys by
+design, so their first attempt stays a guess.
+
+### 25.5 Verification for this pass
+
+`scripts/verify-grading.ts` (no DB): all 9 pinned cloze vectors unchanged
+(native conformance), 14 calibration cases marked as a marker would, warning
+never rides a correct verdict, generator variety invariants. `verify-maths` and
+`verify-markdown` stay green; `tsc` clean; `next build` clean; a 25-check API
+playtest (policy scopes, role walls, generation, insert-dedup, pack policy,
+end-to-end similar marking through `/api/v1/reviews`) all passed against the
+production build on real Postgres. Three incorrect production cloze prompts in
+the T-level cyber security subject were fixed in place (one card moved to the
+topic it actually tests, two re-blanked to unambiguous terms with their
+accepted answers kept in step).

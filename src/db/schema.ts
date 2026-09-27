@@ -255,6 +255,8 @@ export const reviewLogs = pgTable('review_logs', {
     feedbackKind: string;
     matchedAnswerId?: string;
     note?: string;
+    /** how a similar-marked near-answer related to the accepted one */
+    similarity?: { relation: string; matchedAnswer: string };
   }>(),
   durationMs: integer('duration_ms').notNull().default(0),
   xpAwarded: integer('xp_awarded').notNull().default(0),

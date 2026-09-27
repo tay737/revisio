@@ -15,7 +15,7 @@
 // schedule. Offline therefore changes *when* the verdict arrives, never who
 // gives it.
 
-import { gradeCloze, gradeFlashcard, gradeMcq, type AcceptedAnswer, type Verdict } from '@/domain/grading';
+import { gradeCloze, gradeClozeWithPolicy, gradeFlashcard, gradeMcq, type AcceptedAnswer, type Verdict } from '@/domain/grading';
 import { api } from '@/lib/api';
 
 const PACK_KEY = 'revisio.offline.pack.v1';
@@ -24,7 +24,7 @@ const OUTBOX_KEY = 'revisio.offline.outbox.v1';
 export type OfflineCardKind = 'cloze' | 'flashcard' | 'mcq';
 
 export type OfflineKey =
-  | { kind: 'cloze' | 'flashcard'; accepted: AcceptedAnswer[] }
+  | { kind: 'cloze' | 'flashcard'; accepted: AcceptedAnswer[]; /** the marking rule this card is graded by, resolved server-side */ policy?: import('@/domain/grading').ClozeMarkPolicy }
   | { kind: 'mcq'; correctOptionId: string };
 
 export type OfflineCard = {
@@ -191,7 +191,11 @@ export function previewVerdict(card: OfflineCard, input: { answer?: string; sele
   if (card.kind === 'flashcard') {
     return gradeFlashcard(input.answer ?? '', card.key.accepted);
   }
-  return gradeCloze(input.answer ?? '', card.key.accepted);
+  // Cloze previews grade by the policy the server resolved for this card when
+  // the pack was taken, so a near-answer warns the same way online and off.
+  return card.key.kind === 'cloze' && card.key.policy
+    ? gradeClozeWithPolicy(input.answer ?? '', card.key.accepted, card.key.policy)
+    : gradeCloze(input.answer ?? '', card.key.accepted);
 }
 
 /** The answer shown once a card is graded — the primary accepted answer. */
