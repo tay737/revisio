@@ -1,6 +1,6 @@
 name: Mobile release
 
-# Builds the installable artefact and proves both native clients compile and
+# Builds the installable artefacts and proves both native clients compile and
 # pass their conformance tests. Run by pushing a tag:
 #
 #   git tag v1.0.0-alpha.2 && git push origin v1.0.0-alpha.2
@@ -75,7 +75,7 @@ jobs:
           if-no-files-found: error
 
   ios:
-    name: iOS client (tests + compile)
+    name: iOS IPA
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -84,21 +84,71 @@ jobs:
         # Same guarantee as the Kotlin side, against the same vectors.
         run: cd mobile/ios && swift test
 
-      - name: Typecheck the SwiftUI app for iOS
-        # There is no Xcode app target yet, so this compiles the app sources
-        # against the iOS SDK rather than producing an .ipa. It still catches
-        # the thing that matters at this stage: whether the surface builds for
-        # iOS at all. See docs/MOBILE.md for what remains.
+      - name: Stamp the version from package.json
+        # Writes CFBundleShortVersionString/CFBundleVersion into the app target,
+        # so the IPA and the APK cannot disagree about what they are.
+        run: node scripts/native/set-version.mjs
+
+      - name: Archive the app
+        # There is no distribution certificate in this repo, so the archive is
+        # built without signing. `CODE_SIGNING_ALLOWED=NO` is what makes that a
+        # supported path rather than a failure: the result is a real device
+        # build of the real app target — sources compiled, engine linked,
+        # catalog compiled, plist stamped — and it can be re-signed with
+        # Sideloadly or AltStore to run on a phone.
         run: |
           cd mobile/ios
-          mkdir -p /tmp/revisio-ios
-          xcrun -sdk iphonesimulator swiftc -emit-module \
-            -target arm64-apple-ios16.0-simulator -module-name RevisioEngine \
-            -emit-module-path /tmp/revisio-ios/RevisioEngine.swiftmodule \
-            Sources/RevisioEngine/*.swift
-          xcrun -sdk iphonesimulator swiftc -typecheck \
-            -target arm64-apple-ios16.0-simulator -I /tmp/revisio-ios \
-            -parse-as-library Sources/Revisio/*.swift
+          xcodebuild archive \
+            -project Revisio.xcodeproj \
+            -scheme Revisio-iOS \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Revisio.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package the unsigned .ipa
+        # An .ipa is only a zip with the app under `Payload/`. Building one by
+        # hand is what lets an unsigned build ship; `-exportArchive` would
+        # insist on a signing identity we do not have.
+        run: |
+          VERSION="v$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
+          APP="$RUNNER_TEMP/Revisio.xcarchive/Products/Applications/Revisio.app"
+          test -d "$APP" || { echo "the archive holds no Revisio.app"; exit 1; }
+          rm -rf "$RUNNER_TEMP/Payload"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+          ( cd "$RUNNER_TEMP" && zip -qry "Revisio-${VERSION}-ios-unsigned.ipa" Payload )
+          mv "$RUNNER_TEMP/Revisio-${VERSION}-ios-unsigned.ipa" .
+          ls -lh Revisio-*.ipa
+
+      - name: Check the IPA really is the app we think it is
+        # The point of the .ipa is that it is the native client, and something
+        # as quiet as an unstamped version or a dropped icon would undermine
+        # that. So check the thing we ship rather than the build log.
+        run: |
+          VERSION="v$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
+          IPA="Revisio-${VERSION}-ios-unsigned.ipa"
+          unzip -p "$IPA" Payload/Revisio.app/Info.plist > "$RUNNER_TEMP/Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$RUNNER_TEMP/Info.plist")
+          SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$RUNNER_TEMP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$RUNNER_TEMP/Info.plist")
+          echo "bundle=$BUNDLE_ID version=$SHORT build=$BUILD"
+          test "$BUNDLE_ID" = "app.revisio" || { echo "wrong bundle id: $BUNDLE_ID"; exit 1; }
+          test "$SHORT" = "${VERSION#v}" || { echo "version was not stamped: $SHORT"; exit 1; }
+          test -n "$BUILD" || { echo "no CFBundleVersion"; exit 1; }
+          test -f "$RUNNER_TEMP/Revisio.xcarchive/Products/Applications/Revisio.app/Revisio" \
+            || { echo "no executable in the archive"; exit 1; }
+          unzip -l "$IPA" | grep -q 'Payload/Revisio.app/AppIcon' \
+            || { echo "the compiled icon is missing"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: Revisio-*.ipa
+          if-no-files-found: error
 
   release:
     name: Publish release
@@ -113,7 +163,9 @@ jobs:
       - name: Publish
         uses: softprops/action-gh-release@v2
         with:
-          files: Revisio-*.apk
+          files: |
+            Revisio-*.apk
+            Revisio-*.ipa
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           generate_release_notes: true
           fail_on_unmatched_files: true
@@ -124,19 +176,30 @@ jobs:
             ## Revisio ${{ github.ref_name }} — alpha
 
             Native clients, not a wrapper around the website: the Android app is
-            Kotlin + Jetpack Compose over a native engine, and the iOS client is
-            Swift + SwiftUI over the same engine ported to Swift.
+            Kotlin + Jetpack Compose over a native engine, and the iOS app is
+            Swift + SwiftUI over the same engine ported to Swift. Both are
+            **sideload-only alpha artefacts**; neither store is involved yet.
 
-            | Platform | Artefact | Notes |
+            | Platform | File | Install |
             |---|---|---|
-            | Android | `Revisio-${{ github.ref_name }}-android.apk` | Sideload: enable "Install unknown apps" and open the file. Debug-signed, so it installs on any device. |
-            | iOS | — | No `.ipa` in this release. The Swift client builds, its engine passes the grading conformance tests, but there is no Xcode app target to archive yet. |
+            | Android | `Revisio-${{ github.ref_name }}-android.apk` | Enable "Install unknown apps" and open the file. Debug-signed, so it installs on any device. |
+            | iOS | `Revisio-${{ github.ref_name }}-ios-unsigned.ipa` | **Unsigned** — there is no distribution certificate in this repo. Re-sign it with Sideloadly or AltStore to run it on a phone. |
 
-            **Offline review works.** The app carries today's session on the
+            Both are compiled against **https://revisio-srs.vercel.app**; there is
+            no runtime server to configure.
+
+            **Offline review works.** Each app carries today's session on the
             device: it opens to its own screen with no network, grades answers
             with a native port of the server's grading engine (proven identical
             by shared golden vectors), and hands the reviews back when the
-            connection returns. `npm run verify:native` drives exactly that on
-            an emulator with the network off.
+            connection returns. `npm run verify:native` drives exactly that on an
+            emulator with the network off.
 
-            See `docs/MOBILE.md` for the architecture and what remains.
+            ### What the iOS artefact is, and is not
+
+            The `.ipa` is a genuine Release device build of the SwiftUI app
+            target: the Swift sources are compiled, `RevisioEngine` is linked,
+            the icon catalogue is compiled into the bundle and the version is
+            stamped from `package.json`. It is **not signed**, so it will not
+            install as-is — and it has not been run on hardware here, which is
+            stated rather than implied. See `docs/MOBILE.md`.

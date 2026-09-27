@@ -7,10 +7,13 @@ android/.kotlin/
 android/local.properties
 android/**/build/
 
-# iOS / SwiftPM
+# iOS / SwiftPM. The Xcode project at ios/Revisio.xcodeproj is committed source
+# too — it is what CI archives — so only derived output and per-user state are
+# ignored.
 ios/.build/
 ios/.swiftpm/
-ios/*.xcodeproj/
-ios/*.xcworkspace/
+ios/DerivedData/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
 
 .DS_Store
