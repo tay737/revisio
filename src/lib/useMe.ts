@@ -43,6 +43,8 @@ export type Me = {
   bio: string | null;
   avatarEmoji: string | null;
   avatarColor: string;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
   profileVisibility: ProfileVisibility;
   role: 'student' | 'teacher' | 'developer';
   status: string;

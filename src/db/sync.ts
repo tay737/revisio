@@ -51,6 +51,7 @@ import * as schema from './schema';
 /** All replicated tables, in FK-safe dependency order (parents first). */
 const REPLICATED_TABLES = [
   'users',
+  'media_assets',
   'subjects',
   'classes',
   'achievements',

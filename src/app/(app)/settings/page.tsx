@@ -9,7 +9,8 @@ import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { Avatar, AVATAR_COLORS, AVATAR_EMOJI } from '@/components/ui/avatar';
+import { Avatar, ProfileBanner, AVATAR_COLORS, AVATAR_EMOJI } from '@/components/ui/avatar';
+import { RoleBadge } from '@/components/ui/role-badge';
 import PageSkeleton from '@/components/PageSkeleton';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 
@@ -69,7 +70,60 @@ function SettingsBody({
   const [bio, setBio] = useState(me.bio ?? '');
   const [avatarEmoji, setAvatarEmoji] = useState<string | null>(me.avatarEmoji);
   const [avatarColor, setAvatarColor] = useState(me.avatarColor);
+  const [avatarUrl, setAvatarUrl] = useState(me.avatarUrl);
+  const [bannerUrl, setBannerUrl] = useState(me.bannerUrl);
+  const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const uploadImage = async (kind: 'avatar' | 'banner', file: File) => {
+    setUploading(kind);
+    setError('');
+    try {
+      if (!['image/png', 'image/jpeg', 'image/gif'].includes(file.type)) {
+        throw new Error('Images must be PNG, JPEG or GIF.');
+      }
+      if (file.size > 5 * 1024 * 1024) throw new Error('Images must be 5 MB or smaller.');
+      const { url, key } = await api.post<{ url: string; key: string }>('/api/v1/media', {
+        action: 'presign',
+        kind,
+        contentType: file.type,
+        sizeBytes: file.size,
+      });
+      const res = await fetch(url, { method: 'PUT', body: file, headers: { 'content-type': file.type } });
+      if (!res.ok) throw new Error('The image upload was rejected. Try a smaller file.');
+      const { url: publicUrl } = await api.post<{ url: string }>('/api/v1/media', {
+        action: 'confirm',
+        kind,
+        key,
+        contentType: file.type,
+        sizeBytes: file.size,
+      });
+      if (kind === 'avatar') setAvatarUrl(publicUrl);
+      else setBannerUrl(publicUrl);
+      setNote(kind === 'avatar' ? 'Avatar updated.' : 'Banner updated.');
+      void refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The upload did not go through.');
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const removeImage = async (kind: 'avatar' | 'banner') => {
+    setUploading(kind);
+    setError('');
+    try {
+      await api.post('/api/v1/media', { action: 'remove', kind });
+      if (kind === 'avatar') setAvatarUrl(null);
+      else setBannerUrl(null);
+      setNote(kind === 'avatar' ? 'Avatar removed.' : 'Banner removed.');
+      void refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'We could not remove that.');
+    } finally {
+      setUploading(null);
+    }
+  };
 
   // ── Privacy ─────────────────────────────────────────────────────────────
   const [vis, setVis] = useState(me.profileVisibility);
@@ -176,6 +230,8 @@ function SettingsBody({
     bio !== (me.bio ?? '') ||
     avatarEmoji !== me.avatarEmoji ||
     avatarColor !== me.avatarColor;
+  // avatarUrl/bannerUrl are not part of the dirty check: uploads confirm and
+  // save themselves, so "Unsaved changes" never lies about them.
 
   const usernameOk =
     !username.trim() || (USERNAME_RE.test(username.trim().toLowerCase()) && !RESERVED_USERNAMES.has(username.trim().toLowerCase()));
@@ -201,8 +257,43 @@ function SettingsBody({
           .
         </p>
 
+        <div className="mt-3 flex items-center gap-2">
+          <RoleBadge role={me.role} />
+          <span className="t-fine text-muted-foreground">Your account type — shown on your public profile.</span>
+        </div>
+
+        <div className="mt-5">
+          <span className="label">Banner</span>
+          <div className="mt-1.5">
+            <ProfileBanner imageUrl={bannerUrl} />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="btn btn-secondary btn-sm gap-1.5 cursor-pointer">
+              <Icon name="download" size={14} />
+              {uploading === 'banner' ? 'Uploading…' : bannerUrl ? 'Replace banner' : 'Upload banner'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif"
+                className="sr-only"
+                disabled={uploading !== null}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadImage('banner', f);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+            {bannerUrl && (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={uploading !== null} onClick={() => void removeImage('banner')}>
+                Remove
+              </button>
+            )}
+            <span className="t-fine text-muted-foreground">PNG, JPEG or GIF · up to 5 MB · wide images crop to fit</span>
+          </div>
+        </div>
+
         <div className="mt-5 flex flex-wrap items-center gap-4">
-          <Avatar name={nickname || name} emoji={avatarEmoji} color={avatarColor} size={64} />
+          <Avatar name={nickname || name} emoji={avatarEmoji} color={avatarColor} imageUrl={avatarUrl} size={64} />
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Avatar colour">
             {AVATAR_COLORS.map((c) => (
               <button
@@ -237,6 +328,29 @@ function SettingsBody({
                 {e}
               </button>
             ))}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="btn btn-secondary btn-sm cursor-pointer gap-1.5">
+              <Icon name="download" size={14} />
+              {uploading === 'avatar' ? 'Uploading…' : avatarUrl ? 'Replace image' : 'Upload image'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif"
+                className="sr-only"
+                disabled={uploading !== null}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadImage('avatar', f);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+            {avatarUrl && (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={uploading !== null} onClick={() => void removeImage('avatar')}>
+                Remove image
+              </button>
+            )}
+            <span className="t-fine text-muted-foreground">An uploaded picture replaces the emoji.</span>
           </div>
         </div>
 

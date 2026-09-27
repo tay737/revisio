@@ -50,6 +50,8 @@ export const GET = route(async (req: NextRequest) => {
       bio: row.bio,
       avatarEmoji: row.avatarEmoji,
       avatarColor: row.avatarColor,
+      avatarUrl: row.avatarUrl,
+      bannerUrl: row.bannerUrl,
       profileVisibility: { ...DEFAULT_VISIBILITY, ...(row.profileVisibility ?? {}) },
       role: row.role,
       status: row.status,
