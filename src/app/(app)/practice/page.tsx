@@ -49,6 +49,7 @@ export default function PracticePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [log, setLog] = useState<{ q: Question; r: MarkResult }[]>([]);
+  const [xp, setXp] = useState<{ xpAwarded: number; capped: boolean } | null>(null);
 
   const loadSubjects = useCallback(() => {
     api
@@ -128,6 +129,22 @@ export default function PracticePage() {
   const next = () => {
     if (idx + 1 >= paper.length) {
       setPhase({ kind: 'done' });
+      // Practice XP: the session is complete and marked — award once, here.
+      // This touches XP and the league week only; it never writes a review
+      // log or moves the SRS schedule.
+      const correct = log.filter((l) => l.r.correct).length;
+      const marks = log.reduce((n, l) => n + (l.r.correct ? l.r.marks : 0), 0);
+      const maxMarks = log.reduce((n, l) => n + l.r.marks, 0);
+      api
+        .post<{ xpAwarded: number; capped: boolean }>('/api/v1/maths', {
+          action: 'award_xp',
+          marks,
+          maxMarks,
+          correct,
+          total: log.length,
+        })
+        .then((d) => setXp({ xpAwarded: d.xpAwarded, capped: d.capped }))
+        .catch(() => setXp(null));
       return;
     }
     setIdx((i) => i + 1);
@@ -143,6 +160,7 @@ export default function PracticePage() {
     setInput('');
     setResult(null);
     setLog([]);
+    setXp(null);
   };
 
   const score = useMemo(() => {
@@ -276,7 +294,14 @@ export default function PracticePage() {
           <p className="t-body mt-1 text-muted-foreground">
             {score.correct} of {log.length} correct · {score.marks} of {score.maxMarks} marks
           </p>
-          <p className="t-caption mt-1 text-muted-foreground">Practice never touches your review schedule or XP.</p>
+          <p className="t-caption mt-1 text-muted-foreground">Practice never touches your review schedule.</p>
+          {xp && xp.xpAwarded > 0 && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[13px] font-semibold text-primary">
+              <Icon name="xp" size={14} />
+              +{xp.xpAwarded} XP
+              {xp.capped && <span className="font-normal text-muted-foreground">· capped this hour</span>}
+            </p>
+          )}
           <div className="mt-5 flex justify-center gap-2">
             <button type="button" className="btn btn-primary" onClick={restart}>
               New session

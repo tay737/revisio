@@ -4,6 +4,7 @@ import { db } from '@/db/client';
 import { mathSets, subjects } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { canManageContent, isDeveloper } from '@/services/roles';
+import { awardMathsXp } from '@/services/maths-xp';
 import {
   conceptCatalogue,
   createMathSet,
@@ -49,13 +50,17 @@ export const GET = route(async (req: NextRequest) => {
 export const POST = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const body = (await req.json()) as {
-    action: 'start' | 'mark' | 'create_set' | 'update_set' | 'delete_set';
+    action: 'start' | 'mark' | 'award_xp' | 'create_set' | 'update_set' | 'delete_set';
     subjectId?: string;
     topicIds?: string[];
     conceptIds?: string[];
     difficulty?: 'easy' | 'medium' | 'hard' | 'mixed';
     count?: number;
     answers?: { questionId: string; answer?: string }[];
+    marks?: number;
+    maxMarks?: number;
+    total?: number;
+    correct?: number;
     setId?: string;
     topicId?: string;
     title?: string;
@@ -84,6 +89,15 @@ export const POST = route(async (req: NextRequest) => {
       const entries = (body.answers ?? []).map((a) => ({ questionId: a.questionId, answer: a.answer }));
       const results = await markPracticeAnswers(user.id, entries);
       return ok({ results });
+    }
+    case 'award_xp': {
+      // One call per finished session. XP only — practice never writes a
+      // review log, moves a schedule or counts towards any review statistic.
+      const marks = Math.max(0, Math.min(200, Math.round(Number(body.marks ?? 0))));
+      const maxMarks = Math.max(1, Math.min(200, Math.round(Number(body.maxMarks ?? 1))));
+      const total = Math.max(1, Math.min(30, Math.round(Number(body.total ?? 1))));
+      const correct = Math.max(0, Math.min(total, Math.round(Number(body.correct ?? 0))));
+      return ok(await awardMathsXp(user.id, { marks, maxMarks, correct, total }));
     }
     case 'create_set':
       return ok({ set: await createMathSet(user, body) }, { status: 201 });

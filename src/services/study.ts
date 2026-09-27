@@ -263,7 +263,8 @@ export async function totalXpFor(userId: string): Promise<number> {
   return row?.total ?? 0;
 }
 
-async function updateLeagueWeek(userId: string, xp: number) {
+/** Add XP to this week's league lobby. Shared by reviews and maths practice. */
+export async function updateLeagueWeek(userId: string, xp: number) {
   const weekStart = mondayOf(new Date()).toISOString().slice(0, 10);
   await db
     .insert(leagueMemberships)

@@ -4,7 +4,8 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, ProfileBanner } from '@/components/ui/avatar';
+import { RoleBadge } from '@/components/ui/role-badge';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { verifyAccessToken } from '@/services/auth';
@@ -52,12 +53,18 @@ export default async function ProfilePage({ params }: { params: { handle: string
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-4 py-10">
+      {/* ── Banner ─────────────────────────────────────────────────────── */}
+      <ProfileBanner imageUrl={profile.bannerUrl} className="-mx-4 -mt-10 sm:-mx-6" />
+
       {/* ── Identity ─────────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-center gap-4">
-        <Avatar name={display} emoji={profile.avatarEmoji} color={profile.avatarColor} size={72} />
-        <div className="min-w-0 flex-1">
+      <header className="-mt-12 flex flex-wrap items-end gap-4 px-1">
+        <div className="rounded-full ring-4 ring-background">
+          <Avatar name={display} emoji={profile.avatarEmoji} color={profile.avatarColor} imageUrl={profile.avatarUrl} size={88} />
+        </div>
+        <div className="min-w-0 flex-1 pb-1">
           <h1 className="t-display truncate">{display}</h1>
-          <p className="t-caption mt-0.5 text-muted-foreground">
+          <p className="t-caption mt-0.5 flex flex-wrap items-center gap-2 text-muted-foreground">
+            <RoleBadge role={profile.role} />
             {profile.username ? `@${profile.username}` : ''}
             {profile.username && profile.name && profile.visibility.name ? ' · ' : ''}
             {profile.visibility.name && profile.name && profile.name !== display ? profile.name : ''}
@@ -65,7 +72,7 @@ export default async function ProfilePage({ params }: { params: { handle: string
           {profile.bio && <p className="mt-2 max-w-[52ch] text-[15px] leading-relaxed">{profile.bio}</p>}
         </div>
         {owner && (
-          <Link href="/settings" className="btn btn-secondary btn-sm shrink-0 gap-1.5">
+          <Link href="/settings" className="btn btn-secondary btn-sm mb-1 shrink-0 gap-1.5">
             <Icon name="edit" size={14} />
             Edit profile
           </Link>

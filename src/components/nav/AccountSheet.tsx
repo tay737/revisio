@@ -63,7 +63,7 @@ export function AccountSheet({
               {me.gamification.streak}d
             </div>
           </div>
-          <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} size={40} className="shrink-0" />
+          <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} imageUrl={me.avatarUrl} size={40} className="shrink-0" />
         </div>
 
         {line && (

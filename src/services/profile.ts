@@ -47,6 +47,8 @@ export type ProfileRecord = {
   bio: string | null;
   avatarEmoji: string | null;
   avatarColor: string;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
   role: string;
   createdAt: string;
   visibility: ProfileVisibility;
@@ -109,6 +111,8 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
       bio: vis.bio || owner ? row.bio ?? null : null,
       avatarEmoji: row.avatarEmoji ?? null,
       avatarColor: row.avatarColor,
+      avatarUrl: row.avatarUrl ?? null,
+      bannerUrl: row.bannerUrl ?? null,
       role: row.role,
       createdAt: row.createdAt.toISOString(),
       visibility: vis,

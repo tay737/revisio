@@ -24,6 +24,9 @@ export const users = pgTable('users', {
   bio: text('bio'),
   avatarEmoji: text('avatar_emoji'),
   avatarColor: text('avatar_color').notNull().default('ink'),
+  /** Uploaded avatar / banner — keys in the media bucket, served via /api/v1/assets. */
+  avatarUrl: text('avatar_url'),
+  bannerUrl: text('banner_url'),
   /** Email awaiting confirmation by link — the only thing that swaps it in. */
   pendingEmail: text('pending_email'),
   /** Which profile fields a signed-out visitor may see. Absent key = hidden. */
@@ -308,7 +311,7 @@ export const xpEvents = pgTable('xp_events', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   amount: integer('amount').notNull(),
-  source: text('source', { enum: ['review', 'exam', 'streak', 'achievement', 'import'] }).notNull(),
+  source: text('source', { enum: ['review', 'exam', 'streak', 'achievement', 'import', 'maths'] }).notNull(),
   refId: text('ref_id'),
   occurredAt: timestamp('occurred_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
@@ -399,3 +402,20 @@ export const auditLog = pgTable('audit_log', {
   meta: jsonb('meta').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 });
+
+// ── media (v1.6) ────────────────────────────────────────────────────────────
+// The ledger of every object the app has presigned into the media bucket.
+// The bytes live in S3-compatible storage; this table answers "who uploaded
+// what, where is it" without listing the bucket.
+export const mediaAssets = pgTable('media_assets', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['avatar', 'banner'] }).notNull(),
+  key: text('key').notNull(),
+  contentType: text('content_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('media_assets_user_idx').on(t.userId),
+  keyUnique: uniqueIndex('media_assets_key_idx').on(t.key),
+}));

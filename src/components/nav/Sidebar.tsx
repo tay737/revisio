@@ -114,7 +114,7 @@ export function Sidebar({
 
       <div className="mt-3 flex items-center gap-2.5 border-t border-border pt-3">
         <Link href="/settings" className="shrink-0" aria-label="Profile and settings">
-          <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} size={36} />
+          <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} imageUrl={me.avatarUrl} size={36} />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-semibold">{me.nickname?.trim() || me.name}</div>

@@ -26,6 +26,8 @@
     "native:ios:test": "cd mobile/ios && swift test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
+    "@aws-sdk/s3-request-presigner": "^3.1141.0",
     "@base-ui/react": "^1.8.0",
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
