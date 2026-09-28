@@ -1,6 +1,7 @@
 package app.revisio.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,15 +16,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.revisio.RevisioViewModel
 import app.revisio.UiState
+import app.revisio.engine.Achievement
 import app.revisio.engine.Rank
 import app.revisio.engine.Ranked
 
@@ -35,24 +36,37 @@ import app.revisio.engine.Ranked
  * lobby** you are seated in against thirty others. The server decides what
  * "promotion" means and this screen draws what it was handed — one owner for the
  * rule, so the phone and the web cannot disagree about who is going up.
+ *
+ * The crest is the loudest thing here and it carries the tier by **geometry**,
+ * not by hue: chevrons in the shield, pips beneath, ticks around the ring. That
+ * is what lets a ladder of them read side by side under a one-accent rule, and
+ * it is the same drawing the browser makes.
  */
 @Composable
 fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
     val payload = state.ranked
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Rank", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton(onClick = { viewModel.loadProgress() }) { Text("Refresh", color = Muted, fontSize = 13.sp) }
+            ScreenTitle("Rank", eyebrow = "Progress")
+            Spacer(Modifier.weight(1f))
+            IconPill(RevisioIcons.rotate, onClick = { viewModel.loadProgress() }, size = 38.dp)
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(20.dp))
 
         if (payload == null) {
-            EmptyNote(
-                if (!state.online) "Your rank needs a connection — it is computed from your whole history."
-                else "Loading your rank…",
-            )
+            SoftCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(RevisioIcons.rank, size = 16, tint = Muted)
+                    Spacer(Modifier.size(10.dp))
+                    Text(
+                        if (!state.online) "Your rank needs a connection — it is computed from your whole history."
+                        else "Loading your rank…",
+                        style = Type.caption.style(Muted),
+                    )
+                }
+            }
             Spacer(Modifier.height(24.dp))
             return@Column
         }
@@ -60,115 +74,112 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
         RankCard(payload.ranked.rank)
 
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-            Stat("This week", "${payload.me.xpThisWeek} XP")
-            Stat("Lifetime", "${payload.me.totalXp} XP")
-            Stat("Level", payload.me.level.toString())
+        SurfaceCard {
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Stat("This week", "${payload.me.xpThisWeek}")
+                Stat("Lifetime", "${payload.me.totalXp}")
+                Stat("Level", "${payload.me.level}")
+            }
         }
 
         if (payload.ranked.placement.placing) {
             Spacer(Modifier.height(14.dp))
-            Panel {
-                Text("Placements", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                Spacer(Modifier.height(6.dp))
+            SurfaceCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(RevisioIcons.target, size = 18, tint = Ink)
+                    Spacer(Modifier.size(10.dp))
+                    Text("Placements", style = Type.strong.style(Ink), modifier = Modifier.weight(1f))
+                    Badge(
+                        "${payload.ranked.placement.done}/${payload.ranked.placement.target}",
+                        BadgeTone.Quiet,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
                 Text(
                     "${payload.ranked.placement.done} of ${payload.ranked.placement.target} reviews done. " +
                         "A rank is earned, not handed out on arrival.",
-                    color = Muted,
-                    fontSize = 13.sp,
+                    style = Type.fine.style(Muted),
                 )
-                Spacer(Modifier.height(10.dp))
-                Bar(payload.ranked.placement.percent)
-            }
-        }
-
-        Spacer(Modifier.height(18.dp))
-        SectionTitle("Weekly lobby")
-        LobbyCard(payload.ranked)
-
-        Spacer(Modifier.height(18.dp))
-        SectionTitle("Leaderboard")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("daily" to "Today", "weekly" to "Week", "monthly" to "Month").forEach { (scope, label) ->
-                val active = state.boardScope == scope
-                if (active) {
-                    Chip(label, Accent)
-                } else {
-                    TextButton(onClick = { viewModel.loadProgress(scope) }) { Text(label, fontSize = 12.sp, color = Muted) }
-                }
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        if (payload.board.isEmpty()) {
-            EmptyNote("Nobody on this board yet. Review a card and you will be.")
-        } else {
-            Panel {
-                payload.board.take(20).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("${row.rank}", color = if (row.isMe) Accent else Muted, fontSize = 13.sp, modifier = Modifier.size(28.dp))
-                        Text(
-                            if (row.isMe) "You" else row.name,
-                            fontSize = 14.sp,
-                            fontWeight = if (row.isMe) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text("${row.xp} XP", fontSize = 13.sp, color = if (row.isMe) Accent else Ink)
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(18.dp))
-        val unlocked = payload.achievements.filter { it.unlocked }
-        SectionTitle("Achievements · ${unlocked.size} of ${payload.achievements.size}")
-        if (unlocked.isEmpty()) {
-            EmptyNote("Nothing unlocked yet.")
-        } else {
-            unlocked.forEach { achievement ->
-                Panel {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(achievement.icon ?: "★", fontSize = 20.sp)
-                        Spacer(Modifier.size(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(achievement.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            achievement.description?.takeIf { it.isNotBlank() }?.let {
-                                Text(it, color = Muted, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
+                Meter(payload.ranked.placement.percent, tint = Ink)
             }
         }
 
         Spacer(Modifier.height(24.dp))
+        SectionTitle("Weekly lobby")
+        LobbyCard(payload.ranked)
+
+        Spacer(Modifier.height(24.dp))
+        SectionTitle("Leaderboard")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("daily" to "Today", "weekly" to "Week", "monthly" to "Month").forEach { (scope, label) ->
+                val active = state.boardScope == scope
+                Box(modifier = Modifier.clickable { if (!active) viewModel.loadProgress(scope) }) {
+                    ChipPill(label, active = active)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        if (payload.board.isEmpty()) {
+            EmptyNote("Nobody on this board yet. Review a card and you will be.")
+        } else {
+            SurfaceCard {
+                payload.board.take(20).forEachIndexed { index, row ->
+                    if (index > 0) Spacer(Modifier.height(2.dp))
+                    BoardRow(
+                        position = row.rank,
+                        name = if (row.isMe) "You" else row.name,
+                        xp = row.xp,
+                        me = row.isMe,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        val unlocked = payload.achievements.filter { it.unlocked }
+        SectionTitle("Achievements · ${unlocked.size} of ${payload.achievements.size}")
+        if (unlocked.isEmpty()) {
+            EmptyNote("Nothing unlocked yet. The first one is a review.")
+        } else {
+            unlocked.forEach { achievement ->
+                AchievementRow(achievement)
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
     }
 }
 
 @Composable
 private fun RankCard(rank: Rank) {
-    Panel {
+    SurfaceCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // The crest's shape carries the tier, not a colour — there is exactly
-            // one accent in this system, so rank is drawn as a count of chevrons.
-            Crest(56)
-            Spacer(Modifier.size(14.dp))
+            // The crest's shape carries the tier; colour only says "this is
+            // yours" (ink) or "a rung you have not reached" (muted).
+            RankCrest(rank, size = 88)
+            Spacer(Modifier.size(18.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(rank.label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("${rank.points} RP · ${rank.short}", color = Muted, fontSize = 12.sp)
+                Text(rank.label, style = Type.displaySm.style(Ink))
+                Spacer(Modifier.height(2.dp))
+                Text("${rank.points} RP · ${rank.short}", style = Type.fine.style(Muted))
+                Spacer(Modifier.height(10.dp))
+                Badge(
+                    if (rank.isApex) "Apex" else "${rank.remaining} RP to go",
+                    if (rank.isApex) BadgeTone.Gold else BadgeTone.Quiet,
+                    if (rank.isApex) RevisioIcons.crown else RevisioIcons.climb,
+                )
             }
         }
-        Spacer(Modifier.height(14.dp))
-        Bar(rank.percent)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
+        Meter(rank.percent, tint = Ink)
+        Spacer(Modifier.height(10.dp))
         Text(
             if (rank.isApex) "Top of the ladder."
             else "${rank.intoDivision} / ${rank.forDivision} in this division — ${rank.remaining} RP to the next.",
-            color = Muted,
-            fontSize = 12.sp,
+            style = Type.fine.style(Muted),
         )
     }
 }
@@ -176,47 +187,63 @@ private fun RankCard(rank: Rank) {
 @Composable
 private fun LobbyCard(ranked: Ranked) {
     val lobby = ranked.lobby
-    Panel {
+    val zoneTone = when (lobby.zone) {
+        "promotion" -> BadgeTone.Good
+        "demotion" -> BadgeTone.Streak
+        "pending" -> BadgeTone.Gold
+        else -> BadgeTone.Quiet
+    }
+    val zoneIcon: ImageVector = when (lobby.zone) {
+        "promotion" -> RevisioIcons.zoneUp
+        "demotion" -> RevisioIcons.zoneDown
+        "pending" -> RevisioIcons.clock
+        else -> RevisioIcons.secure
+    }
+
+    SurfaceCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     if (lobby.position > 0) "#${lobby.position} of ${lobby.size}" else "Unseated",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = Type.displaySm.style(Ink),
                 )
-                Text(ranked.week.rangeLabel.ifBlank { "This week" }, color = Muted, fontSize = 12.sp)
+                Text(
+                    ranked.week.rangeLabel.ifBlank { "This week" },
+                    style = Type.fine.style(Muted),
+                )
             }
-            Chip(
-                lobby.zoneLabel,
-                when (lobby.zone) {
-                    "promotion" -> Good
-                    "demotion" -> Bad
-                    "pending" -> Near
-                    else -> Muted
-                },
-            )
+            Badge(lobby.zoneLabel, zoneTone, zoneIcon)
         }
-        Spacer(Modifier.height(10.dp))
-        Text("${lobby.filled} of ${lobby.size} seats taken · ${ranked.week.daysLeft} days left", color = Muted, fontSize = 12.sp)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "${lobby.filled} of ${lobby.size} seats taken · ${ranked.week.daysLeft} days left",
+            style = Type.fine.style(Muted),
+        )
+        Spacer(Modifier.height(12.dp))
         ConfidenceBand(lobby.band, lobby.size)
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
         lobby.rows.take(12).forEach { seat ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("${seat.position}", color = Muted, fontSize = 12.sp, modifier = Modifier.size(26.dp))
+                Text(
+                    "${seat.position}",
+                    style = Type.fine.style(if (seat.isMe) Ink else Muted),
+                    modifier = Modifier.size(26.dp),
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         if (seat.isMe) "You" else seat.name,
-                        fontSize = 14.sp,
-                        fontWeight = if (seat.isMe) FontWeight.Bold else FontWeight.Normal,
+                        style = if (seat.isMe) Type.strong.style(Ink) else Type.caption.style(Ink),
                     )
-                    seat.rank?.let { Text(it.label, color = Muted, fontSize = 11.sp) }
+                    seat.rank?.let { Text(it.label, style = Type.micro.style(Muted)) }
                 }
-                Text("${seat.xp} XP", fontSize = 13.sp, color = if (seat.isMe) Accent else Ink)
+                Text(
+                    "${seat.xp}",
+                    style = Type.fine.style(if (seat.isMe) Ink else Muted),
+                )
             }
         }
     }
@@ -226,13 +253,74 @@ private fun LobbyCard(ranked: Ranked) {
 @Composable
 private fun ConfidenceBand(band: Int, size: Int) {
     if (size <= 0) return
-    Column {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(band.coerceAtLeast(1).toFloat()).height(5.dp).background(Good, RoundedCornerShape(3.dp)))
-            Spacer(Modifier.size(3.dp))
-            Box(Modifier.weight((size - band * 2).coerceAtLeast(1).toFloat()).height(5.dp).background(Surface2, RoundedCornerShape(3.dp)))
-            Spacer(Modifier.size(3.dp))
-            Box(Modifier.weight(band.coerceAtLeast(1).toFloat()).height(5.dp).background(Bad, RoundedCornerShape(3.dp)))
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Box(
+            Modifier.weight(band.coerceAtLeast(1).toFloat()).height(6.dp)
+                .background(Good, RoundedCornerShape(Radius.pill)),
+        )
+        Box(
+            Modifier.weight((size - band * 2).coerceAtLeast(1).toFloat()).height(6.dp)
+                .background(Card2, RoundedCornerShape(Radius.pill)),
+        )
+        Box(
+            Modifier.weight(band.coerceAtLeast(1).toFloat()).height(6.dp)
+                .background(Bad, RoundedCornerShape(Radius.pill)),
+        )
+    }
+}
+
+/** One line of a board. The learner's own row is ink; everyone else is muted. */
+@Composable
+private fun BoardRow(position: Int, name: String, xp: Int, me: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "$position",
+            style = Type.fine.style(if (me) Ink else Muted),
+            modifier = Modifier.size(28.dp),
+        )
+        Text(
+            name,
+            style = if (me) Type.strong.style(Ink) else Type.caption.style(Ink),
+            modifier = Modifier.weight(1f),
+        )
+        Text("$xp XP", style = Type.fine.style(if (me) Ink else Muted))
+    }
+}
+
+/**
+ * An achievement.
+ *
+ * The database stores an emoji per achievement, and emoji would reintroduce
+ * off-palette colour — so the row resolves to a registry glyph by id first, then
+ * by the legacy emoji, exactly as `achievementIcon` does on the web.
+ */
+@Composable
+private fun AchievementRow(achievement: Achievement) {
+    SurfaceCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .background(Gold.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    achievementIcon(achievement.id, achievement.icon),
+                    size = 18,
+                    tint = Gold,
+                )
+            }
+            Spacer(Modifier.size(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(achievement.name, style = Type.strong.style(Ink))
+                achievement.description?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = Type.fine.style(Muted))
+                }
+            }
         }
     }
 }

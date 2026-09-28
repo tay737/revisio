@@ -1,17 +1,24 @@
-import SwiftUI
 import RevisioEngine
+import SwiftUI
 
-/// The review loop, in whichever mode it was started.
+/// The study loop.
 ///
 /// One screen for today's queue, first exposure and cram: the server picks which
 /// cards and grades the answers in all three, and the only difference the learner
-/// sees is the label and whether the notes travel alongside. Three loops would
-/// have meant three places for a mark to be awarded differently.
+/// sees is the label and whether the notes travel alongside. Building three loops
+/// would have meant three places for a mark to be awarded differently.
+///
+/// This is the one viewport where green is allowed to carry a primary action — it
+/// is the button you press *inside* the session, the one that earns rather than
+/// navigates. Every other control on this screen is ink, and the verdict wears the
+/// game colours: owl green correct, cardinal red wrong, fox orange for a near miss
+/// or a queued answer.
 ///
 /// The body is split into pieces on purpose: as one expression Swift cannot type
 /// check it in reasonable time, and a screen whose structure is invisible is a
 /// screen nobody dares change.
 struct SessionView: View {
+    @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
 
     var body: some View {
@@ -20,65 +27,91 @@ struct SessionView: View {
         } else if let card = model.cards[safe: model.index] {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    Spacer().frame(height: 16)
                     header
                     progress
                     notes(for: card)
-                    Spacer().frame(height: 14)
-                    promptBlock(card)
-                    Spacer().frame(height: 16)
-                    answerBlock(card)
-                    Spacer().frame(height: 16)
-                    actionBlock(card)
-                    Spacer().frame(height: 10)
-                    Button("Leave session") { model.endReview() }
-                        .font(.caption).foregroundColor(muted).buttonStyle(.plain)
                     Spacer().frame(height: 20)
+                    promptBlock(card)
+                    Spacer().frame(height: 20)
+                    answerBlock(card)
+                    Spacer().frame(height: 20)
+                    actionBlock(card)
+                    Spacer().frame(height: 12)
+                    PillButton(text: "Leave session", tone: .ghost) { model.endReview() }
+                    Spacer().frame(height: 28)
                 }
                 .padding(20)
             }
         }
     }
 
+    /// What this session is, and how far through it we are.
     private var header: some View {
-        HStack {
-            Text(model.mode.label).font(.caption).bold().foregroundColor(accent)
-            Text(model.sessionTitle).font(.caption).foregroundColor(muted)
-            Spacer()
-            Text("\(model.index + 1) / \(model.cards.count)").font(.caption).foregroundColor(muted)
+        HStack(spacing: 0) {
+            LabelText(text: model.mode.label, token: Type.eyebrow, color: model.mode.tint(colors))
+            Spacer().frame(width: 10)
+            Text(model.sessionTitle)
+                .font(Type.fine.font)
+                .foregroundStyle(colors.mutedForeground)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            LabelText(text: "\(model.index + 1) / \(model.cards.count)", token: Type.micro, color: colors.mutedForeground)
         }
-        .padding(.top, 8)
     }
 
+    /// The same 10px meter the rest of the app uses, a little thinner here.
     private var progress: some View {
-        ProgressView(value: Double(model.index + 1), total: Double(max(model.cards.count, 1)))
-            .tint(accent)
-            .padding(.top, 8)
+        let percent = model.cards.isEmpty ? 0 : (model.index + 1) * 100 / model.cards.count
+        return VStack(spacing: 0) {
+            Spacer().frame(height: 10)
+            Meter(percent: percent, tint: colors.foreground, height: 6)
+        }
     }
 
     @ViewBuilder
     private func notes(for card: QuizCard) -> some View {
         let mine = model.notesFor(card)
         if !mine.isEmpty {
-            Button(model.notesOpen ? "Hide notes" : "Show notes (\(mine.count))") {
+            Spacer().frame(height: 16)
+            PillButton(
+                text: model.notesOpen ? "Hide notes" : "Show notes (\(mine.count))",
+                tone: .ghost,
+                icon: "notes"
+            ) {
                 model.toggleNotes()
             }
-            .font(.caption)
-            .padding(.top, 10)
-
             if model.notesOpen {
+                Spacer().frame(height: 12)
                 ForEach(mine, id: \.stableId) { note in
-                    NotePanel(note: note, summary: model.density == "summary")
-                        .padding(.top, 10)
+                    SurfaceCard {
+                        HStack(spacing: 12) {
+                            Text(note.title)
+                                .font(Type.strong.font)
+                                .foregroundStyle(colors.foreground)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if let refs = note.specRefs, !refs.isEmpty { Chip(text: refs) }
+                        }
+                        if note.hasAnyBody {
+                            Spacer().frame(height: 12)
+                            NotesView(markdown: note.body(summary: model.density == "summary"))
+                        }
+                    }
+                    Spacer().frame(height: 12)
                 }
             }
         }
     }
 
     private func promptBlock(_ card: QuizCard) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(card.subjectName + " · " + card.topicName).font(.caption).foregroundColor(muted)
-            Text(card.promptText).font(.title3).bold()
+        VStack(alignment: .leading, spacing: 0) {
+            LabelText(text: "\(card.subjectName) · \(card.topicName)", token: Type.micro, color: colors.mutedForeground)
+            Spacer().frame(height: 8)
+            Text(card.promptText)
+                .font(Type.displaySm.font)
+                .foregroundStyle(colors.foreground)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -86,46 +119,60 @@ struct SessionView: View {
         if card.kind == "mcq" {
             VStack(spacing: 10) {
                 ForEach(card.options ?? [], id: \.id) { option in
-                    McqOption(
+                    OptionRow(
                         text: option.text,
-                        chosen: model.selection == option.id,
-                        locked: model.feedback != nil
+                        state: optionState(card, option),
+                        enabled: model.feedback == nil
                     ) {
                         model.setSelection(option.id)
                     }
                 }
             }
         } else {
-            TextField(
-                card.kind == "flashcard" ? "Say it in your own words" : "Your answer",
-                text: Binding(get: { model.answer }, set: { model.setAnswer($0) })
+            Field(
+                placeholder: card.kind == "flashcard" ? "Say it in your own words" : "Your answer",
+                value: Binding(get: { model.answer }, set: { model.setAnswer($0) }),
+                submitLabel: .done
             )
-            .revisioTextInput()
-            .textFieldStyle(.roundedBorder)
             .disabled(model.feedback != nil)
         }
+    }
+
+    /// Once the answer is in, the row that was right and the row that was chosen
+    /// each say so in their own colour — which is the whole reason the game
+    /// colours exist apart from the chrome.
+    private func optionState(_ card: QuizCard, _ option: CardOption) -> OptionState {
+        let chosen = model.selection == option.id
+        guard model.feedback == nil else {
+            if card.key?.kind == "mcq", card.key?.correctOptionId == option.id { return .correct }
+            return chosen ? .wrong : .idle
+        }
+        return chosen ? .selected : .idle
     }
 
     @ViewBuilder
     private func actionBlock(_ card: QuizCard) -> some View {
         if let feedback = model.feedback {
             FeedbackPanel(feedback: feedback)
-            Button {
+            Spacer().frame(height: 16)
+            PillButton(
+                text: model.index + 1 >= model.cards.count ? "Finish" : "Next card",
+                icon: model.index + 1 >= model.cards.count ? "correct" : "next",
+                large: true
+            ) {
                 model.next()
-            } label: {
-                Text(model.index + 1 >= model.cards.count ? "Finish" : "Next card")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).tint(accent)
-            .padding(.top, 12)
         } else {
-            Button {
+            // The in-session CTA. Uppercase and letterspaced, per the label
+            // treatment the design language reserves for controls.
+            PillButton(
+                text: "Check",
+                tone: .good,
+                enabled: inputReady(card),
+                large: true
+            ) {
                 model.submit()
-            } label: {
-                Text("Check").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).tint(accent)
-            .disabled(!inputReady(card))
         }
     }
 
@@ -135,66 +182,39 @@ struct SessionView: View {
     }
 }
 
-private struct McqOption: View {
-    let text: String
-    let chosen: Bool
-    let locked: Bool
-    let onSelect: () -> Void
-
-    // Two branches rather than a ternary: the bordered styles are different
-    // concrete types, so a conditional expression has no common type to infer.
-    var body: some View {
-        Group {
-            if chosen {
-                label.buttonStyle(.borderedProminent).tint(accent)
-            } else {
-                label.buttonStyle(.bordered)
-            }
-        }
-        .disabled(locked)
-    }
-
-    private var label: some View {
-        Button(action: { if !locked { onSelect() } }) {
-            Text(text).frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
-private struct NotePanel: View {
-    let note: Note
-    let summary: Bool
-
-    var body: some View {
-        Panel {
-            HStack {
-                Text(note.title).font(.subheadline).bold()
-                Spacer()
-                if let refs = note.specRefs, !refs.isEmpty { Chip(text: refs) }
-            }
-            if note.hasAnyBody {
-                NotesView(markdown: note.body(summary: summary)).padding(.top, 10)
-            }
+/// The mode earns its own eyebrow colour: reading borrows the notes blue.
+private extension StudyMode {
+    func tint(_ colors: RevisioColors) -> Color {
+        switch self {
+        case .daily: return colors.mutedForeground
+        case .learn: return colors.info
+        case .cram: return colors.streak
         }
     }
 }
 
 private struct FeedbackPanel: View {
+    @Environment(\.revisio) private var colors
     let feedback: Feedback
 
-    private var label: (String, Color) {
+    private var verdict: (label: String, tone: Color, icon: String) {
         switch feedback.verdict?.feedbackKind {
-        case .correct: return ("Correct", good)
-        case .caseOnly, .punctuationOnly, .caseAndPunctuation: return ("Correct — check your spelling", good)
-        case .nearMiss: return ("Nearly there", near)
-        case .wrong: return ("Not quite", Color(red: 1, green: 0.27, blue: 0.23))
-        case .none: return ("Saved", near)
+        case .correct:
+            return ("Correct", colors.good, "correct")
+        case .caseOnly, .punctuationOnly, .caseAndPunctuation:
+            return ("Correct — check your spelling", colors.good, "correct")
+        case .nearMiss:
+            return ("Nearly there", colors.streak, "due")
+        case .wrong:
+            return ("Not quite", colors.destructive, "close")
+        case .none:
+            return ("Saved", colors.streak, "clock")
         }
     }
 
-    /// Say which of the two situations this is. A card from today's pack carries
-    /// its key, so the mark above is the real one, held back only by the network;
-    /// a card the server picked has no key here at all.
+    /// The two situations read differently on purpose: a card from today's pack
+    /// carries its key, so a mark is real and only the confirmation is pending; a
+    /// card the server picked has no key here at all.
     private var provisionalNote: String {
         feedback.verdict == nil
             ? "Saved on this device. This card came from the server, so the server will mark it when you reconnect."
@@ -202,35 +222,76 @@ private struct FeedbackPanel: View {
     }
 
     var body: some View {
-        Panel {
-            HStack {
-                Text(label.0).font(.headline).foregroundColor(label.1)
-                Spacer()
+        let mark = verdict
+        SurfaceCard(border: mark.tone.opacity(0.45)) {
+            HStack(spacing: 12) {
+                // The glyph sits on the verdict colour, in the page's own ground,
+                // so a correct mark reads as ink-on-green rather than as a second
+                // colour arriving uninvited.
+                Icon(mark.icon, size: 16, color: colors.background)
+                    .frame(width: 30, height: 30)
+                    .background(mark.tone, in: Circle())
+                Text(mark.label)
+                    .font(Type.strong.font)
+                    .foregroundStyle(mark.tone)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 if feedback.xpAwarded > 0 {
-                    Text("+\(feedback.xpAwarded) XP").font(.subheadline).foregroundColor(good)
+                    Badge(text: "+\(feedback.xpAwarded) XP", tone: .gold, icon: "xp")
                 }
             }
+
             if let note = feedback.verdict?.note, !note.isEmpty {
-                Text(note).font(.subheadline).padding(.top, 6)
+                Spacer().frame(height: 12)
+                Hairline()
+                Spacer().frame(height: 12)
+                Text(note)
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let answer = feedback.correctAnswer, !answer.isEmpty {
-                Text("Answer: \(answer)").font(.subheadline).bold().padding(.top, 10)
+                Spacer().frame(height: 12)
+                Text("Answer: \(answer)")
+                    .font(Type.strong.font)
+                    .foregroundStyle(colors.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let missed = feedback.verdict?.missedPhrases, !missed.isEmpty {
+                Spacer().frame(height: 6)
                 Text("Missing: \(missed.joined(separator: ", "))")
-                    .font(.caption).foregroundColor(muted).padding(.top, 6)
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.mutedForeground)
             }
             if let explanation = feedback.explanation, !explanation.isEmpty {
-                Text(explanation).font(.caption).padding(.top, 10)
+                Spacer().frame(height: 10)
+                Text(explanation)
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if feedback.provisional {
-                Text(provisionalNote).font(.caption).foregroundColor(near).padding(.top, 10)
+                Spacer().frame(height: 10)
+                HStack(spacing: 8) {
+                    Icon("clock", size: 13, color: colors.streak)
+                    LabelText(text: "Saved on this device", token: Type.micro, color: colors.streak)
+                }
+                Spacer().frame(height: 6)
+                Text(provisionalNote)
+                    .font(Type.fine.font)
+                    .foregroundStyle(colors.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 }
 
+/// The verdict.
+///
+/// The crest is the loudest thing here on purpose: finishing a session is the
+/// moment the ladder moves, so the summary shows where you now stand rather than
+/// a scoreline alone.
 private struct SummaryView: View {
+    @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
 
     private var title: String {
@@ -241,29 +302,71 @@ private struct SummaryView: View {
         }
     }
 
+    private var percent: Int {
+        model.answered == 0 ? 0 : model.correct * 100 / model.answered
+    }
+
     var body: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Crest(size: 72)
-            Text(title).font(.title).bold()
-            Text("\(model.correct) of \(model.answered) correct").foregroundColor(muted)
-            if model.mode == .learn && model.total > 0 {
-                Text("\(model.met + model.answered) of \(model.total) cards met in \(model.sessionTitle)")
-                    .font(.caption).foregroundColor(muted)
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 40)
+
+                if let rank = model.ranked?.ranked.rank {
+                    RankCrest(rank: rank, size: 104)
+                    Spacer().frame(height: 18)
+                    RankChip(rank: rank, size: 26)
+                    Spacer().frame(height: 22)
+                } else {
+                    Icon("achievements", size: 32, color: colors.foreground)
+                        .frame(width: 72, height: 72)
+                        .background(colors.secondary, in: Circle())
+                    Spacer().frame(height: 22)
+                }
+
+                Text(title)
+                    .font(Type.title.font)
+                    .foregroundStyle(colors.foreground)
+                    .multilineTextAlignment(.center)
+                Spacer().frame(height: 8)
+                Text("\(model.correct) of \(model.answered) correct (\(percent)%)")
+                    .font(Type.lead.font)
+                    .foregroundStyle(colors.mutedForeground)
+
+                if model.mode == .learn && model.total > 0 {
+                    Spacer().frame(height: 6)
+                    Text("\(model.met + model.answered) of \(model.total) cards met in \(model.sessionTitle)")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                        .multilineTextAlignment(.center)
+                }
+
+                Spacer().frame(height: 20)
+                // Accuracy is stated, never hidden: a session of near misses
+                // should not read as a session of hits.
+                SurfaceCard {
+                    HStack(alignment: .top, spacing: 20) {
+                        Stat(label: "Correct", value: "\(model.correct)", tint: colors.good)
+                        Stat(label: "Answered", value: "\(model.answered)")
+                        Stat(label: "Accuracy", value: "\(percent)%")
+                        Spacer(minLength: 0)
+                    }
+                }
+
+                if model.pending > 0 {
+                    Spacer().frame(height: 16)
+                    HStack(spacing: 8) {
+                        Icon("clock", size: 14, color: colors.streak)
+                        Text("\(model.pending) review\(model.pending == 1 ? "" : "s") will sync when you're online.")
+                            .font(Type.fine.font)
+                            .foregroundStyle(colors.streak)
+                    }
+                }
+
+                Spacer().frame(height: 28)
+                PillButton(text: "Done", large: true) { model.endReview() }
+                Spacer().frame(height: 24)
             }
-            if model.pending > 0 {
-                Text("\(model.pending) review\(model.pending == 1 ? "" : "s") will sync when you're online.")
-                    .font(.footnote).foregroundColor(near).multilineTextAlignment(.center)
-            }
-            Button {
-                model.endReview()
-            } label: {
-                Text("Done").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent).tint(accent)
-            Spacer()
+            .padding(28)
         }
-        .padding(32)
     }
 }
-

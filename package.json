@@ -1,6 +1,6 @@
 {
   "name": "srs-platform",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "type": "module",
   "private": true,
   "scripts": {
@@ -23,7 +23,8 @@
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",
     "native:android:apk": "cd mobile/android && ./gradlew :app:assembleDebug",
-    "native:ios:test": "cd mobile/ios && swift test"
+    "native:ios:test": "cd mobile/ios && swift test",
+    "native:ios:build": "cd mobile/ios && swift build --build-path .build/ios-sim --triple arm64-apple-ios17.0-simulator --sdk \"$(xcrun --sdk iphonesimulator --show-sdk-path)\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",

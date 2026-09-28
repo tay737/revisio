@@ -10,7 +10,7 @@ transcript you can export. It is built for students first, with teacher and
 admin surfaces for authoring content, running classes and reviewing what gets
 published.
 
-> **Status: v1.0.0-alpha.2.** The web app is feature-complete for v1. Both
+> **Status: v1.0.0-alpha.4.** The web app is feature-complete for v1. Both
 > mobile clients are native — Kotlin + Compose over a native engine on Android,
 > Swift + SwiftUI over the same engine on iOS — and each ships as a sideload-only
 > alpha artefact. The iOS `.ipa` is unsigned and has to be re-signed to run; see
@@ -114,8 +114,11 @@ bootstrap email with `BOOTSTRAP_DEV_EMAIL` if you want a different one.
 | `npm run native:android:apk` | Build a debug APK locally |
 | `npm run native:android:test` | Test the Kotlin engine: grading conformance, pack, outbox |
 | `npm run native:ios:test` | Test the Swift engine against the same vectors |
+| `npm run native:ios:build` | Compile the SwiftUI surface against the iOS SDK (no simulator needed) |
 | `npm run verify:native` | Boot an emulator and drive the APK with the network off |
 | `npm run vectors:grading` | Regenerate the shared grading vectors from `domain/grading.ts` |
+| `node scripts/native/make-theme.mjs` | Regenerate the native theme from `src/app/globals.css` |
+| `node scripts/native/make-icons.mjs` | Regenerate the native icon set from the web's lucide registry |
 | `npx tsx scripts/verify-maths.ts` | Maths engine invariants: determinism, self-consistency, MCQ shape (no DB needed) |
 | `npx tsx scripts/verify-markdown.ts` | Note renderer checks: block/inline parsing, safe-URL policy (no DB needed) |
 
@@ -149,6 +152,7 @@ carries the whole client's behaviour and can be tested without a device.
 npm run native:android:apk     # Android — needs the Android SDK and JDK 21
 npm run native:android:test    # engine conformance + offline store tests
 npm run native:ios:test        # the same tests, in Swift
+npm run native:ios:build       # compile the SwiftUI surface for iOS (no simulator)
 npm run verify:native          # boot an emulator, cut the network, drive a review
 ```
 
@@ -164,6 +168,13 @@ What is native, and what it buys:
   topics, reading notes), **Cram**, **Rank** (rank, weekly lobby, placement) and
   **You** (profile, privacy switches, preferences, achievements). Each one opens
   with no network and says what it is waiting on rather than failing
+- they look like this website, because they are drawn from it. The colour scheme,
+  radii, type ladder and motion curves are generated out of `src/app/globals.css`,
+  and the icons are the same **lucide** geometry the web imports — not OS glyphs
+  or emojis — via `scripts/native/make-theme.mjs` and
+  `scripts/native/make-icons.mjs`. Change a token or an icon on the web and the
+  phones follow by regenerating; the tab bar's pill, stroke weight and 64px bar
+  are `BottomNav.tsx`'s, and the rank crest is `rank-crest.tsx`'s
 
 Grading keeps a single owner: `src/domain/grading.ts` emits golden vectors that
 both native ports must reproduce, so a rule change on the web fails the mobile
@@ -176,7 +187,7 @@ library, teacher, admin), and an offline web fallback.
 Pushing a tag builds the artefacts and publishes them:
 
 ```bash
-git tag v1.0.0-alpha.2 && git push origin v1.0.0-alpha.2
+git tag v1.0.0-alpha.4 && git push origin v1.0.0-alpha.4
 ```
 
 `.github/workflows/mobile-release.yml` builds both artefacts and runs both

@@ -1,6 +1,7 @@
 package app.revisio.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,15 +12,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -29,95 +26,167 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val Accent = Color(0xFF1C64F2)
-val Surface1 = Color(0xFF1C1C1E)
-val Surface2 = Color(0xFF2C2C2E)
-val Muted = Color(0xFF98989D)
-val Good = Color(0xFF30D158)
-val Near = Color(0xFFFFD60A)
-val Bad = Color(0xFFFF453A)
-val Ink = Color(0xFFF5F5F7)
+/**
+ * The pieces every screen shares.
+ *
+ * Everything here reads `Theme.kt`, which is generated from the stylesheet, so a
+ * screen never names a colour of its own. The one exception is the notes
+ * renderer's code tint, which is deliberately a reader's colour rather than a
+ * brand one.
+ */
 
-@Composable
-fun Crest(size: Int = 64) {
-    Box(modifier = Modifier.size(size.dp), contentAlignment = Alignment.Center) {
-        Surface(color = Accent, shape = RoundedCornerShape((size / 4).dp), modifier = Modifier.fillMaxWidth().height(size.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("R", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = (size * 0.55).sp)
-            }
-        }
-    }
+/**
+ * Achievement → registry glyph, the same resolution the web performs.
+ *
+ * The database stores an emoji per achievement. An emoji would reintroduce
+ * off-palette colour, so an achievement resolves by id first, then by the legacy
+ * emoji, then to a generic award — one mapping, mirrored from
+ * `src/components/ui/icons.tsx`, so the phone and the browser draw the same mark.
+ */
+fun achievementIcon(id: String?, legacyEmoji: String?): androidx.compose.ui.graphics.vector.ImageVector {
+    ACHIEVEMENT_BY_ID[id]?.let { return it }
+    ACHIEVEMENT_BY_EMOJI[legacyEmoji]?.let { return it }
+    return RevisioIcons.achievements
 }
 
-/** The learner's face: their emoji on their colour, or the crest if unset. */
+private val ACHIEVEMENT_BY_ID: Map<String, androidx.compose.ui.graphics.vector.ImageVector> = mapOf(
+    "first-review" to RevisioIcons.start,
+    "reviews-50" to RevisioIcons.level,
+    "reviews-250" to RevisioIcons.streak,
+    "reviews-500" to RevisioIcons.climb,
+    "reviews-1000" to RevisioIcons.rocket,
+    "streak-7" to RevisioIcons.schedule,
+    "streak-30" to RevisioIcons.checked,
+    "streak-100" to RevisioIcons.crown,
+    "xp-1000" to RevisioIcons.xp,
+    "xp-5000" to RevisioIcons.crown,
+    "xp-25000" to RevisioIcons.achievements,
+    "perfect-session" to RevisioIcons.target,
+    "perfect-session-20" to RevisioIcons.secure,
+    "level-25" to RevisioIcons.league,
+)
+
+private val ACHIEVEMENT_BY_EMOJI: Map<String?, androidx.compose.ui.graphics.vector.ImageVector> = mapOf(
+    "\uD83C\uDF31" to RevisioIcons.start,
+    "\u26A1" to RevisioIcons.level,
+    "\uD83D\uDD25" to RevisioIcons.streak,
+    "\uD83D\uDCC5" to RevisioIcons.schedule,
+    "\uD83D\uDDD3\uFE0F" to RevisioIcons.checked,
+    "\uD83D\uDC8E" to RevisioIcons.xp,
+    "\uD83C\uDFAF" to RevisioIcons.target,
+    "\uD83C\uDFC3" to RevisioIcons.climb,
+    "\uD83D\uDE80" to RevisioIcons.rocket,
+    "\uD83C\uDFD4\uFE0F" to RevisioIcons.crown,
+    "\uD83D\uDC51" to RevisioIcons.crown,
+    "\u26F0\uFE0F" to RevisioIcons.achievements,
+    "\uD83D\uDEE1\uFE0F" to RevisioIcons.secure,
+    "\uD83C\uDF96\uFE0F" to RevisioIcons.league,
+)
+
+/** The brand mark is the wordmark — there is no separate logo lockup. */
+@Composable
+fun Wordmark(size: TypeToken = Type.tagline) {
+    Text("Revisio", style = size.style(Ink))
+}
+
+/** The learner's face: their emoji on their colour, or the crest of their rank. */
 @Composable
 fun Avatar(emoji: String?, size: Int = 40) {
+    // The five costume tints from `profile.ts`; the avatar is the one place a
+    // learner's own colour is allowed, and it never carries meaning.
     val tint = when ((emoji?.hashCode() ?: 0) % 5) {
-        0 -> Color(0xFF3A3A3C)
-        1 -> Color(0xFF14532D)
-        2 -> Color(0xFF713F12)
-        3 -> Color(0xFF1E3A5F)
-        else -> Color(0xFF3B2A4A)
+        0 -> Card2
+        1 -> Good.copy(alpha = 0.22f)
+        2 -> Warn.copy(alpha = 0.22f)
+        3 -> Info.copy(alpha = 0.22f)
+        else -> revisioColors.accent
     }
-    Box(modifier = Modifier.size(size.dp), contentAlignment = Alignment.Center) {
-        Surface(color = tint, shape = RoundedCornerShape((size / 3).dp), modifier = Modifier.fillMaxWidth().height(size.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(emoji?.takeIf { it.isNotBlank() } ?: "R", fontSize = (size * 0.45).sp)
-            }
-        }
+    Box(
+        modifier = Modifier
+            .size(size.dp)
+            .background(tint, RoundedCornerShape(Radius.pill))
+            .border(1.dp, Line, RoundedCornerShape(Radius.pill)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            emoji?.takeIf { it.isNotBlank() } ?: "R",
+            fontSize = (size * 0.46f).sp,
+        )
     }
 }
 
+/** A 16px-radius card with a hairline and no shadow. Level 0 is the default. */
 @Composable
 fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Surface1),
-        shape = RoundedCornerShape(18.dp),
-    ) { Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) { content() } }
+    SurfaceCard(modifier = modifier) { content() }
 }
 
+/** A label-over-number pair, the shape every stat row on the site uses. */
 @Composable
-fun Stat(label: String, value: String, tint: Color = Ink) {
+fun Stat(label: String, value: String, tint: androidx.compose.ui.graphics.Color? = null) {
     Column {
-        Text(label, color = Muted, fontSize = 12.sp)
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = tint)
+        Label(label, token = Type.micro, color = Muted)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = Type.displaySm.style(tint ?: Ink))
     }
 }
 
 @Composable
 fun SectionTitle(text: String) {
-    Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Muted)
-    Spacer(Modifier.height(6.dp))
+    Label(text, token = Type.eyebrow, color = Muted)
+    Spacer(Modifier.height(10.dp))
 }
 
+/** An eyebrow over a display title — the page header every destination uses. */
 @Composable
-fun Chip(text: String, tint: Color = Muted) {
-    Surface(color = Surface2, shape = RoundedCornerShape(8.dp)) {
-        Text(text, color = tint, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+fun ScreenTitle(title: String, eyebrow: String? = null) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (eyebrow != null) {
+            Label(eyebrow, token = Type.eyebrow, color = Muted)
+            Spacer(Modifier.height(4.dp))
+        }
+        Text(title, style = Type.title.style(Ink))
     }
 }
 
 @Composable
-fun Bar(percent: Int, tint: Color = Accent, height: Int = 6) {
-    Box(
+fun Chip(text: String, tint: androidx.compose.ui.graphics.Color = Ink) {
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(height.dp)
-            .background(Surface2, RoundedCornerShape(height.dp)),
+            .background(Card2, RoundedCornerShape(Radius.pill))
+            .padding(horizontal = 11.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth((percent.coerceIn(0, 100)) / 100f)
-                .height(height.dp)
-                .background(tint, RoundedCornerShape(height.dp)),
-        )
+        Text(text, style = Type.fine.style(tint), maxLines = 1)
     }
 }
 
+/** Division, streak and placement progress: the 10px meter. */
 @Composable
-fun Divider() {
-    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2C2E)))
+fun Bar(percent: Int, tint: androidx.compose.ui.graphics.Color? = null, height: Int = 10) {
+    Meter(percent, tint, height.dp)
+}
+
+@Composable
+fun Divider() = Hairline()
+
+/** One line of "here is what happened", used wherever a screen can be empty. */
+@Composable
+fun EmptyNote(text: String) {
+    SoftCard { Text(text, style = Type.caption.style(Muted)) }
+}
+
+@Composable
+fun RowSpacer(width: Int = 12) = Spacer(Modifier.size(width.dp))
+
+@Composable
+fun ColumnSpacer(height: Int = 12) = Spacer(Modifier.height(height.dp))
+
+@Composable
+fun Stack(spacing: Int = 12, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.dp), modifier = Modifier.fillMaxWidth()) {
+        content()
+    }
 }
 
 // ── the notes renderer ──────────────────────────────────────────────────────
@@ -133,6 +202,9 @@ private val BULLET = Regex("^\\s*[-*+]\\s+(.*)$")
 private val NUMBERED = Regex("^\\s*(\\d+)[.)]\\s+(.*)$")
 private val QUOTE = Regex("^>\\s?(.*)$")
 private val RULE = Regex("^\\s*(-{3,}|_{3,}|\\*{3,})\\s*$")
+
+/** Notes are reference material, which is the one thing `--info` is for. */
+private val CodeInk = androidx.compose.ui.graphics.Color(0xFF1CB0F6)
 
 @Composable
 fun Notes(markdown: String) {
@@ -158,48 +230,53 @@ fun Notes(markdown: String) {
 
             when {
                 RULE.matches(line) -> {
-                    Spacer(Modifier.height(8.dp))
-                    Divider()
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
+                    Hairline()
+                    Spacer(Modifier.height(14.dp))
                 }
-                line.isBlank() -> Spacer(Modifier.height(10.dp))
+                line.isBlank() -> Spacer(Modifier.height(12.dp))
                 HEADING.matches(line) -> {
                     val depth = line.takeWhile { it == '#' }.length
                     val text = HEADING.find(line)?.groupValues?.get(1).orEmpty()
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         inlineText(text),
-                        fontSize = when (depth) { 1 -> 21.sp; 2 -> 18.sp; else -> 16.sp },
-                        fontWeight = FontWeight.Bold,
+                        style = when (depth) {
+                            1 -> Type.displaySm
+                            2 -> Type.strong.copy(size = 19, weight = FontWeight.Bold)
+                            else -> Type.strong.copy(weight = FontWeight.Bold)
+                        }.style(Ink),
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                 }
                 BULLET.matches(line) -> {
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("•", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text(inlineText(BULLET.find(line)?.groupValues?.get(1).orEmpty()), fontSize = 15.sp, lineHeight = 22.sp)
+                        Text("•", style = Type.body.style(Muted), modifier = Modifier.padding(end = 10.dp))
+                        Text(inlineText(BULLET.find(line)?.groupValues?.get(1).orEmpty()), style = Type.body.style(Ink))
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                 }
                 NUMBERED.matches(line) -> {
                     val m = NUMBERED.find(line)!!
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("${m.groupValues[1]}.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text(inlineText(m.groupValues[2]), fontSize = 15.sp, lineHeight = 22.sp)
+                        Text("${m.groupValues[1]}.", style = Type.body.style(Muted), modifier = Modifier.padding(end = 10.dp))
+                        Text(inlineText(m.groupValues[2]), style = Type.body.style(Ink))
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                 }
                 QUOTE.matches(line) -> {
+                    // A quote is marked by the notes accent, the same blue the
+                    // website gives reference material.
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.size(width = 3.dp, height = 20.dp).background(Accent, RoundedCornerShape(2.dp)))
-                        Spacer(Modifier.size(10.dp))
-                        Text(inlineText(QUOTE.find(line)?.groupValues?.get(1).orEmpty()), color = Muted, fontSize = 15.sp, lineHeight = 22.sp)
+                        Box(Modifier.size(width = 3.dp, height = 22.dp).background(Info, RoundedCornerShape(Radius.pill)))
+                        Spacer(Modifier.size(12.dp))
+                        Text(inlineText(QUOTE.find(line)?.groupValues?.get(1).orEmpty()), style = Type.body.style(Muted))
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                 }
                 else -> {
-                    Text(inlineText(line), fontSize = 15.sp, lineHeight = 23.sp)
-                    Spacer(Modifier.height(4.dp))
+                    Text(inlineText(line), style = Type.body.style(Ink))
+                    Spacer(Modifier.height(6.dp))
                 }
             }
         }
@@ -210,16 +287,20 @@ fun Notes(markdown: String) {
 @Composable
 private fun CodeBlock(body: String) {
     if (body.isBlank()) return
-    Surface(color = Color(0xFF121214), shape = RoundedCornerShape(10.dp)) {
+    Surface(
+        color = revisioColors.secondary,
+        shape = RoundedCornerShape(Radius.md),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Text(
             body.trimEnd(),
-            color = Color(0xFFB9F18D),
+            color = CodeInk,
             fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            fontSize = 13.sp,
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
         )
     }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(12.dp))
 }
 
 /** Bold, italic and inline code, with the markers removed. */
@@ -241,7 +322,7 @@ private fun inlineText(text: String) = buildAnnotatedString {
                 val end = text.indexOf('`', i + 1)
                 if (end < 0) { append(text.substring(i)); i = text.length }
                 else {
-                    withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = Color(0xFFB9F18D))) {
+                    withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = CodeInk)) {
                         append(text.substring(i + 1, end))
                     }
                     i = end + 1
@@ -253,7 +334,7 @@ private fun inlineText(text: String) = buildAnnotatedString {
                 val open = if (close >= 0) text.indexOf('(', close) else -1
                 val end = if (open >= 0) text.indexOf(')', open) else -1
                 if (close > 0 && end > open) {
-                    withStyle(SpanStyle(color = Accent)) { append(text.substring(i + 1, close)) }
+                    withStyle(SpanStyle(color = CodeInk)) { append(text.substring(i + 1, close)) }
                     i = end + 1
                 } else { append(text[i]); i++ }
             }
@@ -272,21 +353,4 @@ private fun nextMarker(text: String, from: Int): Int {
         if (text[i] == '*' || text[i] == '`' || text[i] == '[') return i
     }
     return text.length
-}
-
-/** One line of "here is what happened", used wherever a screen can be empty. */
-@Composable
-fun EmptyNote(text: String) {
-    Panel { Text(text, color = Muted, fontSize = 14.sp, lineHeight = 21.sp) }
-}
-
-@Composable
-fun RowSpacer(width: Int = 12) = Spacer(Modifier.size(width.dp))
-
-@Composable
-fun ColumnSpacer(height: Int = 12) = Spacer(Modifier.height(height.dp))
-
-@Composable
-fun Stack(spacing: Int = 12, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.dp), modifier = Modifier.fillMaxWidth()) { content() }
 }

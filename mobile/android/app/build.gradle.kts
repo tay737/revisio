@@ -21,8 +21,8 @@ android {
         // it for timestamps and there is no reason to carry a shim for API 24–25.
         minSdk = 26
         targetSdk = 35
-        versionCode = 10001
-        versionName = "1.0.0-alpha.2"
+        versionCode = 10000
+        versionName = "1.0.0-alpha.4"
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
     }

@@ -1,309 +1,396 @@
-import SwiftUI
 import RevisioEngine
+import SwiftUI
 
-// ── the palette ─────────────────────────────────────────────────────────────
-// One accent, deliberately: rank is coded by shape rather than hue, so a second
-// colour would be a second language. These are the same values the Compose client
-// uses, so the two apps look like one product.
-
-let accent = Color(red: 28 / 255, green: 100 / 255, blue: 242 / 255)
-let surface1 = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
-let surface2 = Color(red: 44 / 255, green: 44 / 255, blue: 46 / 255)
-let muted = Color(red: 152 / 255, green: 152 / 255, blue: 157 / 255)
-let good = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
-let near = Color(red: 255 / 255, green: 214 / 255, blue: 10 / 255)
-let bad = Color(red: 1, green: 69 / 255, blue: 58 / 255)
-let ink = Color(red: 245 / 255, green: 245 / 255, blue: 247 / 255)
-
-/// iOS-only keyboard hints, applied only where they exist.
+/// The pieces every screen shares.
 ///
-/// The package also builds on macOS — that is how the engine is verified — and
-/// these modifiers do not exist there, so they are attached through this one
-/// guarded seam instead of forcing an iOS-only build.
-extension View {
-    @ViewBuilder func revisioTextInput() -> some View {
-        #if os(iOS)
-        self.textInputAutocapitalization(.never)
-        #else
-        self
-        #endif
-    }
+/// Everything here reads `Theme.swift`, which is generated from the stylesheet,
+/// so a screen never names a colour of its own. The one exception is the notes
+/// renderer's code tint, which is deliberately a reader's colour rather than a
+/// brand one.
 
-    @ViewBuilder func revisioEmailInput() -> some View {
-        #if os(iOS)
-        self.textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never)
-        #else
-        self
-        #endif
+extension Collection where Index == Int {
+    /// A subscript that answers nil instead of trapping.
+    ///
+    /// The review loop's index is owned by the model and advanced in its own
+    /// right, so between finishing a card and finishing the session there is a
+    /// moment where it names a card that is no longer there. That is a state to
+    /// render, not a crash to have.
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
-/// Index without the bounds trap, for the "is there a card after this one?"
-/// questions a review loop asks constantly.
-extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
-}
+/// The brand mark is the wordmark — there is no separate logo lockup.
+struct Wordmark: View {
+    @Environment(\.revisio) private var colors
+    var token: TypeToken = Type.tagline
 
-// ── shared pieces ───────────────────────────────────────────────────────────
-
-struct Crest: View {
-    var size: CGFloat = 64
     var body: some View {
-        RoundedRectangle(cornerRadius: size / 4)
-            .fill(accent)
-            .frame(width: size, height: size)
-            .overlay(Text("R").font(.system(size: size * 0.55, weight: .heavy)).foregroundColor(.white))
+        Text("Revisio")
+            .font(token.font)
+            .foregroundStyle(colors.foreground)
     }
 }
 
-/// The learner's face: their emoji on their colour, or the crest if unset.
+/// The learner's face: their emoji on their colour, or the crest of their rank.
 struct Avatar: View {
+    @Environment(\.revisio) private var colors
     var emoji: String?
     var size: CGFloat = 40
+
     private var tint: Color {
-        guard let first = emoji?.unicodeScalars.first else { return surface2 }
-        switch Int(first.value) % 5 {
-        case 0: return Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255)
-        case 1: return Color(red: 20 / 255, green: 83 / 255, blue: 45 / 255)
-        case 2: return Color(red: 113 / 255, green: 63 / 255, blue: 18 / 255)
-        case 3: return Color(red: 30 / 255, green: 58 / 255, blue: 95 / 255)
-        default: return Color(red: 59 / 255, green: 42 / 255, blue: 74 / 255)
+        switch abs((emoji ?? "").hashValue) % 5 {
+        case 0: return colors.secondary
+        case 1: return colors.good.opacity(0.22)
+        case 2: return colors.streak.opacity(0.22)
+        case 3: return colors.info.opacity(0.22)
+        default: return colors.accent
         }
     }
+
     var body: some View {
-        RoundedRectangle(cornerRadius: size / 3)
-            .fill(tint)
+        Text(emoji?.isEmpty == false ? emoji! : "R")
+            .font(.system(size: size * 0.46))
             .frame(width: size, height: size)
-            .overlay(
-                Text((emoji?.isEmpty == false ? emoji : nil) ?? "R")
-                    .font(.system(size: size * 0.45))
-            )
+            .background(tint, in: Circle())
+            .overlay { Circle().strokeBorder(colors.border, lineWidth: 1) }
     }
 }
 
+/// A 16px-radius card with a hairline and no shadow. Level 0 is the default.
 struct Panel<Content: View>: View {
-    @ViewBuilder var content: Content
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) { content }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-            .background(surface1)
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+        SurfaceCard { content }
     }
 }
 
+/// An eyebrow over a display title — the page header every destination uses.
+struct ScreenTitle: View {
+    @Environment(\.revisio) private var colors
+    let title: String
+    var eyebrow: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let eyebrow {
+                LabelText(text: eyebrow, token: Type.eyebrow, color: colors.mutedForeground)
+            }
+            Text(title)
+                .font(Type.title.font)
+                .foregroundStyle(colors.foreground)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A label-over-number pair, the shape every stat row on the site uses.
 struct Stat: View {
+    @Environment(\.revisio) private var colors
     let label: String
     let value: String
-    var tint: Color = ink
+    var tint: Color?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption2).foregroundColor(muted)
-            Text(value).font(.headline).foregroundColor(tint)
+            LabelText(text: label, token: Type.micro, color: colors.mutedForeground)
+            Text(value)
+                .font(Type.displaySm.font)
+                .foregroundStyle(tint ?? colors.foreground)
         }
-    }
-}
-
-struct Chip: View {
-    let text: String
-    var tint: Color = muted
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11))
-            .foregroundColor(tint)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(surface2)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-}
-
-struct Bar: View {
-    let percent: Int
-    var tint: Color = accent
-    var height: CGFloat = 6
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: height).fill(surface2)
-                RoundedRectangle(cornerRadius: height)
-                    .fill(tint)
-                    .frame(width: geo.size.width * CGFloat(min(max(percent, 0), 100)) / 100)
-            }
-        }
-        .frame(height: height)
-    }
-}
-
-struct HDivider: View {
-    var body: some View {
-        Rectangle().fill(surface2).frame(height: 1)
     }
 }
 
 struct SectionTitle: View {
+    @Environment(\.revisio) private var colors
     let text: String
+
     var body: some View {
-        Text(text).font(.system(size: 13, weight: .semibold)).foregroundColor(muted)
+        VStack(alignment: .leading, spacing: 0) {
+            LabelText(text: text, token: Type.eyebrow, color: colors.mutedForeground)
+            Spacer().frame(height: 10)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
+struct Chip: View {
+    @Environment(\.revisio) private var colors
+    let text: String
+    var tint: Color?
+
+    var body: some View {
+        Text(text)
+            .font(Type.fine.font)
+            .foregroundStyle(tint ?? colors.foreground)
+            .lineLimit(1)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 5)
+            .background(colors.secondary, in: Capsule())
+    }
+}
+
+/// Division, streak and placement progress: the 10px meter.
+struct Bar: View {
+    let percent: Int
+    var tint: Color?
+    var height: CGFloat = 10
+
+    var body: some View {
+        Meter(percent: percent, tint: tint, height: height)
+    }
+}
+
+struct HDivider: View { var body: some View { Hairline() } }
+
+/// One line of "here is what happened", used wherever a screen can be empty.
 struct EmptyNote: View {
     let text: String
-    var body: some View {
-        Panel { Text(text).font(.system(size: 14)).foregroundColor(muted) }
-    }
-}
 
-struct DensityToggle: View {
-    let density: String
-    let onSet: (String) -> Void
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach([("detailed", "Full"), ("summary", "Summary")], id: \.0) { value, label in
-                if density == value {
-                    Button { onSet(value) } label: { Text(label).font(.system(size: 12)) }
-                        .buttonStyle(.borderedProminent).tint(accent)
-                } else {
-                    Button { onSet(value) } label: { Text(label).font(.system(size: 12)) }
-                        .buttonStyle(.plain).foregroundColor(muted)
-                }
-            }
+        SoftCard {
+            Text(text)
+                .font(Type.caption.font)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
+
+/// The notes-density segments. Kept as a named control because both the reader
+/// and the drill carry it, and they must not drift apart.
+struct DensityToggle: View {
+    let density: String
+    let onSet: (String) -> Void
+
+    var body: some View {
+        Segmented(
+            options: [("detailed", "Full"), ("summary", "Brief")],
+            selected: density,
+            onSelect: onSet
+        )
+    }
+}
+
+/// Achievement → registry glyph, the same resolution the web performs.
+///
+/// The database stores an emoji per achievement. An emoji would reintroduce
+/// off-palette colour, so an achievement resolves by id first, then by the legacy
+/// emoji, then to a generic award — one mapping, mirrored from
+/// `src/components/ui/icons.tsx`, so the phone and the browser draw the same mark.
+func achievementIcon(id: String?, legacyEmoji: String?) -> String {
+    if let id, let named = ACHIEVEMENT_BY_ID[id] { return named }
+    if let legacyEmoji, let named = ACHIEVEMENT_BY_EMOJI[legacyEmoji] { return named }
+    return "achievements"
+}
+
+private let ACHIEVEMENT_BY_ID: [String: String] = [
+    "first-review": "start",
+    "reviews-50": "level",
+    "reviews-250": "streak",
+    "reviews-500": "climb",
+    "reviews-1000": "rocket",
+    "streak-7": "schedule",
+    "streak-30": "checked",
+    "streak-100": "crown",
+    "xp-1000": "xp",
+    "xp-5000": "crown",
+    "xp-25000": "achievements",
+    "perfect-session": "target",
+    "perfect-session-20": "secure",
+    "level-25": "league",
+]
+
+private let ACHIEVEMENT_BY_EMOJI: [String: String] = [
+    "🌱": "start",
+    "⚡": "level",
+    "🔥": "streak",
+    "📅": "schedule",
+    "🗓️": "checked",
+    "💎": "xp",
+    "🎯": "target",
+    "🏃": "climb",
+    "🚀": "rocket",
+    "🏔️": "crown",
+    "👑": "crown",
+    "⛰️": "achievements",
+    "🛡️": "secure",
+    "🎖️": "league",
+]
 
 // ── the notes renderer ──────────────────────────────────────────────────────
 //
 // Notes are authored in Markdown for the web. A native client cannot drop a
-// browser in for it — that is the whole point — so this renders a deliberately
-// small subset: headings, bullets, numbered lists, quotes, rules, code fences and
-// bold/italic/inline code. Anything fancier degrades to readable prose rather
-// than to markup, which is the right failure for something being studied.
+// browser engine in for it — that is the whole point — so this is a deliberately
+// small renderer: headings, bullets, numbered lists, block quotes, bold/italic
+// and inline code. Anything fancier degrades to readable text rather than to
+// markup, which is the right failure for prose somebody is studying.
 
 struct NotesView: View {
+    @Environment(\.revisio) private var colors
     let markdown: String
+
+    /// Notes are reference material, which is the one thing `--info` is for.
+    private static let codeInk = Color(hex: 0x1CB0F6FF)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                block.view
+                block
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var blocks: [Block] {
-        var out: [Block] = []
-        var code: [String] = []
+    private var blocks: [AnyView] {
+        var out: [AnyView] = []
         var inCode = false
+        var code: [String] = []
+        let lines = markdown.replacingOccurrences(of: "\r\n", with: "\n").split(
+            separator: "\n", omittingEmptySubsequences: false
+        ).map(String.init)
 
-        for raw in markdown.replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n", omittingEmptySubsequences: false) {
-            let line = String(raw)
+        for raw in lines {
+            let line = raw.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
             if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
-                // A fence closes either way, so an unclosed block still renders as
-                // code rather than swallowing the rest of the notes.
-                out.append(.code(code.joined(separator: "\n")))
+                // A fence closes the buffer either way, so an unclosed block still
+                // renders as code rather than swallowing the rest of the notes.
+                out.append(AnyView(codeBlock(code.joined(separator: "\n"))))
                 code = []
                 inCode.toggle()
                 continue
             }
-            if inCode { code.append(line); continue }
+            if inCode {
+                code.append(line)
+                continue
+            }
 
-            if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                out.append(.space)
-            } else if let match = line.firstMatch(of: #"^\s*(-{3,}|_{3,}|\*{3,})\s*$"#) {
-                _ = match
-                out.append(.rule)
-            } else if let heading = line.firstMatch(of: #"^(#{1,6})\s+(.*)$"#), heading.count == 3 {
-                out.append(.heading(String(heading[2]), level: heading[1].count))
-            } else if let bullet = line.firstMatch(of: #"^\s*[-*+]\s+(.*)$"#), bullet.count == 2 {
-                out.append(.bullet(String(bullet[1])))
-            } else if let numbered = line.firstMatch(of: #"^\s*(\d+)[.)]\s+(.*)$"#), numbered.count == 3 {
-                out.append(.numbered(String(numbered[1]), String(numbered[2])))
-            } else if let quote = line.firstMatch(of: #"^>\s?(.*)$"#), quote.count == 2 {
-                out.append(.quote(String(quote[1])))
+            let heading = line.range(of: "^#{1,6}\\s+", options: .regularExpression)
+            let bullet = line.range(of: "^\\s*[-*+]\\s+", options: .regularExpression)
+            let numbered = line.range(of: "^\\s*\\d+[.)]\\s+", options: .regularExpression)
+            let quote = line.range(of: "^>\\s?", options: .regularExpression)
+            let rule = line.range(of: "^\\s*(-{3,}|_{3,}|\\*{3,})\\s*$", options: .regularExpression)
+
+            if rule != nil {
+                out.append(AnyView(Hairline().padding(.vertical, 12)))
+            } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                out.append(AnyView(Spacer().frame(height: 12)))
+            } else if let heading {
+                let depth = line.prefix(while: { $0 == "#" }).count
+                let text = String(line[heading.upperBound...])
+                out.append(
+                    AnyView(
+                        inline(text, weight: .bold)
+                            .font(depth == 1 ? Type.displaySm.font : .system(size: 18, weight: .bold))
+                            .padding(.top, 8)
+                            .padding(.bottom, 6)
+                    )
+                )
+            } else if let bullet {
+                out.append(
+                    AnyView(
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("•").foregroundStyle(colors.mutedForeground)
+                            inline(String(line[bullet.upperBound...]))
+                        }
+                        .padding(.bottom, 6)
+                    )
+                )
+            } else if let numbered {
+                out.append(
+                    AnyView(
+                        HStack(alignment: .top, spacing: 10) {
+                            Text(String(line[line.startIndex..<numbered.upperBound]).trimmingCharacters(in: .whitespaces))
+                                .foregroundStyle(colors.mutedForeground)
+                            inline(String(line[numbered.upperBound...]))
+                        }
+                        .padding(.bottom, 6)
+                    )
+                )
+            } else if let quote {
+                out.append(
+                    AnyView(
+                        HStack(alignment: .top, spacing: 12) {
+                            Capsule()
+                                .fill(colors.info)
+                                .frame(width: 3)
+                            inline(String(line[quote.upperBound...]))
+                                .foregroundStyle(colors.mutedForeground)
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 6)
+                    )
+                )
             } else {
-                out.append(.prose(line))
+                out.append(AnyView(inline(line).padding(.bottom, 6)))
             }
         }
-        out.append(.code(code.joined(separator: "\n")))
+        out.append(AnyView(codeBlock(code.joined(separator: "\n"))))
         return out
     }
 
-    enum Block {
-        case heading(String, level: Int)
-        case bullet(String)
-        case numbered(String, String)
-        case quote(String)
-        case prose(String)
-        case code(String)
-        case rule
-        case space
-
-        @ViewBuilder var view: some View {
-            switch self {
-            case let .heading(text, level):
-                Text(markdownInline(text))
-                    .font(.system(size: level == 1 ? 21 : level == 2 ? 18 : 16, weight: .bold))
-                    .padding(.top, 6)
-                    .padding(.bottom, 4)
-            case let .bullet(text):
-                HStack(alignment: .top, spacing: 8) {
-                    Text("•").foregroundColor(muted)
-                    Text(markdownInline(text))
-                }
-                .padding(.bottom, 4)
-            case let .numbered(number, text):
-                HStack(alignment: .top, spacing: 8) {
-                    Text("\(number).").foregroundColor(muted)
-                    Text(markdownInline(text))
-                }
-                .padding(.bottom, 4)
-            case let .quote(text):
-                HStack(alignment: .top, spacing: 10) {
-                    RoundedRectangle(cornerRadius: 2).fill(accent).frame(width: 3)
-                    Text(markdownInline(text)).foregroundColor(muted)
-                }
-                .padding(.bottom, 4)
-            case let .prose(text):
-                Text(markdownInline(text)).padding(.bottom, 4)
-            case let .code(body):
-                if !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(body)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(Color(red: 185 / 255, green: 241 / 255, blue: 141 / 255))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(Color(red: 18 / 255, green: 18 / 255, blue: 20 / 255))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .padding(.bottom, 10)
-                }
-            case .rule:
-                HDivider().padding(.vertical, 8)
-            case .space:
-                Spacer().frame(height: 10)
-            }
+    @ViewBuilder
+    private func codeBlock(_ body: String) -> some View {
+        if !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text(body)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(Self.codeInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(colors.secondary, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+                .padding(.bottom, 12)
         }
     }
 
-}
+    /// Bold, italic and inline code, with the markers removed.
+    private func inline(_ text: String, weight: Font.Weight = .regular) -> Text {
+        var result = Text("")
+        var index = text.startIndex
+        let body = Type.body.font
 
-/// Emphasis, code and links, parsed as inline Markdown so `**bold**` really is
-/// bold rather than merely losing its asterisks.
-private func markdownInline(_ text: String) -> AttributedString {
-    let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-    return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
-}
-
-private extension String {
-    /// The capture groups of the first match of `pattern`, 0 being the whole match.
-    func firstMatch(of pattern: String) -> [String]? {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        let range = NSRange(startIndex..<endIndex, in: self)
-        guard let match = regex.firstMatch(in: self, range: range) else { return nil }
-        return (0..<match.numberOfRanges).map { index in
-            guard let r = Range(match.range(at: index), in: self) else { return "" }
-            return String(self[r])
+        func plain(_ slice: String) -> Text {
+            Text(slice).font(body.weight(weight)).foregroundColor(colors.foreground)
         }
+
+        while index < text.endIndex {
+            let rest = text[index...]
+            if rest.hasPrefix("**"), let end = rest.dropFirst(2).range(of: "**") {
+                result = result + Text(String(rest.dropFirst(2)[..<end.lowerBound]))
+                    .font(body.weight(.semibold))
+                    .foregroundColor(colors.foreground)
+                index = end.upperBound
+            } else if rest.hasPrefix("*"), let end = rest.dropFirst().firstIndex(of: "*") {
+                result = result + Text(String(rest.dropFirst()[..<end]))
+                    .font(body.italic())
+                    .foregroundColor(colors.foreground)
+                index = rest.index(after: end)
+            } else if rest.hasPrefix("`"), let end = rest.dropFirst().firstIndex(of: "`") {
+                result = result + Text(String(rest.dropFirst()[..<end]))
+                    .font(.system(size: 15, design: .monospaced))
+                    .foregroundColor(Self.codeInk)
+                index = rest.index(after: end)
+            } else if rest.hasPrefix("["), let close = rest.firstIndex(of: "]") {
+                // [label](url) — the label is the useful half on a phone.
+                let after = rest.index(after: close)
+                if after < rest.endIndex, rest[after] == "(", let end = rest[after...].firstIndex(of: ")") {
+                    result = result + Text(String(rest.dropFirst()[..<close]))
+                        .font(body)
+                        .foregroundColor(Self.codeInk)
+                    index = rest.index(after: end)
+                } else {
+                    result = result + plain(String(rest.first!))
+                    index = rest.index(after: index)
+                }
+            } else {
+                result = result + plain(String(rest.first!))
+                index = rest.index(after: index)
+            }
+        }
+        return result
     }
 }

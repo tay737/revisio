@@ -20,14 +20,16 @@ enum Tab: String, CaseIterable {
         }
     }
 
-    /// Glyphs rather than an icon font this build does not ship.
-    var glyph: String {
+    /// The website's registry name for each destination, so the bar draws the
+    /// same glyphs the browser's does rather than a font the platform happens to
+    /// ship. `RevisioIcons` is generated out of that registry.
+    var icon: String {
         switch self {
-        case .today: return "◎"
-        case .learn: return "▤"
-        case .cram: return "⚡"
-        case .rank: return "★"
-        case .you: return "☺"
+        case .today: return "dashboard"
+        case .learn: return "learn"
+        case .cram: return "cram"
+        case .rank: return "rank"
+        case .you: return "person"
         }
     }
 }
@@ -629,27 +631,32 @@ private extension String {
 struct RevisioApp: App {
     var body: some Scene {
         WindowGroup {
-            RootView().preferredColorScheme(.dark)
+            RootView()
         }
     }
 }
 
+/// The root is the design language, not a black rectangle with views in it: the
+/// theme decides both palettes and the app follows the system the way the
+/// website follows the OS preference.
 private struct RootView: View {
+    @Environment(\.revisio) private var colors
     @StateObject private var model = AppModel()
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.black.ignoresSafeArea()
-            content
-            if let message = model.message {
-                Banner(message: message) { model.dismissMessage() }
+        RevisioTheme {
+            ZStack(alignment: .top) {
+                content
+                if let message = model.message {
+                    Banner(message: message) { model.dismissMessage() }
+                }
             }
         }
     }
 
     @ViewBuilder private var content: some View {
         if model.loading {
-            ProgressView().tint(accent)
+            ProgressView().tint(colors.foreground)
         } else if !model.signedIn {
             AuthView(model: model)
         } else if model.inReview {
@@ -667,79 +674,168 @@ private struct RootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-                TabBar(current: model.tab) { model.selectTab($0) }
+                TabBar(
+                    current: model.tab,
+                    due: model.home?.due ?? 0,
+                    onSelect: { model.selectTab($0) }
+                )
             }
         }
     }
 }
 
+/// The website's `BottomNav`, not a UIKit tab bar.
+///
+/// A hairline instead of a shadow, a 3px ink bar over the current slot that
+/// travels between slots rather than blinking, the due count on the slot that
+/// clears it, and each glyph at the registry's own weight.
 private struct TabBar: View {
+    @Environment(\.revisio) private var colors
+
     let current: Tab
+    let due: Int
     let onSelect: (Tab) -> Void
 
+    private static let indicatorWidth: CGFloat = 36
+
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases, id: \.self) { tab in
-                Button { onSelect(tab) } label: {
-                    VStack(spacing: 3) {
-                        Text(tab.glyph).font(.system(size: 15))
-                        Text(tab.label).font(.system(size: 11))
+        VStack(spacing: 0) {
+            Hairline()
+            GeometryReader { geo in
+                let count = CGFloat(Tab.allCases.count)
+                let index = CGFloat(Tab.allCases.firstIndex(of: current) ?? 0)
+                let travel = geo.size.width / count * (index + 0.5) - Self.indicatorWidth / 2
+
+                ZStack(alignment: .topLeading) {
+                    HStack(spacing: 0) {
+                        ForEach(Tab.allCases, id: \.self) { tab in
+                            TabSlot(
+                                tab: tab,
+                                active: tab == current,
+                                due: tab == .today ? due : 0,
+                                action: { onSelect(tab) }
+                            )
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .foregroundColor(current == tab ? accent : muted)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(colors.foreground)
+                        .frame(width: Self.indicatorWidth, height: 3)
+                        .offset(x: travel)
+                        .animation(Motion.out, value: current)
                 }
-                .buttonStyle(.plain)
             }
+            .frame(height: Metrics.navHeight)
+            // `glass-bar`: translucent enough that the page is visibly passing
+            // underneath it. A hair less opaque than the stylesheet's 82%, since
+            // a native bar cannot blur a backdrop the way `backdrop-filter` can.
+            .background(colors.background.opacity(0.94))
         }
-        .padding(.top, 10)
-        .padding(.bottom, 6)
-        .background(Color(red: 19 / 255, green: 19 / 255, blue: 21 / 255))
     }
 }
 
+private struct TabSlot: View {
+    @Environment(\.revisio) private var colors
+
+    let tab: Tab
+    let active: Bool
+    let due: Int
+    let action: () -> Void
+
+    var body: some View {
+        let ink = active ? colors.foreground : colors.mutedForeground
+        Button(action: action) {
+            VStack(spacing: 4) {
+                ZStack(alignment: .topTrailing) {
+                    Icon(tab.icon, size: 22, strokeWidth: active ? 2.3 : 1.9, color: ink)
+                    if due > 0 {
+                        // "There is something here for you" — the one badge colour.
+                        Text(due > 99 ? "99+" : "\(due)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(colors.good, in: Capsule())
+                            .offset(x: 12, y: -6)
+                    }
+                }
+                Text(tab.label)
+                    .font(.system(size: 11, weight: active ? .semibold : .medium))
+                    .foregroundColor(ink)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 14)
+        }
+        .buttonStyle(PressScaleStyle())
+    }
+}
+
+/// A banner rather than a dialog: the app is offline-first, so "that did not
+/// work" is information, not an interruption.
 private struct Banner: View {
+    @Environment(\.revisio) private var colors
     let message: String
     let dismiss: () -> Void
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(message).font(.footnote)
-            Button("Dismiss", action: dismiss).font(.footnote)
+        HStack(spacing: 12) {
+            Text(message)
+                .font(Type.caption.font)
+                .foregroundStyle(colors.primaryForeground)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            LabelText(text: "Dismiss", token: Type.micro, color: colors.primaryForeground.opacity(0.7))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(surface2)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(colors.foreground, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .padding(16)
+        .onTapGesture(perform: dismiss)
     }
 }
 
 private struct AuthView: View {
+    @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
     @State private var email = ""
     @State private var password = ""
 
+    private var canSubmit: Bool {
+        !email.trimmed.isEmpty && !password.isEmpty && !model.busy
+    }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
-                Spacer().frame(height: 60)
-                Crest()
-                Text("Revisio").font(.title).bold()
+            VStack(spacing: 0) {
+                Spacer().frame(height: 72)
+                Wordmark(token: Type.displaySm)
+                Spacer().frame(height: 10)
                 Text("Sign in to study — then keep studying offline.")
-                    .font(.subheadline).foregroundColor(muted).multilineTextAlignment(.center)
-                Spacer().frame(height: 18)
-                TextField("Email", text: $email).revisioEmailInput().textFieldStyle(.roundedBorder)
-                SecureField("Password", text: $password).textFieldStyle(.roundedBorder)
-                Button {
-                    model.signIn(email: email.trimmingCharacters(in: .whitespaces), password: password)
-                } label: {
-                    Text("Sign in").frame(maxWidth: .infinity)
+                    .font(Type.lead.font)
+                    .foregroundStyle(colors.mutedForeground)
+                    .multilineTextAlignment(.center)
+                Spacer().frame(height: 32)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    LabelText(text: "Email", token: Type.eyebrow, color: colors.mutedForeground)
+                    Spacer().frame(height: 6)
+                    Field(placeholder: "you@example.com", value: $email, keyboard: .emailAddress)
+                    Spacer().frame(height: 16)
+                    LabelText(text: "Password", token: Type.eyebrow, color: colors.mutedForeground)
+                    Spacer().frame(height: 6)
+                    Field(placeholder: "••••••••", value: $password, secure: true, submitLabel: .go)
                 }
-                .buttonStyle(.borderedProminent).tint(accent)
-                .disabled(email.isEmpty || password.isEmpty || model.loading)
+
+                Spacer().frame(height: 24)
+                PillButton(text: "Sign in", enabled: canSubmit, large: true) {
+                    model.signIn(email: email.trimmed, password: password)
+                }
+
+                Spacer().frame(height: 18)
                 Text("Your session and today's cards are kept on this device, so a lost connection never signs you out.")
-                    .font(.caption).foregroundColor(muted).multilineTextAlignment(.center)
+                    .font(Type.fine.font)
+                    .foregroundStyle(colors.mutedForeground)
+                    .multilineTextAlignment(.center)
             }
-            .padding(28)
+            .padding(.horizontal, 24)
         }
     }
 }
