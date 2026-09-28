@@ -3,22 +3,32 @@ import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { examAttempts, examQuestions, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
-import { submitExam } from '@/services/study';
+import { getExamPaper, listExamPapers, submitExam } from '@/services/study';
 
-/** GET /exam?subjectId= — question pool summary + my attempts */
+/** GET /exam?subjectId= — question pool summary + stored papers + my attempts.
+ *  GET /exam?paperId=… — one stored paper, verbatim. */
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
+  const paperId = req.nextUrl.searchParams.get('paperId');
+  if (paperId) {
+    const paper = await getExamPaper(paperId, user.id);
+    if (!paper) throw new ApiError(404, 'not_found', 'Paper not found.');
+    return ok({ paper });
+  }
   const subjectId = req.nextUrl.searchParams.get('subjectId');
 
   const topicsPool = subjectId
     ? await db.select({ id: topics.id, name: topics.name }).from(topics).where(eq(topics.subjectId, subjectId))
     : await db.select({ id: topics.id, name: topics.name }).from(topics);
   const topicIds = topicsPool.map((t) => t.id);
-  const count = topicIds.length
-    ? (await db.select({ id: examQuestions.id }).from(examQuestions).where(inArray(examQuestions.topicId, topicIds))).length
-    : 0;
+  const [count, papers] = await Promise.all([
+    topicIds.length
+      ? db.select({ id: examQuestions.id }).from(examQuestions).where(inArray(examQuestions.topicId, topicIds))
+      : Promise.resolve([] as { id: string }[]),
+    subjectId ? listExamPapers(subjectId) : Promise.resolve([]),
+  ]);
   const attempts = await db.select().from(examAttempts).where(eq(examAttempts.userId, user.id)).orderBy(desc(examAttempts.createdAt)).limit(20);
-  return ok({ topics: topicsPool, questionsAvailable: count, attempts });
+  return ok({ topics: topicsPool, questionsAvailable: count.length, papers, attempts });
 });
 
 /** POST /exam { topicIds, answers } — build a paper or submit answers.

@@ -292,11 +292,57 @@ export const examQuestions = pgTable('exam_questions', {
   marks: integer('marks').notNull().default(1),
   sourceYear: integer('source_year'),
   board: text('board').notNull().default(''),
+  // ── exam-board fidelity (v1.8) ──────────────────────────────────────────
+  /** Assessment objective split, e.g. [{ao:'AO1', marks:2}]. Marks sum to `marks`. */
+  aoSplit: jsonb('ao_split').$type<{ ao: string; marks: number }[]>(),
+  /** A model answer students can compare theirs against after marking. */
+  modelAnswerMd: text('model_answer_md').notNull().default(''),
+  /** How an examiner awards the marks, prose — the "why" beside the "what". */
+  markingNotesMd: text('marking_notes_md').notNull().default(''),
+  /** QWC marks ride beside the question's own marks (extended responses). */
+  qwcMarks: integer('qwc_marks'),
+  /** Which stored paper this question was transcribed from. */
+  paperId: text('paper_id'),
+  /** Question number as printed, e.g. "8" or "15a". */
+  questionRef: text('question_ref').notNull().default(''),
+  /** Spec/lesson coverage notes shown with the result. */
+  specRefs: text('spec_refs').notNull().default(''),
   visibility: text('visibility', { enum: ['public', 'private'] }).notNull().default('public'),
   ownerId: text('owner_id'),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   topicIdx: index('exam_questions_topic_idx').on(t.topicId),
+}));
+
+/**
+ * A past paper, specimen or formulae sheet, stored verbatim so the exam
+ * simulator can serve the real document beside its questions. The paper is
+ * an index page (a link out) for the formulae-sheet kind; question papers
+ * hold the full extracted text of the board document.
+ */
+export const examPapers = pgTable('exam_papers', {
+  id: text('id').primaryKey(),
+  subjectId: text('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  /** 'question_paper' | 'mark_scheme' | 'formulae_sheet' | 'other' */
+  kind: text('kind', { enum: ['question_paper', 'mark_scheme', 'formulae_sheet', 'other'] }).notNull().default('question_paper'),
+  board: text('board').notNull().default(''),
+  /** e.g. 'Specimen 2020' or 'June 2022' */
+  series: text('series').notNull().default(''),
+  /** e.g. '1350/1' or 'Core Exam Paper A' */
+  paperCode: text('paper_code').notNull().default(''),
+  totalMarks: integer('total_marks'),
+  durationMinutes: integer('duration_minutes'),
+  /** Verbatim extracted text of the document, markdown. */
+  contentMd: text('content_md').notNull().default(''),
+  visibility: text('visibility', { enum: ['public', 'private'] }).notNull().default('public'),
+  ownerId: text('owner_id'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  subjectIdx: index('exam_papers_subject_idx').on(t.subjectId),
+  /** One stored copy per board+series+code+kind — re-importing a paper updates
+   *  it in place rather than stacking duplicates. */
+  uniqueDoc: uniqueIndex('exam_papers_doc_idx').on(t.subjectId, t.board, t.series, t.paperCode, t.kind),
 }));
 
 export const examAttempts = pgTable('exam_attempts', {

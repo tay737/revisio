@@ -71,6 +71,7 @@ const REPLICATED_TABLES = [
   'card_user_states',
   'review_logs',
   'cram_sessions',
+  'exam_papers',
   'exam_questions',
   'exam_attempts',
   'xp_events',
