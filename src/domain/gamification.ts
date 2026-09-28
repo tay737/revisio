@@ -99,6 +99,10 @@ export type AchievementFacts = {
 export function evaluateAchievements(rules: { id: string; rule: AchievementRule }[], facts: AchievementFacts): string[] {
   const unlocked: string[] = [];
   for (const { id, rule } of rules) {
+    // 'manual' achievements (alpha/beta tester, launch-phase awards) are
+    // granted by a developer from the admin panel — the evaluator can never
+    // unlock them, no matter what facts arrive.
+    if (rule.kind === 'manual') continue;
     const t = rule.threshold ?? 1;
     switch (rule.kind) {
       case 'review_count':

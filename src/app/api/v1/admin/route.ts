@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { approvalRequests, cards, featureFlags, lessons, subjects, users } from '@/db/schema';
+import { achievements, approvalRequests, cards, featureFlags, lessons, profileBadges, subjects, userAchievements, userProfileBadges, users } from '@/db/schema';
 import { revokeAllRefreshTokens } from '@/services/auth';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { isDeveloper } from '@/services/roles';
@@ -17,7 +17,7 @@ export const GET = route(async (req: NextRequest) => {
   if (!isDeveloper(user)) throw new ApiError(403, 'forbidden', 'Developers only.');
   void user;
 
-  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, subjectList] = await Promise.all([
+  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, subjectList, badgeRows, manualAchievements, userBadgeRows, userAchievementRows] = await Promise.all([
     db
       .select({
         id: approvalRequests.id,
@@ -58,6 +58,29 @@ export const GET = route(async (req: NextRequest) => {
       .from(topics)
       .where(sql`not exists (select 1 from ${cards} c where c.topic_id = ${topics.id})`),
     db.select({ id: subjects.id, name: subjects.name, slug: subjects.slug, mathsEnabled: subjects.mathsEnabled }).from(subjects).orderBy(subjects.name),
+    // Badges with a grant count, so the panel shows which are in use.
+    db
+      .select({
+        id: profileBadges.id, slug: profileBadges.slug, label: profileBadges.label, icon: profileBadges.icon, color: profileBadges.color,
+        grants: sql<number>`(select count(*)::int from ${userProfileBadges} g where g.badge_id = ${profileBadges.id})`,
+      })
+      .from(profileBadges)
+      .orderBy(profileBadges.slug),
+    // 'manual' achievements (alpha/beta tester) are never auto-evaluated;
+    // this is the door a developer awards them through.
+    db
+      .select({ id: achievements.id, name: achievements.name, description: achievements.description, icon: achievements.icon })
+      .from(achievements)
+      .where(sql`${achievements.rule} ->> 'kind' = 'manual'`)
+      .orderBy(achievements.id),
+    // Grants per user, so the panel can show who currently wears what — the
+    // table is the pick list's source of truth.
+    db.select({ userId: userProfileBadges.userId, badgeId: userProfileBadges.badgeId }).from(userProfileBadges),
+    db
+      .select({ userId: userAchievements.userId, achievementId: userAchievements.achievementId })
+      .from(userAchievements)
+      .innerJoin(achievements, eq(userAchievements.achievementId, achievements.id))
+      .where(sql`${achievements.rule} ->> 'kind' = 'manual'`),
   ]);
 
   return ok({
@@ -76,6 +99,10 @@ export const GET = route(async (req: NextRequest) => {
       emptyTopics: emptyTopicCount[0]?.n ?? 0,
     },
     subjects: subjectList,
+    badges: badgeRows,
+    manualAchievements,
+    userBadges: userBadgeRows,
+    userAchievements: userAchievementRows,
   });
 });
 
@@ -89,7 +116,10 @@ export const POST = route(async (req: NextRequest) => {
       | 'set_user_role' | 'suspend_user' | 'activate_user' | 'review_topic'
       | 'set_topic_visibility' | 'create_subject' | 'rename_subject'
       | 'set_subject_maths'
-      | 'verify_user_email' | 'revoke_sessions' | 'delete_subject';
+      | 'verify_user_email' | 'revoke_sessions' | 'delete_subject'
+      | 'create_badge' | 'update_badge' | 'delete_badge'
+      | 'grant_badge' | 'revoke_badge'
+      | 'grant_achievement';
     approvalId?: string;
     flagKey?: string;
     enabled?: boolean;
@@ -102,6 +132,12 @@ export const POST = route(async (req: NextRequest) => {
     visibility?: Visibility;
     subjectId?: string;
     name?: string;
+    badgeId?: string;
+    slug?: string;
+    label?: string;
+    icon?: string;
+    color?: 'gold' | 'primary' | 'good' | 'rose';
+    achievementId?: string;
   };
 
   const audit = async (action: string, target: string, meta?: Record<string, unknown>) => {
@@ -240,6 +276,82 @@ export const POST = route(async (req: NextRequest) => {
       const [deleted] = await db.delete(subjects).where(eq(subjects.id, body.subjectId)).returning({ id: subjects.id, name: subjects.name });
       if (!deleted) throw new ApiError(404, 'not_found', 'Subject not found.');
       return ok({ deleted: true });
+    }
+
+    // ── profile badges ────────────────────────────────────────────────────
+    // A badge is minted once (unique slug) and granted many times; revoking
+    // deletes the grant, never the badge. Every change is audited with the
+    // label, because '<3' in an audit log beats a uuid.
+    case 'create_badge': {
+      const label = (body.label ?? '').trim();
+      const slug = (body.slug ?? '').trim().toLowerCase();
+      if (!label || !/^[a-z0-9][a-z0-9-]{0,30}$/.test(slug)) {
+        throw new ApiError(400, 'bad_request', 'A label and a slug (lowercase letters, numbers, hyphens) are required.');
+      }
+      if (label.length > 24) throw new ApiError(400, 'bad_request', 'Badge labels are 24 characters or fewer.');
+      const icon = (body.icon ?? '').trim();
+      const color = body.color ?? 'gold';
+      const [existing] = await db.select({ id: profileBadges.id }).from(profileBadges).where(eq(profileBadges.slug, slug)).limit(1);
+      if (existing) throw new ApiError(409, 'conflict', 'A badge with that slug already exists.');
+      const [badge] = await db.insert(profileBadges).values({ id: crypto.randomUUID(), slug, label, icon, color }).returning();
+      await audit('create_badge', badge.id, { slug, label, color });
+      return ok({ badge }, { status: 201 });
+    }
+    case 'update_badge': {
+      if (!body.badgeId) throw new ApiError(400, 'bad_request', 'badgeId required');
+      const patch: Record<string, unknown> = {};
+      if (body.label !== undefined) {
+        const label = body.label.trim();
+        if (!label || label.length > 24) throw new ApiError(400, 'bad_request', 'Badge labels are 1–24 characters.');
+        patch.label = label;
+      }
+      if (body.icon !== undefined) patch.icon = body.icon.trim();
+      if (body.color !== undefined) patch.color = body.color;
+      if (Object.keys(patch).length === 0) throw new ApiError(400, 'bad_request', 'Nothing to update.');
+      const [updated] = await db.update(profileBadges).set(patch).where(eq(profileBadges.id, body.badgeId)).returning();
+      if (!updated) throw new ApiError(404, 'not_found', 'Badge not found.');
+      await audit('update_badge', updated.id, patch);
+      return ok({ badge: updated });
+    }
+    case 'delete_badge': {
+      if (!body.badgeId) throw new ApiError(400, 'bad_request', 'badgeId required');
+      // Grants cascade, so every profile loses the chip at once — the client
+      // confirms before calling.
+      const [deleted] = await db.delete(profileBadges).where(eq(profileBadges.id, body.badgeId)).returning({ label: profileBadges.label });
+      if (!deleted) throw new ApiError(404, 'not_found', 'Badge not found.');
+      await audit('delete_badge', body.badgeId, { label: deleted.label });
+      return ok({ deleted: true });
+    }
+    case 'grant_badge': {
+      if (!body.badgeId || !body.userId) throw new ApiError(400, 'bad_request', 'badgeId and userId required');
+      await db
+        .insert(userProfileBadges)
+        .values({ userId: body.userId, badgeId: body.badgeId, grantedBy: user.id })
+        .onConflictDoNothing();
+      await audit('grant_badge', body.badgeId, { user: body.userId, by: user.id });
+      return ok({ ok: true });
+    }
+    case 'revoke_badge': {
+      if (!body.badgeId || !body.userId) throw new ApiError(400, 'bad_request', 'badgeId and userId required');
+      await db.delete(userProfileBadges).where(sql`${userProfileBadges.userId} = ${body.userId} and ${userProfileBadges.badgeId} = ${body.badgeId}`);
+      await audit('revoke_badge', body.badgeId, { user: body.userId });
+      return ok({ ok: true });
+    }
+
+    // ── manual achievements (alpha/beta tester) ───────────────────────────
+    case 'grant_achievement': {
+      // Manual-rule achievements are never auto-evaluated; this is the only
+      // way one lands. Granting to an already-holder is a quiet no-op.
+      if (!body.achievementId || !body.userId) throw new ApiError(400, 'bad_request', 'achievementId and userId required');
+      const [ach] = await db.select().from(achievements).where(eq(achievements.id, body.achievementId)).limit(1);
+      if (!ach) throw new ApiError(404, 'not_found', 'Achievement not found.');
+      if (ach.rule.kind !== 'manual') throw new ApiError(400, 'bad_request', 'Only manual achievements can be granted here.');
+      await db
+        .insert(userAchievements)
+        .values({ userId: body.userId, achievementId: ach.id })
+        .onConflictDoNothing();
+      await audit('grant_achievement', ach.id, { user: body.userId });
+      return ok({ ok: true });
     }
     default:
       throw new ApiError(400, 'bad_request', 'Unknown action.');

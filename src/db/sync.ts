@@ -52,6 +52,8 @@ import * as schema from './schema';
 const REPLICATED_TABLES = [
   'users',
   'media_assets',
+  'profile_badges',
+  'user_profile_badges',
   'subjects',
   'classes',
   'achievements',

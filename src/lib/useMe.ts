@@ -45,6 +45,7 @@ export type Me = {
   avatarColor: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  bannerColor: string | null;
   profileVisibility: ProfileVisibility;
   role: 'student' | 'teacher' | 'developer';
   status: string;

@@ -3,7 +3,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { readReplica } from '@/db/replica';
 import {
-  achievements, reviewLogs, streaks, subjects, userAchievements, userSubjects, users,
+  achievements, profileBadges, reviewLogs, streaks, subjects, userAchievements,
+  userProfileBadges, userSubjects, users,
   type ProfileVisibility,
 } from '@/db/schema';
 import { levelForXp } from '@/domain/gamification';
@@ -50,7 +51,10 @@ export type ProfileRecord = {
   avatarColor: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  bannerColor: string;
   role: string;
+  /** Developer-granted chips, in grant order. */
+  badges: { id: string; label: string; icon: string; color: string }[];
   createdAt: string;
   visibility: ProfileVisibility;
   gamification: { totalXp: number; level: number; rankLabel: string; rankTier: string; rankDivision: number; streak: number } | null;
@@ -85,7 +89,7 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
     const owner = viewer?.id === row.id;
     const vis = { ...DEFAULT_VISIBILITY, ...(row.profileVisibility ?? {}) };
 
-    const [xp, streakRow, subs, achs, reviews] = await Promise.all([
+    const [xp, streakRow, subs, achs, reviews, badgeRows] = await Promise.all([
       totalXpFor(row.id),
       rdb.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, row.id)).limit(1),
       rdb
@@ -104,6 +108,14 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
         .orderBy(desc(userAchievements.unlockedAt))
         .limit(60),
       rdb.select({ n: sql<number>`count(*)::int` }).from(reviewLogs).where(eq(reviewLogs.userId, row.id)),
+      // Badges are granted by staff, so they read from the primary — a grant
+      // must be visible the moment the admin panel says it happened.
+      db
+        .select({ id: profileBadges.id, label: profileBadges.label, icon: profileBadges.icon, color: profileBadges.color })
+        .from(userProfileBadges)
+        .innerJoin(profileBadges, eq(userProfileBadges.badgeId, profileBadges.id))
+        .where(eq(userProfileBadges.userId, row.id))
+        .orderBy(userProfileBadges.grantedAt),
     ]);
 
     const rank = rankFor(xp);
@@ -118,7 +130,9 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
       avatarColor: row.avatarColor,
       avatarUrl: row.avatarUrl ?? null,
       bannerUrl: row.bannerUrl ?? null,
+      bannerColor: row.bannerColor,
       role: row.role,
+      badges: badgeRows,
       createdAt: row.createdAt.toISOString(),
       visibility: vis,
       gamification:
