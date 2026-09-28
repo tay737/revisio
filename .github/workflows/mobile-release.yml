@@ -80,6 +80,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check the app target lists every screen
+        # SwiftPM globs `Sources/Revisio`; the Xcode project lists its files by
+        # hand. A screen that only SwiftPM can see builds locally and fails the
+        # archive, so the project file is checked before the two-minute build.
+        run: node scripts/native/check-ios-target.mjs
+
       - name: Test the Swift engine
         # Same guarantee as the Kotlin side, against the same vectors.
         run: cd mobile/ios && swift test

@@ -29,6 +29,7 @@
     "native:generate": "npm run native:icons && npm run native:theme && npm run native:account && npm run native:rank",
     "native:rank": "node scripts/native/make-rank.mjs",
     "vectors:copy": "tsx scripts/native/copy-vectors.ts",
+    "verify:native:ios": "node scripts/native/check-ios-target.mjs",
     "native:ios:test": "cd mobile/ios && swift test",
     "native:ios:build": "cd mobile/ios && swift build --build-path .build/ios-sim --triple arm64-apple-ios17.0-simulator --sdk \"$(xcrun --sdk iphonesimulator --show-sdk-path)\""
   },
