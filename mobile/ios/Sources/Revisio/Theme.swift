@@ -82,7 +82,7 @@ public struct RevisioColors: Sendable {
         bandSecondary: Color(hex: 0x242424FF),
         lip: Color(hex: 0x00000047),
         lipSoft: Color(hex: 0xDCDCDCFF),
-        scrim: Color(hex: 0x00000066),
+        scrim: Color(hex: 0x00000066)
     )
 
     public static let dark = RevisioColors(
@@ -119,7 +119,7 @@ public struct RevisioColors: Sendable {
         bandSecondary: Color(hex: 0x262626FF),
         lip: Color(hex: 0xC9C9C9FF),
         lipSoft: Color(hex: 0x1F1F1FFF),
-        scrim: Color(hex: 0x000000A8),
+        scrim: Color(hex: 0x000000A8)
     )
 
     public static func forScheme(_ scheme: ColorScheme) -> RevisioColors {
