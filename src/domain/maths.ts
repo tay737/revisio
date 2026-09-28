@@ -164,8 +164,8 @@ const PYTHAG_TRIPLES: [number, number, number][] = [
   [12, 16, 20], [7, 24, 25], [10, 24, 26], [20, 21, 29], [9, 40, 41],
 ];
 
-export const CONCEPTS: Concept[] = [
-  // ── Number ────────────────────────────────────────────────────────────────
+const BASE_CONCEPTS: Concept[] = [
+  // ── Number ──────────────────────────────────────────────────────────────────
   {
     id: 'add-subtract',
     name: 'Addition and subtraction',
@@ -1073,6 +1073,346 @@ export const CONCEPTS: Concept[] = [
   },
 ];
 
+// ── Core Maths (AQA 1350) concepts ────────────────────────────────────────────────
+// Added for the Core Maths certificate's practice sets. Same contract as the
+// GCSE concepts above: pure, seeded, marked from the draft. Categories reuse
+// the existing five; financial topics sit under Number, risk topics under
+// Statistics, and critical path under Geometry's project-planning slot.
+
+const CM_CONCEPTS: Concept[] = [
+  {
+    id: 'cm-percent-original',
+    name: 'Reverse percentage',
+    category: 'Number',
+    description: 'Find the original after a percentage change — divide by the multiplier (F2.5).',
+    marks: [1, 2, 3],
+    gen: {
+      easy: (r) => {
+        const pct = r.pick([10, 20, 25, 50]);
+        const original = r.int(4, 40) * (pct === 25 ? 4 : pct === 10 ? 10 : 2);
+        const after = original * (1 + pct / 100);
+        return numDraft(`After an increase of ${pct}%, a jacket costs £${fmt(after)}. What was the original price?`, original,
+          `£${fmt(after)} is ${(100 + pct)}% of the original, so divide by ${(1 + pct / 100)}: £${fmt(after)} ÷ ${(1 + pct / 100)} = £${fmt(original)}.`,
+          [after - (original * pct) / 100, original + 10, fmt(after - original)], original);
+      },
+      medium: (r) => {
+        const pct = r.int(6, 30), original = r.int(20, 90) * 10, down = r.bool();
+        const after = original * (down ? 1 - pct / 100 : 1 + pct / 100);
+        return numDraft(`A price ${down ? 'fell' : 'rose'} by ${pct}% to £${fmt(after)}. What was it before?`, original,
+          `Multiplier ${down ? 1 - pct / 100 : 1 + pct / 100}: £${fmt(after)} ÷ ${fmt(down ? 1 - pct / 100 : 1 + pct / 100)} = £${fmt(original)}. Subtracting ${pct}% of the new value would be wrong.`,
+          [fmt(after - (original * pct) / 100), original + 5, fmt(after / (down ? 1 + pct / 100 : 1 - pct / 100))], original);
+      },
+      hard: (r) => {
+        const up = r.pick([10, 20]), down = r.pick([10, 20]);
+        const original = r.int(10, 60) * 10;
+        const after = original * (1 + up / 100) * (1 - down / 100);
+        return numDraft(`A bill rises ${up}% then falls ${down}%, ending at £${fmt(after)}. What was the original?`, original,
+          `Multipliers compound: ${fmt(1 + up / 100)} × ${fmt(1 - down / 100)} = ${fmt((1 + up / 100) * (1 - down / 100))}. £${fmt(after)} ÷ ${fmt((1 + up / 100) * (1 - down / 100))} = £${fmt(original)}.`,
+          [fmt(after / (1 + (up - down) / 100)), original + 10, fmt(original * (1 - down / 100) * (1 + up / 100))], original);
+      },
+    },
+  },
+  {
+    id: 'cm-simple-compound',
+    name: 'Simple vs compound interest',
+    category: 'Number',
+    description: 'Grow an investment under each regime and compare (F3.1).',
+    marks: [2, 2, 3],
+    gen: {
+      easy: (r) => {
+        const p = r.pick([500, 1000, 2000, 4000]), rate = r.pick([2, 3, 4, 5]), years = r.int(2, 4);
+        const simple = p * (1 + (rate * years) / 100);
+        return numDraft(`£${p} is saved at ${rate}% simple interest for ${years} years. What is the final balance?`, simple,
+          `Simple interest is linear: £${p} × (1 + ${rate}/100 × ${years}) = £${fmt(p * rate * years / 100)} interest, so £${fmt(simple)}.`,
+          [p * (1 + rate / 100) ** years, p + rate * years, p * (1 + rate / 100)], simple);
+      },
+      medium: (r) => {
+        const p = r.pick([500, 1000, 2000, 4000]), rate = r.pick([2, 3, 4, 5, 6]), years = r.int(2, 5);
+        const compound = p * (1 + rate / 100) ** years;
+        return numDraft(`£${p} is invested at ${rate}% compound interest for ${years} years. Final value, to the nearest penny?`, compound,
+          `Multiplier ${(1 + rate / 100).toFixed(2)}: £${p} × ${(1 + rate / 100).toFixed(2)}^${years} = £${fmt(compound)}.`,
+          [p * (1 + (rate * years) / 100), p * (1 + rate / 100) ** (years + 1), p + p * rate * years / 100], compound);
+      },
+      hard: (r) => {
+        const p = r.pick([1000, 2000, 5000]), rate = r.pick([3, 4, 5]);
+        let years = 1;
+        let balance = p;
+        const target = 2 * p;
+        while (balance < target && years < 100) {
+          balance *= 1 + rate / 100;
+          years += 1;
+        }
+        return numDraft(`£${p} is invested at ${rate}% compound interest a year. After how many whole years does the balance first exceed £${fmt(target)}?`, years,
+          `Each year multiplies by ${(1 + rate / 100).toFixed(2)}: $${Array.from({ length: years }, (_, i) => fmt(p * (1 + rate / 100) ** (i + 1))).join(', ')}… — first above £${fmt(target)} after ${years} years.`,
+          [years - 1, years + 1, Math.ceil(Math.log2(target / p))], years, 'years');
+      },
+    },
+  },
+  {
+    id: 'cm-aer',
+    name: 'AER',
+    category: 'Number',
+    description: 'Annual Equivalent Rate from a nominal rate compounded n times a year (formulae sheet).',
+    marks: [2, 3, 3],
+    gen: {
+      easy: (r) => {
+        const nominal = r.pick([4, 5, 6, 8]); // percent
+        const n = r.pick([2, 4, 12]);
+        const aer = (1 + nominal / 100 / n) ** n - 1;
+        const pct = aer * 100;
+        return numDraft(`A nominal rate of ${nominal}% is compounded ${n} times a year. What is the AER, as a percentage to 2 dp?`, pct,
+          `AER = (1 + i/n)^n − 1 with i = ${nominal / 100}, n = ${n}: (${fmt(1 + nominal / 100 / n)})^${n} − 1 = ${fmt(aer)} = ${fmt(pct)}%.`,
+          [nominal, pct + 0.5, pct - 0.5], pct, '%');
+      },
+      medium: (r) => {
+        const a1 = r.pick([4, 5, 6]), n1 = r.pick([4, 12]), n2 = r.pick([1, 4]);
+        const aer1 = (1 + a1 / 100 / n1) ** n1 - 1;
+        const aer2 = (1 + a1 / 100 / n2) ** n2 - 1;
+        const better = aer1 > aer2 ? 'the monthly account' : 'the annually compounded account';
+        const worse = better === 'the monthly account' ? 'the annually compounded account' : 'the monthly account';
+        return {
+          prompt: `Account A pays ${a1}% compounded ${n1 === 1 ? 'annually' : n1 === 4 ? 'quarterly' : 'monthly'}; account B pays ${a1}% compounded ${n2 === 1 ? 'annually' : n2 === 4 ? 'quarterly' : 'monthly'}. Which pays more over a year? (type "the monthly account" or "the annually compounded account")`,
+          expected: { kind: 'text', accept: [better] },
+          display: better,
+          solution: `AER = (1 + i/n)^n − 1. Account A: ${fmt(aer1 * 100)}%; account B: ${fmt(aer2 * 100)}%. More frequent compounding at the same nominal rate gives the higher AER, so ${better}.`,
+          distractors: [worse, 'they pay the same'],
+        };
+      },
+      hard: (r) => {
+        const nominal = r.pick([5, 6, 8]);
+        const aer = (1 + nominal / 100 / 12) ** 12 - 1;
+        const p = r.pick([1000, 2000, 5000]);
+        const earned = p * aer;
+        return numDraft(`£${p} sits a year in an account advertising ${nominal}% compounded monthly, quoted honestly by AER. Interest to the nearest penny?`, earned,
+          `AER = (1 + ${nominal / 100}/12)^12 − 1 = ${fmt(aer)}. £${p} × ${fmt(aer)} = £${fmt(earned)}.`,
+          [p * nominal / 100, p * ((1 + nominal / 100 / 4) ** 4 - 1), p * (1 + aer) - p + 1], earned);
+      },
+    },
+  },
+  {
+    id: 'cm-tax-bands',
+    name: 'Income tax bands',
+    category: 'Number',
+    description: 'Progressive tax: only the slice in each band pays that band\'s rate (F6.1).',
+    marks: [2, 3, 3],
+    gen: {
+      easy: (r) => {
+        const allowance = 12570, salary = r.pick([18000, 22000, 26000, 30000, 34000, 40000]);
+        const taxable = salary - allowance;
+        const tax = taxable * 0.2;
+        return numDraft(`Salary £${salary.toLocaleString('en-GB')}, personal allowance £${allowance.toLocaleString('en-GB')}, basic rate 20%. Income tax due?`, tax,
+          `Taxable = ${salary.toLocaleString('en-GB')} − ${allowance.toLocaleString('en-GB')} = £${fmt(taxable)}. All inside the basic band: × 0.20 = £${fmt(tax)}.`,
+          [salary * 0.2, taxable, tax * 2], tax);
+      },
+      medium: (r) => {
+        const allowance = 12570;
+        const salary = r.pick([52000, 55000, 60000, 65000]);
+        const higherSlice = salary - 50270;
+        const tax = 37700 * 0.2 + higherSlice * 0.4;
+        return numDraft(`Salary £${salary.toLocaleString('en-GB')}. Allowance £${allowance.toLocaleString('en-GB')}; basic band to £50,270 at 20%, above that 40%. Total income tax?`, tax,
+          `Basic slice: £37,700 × 0.20 = £${fmt(37700 * 0.2)}. Higher slice: (£${salary.toLocaleString('en-GB')} − £50,270) × 0.40 = £${fmt(higherSlice * 0.4)}. Total £${fmt(tax)}. Taxing the whole salary at 40% is the classic error.`,
+          [salary * 0.4, (salary - allowance) * 0.2, tax + higherSlice * 0.2], tax);
+      },
+      hard: (r) => {
+        const vatRate = 20;
+        const incl = r.pick([120, 151.68, 240, 300]);
+        const excl = incl / (1 + vatRate / 100);
+        return numDraft(`A bill is £${fmt(incl)} including ${vatRate}% VAT. What was the price before VAT?`, excl,
+          `Divide by the multiplier: £${fmt(incl)} ÷ ${fmt(1 + vatRate / 100)} = £${fmt(excl)}. Subtracting ${vatRate}% of the inclusive total gives the wrong answer.`,
+          [fmt(incl - incl * vatRate / 100), excl + 5, fmt(incl * vatRate / 100)], excl);
+      },
+    },
+  },
+  {
+    id: 'cm-exchange',
+    name: 'Currency exchange & commission',
+    category: 'Number',
+    description: 'Convert at a rate, then deduct a percentage commission (F7.3).',
+    marks: [1, 2, 3],
+    gen: {
+      easy: (r) => {
+        const rate = r.pick([1.1, 1.25, 0.85, 8.5]);
+        const gbp = r.int(10, 90) * 10;
+        return numDraft(`£${gbp} converts at £1 = ${rate} units of foreign currency. How many units do you receive?`, gbp * rate,
+          `£${gbp} × ${rate} = ${fmt(gbp * rate)} units.`,
+          [gbp / rate, gbp * rate + gbp, rate], gbp * rate);      },
+      medium: (r) => {
+        const rate = r.pick([1.1, 1.2, 1.35]), gbp = r.int(10, 60) * 10, commission = r.pick([2, 3, 5]);
+        const received = gbp * rate * (1 - commission / 100);
+        return numDraft(`£${gbp} is converted at £1 = ${rate}, with a ${commission}% commission deducted. Amount received?`, received,
+          `Convert: ${fmt(gbp * rate)}. Commission: × ${fmt(1 - commission / 100)} → ${fmt(received)}.`,
+          [gbp * rate, gbp * rate * (1 + commission / 100), gbp * rate - (gbp * commission) / 100], received);      },
+      hard: (r) => {
+        const rate = 1.2, commission = r.pick([2, 5]);
+        const target = r.pick([600, 900, 1200]);
+        const grossGbp = target / rate / (1 - commission / 100);
+        return numDraft(`You need ${fmt(target)} units after a ${commission}% commission, at £1 = ${rate}. How many pounds must you convert (to 2 dp)?`, grossGbp,
+          `Work backwards: ${fmt(target)} ÷ ${rate} ÷ ${fmt(1 - commission / 100)} = £${fmt(grossGbp)}.`,
+          [target / rate, target / rate / (1 - commission / 100) + 10, target * rate / (1 - commission / 100)], grossGbp);      },
+    },
+  },
+  {
+    id: 'cm-stratified-sample',
+    name: 'Stratified sampling',
+    category: 'Statistics',
+    description: 'Sample size per stratum = stratum share × total sample (D2.2).',
+    marks: [2, 3, 3],
+    gen: {
+      easy: (r) => {
+        const total = r.pick([800, 1000, 1200, 1500]);
+        const group = r.pick([100, 200, 250]);
+        const sample = r.pick([40, 50, 80]);
+        const n = Math.round((group / total) * sample);
+        return numDraft(`A workforce of ${total} contains ${group} managers. A stratified sample of ${sample} is taken. How many managers should be sampled? (number only)`, n,
+          `${group}/${total} × ${sample} = ${fmt((group / total) * sample)}, so ${n} managers.`,
+          [n + 1, sample - n, Math.round(sample / total * 10) / 10], n);
+      },
+      medium: (r) => {
+        const rows: [string, number][] = [["Sales", r.int(20, 40) * 10], ["Admin", r.int(10, 30) * 10]];
+        const total = rows[0][1] + rows[1][1];
+        const sample = 60;
+        const n0 = Math.round((rows[0][1] / total) * sample);
+        return numDraft(`A firm of ${total} staff has ${rows[0][1]} in ${rows[0][0]} and ${rows[1][1]} in ${rows[1][0]}. A stratified sample of ${sample} is taken. How many from ${rows[0][0]}? (number only)`, n0,
+          `${rows[0][1]}/${total} × ${sample} = ${fmt((rows[0][1] / total) * sample)} → ${n0} people from ${rows[0][0]}.`,
+          [sample - n0, n0 + 1, Math.round(rows[1][1] / total * sample)], n0);
+      },
+      hard: (r) => {
+        // A deliberately poor sample: two from every group regardless of size.
+        const n = r.int(3, 6);
+        return {
+          prompt: `A department has 130 sales, 58 admin and 9 management staff. The owner picks two staff from each area for a survey of ${n} questions. What is the main flaw? (type: "not stratified" or "unrepresentative")`,
+          expected: { kind: 'text', accept: ['not stratified', 'unrepresentative', 'not representative'] },
+          display: 'unrepresentative',
+          solution: `Two from each area over-samples management (${2}/9 = 22% of the sample but 9/197 ≈ 5% of the staff). A stratified sample would take each area's share of 197. The flaw is that the sample is unrepresentative — quota-style picking ignores group sizes.`,
+          distractors: ['sample too small', 'not random enough', 'questions too few'],
+        };
+      },
+    },
+  },
+  {
+    id: 'cm-fermi',
+    name: 'Fermi estimation',
+    category: 'Statistics',
+    description: 'Order-of-magnitude estimates from reasonable assumptions (E2.1).',
+    marks: [2, 3, 4],
+    gen: {
+      easy: (r) => {
+        const len = r.pick([20, 25, 50]), wid = r.pick([10, 12, 20]), depth = r.pick([1.5, 2, 2.5]);
+        const litres = len * wid * depth * 1000;
+        return numDraft(`A pool is ${len} m × ${wid} m × ${depth} m deep. Estimate its volume in litres.`, litres,
+          `${len} × ${wid} × ${depth} = ${fmt(len * wid * depth)} m³; 1 m³ = 1000 litres, so ≈ ${fmt(litres)} litres.`,
+          [litres / 1000, litres * 2, len * wid + depth * 1000], litres, 'litres');
+      },
+      medium: (r) => {
+        const perDay = r.pick([150, 200, 250]), days = r.pick([5, 6, 7]);
+        const weeks = r.pick([30, 40, 45]);
+        const total = perDay * days * weeks;
+        return numDraft(`A café serves about ${perDay} cups a day, ${days} days a week, for ${weeks} weeks a year. Estimate cups per year.`, total,
+          `${perDay} × ${days} × ${weeks} = ${fmt(total)}.`,
+          [perDay * days, total / 2, total + 5000], total, 'cups');
+      },
+      hard: (r) => {
+        const households = 28, share = r.pick([2, 4, 5]);
+        const thousands = Math.round(((households * 1000000) / (share * 25) + 100000) / 1000);
+        return numDraft(`The UK has about 28 million households; 1 in ${share * 25} owns a piano; schools and venues hold about 100,000 more. Estimate the total (in thousands).`, thousands,
+          `28,000,000 ÷ ${share * 25} = ${fmt((households * 1000000) / (share * 25))}; plus 100,000 → ≈ ${fmt(thousands * 1000)} pianos = ${fmt(thousands)} thousand.`,
+          [thousands * 10, Math.round(thousands / 2), thousands + 100], thousands);
+      },
+    },
+  },
+  {
+    id: 'cm-expected-value',
+    name: 'Expected value',
+    category: 'Statistics',
+    description: 'Probability-weighted average of outcomes — the long-run mean (R7.1, R10.2).',
+    marks: [2, 3, 4],
+    gen: {
+      easy: (r) => {
+        const pWin = r.pick([0.2, 0.25, 0.3]), win = r.pick([3, 5, 8]), stake = 1;
+        const ev = pWin * win - (1 - pWin) * stake;
+        return numDraft(`A £${stake} game pays £${win} with probability ${pWin}, otherwise nothing back. Expected profit per play? (pence to 1 dp as a decimal of pounds)`, ev,
+          `E = ${pWin} × £${win} − ${fmt(1 - pWin)} × £${stake} = £${fmt(ev)} per play.`,
+          [pWin * win, win - stake, -ev], ev);      },
+      medium: (r) => {
+        const premium = r.pick([80, 100, 120, 150]), cover = r.pick([1000, 2000]), p = r.pick([0.008, 0.01, 0.02]);
+        const expectedLoss = cover * p;
+        const evOfPolicy = expectedLoss - premium;
+        return numDraft(`Insurance costs £${premium} a year against a £${cover} event with probability ${p}. Expected value of the policy to the buyer (loss negative, pounds)?`, evOfPolicy,
+          `Expected payout = ${cover} × ${p} = £${fmt(expectedLoss)}. Value = ${fmt(expectedLoss)} − ${premium} = £${fmt(evOfPolicy)} — negative, which is why insurers exist.`,
+          [expectedLoss, premium, cover - premium], evOfPolicy);      },
+      hard: (r) => {
+        const pFail = 0.2, loss = r.pick([5000, 7000, 10000]), premium = r.pick([400, 500, 600]);
+        const doNothing = pFail * loss;
+        return numDraft(`A failure costs £${loss} with probability ${pFail}. A support contract costs £${premium} a year and covers it fully. Expected annual saving of the contract?`, doNothing - premium,
+          `Doing nothing expects ${pFail} × ${loss} = £${fmt(doNothing)}. The contract costs £${premium}, so it saves £${fmt(doNothing)} − ${premium} = £${fmt(doNothing - premium)} a year on expectation.`,
+          [doNothing, premium - doNothing, loss - premium], doNothing - premium);      },
+    },
+  },
+  {
+    id: 'cm-tree-probability',
+    name: 'Tree diagrams & combined events',
+    category: 'Statistics',
+    description: 'Multiply along branches, add across paths (R5.1, R6.1).',
+    marks: [2, 3, 4],
+    gen: {
+      easy: (r) => {
+        const pA = r.pick([0.5, 0.6, 0.7]), pB = r.pick([0.4, 0.5, 0.8]);
+        const both = pA * pB;
+        return numDraft(`Events A and B are independent with P(A) = ${pA} and P(B) = ${pB}. Find P(A and B).`, both,
+          `Independent: multiply. ${pA} × ${pB} = ${fmt(both)}.`,
+          [pA + pB, pA * pB + 0.01, pB - pA], both);      },
+      medium: (r) => {
+        const red = r.int(3, 7), blue = r.int(3, 7);
+        const total = red + blue;
+        const bothRed = (red / total) * ((red - 1) / (total - 1));
+        return fracDraft(`A bag holds ${red} red and ${blue} blue counters. Two are drawn without replacement. P(both red)? (fraction)`,
+          Math.round(bothRed * 10000), 10000,
+          `First: ${red}/${total}. Second (one gone): ${red - 1}/${total - 1}. Multiply: ${red}/${total} × ${red - 1}/${total - 1} = ${fmt(bothRed)}.`,
+          [`${red}/${total}`, `${red * red}/${total * total}`, `${blue}/${total}`]);
+      },
+      hard: (r) => {
+        const pA = r.pick([0.3, 0.4, 0.5]), pB = r.pick([0.2, 0.3, 0.6]);
+        const either = pA + pB - pA * pB;
+        return numDraft(`Independent events: P(A) = ${pA}, P(B) = ${pB}. Find P(A or B or both).`, either,
+          `P(A) + P(B) − P(A∩B) = ${pA} + ${pB} − ${fmt(pA * pB)} = ${fmt(either)}. (Equivalently 1 − (1−${pA})(1−${pB}).)`,
+          [pA + pB, pA * pB, 1 - pA * pB], either);      },
+    },
+  },
+  {
+    id: 'cm-critical-path',
+    name: 'Critical path & float',
+    category: 'Geometry',
+    description: 'Longest path through an activity network; float on the rest (R2.1).',
+    marks: [2, 3, 4],
+    gen: {
+      easy: (r) => {
+        const a = r.int(2, 5), b = r.int(2, 6), c = r.int(2, 5);
+        const longest = a + b + c;
+        return numDraft(`A project runs A (${a} days), then B (${b} days), then C (${c} days). What is the project duration?`, longest,
+          `One path through all three: ${a} + ${b} + ${c} = ${longest} days. Every activity is critical.`,
+          [a + b, b + c, longest + 1], longest, 'days');
+      },
+      medium: (r) => {
+        const a = r.int(2, 4), b = r.int(3, 6), c = r.int(2, 5), d = r.int(2, 5);
+        const path1 = a + b, path2 = a + c + d;
+        const duration = Math.max(path1, path2);
+        return numDraft(`A runs ${a} days; then the work splits: B (${b} days) or C (${c} days) then D (${d} days). Project duration?`, duration,
+          `Path A–B: ${path1} days. Path A–C–D: ${path2} days. The longest is ${duration} — that is the duration; the shorter path carries float.`,
+          [Math.min(path1, path2), path1 + path2, duration + a], duration, 'days');
+      },
+      hard: (r) => {
+        const a = r.int(2, 4), b = r.int(3, 6), c = r.int(2, 5), d = r.int(2, 5);
+        const path1 = a + b, path2 = a + c + d;
+        const duration = Math.max(path1, path2);
+        const float = Math.abs(path1 - path2);
+        return numDraft(`A–B takes ${a}+${b} = ${path1} days; A–C–D takes ${a}+${c}+${d} = ${path2} days. What is the float on the shorter path?`, float,
+          `Float = duration − path length = ${duration} − ${Math.min(path1, path2)} = ${float} day${float === 1 ? '' : 's'}.`,
+          [duration, Math.min(path1, path2), float + 1], float, 'days');
+      },
+    },
+  },
+];
+
 function meanDraftFallback(r: Rng): Draft {
   const nums = Array.from({ length: 5 }, () => r.int(2, 12));
   const sum = nums.reduce((a, b) => a + b, 0);
@@ -1178,6 +1518,13 @@ export function parseQuestionId(id: string): { conceptId: string; difficulty: Di
   return { conceptId, difficulty: difficulty as Difficulty, seed };
 }
 
+/**
+ * The full catalogue: the GCSE-era concepts plus the Core Maths set defined
+ * above. One registry, so every consumer (practice picker, set authoring,
+ * marking) sees the same list without a second merge point.
+ */
+export const CONCEPTS: Concept[] = [...BASE_CONCEPTS, ...CM_CONCEPTS];
+
 export const CONCEPT_BY_ID: ReadonlyMap<string, Concept> = new Map(CONCEPTS.map((c) => [c.id, c]));
 
 export function conceptMarks(conceptId: string, difficulty: Difficulty): number {
@@ -1246,7 +1593,10 @@ function shuffleOptions(draft: Draft, rng: Rng): string[] {
   let k = 1;
   while (pool.length < 3 && k < 100) {
     const pad = padDistractor(draft, k++);
-    if (!seen.has(pad)) {
+    // The invariant is marking, not string equality: a pad that value-equals
+    // the answer (a text pad that normalises the same way) must be skipped,
+    // or the MCQ would have two passing options.
+    if (!seen.has(pad) && !markAnswer(draft, pad).correct) {
       seen.add(pad);
       pool.push(pad);
     }
@@ -1260,6 +1610,17 @@ function padDistractor(draft: Draft, k: number): string {
   // Numerator only: (n+k)/(d+k) walks towards 1 and collides with a 1/1 answer forever.
   if (e.kind === 'frac') return fracDisplay(e.num + k, e.den);
   if (e.kind === 'pair') return `(x = ${e.x + k}, y = ${e.y + k})`;
+  if (e.kind === 'text') {
+    // A text answer cannot be perturbed numerically. Mutating a word of the
+    // phrase gives a distractor that reads plausibly and cannot evaluate to
+    // the answer's meaning: swap the last word for one that fails marking.
+    const words = draft.display.split(/\s+/);
+    if (words.length > 1 && k <= words.length) {
+      const candidate = [...words.slice(0, -1), `${words[words.length - 1]}${'‑'.repeat(k)}`].join(' ');
+      return candidate;
+    }
+    return `${draft.display} (none of these)`;
+  }
   return `${draft.display}${'′'.repeat(k)}`;
 }
 
@@ -1275,12 +1636,32 @@ export type Verdict = { correct: boolean; note?: string };
 
 function parseNumber(raw: string): number | null {
   let s = raw
+    // A digit before a letter ("24m", "5cm2") is a magnitude with a unit; a
+    // digit after a letter is a word boundary no unit regex should cross (see
+    // below). Remove thousands commas and separating spaces first.
     .replace(/[, ]/g, '')
     .replace(/[£$%°]/g, '')
     .replace(/[−–—]/g, '-')
     .trim();
   // strip a trailing unit like "cm", "km/h", "cm²", "ml"
-  s = s.replace(/(cm2|cm3|m2|m3|cm²|cm³|m²|m³|mm|cm|km\/h|m\/s|km|m|g|kg|ml|l|hours?|hrs?|mins?|minutes?|s)\.?$/i, '');
+  // Ordered longest-first so "m" cannot eat "mm" or "ml", and whole words
+  // (units never glued to digits as algebra would be) — "25 years" keeps its
+  // number, "25 yrs" does not leave "25 y". The `s` entry is last and word-
+  // bounded for the same reason.
+  s = s.replace(/(cm2|cm3|m2|m3|cm²|cm³|m²|m³|mm|ml|cm|km\/h|m\/s|km|hours?|hrs?|mins?|minutes?|years?|yrs?|days?|weeks?|litres?|cups?|degrees?|°)\.?$/i, '');
+  // Whole words that double as units in context ("9 managers", "4000 cups",
+  // "2.8 thousand") — word-bounded so they can never be suffixes of numbers.
+  s = s.trim().replace(/\s?(managers?|litres?|cups?|thousand|units)\.?$/i, '');
+  // The bare single-letter units the first pass cannot catch once the space is
+  // gone ("45m", "3g", "2l") — but only when the letter is not a variable
+  // glued to a coefficient's magnitude being preserved, i.e. only after a
+  // digit-and-nothing-else so "45m" → 45 while "45x" stays an expression.
+  s = s.trim().replace(/^(-?\d+(?:\.\d+)?)[mgl]$/i, '$1');
+  // A prose answer whose digits the arithmetic evaluator would misread —
+  // "the monthly account" — is marked by the text branch below. Refuse a
+  // numeric reading here so a MCQ option's words cannot evaluate through
+  // mathjs and accidentally collide with another option (or with nothing).
+  if (/[a-df-z]/i.test(s.replace(/\/|\s|-/g, ''))) return null;
   s = s.trim().replace(/%$/, '');
   if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
   // "a/b" fraction → decimal

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
@@ -13,6 +13,7 @@ import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
 
+type AoSplit = { ao: string; marks: number };
 type ExamQuestion = {
   id: string;
   kind: 'mcq' | 'free_response';
@@ -21,6 +22,20 @@ type ExamQuestion = {
   options: { id: string; text: string }[] | null;
   board: string;
   sourceYear: number | null;
+  aoSplit: AoSplit[] | null;
+  qwcMarks: number;
+  questionRef: string;
+  specRefs: string;
+};
+type StoredPaper = {
+  id: string;
+  title: string;
+  kind: 'question_paper' | 'mark_scheme' | 'formulae_sheet' | 'other';
+  board: string;
+  series: string;
+  paperCode: string;
+  totalMarks: number | null;
+  durationMinutes: number | null;
 };
 type Attempt = {
   id: string;
@@ -29,14 +44,66 @@ type Attempt = {
   maxScore: number;
   createdAt: string;
 };
-type ExamInfo = { topics: { id: string; name: string }[]; questionsAvailable: number; attempts: Attempt[] };
+type PaperDoc = {
+  id: string;
+  title: string;
+  kind: string;
+  contentMd: string;
+  board: string;
+  series: string;
+  paperCode: string;
+  totalMarks: number | null;
+  durationMinutes: number | null;
+};
+
+const AO_EXPLAINER: Record<string, { label: string; description: string }> = {
+  AO1: {
+    label: 'Knowledge & understanding',
+    description:
+      'Recall marks. Awarded for stating accurate facts, definitions and terms — naming the thing correctly. No context needed: a correct fact is a mark even in isolation.',
+  },
+  AO2: {
+    label: 'Application',
+    description:
+      'Application marks. Awarded for using knowledge in the scenario given — the answer must refer to the context (the club, the college, the data), not just state general theory.',
+  },
+  AO3: {
+    label: 'Analysis & evaluation',
+    description:
+      'Reasoning marks. Awarded for chains of reasoning: weighing options, drawing conclusions, making justified judgements. "This means… therefore… which affects the business because…"',
+  },
+};
+
+const PAPER_KIND_LABEL: Record<string, string> = {
+  question_paper: 'Question paper',
+  mark_scheme: 'Mark scheme',
+  formulae_sheet: 'Formulae sheet',
+  other: 'Document',
+};
+
 type Marked = {
   score: number;
   maxScore: number;
   percentage: number;
-  detail: { questionId: string; awarded: number; marks: number; correct: boolean; feedback: string }[];
+  detail: {
+    questionId: string;
+    awarded: number;
+    marks: number;
+    correct: boolean;
+    feedback: string;
+    userAnswer?: string;
+    questionRef: string;
+    aoSplit: AoSplit[] | null;
+    modelAnswerMd: string;
+    markSchemeMd: string;
+    markingNotesMd: string;
+    qwcMarks: number;
+    matchedPhrases: string[];
+    missedPhrases: string[];
+  }[];
   xpAwarded: number;
 };
+type ExamInfo = { topics: { id: string; name: string }[]; questionsAvailable: number; papers: StoredPaper[]; attempts: Attempt[] };
 
 /**
  * Exam simulator.
@@ -46,6 +113,12 @@ type Marked = {
  * header), unanswered questions are visible at a glance, and the result leads
  * with the percentage rather than the raw fraction — that is the number a
  * student actually wants first.
+ *
+ * The result also teaches how the marks were awarded: each question shows its
+ * AO split, the key points hit and missed, the mark scheme, and a model answer
+ * to compare against — so a student learns why marks are given, not just what
+ * they scored. The board's own stored papers, mark schemes and formulae sheets
+ * sit below the builder, readable in place.
  */
 export default function ExamPage() {
   const [info, setInfo] = useState<ExamInfo | null>(null);
@@ -54,6 +127,8 @@ export default function ExamPage() {
   const [paper, setPaper] = useState<ExamQuestion[] | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Marked | null>(null);
+  const [openDoc, setOpenDoc] = useState<string | null>(null);
+  const [doc, setDoc] = useState<PaperDoc | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const confettiRef = useRef<ConfettiRef>(null);
@@ -83,6 +158,18 @@ export default function ExamPage() {
       setError(e instanceof Error ? e.message : 'We could not build that paper.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openPaperDoc = async (paper: StoredPaper) => {
+    setOpenDoc(paper.id);
+    setDoc(null);
+    try {
+      const d = await api.get<{ paper: PaperDoc }>(`/api/v1/exam?paperId=${paper.id}`);
+      setDoc(d.paper);
+    } catch {
+      setDoc(null);
+      setOpenDoc(null);
     }
   };
 
@@ -233,6 +320,7 @@ export default function ExamPage() {
                       {i + 1}
                     </span>
                     {q.marks} {q.marks === 1 ? 'mark' : 'marks'}
+                    {q.qwcMarks > 0 && <span className="tabular-nums">+ {q.qwcMarks} QWC</span>}
                   </span>
                   {q.sourceYear && (
                     <span className="chip">
@@ -242,6 +330,14 @@ export default function ExamPage() {
                 </div>
 
                 <Markdown text={q.questionMd} className="mt-3" />
+
+                {(q.aoSplit?.length || q.qwcMarks > 0) && (
+                  <p className="t-caption mt-2 text-muted-foreground">
+                    {q.aoSplit?.map((a) => `${a.ao} ${a.marks}`).join(' · ')}
+                    {q.aoSplit?.length && q.qwcMarks > 0 ? ' · ' : ''}
+                    {q.qwcMarks > 0 && `${q.qwcMarks} QWC`}
+                  </p>
+                )}
 
                 {q.kind === 'mcq' ? (
                   <div className="mt-3 space-y-2">
@@ -299,20 +395,7 @@ export default function ExamPage() {
           </div>
 
           {result.detail.map((d, i) => (
-            <div
-              key={d.questionId}
-              className={`card border-l-2 ${d.correct ? 'border-l-good' : 'border-l-bad'}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="t-caption text-muted-foreground">Question {i + 1}</span>
-                <span
-                  className={`t-caption-s tabular-nums ${d.correct ? 'text-good' : 'text-destructive'}`}
-                >
-                  {d.awarded}/{d.marks}
-                </span>
-              </div>
-              <p className="t-caption mt-2 text-foreground">{d.feedback}</p>
-            </div>
+            <ResultDetail key={d.questionId} d={d} index={i} />
           ))}
 
           <button
@@ -328,10 +411,66 @@ export default function ExamPage() {
         </div>
       )}
 
+      {/* ── Stored board papers ─────────────────────────────────────────── */}
+      {!paper && info.papers.length > 0 && (
+        <section className="card">
+          <h2 className="t-strong">Real papers &amp; mark schemes</h2>
+          <p className="t-caption mt-1 text-muted-foreground">
+            The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide
+            there is — read it beside the notes.
+          </p>
+          <div className="mt-3 space-y-2">
+            {info.papers.map((p) => {
+              const open = openDoc === p.id;
+              return (
+                <div key={p.id} className="inset px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`chip ${p.kind === 'question_paper' ? 'chip-active' : ''}`}>
+                      {PAPER_KIND_LABEL[p.kind] ?? 'Document'}
+                    </span>
+                    <span className="t-strong min-w-0 flex-1 truncate">{p.title}</span>
+                    {p.totalMarks != null && (
+                      <span className="t-caption-s tabular-nums text-muted-foreground">{p.totalMarks} marks</span>
+                    )}
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      className="btn btn-ghost btn-sm shrink-0 gap-1.5"
+                      onClick={() => (open ? setOpenDoc(null) : void openPaperDoc(p))}
+                    >
+                      <Icon name={open ? 'collapse' : 'expand'} size={14} />
+                      {open ? 'Hide' : 'Open'}
+                    </button>
+                  </div>
+                  {(p.series || p.paperCode || p.durationMinutes) && (
+                    <p className="t-caption mt-1 text-muted-foreground">
+                      {[p.board, p.series, p.paperCode, p.durationMinutes ? `${p.durationMinutes} min` : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )}
+                  {open && (
+                    <div className="mt-3 border-t border-border/60 pt-3">
+                      {doc === null ? (
+                        <p className="t-caption text-muted-foreground" role="status">
+                          Loading…
+                        </p>
+                      ) : (
+                        <Markdown text={doc.contentMd} className="text-[14px]" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ── Past attempts ────────────────────────────────────────────────── */}
       {info.attempts.length > 0 && !paper && (
         <section className="card">
-          <h2 className="t-strong">Past papers</h2>
+          <h2 className="t-strong">Your attempts</h2>
           <p className="t-caption mt-1 text-muted-foreground">Every paper you have sat, most recent first.</p>
           <div className="mt-3 space-y-2">
             {info.attempts.map((a) => {
@@ -361,6 +500,118 @@ export default function ExamPage() {
             })}
           </div>
         </section>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One marked question in the result list: score, AO split with a plain-English
+ * explanation of what that objective pays for, the key points hit and missed,
+ * and (in a details disclosure) the mark scheme and a model answer to compare
+ * against. The disclosure keeps the result scannable while making the full
+ * marking material one tap away — reading it is the point of the review.
+ */
+function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number }) {
+  const [open, setOpen] = useState(false);
+  const label = d.questionRef ? `Question ${d.questionRef}` : `Question ${index + 1}`;
+  const total = d.marks + (d.qwcMarks ?? 0);
+  return (
+    <div className={`card border-l-2 ${d.correct ? 'border-l-good' : 'border-l-bad'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="t-caption text-muted-foreground">{label}</span>
+        <span className={`t-caption-s tabular-nums ${d.correct ? 'text-good' : 'text-destructive'}`}>
+          {d.awarded}/{total}
+        </span>
+      </div>
+      <p className="t-caption mt-2 text-foreground">{d.feedback}</p>
+
+      {d.matchedPhrases.length > 0 && (
+        <p className="t-caption mt-2">
+          <span className="text-muted-foreground">Points covered: </span>
+          {d.matchedPhrases.map((p, i) => (
+            <Fragment key={i}>
+              {i > 0 && ' · '}
+              <span className="text-good">{p}</span>
+            </Fragment>
+          ))}
+        </p>
+      )}
+      {d.missedPhrases.length > 0 && (
+        <p className="t-caption mt-1">
+          <span className="text-muted-foreground">Missing for more marks: </span>
+          {d.missedPhrases.slice(0, 5).map((p, i) => (
+            <Fragment key={i}>
+              {i > 0 && ' · '}
+              <span className="text-foreground">{p}</span>
+            </Fragment>
+          ))}
+        </p>
+      )}
+
+      {d.aoSplit && d.aoSplit.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Where the marks live</span>
+          {d.aoSplit.map((a) => {
+            const guide = AO_EXPLAINER[a.ao];
+            return (
+              <div key={a.ao} className="inset px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="t-caption font-semibold">
+                    {a.ao} — {guide?.label ?? 'Assessment objective'}
+                  </span>
+                  <span className="t-caption-s shrink-0 tabular-nums text-muted-foreground">
+                    {a.marks} {a.marks === 1 ? 'mark' : 'marks'}
+                  </span>
+                </div>
+                {guide && <p className="t-fine mt-0.5 text-muted-foreground">{guide.description}</p>}
+              </div>
+            );
+          })}
+          {d.qwcMarks > 0 && (
+            <p className="t-caption text-muted-foreground">
+              Plus {d.qwcMarks} QWC {d.qwcMarks === 1 ? 'mark' : 'marks'} for quality of written communication — clear
+              structure, controlled grammar, and the subject's technical terms used properly.
+            </p>
+          )}
+        </div>
+      )}
+
+      {(d.markSchemeMd || d.modelAnswerMd || d.markingNotesMd) && (
+        <div className="mt-3">
+          <button type="button" aria-expanded={open} className="btn btn-ghost btn-sm gap-1.5" onClick={() => setOpen(!open)}>
+            <Icon name={open ? 'collapse' : 'expand'} size={13} />
+            {open ? 'Hide marking material' : 'Mark scheme & model answer'}
+          </button>
+          {open && (
+            <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
+              {d.markingNotesMd && (
+                <div>
+                  <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">How an examiner marks this</span>
+                  <Markdown text={d.markingNotesMd} className="mt-1 text-[14px]" />
+                </div>
+              )}
+              {d.markSchemeMd && (
+                <div>
+                  <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Mark scheme</span>
+                  <Markdown text={d.markSchemeMd} className="mt-1 text-[14px] text-muted-foreground" />
+                </div>
+              )}
+              {d.modelAnswerMd && (
+                <div>
+                  <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Model answer</span>
+                  <Markdown text={d.modelAnswerMd} className="mt-1 text-[14px]" />
+                </div>
+              )}
+              {d.userAnswer && (
+                <div>
+                  <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Your answer</span>
+                  <p className="t-caption mt-1 whitespace-pre-wrap text-foreground">{d.userAnswer}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

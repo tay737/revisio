@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
-  cards, cardAnswers, cardUserStates, examQuestions, lessons, reviewLogs, streaks, subjects,
+  cards, cardAnswers, cardUserStates, examQuestions, examPapers, lessons, reviewLogs, streaks, subjects,
   topics, userAchievements, userTopicStates, xpEvents, achievements,
   leagueMemberships, examAttempts, featureFlags,
 } from '@/db/schema';
@@ -453,6 +453,7 @@ export async function buildExam(userId: string, topicIds: string[], questionCoun
     .select()
     .from(examQuestions)
     .where(and(inArray(examQuestions.topicId, topicIds), eq(examQuestions.visibility, 'public')))
+    .orderBy(asc(examQuestions.createdAt))
     .limit(questionCount);
   return rows.map((q) => ({
     id: q.id,
@@ -463,22 +464,71 @@ export async function buildExam(userId: string, topicIds: string[], questionCoun
     options: q.kind === 'mcq' ? q.options ?? null : null,
     board: q.board,
     sourceYear: q.sourceYear,
-    // mark scheme & keywords stay server-side until submission
+    aoSplit: q.aoSplit ?? null,
+    qwcMarks: q.qwcMarks ?? 0,
+    questionRef: q.questionRef,
+    specRefs: q.specRefs,
+    // mark scheme, keywords and model answer stay server-side until submission
   }));
+}
+
+/**
+ * The stored papers for a subject — question papers, mark schemes and
+ * formulae sheets the simulator serves alongside generated papers. Ordered
+ * so the reading flow works: question papers first, then mark schemes, then
+ * reference material.
+ */
+export async function listExamPapers(subjectId: string) {
+  const kindOrder = sql`case ${examPapers.kind} when 'question_paper' then 0 when 'mark_scheme' then 1 else 2 end`;
+  return db
+    .select({
+      id: examPapers.id,
+      title: examPapers.title,
+      kind: examPapers.kind,
+      board: examPapers.board,
+      series: examPapers.series,
+      paperCode: examPapers.paperCode,
+      totalMarks: examPapers.totalMarks,
+      durationMinutes: examPapers.durationMinutes,
+    })
+    .from(examPapers)
+    .where(and(eq(examPapers.subjectId, subjectId), eq(examPapers.visibility, 'public')))
+    .orderBy(kindOrder, desc(examPapers.createdAt));
+}
+
+/** One stored paper, verbatim. Public copies only, unless the owner is asking. */
+export async function getExamPaper(paperId: string, userId?: string) {
+  const [paper] = await db.select().from(examPapers).where(eq(examPapers.id, paperId)).limit(1);
+  if (!paper) return null;
+  if (paper.visibility !== 'public' && (!userId || paper.ownerId !== userId)) return null;
+  return paper;
 }
 
 export type ExamSubmission = { questionId: string; answer?: string; selectedOptionId?: string }[];
 
 export async function submitExam(userId: string, topicIds: string[], submission: ExamSubmission) {
   const qs = await db.select().from(examQuestions).where(inArray(examQuestions.topicId, topicIds));
-  const detail: { questionId: string; userAnswer: string; awarded: number; marks: number; correct: boolean; feedback: string }[] = [];
+  const detail: {
+    questionId: string; userAnswer: string; awarded: number; marks: number; correct: boolean; feedback: string;
+    questionRef: string; aoSplit: { ao: string; marks: number }[] | null; modelAnswerMd: string;
+    markSchemeMd: string; markingNotesMd: string; qwcMarks: number; matchedPhrases: string[]; missedPhrases: string[];
+  }[] = [];
   let score = 0;
   let maxScore = 0;
   for (const q of qs) {
+    // QWC marks ride beside the question as *information* — an examiner awards
+    // them for written quality, which keyword marking cannot judge. They stay
+    // out of the auto-marked maximum so a student is never docked marks they
+    // cannot earn from the machine; the result still shows them.
     maxScore += q.marks;
     const sub = submission.find((s) => s.questionId === q.id);
     if (!sub) {
-      detail.push({ questionId: q.id, userAnswer: '', awarded: 0, marks: q.marks, correct: false, feedback: 'Not answered.' });
+      detail.push({
+        questionId: q.id, userAnswer: '', awarded: 0, marks: q.marks, correct: false, feedback: 'Not answered.',
+        questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
+        markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
+        matchedPhrases: [], missedPhrases: [],
+      });
       continue;
     }
     if (q.kind === 'mcq') {
@@ -486,7 +536,10 @@ export async function submitExam(userId: string, topicIds: string[], submission:
       if (correct) score += q.marks;
       detail.push({
         questionId: q.id, userAnswer: sub.selectedOptionId ?? '', awarded: correct ? q.marks : 0, marks: q.marks,
-        correct, feedback: correct ? 'Correct.' : `Incorrect. Mark scheme: ${q.markSchemeMd}`,
+        correct, feedback: correct ? 'Correct.' : 'Incorrect — the mark scheme shows where the marks were.',
+        questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
+        markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
+        matchedPhrases: [], missedPhrases: [],
       });
     } else {
       // free response: keyword marking against the mark scheme
@@ -499,6 +552,9 @@ export async function submitExam(userId: string, topicIds: string[], submission:
       detail.push({
         questionId: q.id, userAnswer: sub.answer ?? '', awarded, marks: q.marks, correct: verdict.correct,
         feedback: verdict.note ?? (verdict.correct ? 'All key points covered.' : 'Compare with the mark scheme.'),
+        questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
+        markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
+        matchedPhrases: verdict.matchedPhrases ?? [], missedPhrases: verdict.missedPhrases ?? [],
       });
     }
   }
