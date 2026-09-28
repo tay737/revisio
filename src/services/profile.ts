@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { db } from '@/db/client';
 import { readReplica } from '@/db/replica';
 import {
   achievements, reviewLogs, streaks, subjects, userAchievements, userSubjects, users,
@@ -69,13 +70,17 @@ export type ProfileRecord = {
 export async function getPublicProfile(handle: string, viewer: SessionUser | null): Promise<ProfileRecord | null> {
   const isOwner = viewer ? handle === viewer.id : false;
   const h = handle.toLowerCase();
+  // Identity from the primary: a just-picked username must resolve on the very
+  // first visit to /u/<name>, and the drain that carries it to the mirror may
+  // not have run yet. Stats stay on the replica — briefly stale is fine for
+  // numbers, not for "this person does not exist".
+  const [row] = await db
+    .select()
+    .from(users)
+    .where(sql`lower(${users.username}) = ${h} or lower(${users.id}::text) = ${h}`)
+    .limit(1);
+  if (!row) return null;
   return readReplica(async (rdb) => {
-    const [row] = await rdb
-      .select()
-      .from(users)
-      .where(sql`lower(${users.username}) = ${h} or lower(${users.id}::text) = ${h}`)
-      .limit(1);
-    if (!row) return null;
 
     const owner = viewer?.id === row.id;
     const vis = { ...DEFAULT_VISIBILITY, ...(row.profileVisibility ?? {}) };
