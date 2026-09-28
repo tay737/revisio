@@ -153,6 +153,16 @@ const textsOnScreen = (xml) =>
 
 const hasText = (xml, text) => textsOnScreen(xml).some((t) => t.includes(text));
 
+/**
+ * The same question, ignoring case.
+ *
+ * The design language sets eyebrows in uppercase — which is a typographic
+ * decision, not a change of wording — so a check for "offline" should not care
+ * which way the screen happens to shout it.
+ */
+const hasTextIgnoringCase = (xml, text) =>
+  textsOnScreen(xml).some((t) => t.toLowerCase().includes(text.toLowerCase()));
+
 /** The centre of the first node whose text equals `text`, or null. */
 function findBounds(xml, text) {
   for (const chunk of xml.split('<node')) {
@@ -365,8 +375,16 @@ async function main() {
     launch(serial);
     const home = await waitForText(serial, 'cards ready', 40_000);
     check('offline: opens to the app\u2019s own home screen', hasText(home, 'cards ready'), textsOnScreen(home).join(' | '));
-    check('offline: the saved session counts its cards', hasText(home, '3 cards ready'), textsOnScreen(home).join(' | '));
-    check('offline: it says it is offline rather than pretending', hasText(home, 'Offline'), textsOnScreen(home).join(' | '));
+    check(
+      'offline: the saved session counts its cards',
+      hasText(home, 'cards ready') && hasText(home, 'DUE NOW') && hasText(home, '3'),
+      textsOnScreen(home).join(' | '),
+    );
+    check(
+      'offline: it says it is offline rather than pretending',
+      hasTextIgnoringCase(home, 'offline'),
+      textsOnScreen(home).join(' | '),
+    );
     check('offline: the learner is greeted by name (session survived)', hasText(home, 'Smoke Tester'), textsOnScreen(home).join(' | '));
     info(`seen: ${clip(textsOnScreen(home).join(' | '), 180)}`);
 
@@ -462,7 +480,7 @@ async function main() {
     const back = await waitForTextAfter(serial, 'Today', 'cards ready', 20_000);
     check(
       'offline: Today still offers the offline session after the tour',
-      hasText(back, 'cards ready') && hasText(back, 'Offline'),
+      hasText(back, 'cards ready') && hasTextIgnoringCase(back, 'offline'),
       textsOnScreen(back).join(' | '),
     );
 

@@ -188,6 +188,13 @@ jobs:
             Both are compiled against **https://revisio-srs.vercel.app**; there is
             no runtime server to configure.
 
+            **Both wear the website's own design language.** The colour scheme,
+            radii, type ladder and motion curves are generated out of
+            `src/app/globals.css`, and the icons are the same lucide geometry the
+            web imports — not OS glyphs or emojis — so the tab bar's pill, the
+            active-icon stroke and the rank crest are the drawing the website
+            uses, not an approximation of it.
+
             **Offline review works.** Each app carries today's session on the
             device: it opens to its own screen with no network, grades answers
             with a native port of the server's grading engine (proven identical

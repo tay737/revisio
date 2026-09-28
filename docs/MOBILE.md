@@ -75,6 +75,10 @@ mobile/ios/Sources/Revisio/    one file per destination
   TodayView.swift    SessionView.swift   CramView.swift
   LearnView.swift    RankView.swift      YouView.swift
   Common.swift       the shared pieces (panel, stat, notes, avatar)
+  Design.swift       the design system those screens are written against
+  Theme.swift        GENERATED from src/app/globals.css
+  Icons.swift        GENERATED from the web's lucide registry
+  SVGPath.swift      the path parser Icons.swift needs to draw with
 ```
 
 The Xcode project does not copy the engine. It references the package beside it
@@ -97,6 +101,49 @@ cover grading, the pack, the outbox and sync without a device or a server.
 | How do we talk to the backend? | `RevisioApi` |
 | Online or not? | the platform surface (`RevisioViewModel` / `AppModel`) |
 | Server now or outbox later? | the platform surface, and nothing else |
+
+## The interface has one owner too
+
+The clients do not have a design system of their own. The web app's is the only
+one, and the natives are built against it — otherwise "the same app" would mean
+"the same endpoints", and the two phones would drift into looking like two
+different products that happen to share a database.
+
+`docs/DESIGN-DUOLINGO.md` and `src/app/globals.css` are the source. The narrative
+baked into both ports is the web's own: **Uber owns the chrome** (the ink/canvas
+duet, the grayscale ramp, the pill, the type ladder) and **Duolingo owns the
+state** (the tactile lip under a button, the uppercase tracked label, colour
+reserved for the game — streak, correct, gold). Green is the one non-navigation
+control, because it means the in-session action.
+
+Two generators keep that honest, and both are re-runnable rather than
+hand-copied:
+
+```
+src/app/globals.css                       src/components/ui/icons.tsx (lucide)
+  │ scripts/native/make-theme.mjs           │ scripts/native/make-icons.mjs
+  │ 34 colours × 2 schemes, 7 radii,        │ the registry's own path geometry
+  │ 18 type tokens, 2 curves, metrics       ▼
+  ▼                              mobile/shared/icons.json
+Theme.kt / Theme.swift                       │
+                                 ├───────────┴───────────┐
+                                 ▼                       ▼
+                          Icons.kt (ImageVector)   Icons.swift (path data)
+```
+
+So the phone's green is the web's green, its radii are its radii, and a tab bar
+icon is the same drawing rather than a similarly-shaped emoji. Icons are not a
+lookup table of OS glyphs: `make-icons.mjs` reads the same lucide geometry the
+web imports at 24dp/24 grid and the web's own stroke weight (1.75, and 2.3 for
+the active nav item, exactly as `BottomNav.tsx` swaps it).
+
+`Theme.kt`, `Theme.swift`, `Icons.kt` and `Icons.swift` are **generated** — each
+carries a header saying so, and a hand edit is overwritten the next time tokens
+move. `Design.kt` and `Design.swift` are the opposite: hand-written against
+them, and where the actual component vocabulary lives (panel, pill, stat, rank
+crest, meter, badge, the button with its lip). To restyle every screen, change
+`globals.css` and re-run the generators; to add a component, write it in
+`Design.*` and use it from the screens.
 
 ## Grading has one owner, enforced
 
@@ -150,15 +197,37 @@ npm run verify:native:api -- http://127.0.0.1:3123 dev@revisio.app
 
 # iOS
 npm run native:ios:test          # engine conformance + store tests
+npm run native:ios:build         # compile the SwiftUI surface against the iOS SDK
 
 # regenerate the shared grading vectors (after changing domain/grading.ts)
 npm run vectors:grading
+
+# regenerate the native theme and icon set (after changing globals.css or icons.tsx)
+node scripts/native/make-theme.mjs
+node scripts/native/make-icons.mjs
 
 # regenerate the iOS icon from public/icon.svg
 node scripts/native/make-ios-icon.mjs
 ```
 
 Android needs JDK 21 and the Android SDK (`ANDROID_HOME`). iOS needs Xcode.
+
+`native:ios:build` is the compile check for the SwiftUI surface, and it is not
+redundant with `native:ios:test`. `swift test` builds the package for macOS, so
+the screens are type-checked against the wrong API surface; `xcodebuild` builds
+them for iOS but needs a working CoreSimulator to plan the build. Pointing
+SwiftPM straight at the simulator SDK does the real thing with neither:
+
+```bash
+cd mobile/ios
+swift build --triple arm64-apple-ios17.0-simulator \
+  --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
+```
+
+The executable product *is* the app's sources, so this compiles the whole
+surface — the shell, the five screens, and the generated theme and icons —
+against the iOS SDK, with no device, no simulator and no `.xcodeproj`. It is how
+the design-language port was verified when `xcodebuild` could not run at all.
 
 `verify:native` is the strongest gate in the repo: it installs the APK, seeds a
 signed-in session and a session's worth of cards, **turns the network off**, and
@@ -211,7 +280,7 @@ version is worse than one that never built.
 Version stamping is one script for both platforms:
 
 ```
-package.json  version 1.0.0-alpha.2
+package.json  version 1.0.0-alpha.4
       │  node scripts/native/set-version.mjs
       ├─▶ mobile/android/app/build.gradle.kts   versionName / versionCode
       └─▶ mobile/ios/Revisio.xcodeproj           MARKETING_VERSION
@@ -223,7 +292,7 @@ package.json  version 1.0.0-alpha.2
 
 ## Verification status
 
-Against `1.0.0-alpha.2`:
+Against `1.0.0-alpha.4`:
 
 | Claim | Proven by |
 |---|---|
@@ -234,6 +303,9 @@ Against `1.0.0-alpha.2`:
 | Every destination is compiled in, not fetched | `verify:native` — Learn, Cram, Rank and You each open offline and say what they are missing instead of failing |
 | The native models match what the server sends | `verify:native:api` — every learner route, against a running server, field by field |
 | Offline is never reported as being signed out | `verify:native` — the account banner reads "You're offline" while the network is off |
+| The phones wear the web's design, not a lookalike | `make-theme.mjs` / `make-icons.mjs` read `globals.css` and the lucide registry; a token or icon change is a regeneration, not a hand copy |
+| The restyled screens still work with no network | `verify:native` — the same offline run, driven against the new UI, all destinations included |
+| The SwiftUI surface compiles for iOS, not just macOS | `native:ios:build` — the whole surface built for `arm64-apple-ios-simulator` against the iOS SDK, no simulator required |
 | iOS produces an installable artefact | the `ios` job archives `Revisio.xcodeproj` and attaches `Revisio-<version>-ios-unsigned.ipa` |
 | The `.ipa` is the app we think it is | the workflow reads back the bundle id, version and compiled icon from the published file |
 | **Not yet:** running on iOS hardware | the `.ipa` is unsigned and has not been launched on a device |

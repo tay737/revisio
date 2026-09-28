@@ -17,6 +17,10 @@
 		AA0000000000000000000021 /* CramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* CramView.swift */; };
 		AA0000000000000000000023 /* RankView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* RankView.swift */; };
 		AA0000000000000000000025 /* YouView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* YouView.swift */; };
+		AA0000000000000000000027 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* Theme.swift */; };
+		AA0000000000000000000029 /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000028 /* Design.swift */; };
+		AA000000000000000000002B /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002A /* Icons.swift */; };
+		AA000000000000000000002D /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002C /* SVGPath.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +35,10 @@
 		AA0000000000000000000020 /* CramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/CramView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000022 /* RankView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/RankView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000024 /* YouView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/YouView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000026 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Theme.swift; sourceTree = "<group>"; };
+		AA0000000000000000000028 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Design.swift; sourceTree = "<group>"; };
+		AA000000000000000000002A /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Icons.swift; sourceTree = "<group>"; };
+		AA000000000000000000002C /* SVGPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/SVGPath.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +64,10 @@
 				AA0000000000000000000020 /* CramView.swift */,
 				AA0000000000000000000022 /* RankView.swift */,
 				AA0000000000000000000024 /* YouView.swift */,
+				AA0000000000000000000026 /* Theme.swift */,
+				AA0000000000000000000028 /* Design.swift */,
+				AA000000000000000000002A /* Icons.swift */,
+				AA000000000000000000002C /* SVGPath.swift */,
 				AA0000000000000000000004 /* RevisioAppSupport */,
 				AA0000000000000000000003 /* Products */,
 			);
@@ -161,6 +173,10 @@
 				AA0000000000000000000021 /* CramView.swift in Sources */,
 				AA0000000000000000000023 /* RankView.swift in Sources */,
 				AA0000000000000000000025 /* YouView.swift in Sources */,
+				AA0000000000000000000027 /* Theme.swift in Sources */,
+				AA0000000000000000000029 /* Design.swift in Sources */,
+				AA000000000000000000002B /* Icons.swift in Sources */,
+				AA000000000000000000002D /* SVGPath.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -246,7 +262,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0-alpha.2;
+				MARKETING_VERSION = 1.0.0-alpha.4;
 				PRODUCT_BUNDLE_IDENTIFIER = app.revisio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -267,7 +283,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0-alpha.2;
+				MARKETING_VERSION = 1.0.0-alpha.4;
 				PRODUCT_BUNDLE_IDENTIFIER = app.revisio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

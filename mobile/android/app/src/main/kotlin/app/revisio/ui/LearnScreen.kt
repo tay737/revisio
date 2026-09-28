@@ -1,6 +1,9 @@
 package app.revisio.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,167 +11,244 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.revisio.RevisioViewModel
 import app.revisio.Tab
 import app.revisio.UiState
+import app.revisio.engine.Topic
 
 /**
- * Learn — the reading surface.
+ * Learn — the reading.
  *
  * Subject → topic → notes, the same hierarchy as the web, but the topic row
  * carries the two intentions that actually matter on a phone: *Learn* meets the
  * unseen questions with the notes beside them, and the paper is what you read
  * when you are not being tested at all.
+ *
+ * Notes are reference material, which is the one thing the macaw blue is for —
+ * so the notes affordance is the only place that colour appears on this screen.
  */
 @Composable
 fun LearnScreen(state: UiState, viewModel: RevisioViewModel) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Learn", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            DensityToggle(state.density, viewModel::setDensity)
+            ScreenTitle("Learn", eyebrow = "Notes")
+            Spacer(Modifier.weight(1f))
+            Segmented(
+                options = listOf("detailed" to "Full", "summary" to "Brief"),
+                selected = state.density,
+                onSelect = viewModel::setDensity,
+            )
         }
-        Spacer(Modifier.height(4.dp))
-        Text("Notes for every topic, and the first questions that go with them.", color = Muted, fontSize = 13.sp)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Notes for every topic, and the first questions that go with them.",
+            style = Type.caption.style(Muted),
+        )
+        Spacer(Modifier.height(20.dp))
 
         if (state.subjects.isEmpty()) {
-            EmptyNote(
-                if (!state.online) "Learn needs a connection once — the catalogue is not cached on this device. Today's review still works offline."
-                else "Nothing published yet. Ask a teacher to publish a subject, or create your own in My content on the web.",
-            )
+            SoftCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(RevisioIcons.learn, size = 16, tint = Muted)
+                    Spacer(Modifier.size(10.dp))
+                    Text(
+                        if (!state.online) "Learn needs a connection once — the catalogue is not cached on this device. Today's review still works offline."
+                        else "Nothing published yet. Ask a teacher to publish a subject, or create your own in My content on the web.",
+                        style = Type.caption.style(Muted),
+                    )
+                }
+            }
         }
 
         state.subjects.forEach { subject ->
             val open = state.openSubject == subject.id
-            Panel {
+            SurfaceCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(subject.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Text(subject.name, style = Type.strong.style(Ink))
                         subject.description?.takeIf { it.isNotBlank() }?.let {
-                            Text(it, color = Muted, fontSize = 12.sp)
+                            Spacer(Modifier.height(2.dp))
+                            Text(it, style = Type.fine.style(Muted))
                         }
                     }
-                    Chip("${subject.topicCount} ${if (subject.topicCount == 1) "topic" else "topics"}")
+                    ChipPill("${subject.topicCount} ${if (subject.topicCount == 1) "topic" else "topics"}")
                 }
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { viewModel.toggleSubject(subject.id) }) {
-                        Text(if (open) "Hide topics" else "Show topics", fontSize = 13.sp)
-                    }
+
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Toggle(
+                        label = if (open) "Hide topics" else "Show topics",
+                        icon = if (open) RevisioIcons.collapse else RevisioIcons.expand,
+                        onClick = { viewModel.toggleSubject(subject.id) },
+                    )
                     Spacer(Modifier.weight(1f))
                     if (!subject.enrolled) {
-                        OutlinedButton(
-                            onClick = { viewModel.enroll(subject.id) },
-                            shape = RoundedCornerShape(12.dp),
-                        ) { Text("Follow", fontSize = 13.sp) }
+                        SmallPill("Follow", RevisioIcons.join) { viewModel.enroll(subject.id) }
                     } else {
-                        Text("Following", color = Good, fontSize = 12.sp)
+                        Badge("Following", BadgeTone.Good, RevisioIcons.correct)
                     }
                 }
 
                 if (open) {
-                    Spacer(Modifier.height(8.dp))
-                    Divider()
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Hairline()
+
                     val topics = state.topicsBySubject[subject.id]
                     when {
-                        topics == null -> Text("Loading topics…", color = Muted, fontSize = 13.sp)
-                        topics.isEmpty() -> Text("No topics under this subject yet.", color = Muted, fontSize = 13.sp)
+                        topics == null -> {
+                            Spacer(Modifier.height(14.dp))
+                            Text("Loading topics…", style = Type.caption.style(Muted))
+                        }
+                        topics.isEmpty() -> {
+                            Spacer(Modifier.height(14.dp))
+                            Text("No topics under this subject yet.", style = Type.caption.style(Muted))
+                        }
                         else -> topics.forEach { topic ->
-                            val topicOpen = state.openTopic == topic.id
-                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(topic.name, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                                        Text(
-                                            "${topic.questions} question${if (topic.questions == 1) "" else "s"} · ${topic.notes} note${if (topic.notes == 1) "" else "s"}",
-                                            color = Muted,
-                                            fontSize = 12.sp,
-                                        )
-                                    }
-                                    if (topic.visibility == "private") Chip("private")
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { viewModel.startLearn(topic.id) },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.weight(1f),
-                                    ) { Text("Learn", fontSize = 13.sp) }
-                                    OutlinedButton(
-                                        onClick = { viewModel.toggleTopic(topic.id) },
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.weight(1f),
-                                    ) { Text(if (topicOpen) "Hide notes" else "Read notes", fontSize = 13.sp) }
-                                }
-
-                                if (topicOpen) {
-                                    Spacer(Modifier.height(8.dp))
-                                    val lessons = state.lessonsByTopic[topic.id]
-                                    when {
-                                        lessons == null -> Text("Loading notes…", color = Muted, fontSize = 13.sp)
-                                        lessons.isEmpty() -> Text("No notes written for this topic yet.", color = Muted, fontSize = 13.sp)
-                                        else -> lessons.forEach { lesson ->
-                                            Spacer(Modifier.height(6.dp))
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(lesson.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                                lesson.specRefs?.takeIf { it.isNotBlank() }?.let { Chip(it) }
-                                            }
-                                            Spacer(Modifier.height(6.dp))
-                                            Notes(
-                                                (if (state.density == "summary") lesson.summaryMd else lesson.detailedMd)
-                                                    ?.takeIf { it.isNotBlank() }
-                                                    ?: lesson.detailedMd.orEmpty(),
-                                            )
-                                            Spacer(Modifier.height(10.dp))
-                                        }
-                                    }
-                                }
-                            }
-                            Divider()
+                            Spacer(Modifier.height(14.dp))
+                            TopicRow(
+                                topic = topic,
+                                open = state.openTopic == topic.id,
+                                density = state.density,
+                                state = state,
+                                viewModel = viewModel,
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Hairline()
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TextButton(onClick = { viewModel.loadSubjects() }) { Text("Refresh", color = Muted) }
-            TextButton(onClick = { viewModel.selectTab(Tab.CRAM) }) { Text("Cram instead", color = Muted) }
+            PillButton(
+                text = "Refresh",
+                onClick = { viewModel.loadSubjects() },
+                tone = PillTone.Ghost,
+                icon = RevisioIcons.rotate,
+                modifier = Modifier.weight(1f),
+            )
+            PillButton(
+                text = "Cram instead",
+                onClick = { viewModel.selectTab(Tab.CRAM) },
+                tone = PillTone.Ghost,
+                icon = RevisioIcons.cram,
+                modifier = Modifier.weight(1f),
+            )
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
     }
 }
 
 @Composable
-fun DensityToggle(density: String, onSet: (String) -> Unit) {
-    Row(
-        modifier = Modifier.padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        listOf("detailed" to "Full", "summary" to "Summary").forEach { (value, label) ->
-            val active = density == value
-            if (active) {
-                Button(onClick = { onSet(value) }, shape = RoundedCornerShape(10.dp)) { Text(label, fontSize = 12.sp) }
-            } else {
-                TextButton(onClick = { onSet(value) }) { Text(label, fontSize = 12.sp, color = Muted) }
+private fun TopicRow(
+    topic: Topic,
+    open: Boolean,
+    density: String,
+    state: UiState,
+    viewModel: RevisioViewModel,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(topic.name, style = Type.strong.style(Ink))
+                Text(
+                    "${topic.questions} question${if (topic.questions == 1) "" else "s"} · " +
+                        "${topic.notes} note${if (topic.notes == 1) "" else "s"}",
+                    style = Type.fine.style(Muted),
+                )
+            }
+            if (topic.visibility == "private") {
+                Badge("Private", BadgeTone.Quiet, RevisioIcons.private)
             }
         }
+
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PillButton(
+                text = "Learn",
+                onClick = { viewModel.startLearn(topic.id) },
+                icon = RevisioIcons.review,
+                modifier = Modifier.weight(1f),
+            )
+            PillButton(
+                text = if (open) "Hide notes" else "Read notes",
+                onClick = { viewModel.toggleTopic(topic.id) },
+                tone = PillTone.Secondary,
+                icon = RevisioIcons.notes,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        if (open) {
+            Spacer(Modifier.height(14.dp))
+            val lessons = state.lessonsByTopic[topic.id]
+            when {
+                lessons == null -> Text("Loading notes…", style = Type.caption.style(Muted))
+                lessons.isEmpty() -> Text("No notes written for this topic yet.", style = Type.caption.style(Muted))
+                else -> lessons.forEach { lesson ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(lesson.title, style = Type.strong.style(Ink), modifier = Modifier.weight(1f))
+                        lesson.specRefs?.takeIf { it.isNotBlank() }?.let { ChipPill(it) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Notes(
+                        (if (density == "summary") lesson.summaryMd else lesson.detailedMd)
+                            ?.takeIf { it.isNotBlank() }
+                            ?: lesson.detailedMd.orEmpty(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A small ink pill for a third-tier action, sized down rather than given its own
+ * component: the stylesheet's radius and lip still apply, only the height drops.
+ */
+@Composable
+private fun SmallPill(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(Ink)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, size = 14, tint = revisioColors.primaryForeground)
+        Text(label, style = Type.captionS.style(revisioColors.primaryForeground))
+    }
+}
+
+/** A quiet disclosure control: a hairline affordance, not a filled button. */
+@Composable
+private fun Toggle(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(label, style = Type.captionS.style(Ink))
+        Icon(icon, size = 15, tint = Muted)
     }
 }
