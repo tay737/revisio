@@ -54,6 +54,9 @@ export default function LibraryPage() {
   const [busyTopic, setBusyTopic] = useState('');
   const [classCode, setClassCode] = useState('');
   const [joining, setJoining] = useState(false);
+  // The marking tab grades cloze answers against staff-set policies — an
+  // API that 403s students. The tab must not tease a door it cannot open.
+  const isStaff = me?.role === 'teacher' || me?.role === 'developer';
 
   const load = useCallback(
     () =>
@@ -144,7 +147,9 @@ export default function LibraryPage() {
         {/* Equal slots rather than a scroll rail: all labels are short, and a
             previous version clipped “Class” off the right edge with nothing on
             screen to say it was there. */}
-        <TabsList className="grid w-full grid-cols-6">
+        {/* Slot count follows the role: students see six tabs, staff seven.
+            A fixed grid wrapped the seventh tab off the edge for staff. */}
+        <TabsList className={isStaff ? 'grid w-full grid-cols-7' : 'grid w-full grid-cols-6'}>
           <TabsTrigger value="topics" className="min-w-0 px-2">
             <Icon name="topic" size={15} />
             Topics
@@ -165,10 +170,12 @@ export default function LibraryPage() {
             <Icon name="practice" size={15} />
             Maths
           </TabsTrigger>
-          <TabsTrigger value="marking" className="min-w-0 px-2">
-            <Icon name="gauge" size={15} />
-            Marking
-          </TabsTrigger>
+          {isStaff && (
+            <TabsTrigger value="marking" className="min-w-0 px-2">
+              <Icon name="gauge" size={15} />
+              Marking
+            </TabsTrigger>
+          )}
           <TabsTrigger value="class" className="min-w-0 px-2">
             <Icon name="join" size={15} />
             Class
@@ -303,7 +310,8 @@ export default function LibraryPage() {
           </div>
         </TabsContent>
 
-        {/* ── Cloze marking ───────────────────────────────────────────────── */}
+        {/* ── Cloze marking (staff only; the tab is hidden for students) ──── */}
+        {isStaff && (
         <TabsContent value="marking">
           <div className="card">
             <h2 className="t-strong">Cloze marking</h2>
@@ -316,6 +324,7 @@ export default function LibraryPage() {
             </div>
           </div>
         </TabsContent>
+        )}
 
         {/* ── Class ───────────────────────────────────────────────────────── */}
         <TabsContent value="class">

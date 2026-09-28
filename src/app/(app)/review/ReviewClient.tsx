@@ -129,6 +129,10 @@ export default function ReviewClient() {
   // being accumulated locally, so the report cannot disagree with `/me`.
   const [startXp, setStartXp] = useState<number | null>(null);
   const [latestXp, setLatestXp] = useState<number | null>(null);
+  /** Set when the learner ends the session early — the summary still shows,
+   *  and every answered card's XP and count is already banked, so nothing is
+   *  lost; the remaining cards simply stay due. */
+  const [ended, setEnded] = useState(false);
   const startRef = useRef<number>(Date.now());
   const confettiRef = useRef<ConfettiRef>(null);
   const verdictRef = useRef<HTMLDivElement>(null);
@@ -211,6 +215,7 @@ export default function ReviewClient() {
     setCorrect(0);
     setStartXp(null);
     setLatestXp(null);
+    setEnded(false);
     setResult(null);
     setInput('');
     setSelected(null);
@@ -370,10 +375,10 @@ export default function ReviewClient() {
     setIdx((i) => i + 1);
   }, []);
 
-  // The session has ended: the rank report is on screen, so the caches the
-  // shell, the dashboard and the Rank page read are now stale. Refreshing here
-  // (rather than on a timer) lands XP in the same moment it is earned.
-  const finished = queue !== null && queue.length > 0 && !card;
+  // The session has ended — every card answered, or the learner chose "End
+  // session" early. Either way the summary is the destination: XP is already
+  // banked per answer, so stopping now forfeits nothing earned.
+  const finished = queue !== null && queue.length > 0 && (!card || ended);
   const change =
     finished && startXp !== null && latestXp !== null ? rankChange(startXp, latestXp) : null;
 
@@ -487,6 +492,7 @@ export default function ReviewClient() {
             done={done}
             sessionXp={sessionXp}
             change={change}
+            ended={ended}
             onAgain={load}
           />
         )}
@@ -551,6 +557,17 @@ export default function ReviewClient() {
           <span className="badge badge-quiet num">
             <Icon name="xp" size={12} />+{sessionXp} XP
           </span>
+          {/* Ink, not green — leaving is not something to celebrate. Ending a
+              session keeps every point already earned; the summary opens and
+              the remaining cards stay due. */}
+          <button
+            type="button"
+            onClick={() => setEnded(true)}
+            className="t-caption-s flex items-center gap-1 rounded-full px-2.5 py-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <Icon name="signOut" size={12} />
+            End session
+          </button>
         </span>
       </div>
 
@@ -808,12 +825,14 @@ function SessionReport({
   done,
   sessionXp,
   change,
+  ended,
   onAgain,
 }: {
   correct: number;
   done: number;
   sessionXp: number;
   change: ReturnType<typeof rankChange> | null;
+  ended: boolean;
   onAgain: () => void;
 }) {
   const rank: Rank | null = change?.after ?? null;
@@ -832,7 +851,7 @@ function SessionReport({
       )}
 
       <h1 className="t-display mt-4">
-        {change?.promoted ? `Promoted to ${change.after.label}` : 'Session complete'}
+        {change?.promoted ? `Promoted to ${change.after.label}` : ended ? 'Session ended' : 'Session complete'}
       </h1>
 
       <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-muted-foreground">
