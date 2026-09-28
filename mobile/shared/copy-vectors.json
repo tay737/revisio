@@ -1,0 +1,937 @@
+{
+  "version": 1,
+  "generatedFrom": [
+    "src/domain/ranked.ts",
+    "src/lib/profile.ts"
+  ],
+  "note": "Golden rank and copy vectors. Native ports must reproduce `expected` exactly.",
+  "ladder": {
+    "tiers": [
+      "bronze",
+      "silver",
+      "gold",
+      "diamond",
+      "legend"
+    ],
+    "divisionSpan": {
+      "bronze": 120,
+      "silver": 200,
+      "gold": 320,
+      "diamond": 500,
+      "legend": 750
+    },
+    "divisionLabel": {
+      "1": "I",
+      "2": "II",
+      "3": "III"
+    },
+    "rungCount": 15,
+    "topOfLadder": 4920,
+    "rungs": [
+      {
+        "tier": "bronze",
+        "division": 3,
+        "index": 0,
+        "base": 0,
+        "span": 120
+      },
+      {
+        "tier": "bronze",
+        "division": 2,
+        "index": 1,
+        "base": 120,
+        "span": 120
+      },
+      {
+        "tier": "bronze",
+        "division": 1,
+        "index": 2,
+        "base": 240,
+        "span": 120
+      },
+      {
+        "tier": "silver",
+        "division": 3,
+        "index": 3,
+        "base": 360,
+        "span": 200
+      },
+      {
+        "tier": "silver",
+        "division": 2,
+        "index": 4,
+        "base": 560,
+        "span": 200
+      },
+      {
+        "tier": "silver",
+        "division": 1,
+        "index": 5,
+        "base": 760,
+        "span": 200
+      },
+      {
+        "tier": "gold",
+        "division": 3,
+        "index": 6,
+        "base": 960,
+        "span": 320
+      },
+      {
+        "tier": "gold",
+        "division": 2,
+        "index": 7,
+        "base": 1280,
+        "span": 320
+      },
+      {
+        "tier": "gold",
+        "division": 1,
+        "index": 8,
+        "base": 1600,
+        "span": 320
+      },
+      {
+        "tier": "diamond",
+        "division": 3,
+        "index": 9,
+        "base": 1920,
+        "span": 500
+      },
+      {
+        "tier": "diamond",
+        "division": 2,
+        "index": 10,
+        "base": 2420,
+        "span": 500
+      },
+      {
+        "tier": "diamond",
+        "division": 1,
+        "index": 11,
+        "base": 2920,
+        "span": 500
+      },
+      {
+        "tier": "legend",
+        "division": 3,
+        "index": 12,
+        "base": 3420,
+        "span": 750
+      },
+      {
+        "tier": "legend",
+        "division": 2,
+        "index": 13,
+        "base": 4170,
+        "span": 750
+      },
+      {
+        "tier": "legend",
+        "division": 1,
+        "index": 14,
+        "base": 4920,
+        "span": 750
+      }
+    ],
+    "tierNames": [
+      {
+        "tier": "bronze",
+        "expected": "Bronze"
+      },
+      {
+        "tier": "silver",
+        "expected": "Silver"
+      },
+      {
+        "tier": "gold",
+        "expected": "Gold"
+      },
+      {
+        "tier": "diamond",
+        "expected": "Diamond"
+      },
+      {
+        "tier": "legend",
+        "expected": "Legend"
+      }
+    ]
+  },
+  "rankFor": [
+    {
+      "xp": 0,
+      "expected": {
+        "tier": "bronze",
+        "division": 3,
+        "index": 0,
+        "label": "Bronze III",
+        "short": "BRO III",
+        "points": 0,
+        "intoDivision": 0,
+        "forDivision": 120,
+        "percent": 0,
+        "remaining": 120,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 1,
+      "expected": {
+        "tier": "bronze",
+        "division": 3,
+        "index": 0,
+        "label": "Bronze III",
+        "short": "BRO III",
+        "points": 1,
+        "intoDivision": 1,
+        "forDivision": 120,
+        "percent": 1,
+        "remaining": 119,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 119,
+      "expected": {
+        "tier": "bronze",
+        "division": 3,
+        "index": 0,
+        "label": "Bronze III",
+        "short": "BRO III",
+        "points": 119,
+        "intoDivision": 119,
+        "forDivision": 120,
+        "percent": 99,
+        "remaining": 1,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 120,
+      "expected": {
+        "tier": "bronze",
+        "division": 2,
+        "index": 1,
+        "label": "Bronze II",
+        "short": "BRO II",
+        "points": 120,
+        "intoDivision": 0,
+        "forDivision": 120,
+        "percent": 0,
+        "remaining": 120,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 239,
+      "expected": {
+        "tier": "bronze",
+        "division": 2,
+        "index": 1,
+        "label": "Bronze II",
+        "short": "BRO II",
+        "points": 239,
+        "intoDivision": 119,
+        "forDivision": 120,
+        "percent": 99,
+        "remaining": 1,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 240,
+      "expected": {
+        "tier": "bronze",
+        "division": 1,
+        "index": 2,
+        "label": "Bronze I",
+        "short": "BRO I",
+        "points": 240,
+        "intoDivision": 0,
+        "forDivision": 120,
+        "percent": 0,
+        "remaining": 120,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 359,
+      "expected": {
+        "tier": "bronze",
+        "division": 1,
+        "index": 2,
+        "label": "Bronze I",
+        "short": "BRO I",
+        "points": 359,
+        "intoDivision": 119,
+        "forDivision": 120,
+        "percent": 99,
+        "remaining": 1,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 360,
+      "expected": {
+        "tier": "silver",
+        "division": 3,
+        "index": 3,
+        "label": "Silver III",
+        "short": "SIL III",
+        "points": 360,
+        "intoDivision": 0,
+        "forDivision": 200,
+        "percent": 0,
+        "remaining": 200,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 599,
+      "expected": {
+        "tier": "silver",
+        "division": 2,
+        "index": 4,
+        "label": "Silver II",
+        "short": "SIL II",
+        "points": 599,
+        "intoDivision": 39,
+        "forDivision": 200,
+        "percent": 20,
+        "remaining": 161,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 600,
+      "expected": {
+        "tier": "silver",
+        "division": 2,
+        "index": 4,
+        "label": "Silver II",
+        "short": "SIL II",
+        "points": 600,
+        "intoDivision": 40,
+        "forDivision": 200,
+        "percent": 20,
+        "remaining": 160,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 959,
+      "expected": {
+        "tier": "silver",
+        "division": 1,
+        "index": 5,
+        "label": "Silver I",
+        "short": "SIL I",
+        "points": 959,
+        "intoDivision": 199,
+        "forDivision": 200,
+        "percent": 100,
+        "remaining": 1,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 960,
+      "expected": {
+        "tier": "gold",
+        "division": 3,
+        "index": 6,
+        "label": "Gold III",
+        "short": "GOL III",
+        "points": 960,
+        "intoDivision": 0,
+        "forDivision": 320,
+        "percent": 0,
+        "remaining": 320,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 1559,
+      "expected": {
+        "tier": "gold",
+        "division": 2,
+        "index": 7,
+        "label": "Gold II",
+        "short": "GOL II",
+        "points": 1559,
+        "intoDivision": 279,
+        "forDivision": 320,
+        "percent": 87,
+        "remaining": 41,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 1560,
+      "expected": {
+        "tier": "gold",
+        "division": 2,
+        "index": 7,
+        "label": "Gold II",
+        "short": "GOL II",
+        "points": 1560,
+        "intoDivision": 280,
+        "forDivision": 320,
+        "percent": 88,
+        "remaining": 40,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 2309,
+      "expected": {
+        "tier": "diamond",
+        "division": 3,
+        "index": 9,
+        "label": "Diamond III",
+        "short": "DIA III",
+        "points": 2309,
+        "intoDivision": 389,
+        "forDivision": 500,
+        "percent": 78,
+        "remaining": 111,
+        "isApex": false
+      }
+    },
+    {
+      "xp": 4920,
+      "expected": {
+        "tier": "legend",
+        "division": 1,
+        "index": 14,
+        "label": "Legend I",
+        "short": "LEG I",
+        "points": 4920,
+        "intoDivision": 0,
+        "forDivision": 750,
+        "percent": 0,
+        "remaining": 750,
+        "isApex": true
+      }
+    },
+    {
+      "xp": 5420,
+      "expected": {
+        "tier": "legend",
+        "division": 1,
+        "index": 14,
+        "label": "Legend I",
+        "short": "LEG I",
+        "points": 5420,
+        "intoDivision": 500,
+        "forDivision": 750,
+        "percent": 67,
+        "remaining": 250,
+        "isApex": true
+      }
+    },
+    {
+      "xp": 999999,
+      "expected": {
+        "tier": "legend",
+        "division": 1,
+        "index": 14,
+        "label": "Legend I",
+        "short": "LEG I",
+        "points": 999999,
+        "intoDivision": 995079,
+        "forDivision": 750,
+        "percent": 100,
+        "remaining": 0,
+        "isApex": true
+      }
+    }
+  ],
+  "formFor": [
+    {
+      "reviewed": 0,
+      "correct": 0,
+      "expected": {
+        "form": "unknown",
+        "label": "No read yet",
+        "detail": "Four reviews is enough to call your form."
+      }
+    },
+    {
+      "reviewed": 3,
+      "correct": 3,
+      "expected": {
+        "form": "unknown",
+        "label": "No read yet",
+        "detail": "Four reviews is enough to call your form."
+      }
+    },
+    {
+      "reviewed": 4,
+      "correct": 4,
+      "expected": {
+        "form": "sharp",
+        "label": "Sharp",
+        "detail": "100% today — this is your best gear."
+      }
+    },
+    {
+      "reviewed": 10,
+      "correct": 9,
+      "expected": {
+        "form": "sharp",
+        "label": "Sharp",
+        "detail": "90% today — this is your best gear."
+      }
+    },
+    {
+      "reviewed": 10,
+      "correct": 7,
+      "expected": {
+        "form": "steady",
+        "label": "Steady",
+        "detail": "70% today. Solid, unspectacular, fine."
+      }
+    },
+    {
+      "reviewed": 10,
+      "correct": 4,
+      "expected": {
+        "form": "shaky",
+        "label": "Shaky",
+        "detail": "40% today. Slow down and read the whole clue."
+      }
+    },
+    {
+      "reviewed": 3,
+      "correct": 1,
+      "expected": {
+        "form": "unknown",
+        "label": "No read yet",
+        "detail": "Four reviews is enough to call your form."
+      }
+    }
+  ],
+  "zoneBand": [
+    {
+      "size": 0,
+      "expected": 1
+    },
+    {
+      "size": 1,
+      "expected": 1
+    },
+    {
+      "size": 4,
+      "expected": 1
+    },
+    {
+      "size": 10,
+      "expected": 2
+    },
+    {
+      "size": 29,
+      "expected": 5
+    },
+    {
+      "size": 30,
+      "expected": 5
+    },
+    {
+      "size": 31,
+      "expected": 5
+    },
+    {
+      "size": 60,
+      "expected": 5
+    }
+  ],
+  "reviewsForRp": [
+    {
+      "rp": 0,
+      "expected": 1
+    },
+    {
+      "rp": 1,
+      "expected": 1
+    },
+    {
+      "rp": 9,
+      "expected": 1
+    },
+    {
+      "rp": 10,
+      "expected": 1
+    },
+    {
+      "rp": 11,
+      "expected": 2
+    },
+    {
+      "rp": 120,
+      "expected": 12
+    },
+    {
+      "rp": 750,
+      "expected": 75
+    }
+  ],
+  "greeting": [
+    {
+      "hour": 0,
+      "expected": "Still up"
+    },
+    {
+      "hour": 4,
+      "expected": "Still up"
+    },
+    {
+      "hour": 5,
+      "expected": "Good morning"
+    },
+    {
+      "hour": 11,
+      "expected": "Good morning"
+    },
+    {
+      "hour": 12,
+      "expected": "Good afternoon"
+    },
+    {
+      "hour": 17,
+      "expected": "Good afternoon"
+    },
+    {
+      "hour": 18,
+      "expected": "Good evening"
+    },
+    {
+      "hour": 22,
+      "expected": "Good evening"
+    },
+    {
+      "hour": 23,
+      "expected": "Late session"
+    }
+  ],
+  "names": [
+    {
+      "name": "Smoke Tester",
+      "first": "Smoke",
+      "initials": "ST"
+    },
+    {
+      "name": "  Tayyab  ",
+      "first": "Tayyab",
+      "initials": "TA"
+    },
+    {
+      "name": "Ada Lovelace Byron",
+      "first": "Ada",
+      "initials": "AB"
+    },
+    {
+      "name": "Prince",
+      "first": "Prince",
+      "initials": "PR"
+    },
+    {
+      "name": "",
+      "first": "there",
+      "initials": "R"
+    }
+  ],
+  "sessionSummary": [
+    {
+      "correct": 0,
+      "total": 0,
+      "expected": "No cards answered yet."
+    },
+    {
+      "correct": 3,
+      "total": 3,
+      "expected": "3 for 3. Every one of them."
+    },
+    {
+      "correct": 4,
+      "total": 5,
+      "expected": "4 for 5 — that's the recall we want."
+    },
+    {
+      "correct": 1,
+      "total": 2,
+      "expected": "1 for 2. The misses are the useful part."
+    },
+    {
+      "correct": 1,
+      "total": 4,
+      "expected": "1 for 4. Worth a pass over the notes before the next run."
+    }
+  ],
+  "emptyQueueLine": [
+    {
+      "due": 0,
+      "streak": 0,
+      "expected": "Your schedule is clear. Cram a topic, read ahead, or come back tomorrow."
+    },
+    {
+      "due": 0,
+      "streak": 4,
+      "expected": "Your schedule is clear and your 4-day streak is safe. Anything you do now is a head start."
+    },
+    {
+      "due": 3,
+      "streak": 4,
+      "expected": "Your schedule is clear. Cram a topic, read ahead, or come back tomorrow."
+    }
+  ],
+  "openers": [
+    {
+      "due": 0,
+      "streak": 0,
+      "level": 1,
+      "subject": null,
+      "expected": [
+        "Nothing is due — you're ahead",
+        "Want to get ahead instead?"
+      ]
+    },
+    {
+      "due": 1,
+      "streak": 1,
+      "level": 1,
+      "subject": "Biology",
+      "expected": [
+        "1 card is waiting",
+        "Let's clear today's queue",
+        "Back to Biology?"
+      ]
+    },
+    {
+      "due": 7,
+      "streak": 12,
+      "level": 9,
+      "subject": "Chemistry",
+      "expected": [
+        "7 cards are waiting",
+        "Let's clear today's queue",
+        "Day 12 of your streak",
+        "Level 9 — keep it moving",
+        "Back to Chemistry?"
+      ]
+    },
+    {
+      "due": 0,
+      "streak": 3,
+      "level": 2,
+      "subject": null,
+      "expected": [
+        "Nothing is due — you're ahead",
+        "Want to get ahead instead?",
+        "Day 3 of your streak",
+        "Level 2 — keep it moving"
+      ]
+    }
+  ],
+  "lobbyLine": [
+    {
+      "zone": "pending",
+      "position": 0,
+      "size": 30,
+      "daysLeft": 5,
+      "rankLabel": "Silver II",
+      "expected": "We are still placing you. A few more reviews and we will seat you in a Silver II lobby."
+    },
+    {
+      "zone": "promotion",
+      "position": 3,
+      "size": 30,
+      "daysLeft": 1,
+      "rankLabel": "Silver II",
+      "expected": "3 of 30 — you are inside the promotion zone. Today is the last day; holding this seat moves you up a rung."
+    },
+    {
+      "zone": "demotion",
+      "position": 28,
+      "size": 30,
+      "daysLeft": 2,
+      "rankLabel": "Silver II",
+      "expected": "28 of 30 — that is the demotion band. One session pulls you clear of it."
+    },
+    {
+      "zone": "safe",
+      "position": 14,
+      "size": 30,
+      "daysLeft": 6,
+      "rankLabel": "Bronze I",
+      "expected": "14 of 30 — safe, and close enough to the promotion band to take it. 6 days left."
+    }
+  ],
+  "companionFor": [
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 0,
+        "reviewed": 0,
+        "correct": 0,
+        "streak": 0,
+        "bestStreak": 0,
+        "level": 1,
+        "totalXp": 0,
+        "hour": 10
+      },
+      "expected": {
+        "tone": "welcome",
+        "line": "Nothing here yet, Smoke — which is the good part. Ten minutes on the first topic and the scheduler starts working for you tonight.",
+        "actionLabel": "Pick a topic"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 4,
+        "reviewed": 0,
+        "correct": 0,
+        "streak": 0,
+        "bestStreak": 6,
+        "level": 4,
+        "totalXp": 900,
+        "hour": 14
+      },
+      "expected": {
+        "tone": "returning",
+        "line": "You had 6 days going. Nothing is lost — the queue has held your place, and it only takes today to start the next run.",
+        "actionLabel": "Resume where you left off"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 0,
+        "reviewed": 5,
+        "correct": 5,
+        "streak": 3,
+        "bestStreak": 6,
+        "level": 4,
+        "totalXp": 1200,
+        "rankLabel": "Silver II",
+        "hour": 19
+      },
+      "expected": {
+        "tone": "praise",
+        "line": "5 for 5. That is a clean sheet, and it is why you are holding Silver II.",
+        "actionLabel": "See the ladder"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 0,
+        "reviewed": 8,
+        "correct": 6,
+        "streak": 3,
+        "bestStreak": 6,
+        "level": 4,
+        "totalXp": 1200,
+        "rankLabel": "Silver II",
+        "hour": 19
+      },
+      "expected": {
+        "tone": "open",
+        "line": "8 answered and the queue is clear — still Silver II. Days like this are what hold a rank together.",
+        "actionLabel": "See the ladder"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 6,
+        "reviewed": 4,
+        "correct": 3,
+        "streak": 3,
+        "bestStreak": 6,
+        "level": 4,
+        "totalXp": 1200,
+        "rankLabel": "Bronze I",
+        "hour": 16
+      },
+      "expected": {
+        "tone": "momentum",
+        "line": "4 down, 6 to go. You are faster on these than you were at the start.",
+        "actionLabel": "Carry on"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 9,
+        "reviewed": 0,
+        "correct": 0,
+        "streak": 5,
+        "bestStreak": 6,
+        "level": 4,
+        "totalXp": 1200,
+        "hour": 15
+      },
+      "expected": {
+        "tone": "nudge",
+        "line": "9 cards due, and nothing in there you have not seen before. Worth doing while they are still easy.",
+        "actionLabel": "Start the queue"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 9,
+        "reviewed": 0,
+        "correct": 0,
+        "streak": 5,
+        "bestStreak": 6,
+        "level": 4,
+        "totalXp": 1200,
+        "hour": 2
+      },
+      "expected": {
+        "tone": "nudge",
+        "line": "9 cards are due. Five of them would keep day 5 happy — the rest can wait for tomorrow.",
+        "actionLabel": "Start the queue"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 9,
+        "reviewed": 0,
+        "correct": 0,
+        "streak": 0,
+        "bestStreak": 1,
+        "level": 4,
+        "totalXp": 1200,
+        "hour": 23
+      },
+      "expected": {
+        "tone": "nudge",
+        "line": "9 cards are due. Five of them would keep the streak algorithm happy — the rest can wait for tomorrow.",
+        "actionLabel": "Start the queue"
+      }
+    },
+    {
+      "input": {
+        "name": "Smoke Tester",
+        "due": 0,
+        "reviewed": 0,
+        "correct": 0,
+        "streak": 2,
+        "bestStreak": 2,
+        "level": 3,
+        "totalXp": 400,
+        "hour": 11
+      },
+      "expected": {
+        "tone": "open",
+        "line": "Nothing is due, which means today is optional — the best kind. Get ahead on a topic, or protect the rank with a quick cram.",
+        "actionLabel": "Get ahead"
+      }
+    }
+  ]
+}

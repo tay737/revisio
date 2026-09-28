@@ -373,11 +373,11 @@ async function main() {
 
     // ── 1. it opens to its own UI, offline ───────────────────────────────────
     launch(serial);
-    const home = await waitForText(serial, 'cards ready', 40_000);
-    check('offline: opens to the app\u2019s own home screen', hasText(home, 'cards ready'), textsOnScreen(home).join(' | '));
+    const home = await waitForText(serial, 'Start review', 40_000);
+    check('offline: opens to the app\u2019s own home screen', hasText(home, 'Start review'), textsOnScreen(home).join(' | '));
     check(
       'offline: the saved session counts its cards',
-      hasText(home, 'cards ready') && hasText(home, 'DUE NOW') && hasText(home, '3'),
+      hasText(home, 'Due') && hasText(home, 'Start review') && hasText(home, '3'),
       textsOnScreen(home).join(' | '),
     );
     check(
@@ -385,7 +385,14 @@ async function main() {
       hasTextIgnoringCase(home, 'offline'),
       textsOnScreen(home).join(' | '),
     );
-    check('offline: the learner is greeted by name (session survived)', hasText(home, 'Smoke Tester'), textsOnScreen(home).join(' | '));
+    // The greeting is `Copy.greetingFor` — the web's copy, which uses the *first*
+    // name — and it renders as an uppercase tracked label, so it is matched
+    // without case.
+    check(
+      'offline: the learner is greeted by name (session survived)',
+      hasTextIgnoringCase(home, 'smoke'),
+      textsOnScreen(home).join(' | '),
+    );
     info(`seen: ${clip(textsOnScreen(home).join(' | '), 180)}`);
 
     // ── 2. a review runs to completion, offline ──────────────────────────────
@@ -454,13 +461,6 @@ async function main() {
       textsOnScreen(learn).join(' | '),
     );
 
-    const cram = await waitForTextAfter(serial, 'Cram', 'Practice without touching the schedule', 20_000);
-    check(
-      'offline: Cram opens to its own session builder',
-      hasText(cram, 'Practice without touching the schedule'),
-      textsOnScreen(cram).join(' | '),
-    );
-
     const rank = await waitForTextAfter(serial, 'Rank', 'rank needs a connection', 20_000);
     check(
       'offline: Rank explains what it cannot compute yet',
@@ -468,19 +468,38 @@ async function main() {
       textsOnScreen(rank).join(' | '),
     );
 
-    const you = await waitForTextAfter(serial, 'You', 'account details need a connection', 20_000);
+    // The shell is the website's: four destinations in the bar, everything else
+    // one tap behind More. Everything past this point is reached that way.
+    const more = await waitForTextAfter(serial, 'More', 'Settings', 20_000);
     check(
-      'offline: You explains what it cannot show yet',
+      'offline: More opens the overflow sheet',
+      hasText(more, 'Settings') && hasText(more, 'Cram') && hasText(more, 'Library'),
+      textsOnScreen(more).join(' | '),
+    );
+
+    const you = await waitForTextAfter(serial, 'Settings', 'account details need a connection', 20_000);
+    check(
+      'offline: Settings explains what it cannot show yet',
       hasText(you, 'account details need a connection'),
       textsOnScreen(you).join(' | '),
     );
     info(`account: ${clip(textsOnScreen(you).join(' | '), 180)}`);
 
+    // Cram is behind More too, and it is the one overflow destination that has to
+    // keep *working* offline rather than merely explaining itself.
+    await tapText(serial, 'More');
+    const cram = await waitForTextAfter(serial, 'Cram', 'Practice without touching the schedule', 20_000);
+    check(
+      'offline: Cram opens to its own session builder',
+      hasText(cram, 'Practice without touching the schedule'),
+      textsOnScreen(cram).join(' | '),
+    );
+
     // Back to the loop, which must still be the loop.
-    const back = await waitForTextAfter(serial, 'Today', 'cards ready', 20_000);
+    const back = await waitForTextAfter(serial, 'Today', 'Start review', 20_000);
     check(
       'offline: Today still offers the offline session after the tour',
-      hasText(back, 'cards ready') && hasTextIgnoringCase(back, 'offline'),
+      hasText(back, 'Start review') && hasTextIgnoringCase(back, 'offline'),
       textsOnScreen(back).join(' | '),
     );
 

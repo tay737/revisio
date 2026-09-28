@@ -89,30 +89,55 @@ fun Wordmark(size: TypeToken = Type.tagline) {
     Text("Revisio", style = size.style(Ink))
 }
 
-/** The learner's face: their emoji on their colour, or the crest of their rank. */
+/**
+ * The learner's face: their symbol on their colour, or their initials.
+ *
+ * The colour is the *stored* one rather than something derived from the glyph —
+ * `SURFACE` in `src/components/ui/avatar.tsx` is the owner of what "moss" looks
+ * like, and a picker that showed a different tint from the one it would save
+ * would be lying about what the choice does. The settings screen shows all five
+ * side by side for exactly that reason.
+ */
 @Composable
-fun Avatar(emoji: String?, size: Int = 40) {
-    // The five costume tints from `profile.ts`; the avatar is the one place a
-    // learner's own colour is allowed, and it never carries meaning.
-    val tint = when ((emoji?.hashCode() ?: 0) % 5) {
-        0 -> Card2
-        1 -> Good.copy(alpha = 0.22f)
-        2 -> Warn.copy(alpha = 0.22f)
-        3 -> Info.copy(alpha = 0.22f)
-        else -> revisioColors.accent
+fun Avatar(emoji: String?, size: Int = 40, color: String = "ink", name: String = "") {
+    val surface = when (color) {
+        "moss" -> GoodSoft
+        "bee" -> Gold.copy(alpha = 0.3f)
+        "dawn" -> Bad.copy(alpha = 0.15f)
+        "sky" -> Info.copy(alpha = 0.15f)
+        else -> Ink
     }
+    val ink = when (color) {
+        "ink" -> revisioColors.background
+        "moss" -> revisioColors.goodPressed
+        "dawn" -> Bad
+        "sky" -> Info
+        else -> Ink
+    }
+    val glyph = emoji?.takeIf { it.isNotBlank() } ?: initialsOf(name)
     Box(
         modifier = Modifier
             .size(size.dp)
-            .background(tint, RoundedCornerShape(Radius.pill))
-            .border(1.dp, Line, RoundedCornerShape(Radius.pill)),
+            .background(surface, RoundedCornerShape(Radius.pill))
+            .then(if (color == "bee") Modifier.border(1.dp, Line, RoundedCornerShape(Radius.pill)) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            emoji?.takeIf { it.isNotBlank() } ?: "R",
-            fontSize = (size * 0.46f).sp,
+            glyph,
+            color = ink,
+            fontSize = (size * if (glyph.length > 2) 0.46f else 0.38f).sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         )
     }
+}
+
+/** `initials()` from the web — two letters, or one, or nothing to fall back on. */
+private fun initialsOf(name: String): String {
+    val words = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (words.isEmpty()) return "R"
+    val first = words.first().first()
+    val second = words.getOrNull(1)?.first()
+    return (listOf(first) + listOfNotNull(second)).joinToString("").uppercase()
 }
 
 /** A 16px-radius card with a hairline and no shadow. Level 0 is the default. */

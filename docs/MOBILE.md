@@ -37,7 +37,7 @@ are compiled in, so losing the network can never blank one.
 | Cram | `CramScreen` / `CramView` | list yes, session no |
 | Learn — subjects, topics, notes | `LearnScreen` / `LearnView` | yes for the catalogue; notes render offline once read |
 | Rank — rank, weekly lobby, placement | `RankScreen` / `RankView` | yes (computed from full history) |
-| You — profile, privacy switches, prefs, achievements | `YouScreen` / `YouView` | yes |
+| Settings — profile, privacy, email, security, prefs | `SettingsScreen` / `SettingsView` | yes |
 | Sign in / sign out, session persistence | `AuthScreen` / `AuthView` | first sign-in only |
 
 The content, session and rank payloads are the ones the web already returns, so
@@ -116,20 +116,34 @@ state** (the tactile lip under a button, the uppercase tracked label, colour
 reserved for the game — streak, correct, gold). Green is the one non-navigation
 control, because it means the in-session action.
 
-Two generators keep that honest, and both are re-runnable rather than
-hand-copied:
+Three generators keep that honest, and all three are re-runnable rather than
+hand-copied (`npm run native:generate` runs them in order):
 
 ```
 src/app/globals.css                       src/components/ui/icons.tsx (lucide)
   │ scripts/native/make-theme.mjs           │ scripts/native/make-icons.mjs
   │ 34 colours × 2 schemes, 7 radii,        │ the registry's own path geometry
-  │ 18 type tokens, 2 curves, metrics       ▼
+  │ 18 type tokens, 6 springs, metrics      ▼
   ▼                              mobile/shared/icons.json
 Theme.kt / Theme.swift                       │
                                  ├───────────┴───────────┐
                                  ▼                       ▼
                           Icons.kt (ImageVector)   Icons.swift (path data)
+
+src/lib/username.ts
+  │ scripts/native/make-account.mjs
+  ▼
+AccountRules.kt / AccountRules.swift   ← the pattern and the 33 reserved names
 ```
+
+The third one is the least obvious and the one a settings form most needs. The
+web disables its own **Save profile** button on a handle the server would refuse,
+and shows the rule under the field. A phone that only found out from the server's
+response would make the learner discover a reserved word by being rejected — so
+`USERNAME_RE` and `RESERVED_USERNAMES` are read out of `src/lib/username.ts`,
+the module the server's profile check imports, and emitted into both clients.
+Copying 33 words into two languages by hand is what that generator exists to
+avoid.
 
 So the phone's green is the web's green, its radii are its radii, and a tab bar
 icon is the same drawing rather than a similarly-shaped emoji. Icons are not a
@@ -137,13 +151,75 @@ lookup table of OS glyphs: `make-icons.mjs` reads the same lucide geometry the
 web imports at 24dp/24 grid and the web's own stroke weight (1.75, and 2.3 for
 the active nav item, exactly as `BottomNav.tsx` swaps it).
 
-`Theme.kt`, `Theme.swift`, `Icons.kt` and `Icons.swift` are **generated** — each
-carries a header saying so, and a hand edit is overwritten the next time tokens
-move. `Design.kt` and `Design.swift` are the opposite: hand-written against
-them, and where the actual component vocabulary lives (panel, pill, stat, rank
-crest, meter, badge, the button with its lip). To restyle every screen, change
-`globals.css` and re-run the generators; to add a component, write it in
-`Design.*` and use it from the screens.
+`Theme.kt`, `Theme.swift`, `Icons.kt`, `Icons.swift` and both `AccountRules.*`
+are **generated** — each carries a header saying so, and a hand edit is
+overwritten the next time its source moves. `Design.kt` and `Design.swift` are
+the opposite: hand-written against them, and where the actual component
+vocabulary lives (panel, pill, stat, rank crest, meter, badge, the button with
+its lip). To restyle every screen, change `globals.css` and re-run the
+generators; to add a component, write it in `Design.*` and use it from the
+screens.
+
+### Motion is generated too
+
+`make-theme.mjs` reads `src/lib/motion.ts` as well as the stylesheet, so the six
+springs (`press`, `layout`, `settle`, `meter`, `soft`, `pop`), five durations,
+four curves and the four entrance gestures are the web's numbers rather than a
+stand-in picked by hand. A spring the web authors as
+stiffness/damping/mass does not port literally — Compose and SwiftUI both take a
+damping *ratio* and no mass — so the conversion lives in the generator, once,
+rather than in each call site.
+
+The screens then apply it through four helpers instead of inventing timings:
+`pressScale` (the web's `whileTap`, `scale(0.95)` on the press spring),
+`entrance` (its `fadeUp`/`fadeScale`, with the capped stagger so fifty rows finish
+in a third of a second), `pop` (the underdamped crest/badge arrival — scale 0.7
+and a slight rotation, overshooting) and the shared `Meter`, whose fill travels
+on the meter spring because a progress bar that eases linearly reads as a loading
+spinner while one with velocity memory reads as a scoreboard.
+
+### Settings is a port of a page, not a list of switches
+
+The account destination is the clearest place a phone port stops being a port.
+A flat list of switches is easier to write than what `app/(app)/settings/page.tsx`
+actually is — five surfaces that each answer for themselves — and it is wrong for
+the same reason it would be wrong on the web: a save in **Profile** must never
+appear to answer a save in **Security**.
+
+So both clients render the web's five sections, in its order, with its copy:
+
+| Section | What it owns |
+|---|---|
+| Profile | avatar colour and symbol, full name, display name, username, about me, Save — disabled until something changed *and* the handle is legal, with "Unsaved changes" beside it |
+| Privacy | the six visibility flags, each written optimistically and **put back** if the save is refused, so the control never shows a state the server does not have |
+| Account | `POST /me/email` — a *request*, not a write: the address stays pending until the link is clicked, so the confirmation says where to look |
+| Security | `POST /me/password` plus the 2FA state. The server revokes every refresh token, so the client re-mints its own session immediately afterwards or falls back to sign-in |
+| Preferences | note density, reduce motion, leaderboard visibility |
+
+Both are reached from the account slot in the bar, which also carries an identity
+card — the crest, the name, XP, level, streak and badges — because on a phone the
+one tap that should answer "who am I here" should not then need another. That
+card reads the same `/me` + `/gamification` payload the web reads, so it cannot
+rank a learner differently from their browser.
+
+The page's confirmations are the web's `Notice`, not a toast: a line of text at
+the top of the page that stays until the next action. A snackbar that slides in
+over the content and leaves on a timer is a different promise, and the difference
+matters most on the screen where something just failed.
+
+### A rejected session is a sign-out, not a stuck screen
+
+This is what made the account destination *look* broken, and it is worth stating
+because nothing caught it. When the server refuses a refresh token — a password
+changed on another device, a token rotated away, a long absence — the app used to
+keep the dead session and show the cached name while every server-backed screen
+reported "sign in again to reach the server". From the outside that is an error
+message plus a page that never resolves, on a screen with no controls that fix it.
+
+A refused refresh is now the end of the session on that device: the credential is
+discarded and the sign-in screen says why. `verify:native` proves it by revoking
+the session out from under the app and asserting that the account screen does not
+sit on a spinner.
 
 ## Grading has one owner, enforced
 
@@ -202,9 +278,13 @@ npm run native:ios:build         # compile the SwiftUI surface against the iOS S
 # regenerate the shared grading vectors (after changing domain/grading.ts)
 npm run vectors:grading
 
-# regenerate the native theme and icon set (after changing globals.css or icons.tsx)
-node scripts/native/make-theme.mjs
-node scripts/native/make-icons.mjs
+# regenerate everything generated in the clients
+npm run native:generate         # icons + theme + account rules, in order
+
+# or one at a time (after changing globals.css, icons.tsx or lib/username.ts)
+npm run native:icons
+npm run native:theme
+npm run native:account
 
 # regenerate the iOS icon from public/icon.svg
 node scripts/native/make-ios-icon.mjs
@@ -304,7 +384,11 @@ Against `1.0.0-alpha.4`:
 | The native models match what the server sends | `verify:native:api` — every learner route, against a running server, field by field |
 | Offline is never reported as being signed out | `verify:native` — the account banner reads "You're offline" while the network is off |
 | The phones wear the web's design, not a lookalike | `make-theme.mjs` / `make-icons.mjs` read `globals.css` and the lucide registry; a token or icon change is a regeneration, not a hand copy |
+| A handle the server would refuse is refused on the phone first | `make-account.mjs` reads `USERNAME_RE` and `RESERVED_USERNAMES` out of `src/lib/username.ts`, the module the server's own profile check imports |
+| Settings is one page in five sections on both phones | `SettingsScreen` / `SettingsView` mirror `app/(app)/settings/page.tsx`: Profile, Privacy, Account, Security, Preferences — each confirming in its own notice |
 | The restyled screens still work with no network | `verify:native` — the same offline run, driven against the new UI, all destinations included |
+| The ladder and the copy are the web's, not a paraphrase | `native:rank` + `vectors:copy`: `make-rank.mjs` reads the fifteen rungs out of `src/domain/ranked.ts` into `RankLadder.kt`/`.swift`, and both engines' `CopyConformanceTest`/`CopyConformanceTests` reproduce `mobile/shared/copy-vectors.json` exactly |
+| The dashboard and the rank page agree about where you stand | one `RankStrip`/`RankStripBand`, read from one payload, drawn on both screens |
 | The SwiftUI surface compiles for iOS, not just macOS | `native:ios:build` — the whole surface built for `arm64-apple-ios-simulator` against the iOS SDK, no simulator required |
 | iOS produces an installable artefact | the `ios` job archives `Revisio.xcodeproj` and attaches `Revisio-<version>-ios-unsigned.ipa` |
 | The `.ipa` is the app we think it is | the workflow reads back the bundle id, version and compiled icon from the published file |
@@ -325,10 +409,28 @@ Against `1.0.0-alpha.4`:
   navigation with the cached landing page. That is no longer the mobile bug it
   was — the native clients do not use it — but the web app would still benefit
   from a route-aware offline fallback.
+- **Image upload is not ported yet.** The web's Profile section also uploads an
+  avatar and a banner through `POST /api/v1/media` (presign → PUT → confirm).
+  The phones offer the colour and the symbol but not the picture, so a learner
+  who has uploaded one sees their emoji on the phone. The engine has no media
+  call at all, which is the piece to add first.
+- **2FA is read, not configured.** Both clients show whether two-factor is on,
+  exactly as the web's settings page does, but enrolling or disabling it is not
+  ported — the web links back to `/settings` for that today, which is a hole
+  worth closing on both sides at once.
 - **Feature coverage.** The learner surface is native on both platforms — the
-  loop, cram, learn and notes, rank, profile and settings. Still web-only:
-  exam mode, the library, teacher tools and the admin console. Those are
-  authoring and operations surfaces, and they are the natural next port.
+  loop, cram, learn and notes, rank, library, practice, exam, profile and
+  settings. Still web-only: the **teacher console** and the **admin console**
+  (`app/(app)/teacher`, `app/(app)/admin`), plus the authoring tools on
+  `/library` (compose, import, generate cloze, maths sets). A teacher signing in
+  on a phone reaches the shell and is told plainly that the console is not
+  ported, rather than being shown a broken screen.
+- **The transcript export is web-only.** `/progress` offers the full history as
+  CSV or JSON through `GET /api/v1/exports`; the phones do not yet fetch and
+  share the file.
+- **Registration is web-only.** Both clients sign in, and a refused refresh ends
+  the session with a reason. Creating an account, verifying an email address and
+  the `/staff/*` door are still on the website.
 - **Notes are read online first.** `LearnView`/`LearnScreen` fetch the lesson
   text from the server; a topic read once is not yet kept for offline reading
   the way the daily pack is.

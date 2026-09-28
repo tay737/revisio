@@ -23,6 +23,12 @@
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",
     "native:android:apk": "cd mobile/android && ./gradlew :app:assembleDebug",
+    "native:icons": "node scripts/native/make-icons.mjs",
+    "native:theme": "node scripts/native/make-theme.mjs",
+    "native:account": "node scripts/native/make-account.mjs",
+    "native:generate": "npm run native:icons && npm run native:theme && npm run native:account && npm run native:rank",
+    "native:rank": "node scripts/native/make-rank.mjs",
+    "vectors:copy": "tsx scripts/native/copy-vectors.ts",
     "native:ios:test": "cd mobile/ios && swift test",
     "native:ios:build": "cd mobile/ios && swift build --build-path .build/ios-sim --triple arm64-apple-ios17.0-simulator --sdk \"$(xcrun --sdk iphonesimulator --show-sdk-path)\""
   },

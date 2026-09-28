@@ -1,5 +1,6 @@
 package app.revisio.engine
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 // ── the catalogue ───────────────────────────────────────────────────────────
@@ -378,6 +379,9 @@ data class MeDetail(
     val bio: String? = null,
     val avatarEmoji: String? = null,
     val avatarColor: String = "ink",
+    /** Set once a picture has been uploaded; it replaces the emoji. */
+    val avatarUrl: String? = null,
+    val bannerUrl: String? = null,
     val profileVisibility: Visibility = Visibility(),
     val role: String = "student",
     val status: String? = null,
@@ -389,6 +393,163 @@ data class MeDetail(
     val today: TodaySummary = TodaySummary(),
     val achievements: List<AchievementRef> = emptyList(),
 )
+
+// ── the exam simulator ──────────────────────────────────────────────────────
+//
+// An exam is a paper, not a queue: the questions are dealt by topic, the mark
+// scheme stays on the server until submission, and what comes back is a scored
+// attempt rather than a rescheduled card. Nothing here touches the scheduler,
+// which is the whole point of sitting a paper.
+
+@Serializable
+data class ExamTopic(val id: String, val name: String)
+
+@Serializable
+data class ExamQuestion(
+    val id: String,
+    val kind: String = "short",
+    val topicId: String = "",
+    val questionMd: String = "",
+    val marks: Int = 1,
+    /** Dealt only for a multiple-choice question, and only for the paper. */
+    val options: List<String>? = null,
+    val board: String? = null,
+    val sourceYear: Int? = null,
+)
+
+@Serializable
+data class ExamAttempt(
+    val id: String = "",
+    /** Halves, as the server stores them — `score` is doubled on write. */
+    val score: Double = 0.0,
+    val maxScore: Double = 0.0,
+    val createdAt: String? = null,
+)
+
+/** `GET /exam` — what the pool holds and how this learner has done before. */
+@Serializable
+data class ExamPool(
+    val topics: List<ExamTopic> = emptyList(),
+    val questionsAvailable: Int = 0,
+    val attempts: List<ExamAttempt> = emptyList(),
+)
+
+/** `POST /exam { topicIds }` — the paper, with the mark scheme withheld. */
+@Serializable
+data class ExamPaper(
+    val paper: List<ExamQuestion> = emptyList(),
+    val topics: List<ExamTopic> = emptyList(),
+)
+
+/** One line of the marked script. `awarded` is half-mark granular. */
+@Serializable
+data class ExamMark(
+    val questionId: String,
+    val userAnswer: String = "",
+    val awarded: Double = 0.0,
+    val marks: Int = 0,
+    val correct: Boolean = false,
+    val feedback: String = "",
+)
+
+@Serializable
+data class ExamResult(
+    val score: Double = 0.0,
+    val maxScore: Double = 0.0,
+    val percentage: Int = 0,
+    val detail: List<ExamMark> = emptyList(),
+    val xpAwarded: Int = 0,
+)
+
+// ── maths practice ──────────────────────────────────────────────────────────
+//
+// The generator is the server's, and this is the important part: a question is
+// *derived* from its id, so the client never holds an answer key and there is no
+// second implementation of the maths to drift. The phone asks for a paper, shows
+// the prompt, and sends back the id and a string.
+
+@Serializable
+data class MathsConcept(val id: String, val name: String)
+
+@Serializable
+data class MathsSetRef(
+    val id: String = "",
+    val title: String = "",
+    val conceptCount: Int = 0,
+    val defaultCount: Int = 0,
+    val defaultDifficulty: String = "mixed",
+)
+
+@Serializable
+data class PracticeTopic(
+    val id: String = "",
+    val name: String = "",
+    val description: String? = null,
+    val sets: List<MathsSetRef> = emptyList(),
+)
+
+/** `GET /maths?subjectId=` — the concept catalogue plus what may be drilled. */
+@Serializable
+data class MathsCatalogue(
+    val concepts: List<MathsConcept> = emptyList(),
+    val mathsEnabled: Boolean = false,
+    val topics: List<PracticeTopic> = emptyList(),
+)
+
+@Serializable
+data class MathsQuestion(
+    val questionId: String,
+    val conceptId: String = "",
+    val conceptName: String = "",
+    val difficulty: String = "",
+    val marks: Int = 1,
+    val prompt: String = "",
+    val style: String = "short",
+    val options: List<String>? = null,
+)
+
+@Serializable
+data class MathsSession(
+    val topics: List<ExamTopic> = emptyList(),
+    val difficulty: String = "mixed",
+    val count: Int = 0,
+    val paper: List<MathsQuestion> = emptyList(),
+)
+
+@Serializable
+data class MathsMark(
+    val questionId: String = "",
+    val correct: Boolean = false,
+    /** The right answer, sent back only once the question has been attempted. */
+    val answer: String = "",
+    val solution: String = "",
+    val marks: Int = 1,
+)
+
+@Serializable
+data class MathsMarked(val results: List<MathsMark> = emptyList())
+
+@Serializable
+data class MathsXp(val xpAwarded: Int = 0, val capped: Boolean = false)
+
+// ── the library's own write ─────────────────────────────────────────────────
+
+/** `PATCH /content` — who may see a topic this learner owns. */
+@Serializable
+data class TopicVisibilityPatch(val topicId: String, val visibility: String)
+
+@Serializable
+data class TopicVisibilityResult(val cards: Int = 0, val lessons: Int = 0)
+
+@Serializable
+data class ClassJoinRequest(val code: String)
+
+// `class` is a Kotlin keyword, so the wire name is carried rather than the field.
+@Serializable
+data class ClassJoinResult(@SerialName("class") val joined: ClassRef = ClassRef())
+
+@Serializable
+data class ClassRef(val id: String = "", val name: String = "")
 
 /** `PATCH /me` — identity, profile and preferences through one door. */
 @Serializable

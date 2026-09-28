@@ -3,8 +3,8 @@ package app.revisio.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,11 +25,13 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.revisio.Feedback
@@ -77,7 +79,7 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
         Spacer(Modifier.height(10.dp))
         val progress by animateFloatAsState(
             targetValue = (state.index + 1).toFloat() / state.cards.size.toFloat(),
-            animationSpec = tween(320, easing = Motion.snap),
+            animationSpec = Motion.Springs.settle.spec(),
             label = "sessionProgress",
         )
         Meter((progress * 100).toInt(), tint = Ink, height = 6.dp)
@@ -110,45 +112,68 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
 
         Spacer(Modifier.height(20.dp))
 
-        // The card itself: where it came from, and the question.
-        Label("${card.subjectName} · ${card.topicName}", token = Type.micro, color = Muted)
-        Spacer(Modifier.height(8.dp))
-        Text(card.promptText, style = Type.displaySm.style(Ink))
-        Spacer(Modifier.height(20.dp))
+        //
+        // The card, and the one motion the review loop is built around.
+        //
+        // On the web the question and its verdict share a keyed element, so
+        // answering re-mounts nothing but the next card rises into place — enter
+        // at 14px below with a fade, over the quick duration. Keying the subtree
+        // on the card's own id does the same thing here: a new card is a new
+        // composition, so its `entrance` runs, while the header, the meter and
+        // the notes above stay exactly where they were. Nothing is torn down
+        // between cards, which is the difference between a deck being dealt and
+        // a page reloading.
+        //
+        key(card.id) {
+            Column(modifier = Modifier.entrance()) {
+                // Where it came from, and the question.
+                Label("${card.subjectName} · ${card.topicName}", token = Type.micro, color = Muted)
+                Spacer(Modifier.height(8.dp))
+                Text(card.promptText, style = Type.displaySm.style(Ink))
+                Spacer(Modifier.height(20.dp))
 
-        if (card.kind == "mcq") {
-            McqInput(card, state.selection, feedback != null, viewModel::setSelection)
-        } else {
-            AnswerField(card, state, feedback != null, viewModel::setAnswer)
-        }
+                if (card.kind == "mcq") {
+                    McqInput(card, state.selection, feedback != null, viewModel::setSelection)
+                } else {
+                    AnswerField(card, state, feedback != null, viewModel::setAnswer)
+                }
 
-        Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-        if (feedback == null) {
-            // The in-session CTA. Uppercase and letterspaced, per the label
-            // treatment the design language reserves for controls.
-            PillButton(
-                text = "Check",
-                onClick = viewModel::submit,
-                tone = PillTone.Good,
-                enabled = inputReady(card, state.answer, state.selection),
-                large = true,
-            )
-        } else {
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(tween(160, easing = Motion.out)) +
-                    slideInVertically(tween(220, easing = Motion.snap)) { it / 3 },
-            ) {
-                FeedbackPanel(feedback)
+                if (feedback == null) {
+                    // The in-session CTA. Uppercase and letterspaced, per the
+                    // label treatment the design language reserves for controls.
+                    PillButton(
+                        text = "Check",
+                        onClick = viewModel::submit,
+                        tone = PillTone.Good,
+                        enabled = inputReady(card, state.answer, state.selection),
+                        large = true,
+                    )
+                } else {
+                    // The verdict opens rather than appears: on the web this is an
+                    // animated `height: 0 -> auto` on the sheet spring, so the
+                    // explanation pushes the page down instead of landing on top
+                    // of it.
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(tween(Motion.Durations.quick, easing = Easing.out.easing)) +
+                            expandVertically(
+                                animationSpec = Motion.Springs.soft.spec<IntSize>(),
+                                expandFrom = Alignment.Top,
+                            ),
+                    ) {
+                        FeedbackPanel(feedback)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    PillButton(
+                        text = if (state.index + 1 >= state.cards.size) "Finish" else "Next card",
+                        onClick = viewModel::next,
+                        icon = if (state.index + 1 >= state.cards.size) RevisioIcons.correct else RevisioIcons.next,
+                        large = true,
+                    )
+                }
             }
-            Spacer(Modifier.height(16.dp))
-            PillButton(
-                text = if (state.index + 1 >= state.cards.size) "Finish" else "Next card",
-                onClick = viewModel::next,
-                icon = if (state.index + 1 >= state.cards.size) RevisioIcons.correct else RevisioIcons.next,
-                large = true,
-            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -312,9 +337,13 @@ private fun SummaryScreen(state: UiState, viewModel: RevisioViewModel) {
     ) {
         Spacer(Modifier.height(40.dp))
 
+        // Finishing a session is the moment the ladder moves, so the crest arrives
+        // on the pop spring — scale 0.7 and a slight rotation, overshooting into
+        // place — while everything under it settles with plain rises. One flourish
+        // on the screen that earned it.
         val rank = state.ranked?.ranked?.rank
         if (rank != null) {
-            RankCrest(rank, size = 104)
+            RankCrest(rank, size = 104, modifier = Modifier.pop())
             Spacer(Modifier.height(18.dp))
             RankChip(rank, size = 26)
             Spacer(Modifier.height(22.dp))

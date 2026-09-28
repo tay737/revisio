@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.revisio.RevisioViewModel
-import app.revisio.Tab
+import app.revisio.Destination
 import app.revisio.UiState
 import app.revisio.engine.Topic
 
@@ -143,7 +143,7 @@ fun LearnScreen(state: UiState, viewModel: RevisioViewModel) {
             )
             PillButton(
                 text = "Cram instead",
-                onClick = { viewModel.selectTab(Tab.CRAM) },
+                onClick = { viewModel.go(Destination.CRAM) },
                 tone = PillTone.Ghost,
                 icon = RevisioIcons.cram,
                 modifier = Modifier.weight(1f),

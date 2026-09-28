@@ -23,6 +23,22 @@ private struct SubmitBody: Encodable {
     let durationMs: Int
     let mode: String
 }
+/// What a refresh attempt actually told us.
+///
+/// A `nil` used to stand for two opposite things — "the server rejected this
+/// token" and "we never reached the server" — and the app treated both as "could
+/// not load", which is how a signed-out learner ended up looking at an account
+/// screen claiming to load. Mirrors `RefreshOutcome` in `src/lib/api.ts`.
+public enum RefreshOutcome {
+    case renewed(AuthSession)
+
+    /// The server said no. Only signing in again can fix it.
+    case rejected
+
+    /// We could not find out. The session stays exactly as it was.
+    case unavailable
+}
+
 private struct ApiErrorEnvelope: Decodable {
     struct Body: Decodable { let code: String?; let message: String? }
     let error: Body?
@@ -103,13 +119,42 @@ public final class RevisioApi: ReviewApi {
         return AuthSession(accessToken: token, refreshToken: Self.refreshToken(from: http), user: user)
     }
 
-    public func refresh(refreshToken: String) async throws -> AuthSession? {
-        let body = try encoder.encode(RefreshBody(refreshToken: refreshToken))
-        guard let (parsed, http) = try? await send("/api/v1/auth/refresh", method: "POST", body: body, as: RefreshResponse.self) else {
-            return nil
+    ///
+    /// Trade the stored refresh token for a new session.
+    ///
+    /// The three answers are kept apart on purpose, because the app has to treat
+    /// them differently and used to collapse them into one `nil`:
+    ///
+    ///   • `.rejected` — the server said no. The session is over and the only
+    ///     honest thing left is the sign-in screen. Leaving a learner on a cached
+    ///     screen here is what made the account page look "stuck": it could
+    ///     never load, because nothing was ever going to answer.
+    ///   • `.unavailable` — we could not find out (offline, a 5xx, a capacity
+    ///     refusal). The session is still good and must survive it.
+    ///
+    /// This is the distinction `RefreshOutcome` makes in `src/lib/api.ts`, where
+    /// the comment records what conflating them cost: people signed out
+    /// mid-session whenever the database was merely busy.
+    public func refresh(refreshToken: String) async -> RefreshOutcome {
+        guard let body = try? encoder.encode(RefreshBody(refreshToken: refreshToken)) else {
+            return .unavailable
         }
-        let user = parsed.user ?? ApiUser(id: "", email: "", name: "", role: "student", status: nil)
-        return AuthSession(accessToken: parsed.accessToken, refreshToken: Self.refreshToken(from: http) ?? refreshToken, user: user)
+        do {
+            let (parsed, http) = try await send("/api/v1/auth/refresh", method: "POST", body: body, as: RefreshResponse.self)
+            let user = parsed.user ?? ApiUser(id: "", email: "", name: "", role: "student", status: nil)
+            return .renewed(
+                AuthSession(
+                    accessToken: parsed.accessToken,
+                    refreshToken: Self.refreshToken(from: http) ?? refreshToken,
+                    user: user
+                )
+            )
+        } catch let error as ApiError where error.status == 401 || error.status == 403 {
+            return .rejected
+        } catch {
+            // A dropped socket, a DNS failure or a busy server is not a rejection.
+            return .unavailable
+        }
     }
 
     public func me(token: String) async throws -> MeResponse {
@@ -254,6 +299,114 @@ public final class RevisioApi: ReviewApi {
         return parsed
     }
 
+    // ── the library's own write ─────────────────────────────────────────────
+
+    /// Who may see a public topic this learner owns. Learners only ever see their own.
+    public func setTopicVisibility(token: String, topicId: String, visibility: String) async throws -> TopicVisibilityResult {
+        let body = try encoder.encode(TopicVisibilityBody(topicId: topicId, visibility: visibility))
+        let (parsed, _) = try await send("/api/v1/content", method: "PATCH", token: token, body: body, as: TopicVisibilityResult.self)
+        return parsed
+    }
+
+    /// Join a class by its code. The teacher's own door, entered from the library.
+    public func joinClass(token: String, code: String) async throws -> ClassJoinResult {
+        let body = try encoder.encode(ClassJoinBody(code: code))
+        let (parsed, _) = try await send("/api/v1/classes/join", method: "POST", token: token, body: body, as: ClassJoinResult.self)
+        return parsed
+    }
+
+    // ── the exam simulator ──────────────────────────────────────────────────
+
+    /// What the question pool holds for this learner, and how they have done.
+    public func examPool(token: String, subjectId: String? = nil) async throws -> ExamPool {
+        let query = subjectId.map { "?subjectId=\(escaped($0))" } ?? ""
+        let (parsed, _) = try await send("/api/v1/exam\(query)", token: token, as: ExamPool.self)
+        return parsed
+    }
+
+    ///
+    /// Deal a paper.
+    ///
+    /// There is no separate submit endpoint: the same route either builds a paper
+    /// or marks one, and which it does is decided by whether answers came with the
+    /// request. That is deliberate on the server — the paper and the marking have
+    /// to agree about which questions were dealt, and one route is the only way to
+    /// guarantee it.
+    ///
+    public func examPaper(token: String, topicIds: [String], questionCount: Int = 5) async throws -> ExamPaper {
+        let body = try encoder.encode(ExamBody(topicIds: topicIds, questionCount: questionCount, answers: nil))
+        let (parsed, _) = try await send("/api/v1/exam", method: "POST", token: token, body: body, as: ExamPaper.self)
+        return parsed
+    }
+
+    public func markExam(token: String, topicIds: [String], answers: [ExamAnswerBody]) async throws -> ExamResult {
+        let body = try encoder.encode(ExamBody(topicIds: topicIds, questionCount: nil, answers: answers))
+        let (parsed, _) = try await send("/api/v1/exam", method: "POST", token: token, body: body, as: ExamResult.self)
+        return parsed
+    }
+
+    // ── maths practice ──────────────────────────────────────────────────────
+
+    ///
+    /// What may be drilled in a subject.
+    ///
+    /// The concept catalogue and the topics arrive together because a practice
+    /// session picks from both, and two round trips would let a learner choose a
+    /// concept from a catalogue the chosen subject no longer offers.
+    ///
+    public func mathsCatalogue(token: String, subjectId: String) async throws -> MathsCatalogue {
+        let (parsed, _) = try await send("/api/v1/maths?subjectId=\(escaped(subjectId))", token: token, as: MathsCatalogue.self)
+        return parsed
+    }
+
+    public func startPractice(
+        token: String,
+        topicIds: [String],
+        conceptIds: [String] = [],
+        difficulty: String = "mixed",
+        count: Int = 10
+    ) async throws -> MathsSession {
+        let body = try encoder.encode(MathsBody(
+            action: "start",
+            topicIds: topicIds,
+            conceptIds: conceptIds.isEmpty ? nil : conceptIds,
+            difficulty: difficulty,
+            count: count,
+            answers: nil,
+            marks: nil,
+            maxMarks: nil,
+            correct: nil,
+            total: nil
+        ))
+        let (parsed, _) = try await send("/api/v1/maths", method: "POST", token: token, body: body, as: MathsSession.self)
+        return parsed
+    }
+
+    public func markPractice(token: String, answers: [MathsAnswerBody]) async throws -> [MathsMark] {
+        let body = try encoder.encode(MathsBody(
+            action: "mark", topicIds: nil, conceptIds: nil, difficulty: nil, count: nil,
+            answers: answers, marks: nil, maxMarks: nil, correct: nil, total: nil
+        ))
+        let (parsed, _) = try await send("/api/v1/maths", method: "POST", token: token, body: body, as: MathsMarked.self)
+        return parsed.results
+    }
+
+    ///
+    /// Claim the session's XP, once, at the end.
+    ///
+    /// Practice deliberately writes no review log and moves no schedule, so this
+    /// is the only thing a finished drill changes — which is why it is a separate
+    /// call rather than part of marking each question.
+    ///
+    public func awardPracticeXp(token: String, marks: Int, maxMarks: Int, correct: Int, total: Int) async throws -> MathsXp {
+        let body = try encoder.encode(MathsBody(
+            action: "award_xp", topicIds: nil, conceptIds: nil, difficulty: nil, count: nil,
+            answers: nil, marks: marks, maxMarks: maxMarks, correct: correct, total: total
+        ))
+        let (parsed, _) = try await send("/api/v1/maths", method: "POST", token: token, body: body, as: MathsXp.self)
+        return parsed
+    }
+
     // ── the account ─────────────────────────────────────────────────────────
 
     public func meDetail(token: String) async throws -> MeDetail {
@@ -266,13 +419,105 @@ public final class RevisioApi: ReviewApi {
         _ = try await send("/api/v1/me", method: "PATCH", token: token, body: body, as: WroteResult.self)
     }
 
+    /// `POST /me/email` — start an email change.
+    ///
+    /// The address is not swapped here. The server stores it as pending and mails
+    /// a one-hour link to the *new* address; only the click moves it. So this is a
+    /// request, not a write, and the screen confirms "check your inbox" rather
+    /// than "email changed".
+    public func requestEmailChange(token: String, password: String, newEmail: String) async throws {
+        let body = try encoder.encode(EmailChangeRequest(password: password, newEmail: newEmail))
+        _ = try await send("/api/v1/me/email", method: "POST", token: token, body: body, as: WroteResult.self)
+    }
+
+    /// `POST /me/password` — change the password.
+    ///
+    /// Every refresh token is revoked server-side, the caller's included, so the
+    /// session is dead the moment this returns. The caller must mint a fresh one
+    /// immediately or the next request is answered 401 and the app looks signed
+    /// out for no visible reason.
+    public func changePassword(token: String, currentPassword: String, newPassword: String) async throws {
+        let body = try encoder.encode(PasswordChangeRequest(currentPassword: currentPassword, newPassword: newPassword))
+        _ = try await send("/api/v1/me/password", method: "POST", token: token, body: body, as: WroteResult.self)
+    }
+
     /// A public profile. Deliberately unauthenticated: a shared link has to open
     /// for someone who is not signed in, and privacy is applied server-side.
     public func profile(handle: String, token: String? = nil) async throws -> PublicProfile {
         let (parsed, _) = try await send("/api/v1/profile/\(escaped(handle))", token: token, as: PublicProfile.self)
         return parsed
     }
+}
 
+/// One question's answer, as the exam route reads it.
+///
+/// Both shapes travel: a multiple-choice question sends the chosen option, a free
+/// response sends prose, and whichever is set decides which the server reads.
+public struct ExamAnswerBody: Encodable {
+    public let questionId: String
+    public let answer: String?
+    public let selectedOptionId: String?
+
+    public init(questionId: String, answer: String? = nil, selectedOptionId: String? = nil) {
+        self.questionId = questionId
+        self.answer = answer
+        self.selectedOptionId = selectedOptionId
+    }
+}
+
+/// One door for the exam route: the presence of `answers` decides its job.
+private struct ExamBody: Encodable {
+    let topicIds: [String]
+    let questionCount: Int?
+    let answers: [ExamAnswerBody]?
+}
+
+public struct MathsAnswerBody: Encodable {
+    public let questionId: String
+    public let answer: String?
+
+    public init(questionId: String, answer: String? = nil) {
+        self.questionId = questionId
+        self.answer = answer
+    }
+}
+
+/// The maths route's actions share one body shape, as the server's switch expects.
+private struct MathsBody: Encodable {
+    let action: String
+    let topicIds: [String]?
+    let conceptIds: [String]?
+    let difficulty: String?
+    let count: Int?
+    let answers: [MathsAnswerBody]?
+    let marks: Int?
+    let maxMarks: Int?
+    let correct: Int?
+    let total: Int?
+}
+
+private struct TopicVisibilityBody: Encodable {
+    let topicId: String
+    let visibility: String
+}
+
+private struct ClassJoinBody: Encodable {
+    let code: String
+}
+
+private struct EmailChangeRequest: Encodable {
+    let password: String
+    let newEmail: String
+}
+
+private struct PasswordChangeRequest: Encodable {
+    let currentPassword: String
+    let newPassword: String
+}
+
+/// The parts that are not routes: cookie handling, which the class keeps private
+/// so no screen can reach past the contract to the transport.
+extension RevisioApi {
     /// Pull `srs_refresh` out of the login response's Set-Cookie header.
     private static func refreshToken(from response: HTTPURLResponse) -> String? {
         let header = response.value(forHTTPHeaderField: "Set-Cookie") ?? ""

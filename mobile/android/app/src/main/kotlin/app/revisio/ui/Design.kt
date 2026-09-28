@@ -2,6 +2,7 @@ package app.revisio.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.revisio.engine.Rank
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -99,16 +102,83 @@ val Lip: Color @Composable @ReadOnlyComposable get() = revisioColors.lip
 /** The softer slab a light pill sits on. */
 val LipSoft: Color @Composable @ReadOnlyComposable get() = revisioColors.lipSoft
 
-/** The one Curves the app animates on, from the stylesheet's easing tokens. */
-object Motion {
-    val snap
-        @Composable get() = androidx.compose.animation.core.CubicBezierEasing(
-            Easing.snap.x1, Easing.snap.y1, Easing.snap.x2, Easing.snap.y2,
-        )
-    val out
-        @Composable get() = androidx.compose.animation.core.CubicBezierEasing(
-            Easing.out.x1, Easing.out.y1, Easing.out.x2, Easing.out.y2,
-        )
+// ── motion ──────────────────────────────────────────────────────────────────
+//
+// The motion language itself is generated: `Motion`, in Theme.kt, is read out of
+// `src/lib/motion.ts` — six springs, five durations, four curves and the four
+// entrance gestures, with the web's spring converted to Compose's
+// (stiffness, dampingRatio) rather than approximated.
+//
+// These three helpers are how the screens apply it, so that no screen invents a
+// duration, a curve or a scale of its own.
+
+/**
+ * The web's `press`: `scale(0.95)`, on the spring that has teeth.
+ *
+ * The 90ms lip drop under a button stays a tween, because that is what the
+ * browser does with `--ease-snap` in the stylesheet. This is the *other* half:
+ * the surfaces the web wraps in `whileTap`, which spring.
+ */
+@Composable
+fun Modifier.pressScale(pressed: Boolean, enabled: Boolean = true): Modifier {
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (pressed && enabled) Motion.pressScale else 1f,
+        animationSpec = Motion.Springs.press.spec(),
+        label = "pressScale",
+    )
+    return this.graphicsLayer { scaleX = scale; scaleY = scale }
+}
+
+/**
+ * The web's `fadeUp` — and `fadeScale` when a card or a crest is arriving.
+ *
+ * Rise and settle, once, when the element appears. The delay is the web's capped
+ * stagger, so five cards arrive as a wave while fifty still finish in a third of
+ * a second rather than trickling in for four.
+ */
+@Composable
+fun Modifier.entrance(index: Int = 0, scale: Boolean = false): Modifier {
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(Motion.stagger(index).toLong())
+        progress.animateTo(1f, if (scale) Motion.Springs.settle.spec() else Motion.enter)
+    }
+    val value = progress.value
+    return this.graphicsLayer {
+        alpha = value
+        translationY = (1f - value) * (if (scale) Motion.enterScaleRise else Motion.enterRise) * density
+        if (scale) {
+            val size = 1f - (1f - value) * (1f - Motion.enterScale)
+            scaleX = size
+            scaleY = size
+        }
+    }
+}
+
+/**
+ * The web's `SPRING.pop` entrance — a crest or a badge arriving with teeth.
+ *
+ * `initial={{ scale: 0.7, opacity: 0, rotate: -6 }}` in the app: the element comes
+ * up from seven tenths, slightly rotated, and overshoots because the pop spring
+ * is underdamped (damping ratio 0.64). It is used only where something has been
+ * *earned* — a promotion, a session summary, an unlocked badge — so the overshoot
+ * reads as a flourish rather than as the interface being loose.
+ */
+@Composable
+fun Modifier.pop(delayMillis: Int = 0, from: Float = 0.7f, rotate: Float = -6f): Modifier {
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (delayMillis > 0) kotlinx.coroutines.delay(delayMillis.toLong())
+        progress.animateTo(1f, Motion.Springs.pop.spec())
+    }
+    val value = progress.value
+    return this.graphicsLayer {
+        alpha = value.coerceIn(0f, 1f)
+        val size = from + (1f - from) * value
+        scaleX = size
+        scaleY = size
+        rotationZ = rotate * (1f - value)
+    }
 }
 
 /**
@@ -187,8 +257,8 @@ fun RotatingHeadline(words: List<String>, modifier: Modifier = Modifier) {
     }
     // Read outside `transitionSpec`: a transition lambda is not a composable
     // context, and the curves are composable reads off the generated tokens.
-    val riseCurve = Motion.snap
-    val fadeCurve = Motion.out
+    val riseCurve = Easing.snap.easing
+    val fadeCurve = Easing.out.easing
     androidx.compose.animation.AnimatedContent(
         targetState = index,
         transitionSpec = {
@@ -313,7 +383,7 @@ fun PillButton(
     val minHeight = if (large) Metrics.buttonMinHeight + 8.dp else Metrics.buttonMinHeight
     val drop by animateDpAsState(
         targetValue = if (pressed && enabled) lipDistance else 0.dp,
-        animationSpec = tween(90, easing = Motion.snap),
+        animationSpec = tween(90, easing = Easing.snap.easing),
         label = "pillPress",
     )
 
@@ -443,7 +513,7 @@ fun IconPill(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateDpAsState(
         targetValue = if (pressed) 2.dp else 0.dp,
-        animationSpec = tween(90, easing = Motion.snap),
+        animationSpec = tween(90, easing = Easing.snap.easing),
         label = "iconPill",
     )
     Box(
@@ -491,13 +561,36 @@ fun SoftCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     ) { content() }
 }
 
+/**
+ * A chip.
+ *
+ * Read-only by default — a subject tag, a role, a syllabus label — and a control
+ * when given an `onClick`, which is the shape the web has: the same pill is a
+ * `span` in one place and a `button` in another. Passing a handler is what adds
+ * the tap target and the press feedback, so a tag can never be tapped by
+ * accident and a picker can never be missed.
+ */
 @Composable
-fun ChipPill(text: String, active: Boolean = false, icon: ImageVector? = null) {
+fun ChipPill(text: String, active: Boolean = false, icon: ImageVector? = null, onClick: (() -> Unit)? = null) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     Row(
         modifier = Modifier
+            .pressScale(pressed, enabled = onClick != null)
             .clip(RoundedCornerShape(Radius.pill))
             .background(if (active) Ink else Card1)
             .border(1.dp, if (active) Color.Transparent else Line, RoundedCornerShape(Radius.pill))
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .defaultMinSize(minHeight = Metrics.chipMinHeight)
             .padding(horizontal = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -542,10 +635,23 @@ fun Badge(text: String, tone: BadgeTone = BadgeTone.Quiet, icon: ImageVector? = 
     }
 }
 
-/** The 10px pill that carries division, streak and placement progress. */
+/**
+ * The 10px pill that carries division, streak and placement progress.
+ *
+ * The fill travels on the **meter spring**, not on a width tween: a progress bar
+ * that eases linearly reads as a loading indicator, while one with velocity
+ * memory reads as a scoreboard. The web sets `transition={SPRING.meter}` on the
+ * same element, and the spring is the whole reason a bar that jumps from 20% to
+ * 40% looks like it *gained* something.
+ */
 @Composable
 fun Meter(percent: Int, tint: Color? = null, height: Dp = Metrics.meterHeight) {
     val clamped = percent.coerceIn(0, 100)
+    val fill by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = clamped / 100f,
+        animationSpec = Motion.Springs.meter.spec(),
+        label = "meter",
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -553,11 +659,15 @@ fun Meter(percent: Int, tint: Color? = null, height: Dp = Metrics.meterHeight) {
             .clip(RoundedCornerShape(Radius.pill))
             .background(Card2),
     ) {
-        if (clamped > 0) {
+        if (fill > 0f) {
             Box(
+                // Scaled rather than re-measured: a `fillMaxWidth(fraction)` that
+                // animates drives a layout pass on every frame of the spring,
+                // which is exactly what the web avoids by animating a transform.
                 modifier = Modifier
-                    .fillMaxWidth(clamped / 100f)
+                    .fillMaxWidth()
                     .height(height)
+                    .graphicsLayer { scaleX = fill; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f) }
                     .clip(RoundedCornerShape(Radius.pill))
                     .background(tint ?: Good),
             )
@@ -610,7 +720,7 @@ fun OptionRow(
     }
     val drop by animateDpAsState(
         targetValue = if (pressed && enabled) Metrics.pillOffset else 0.dp,
-        animationSpec = tween(90, easing = Motion.snap),
+        animationSpec = tween(90, easing = Easing.snap.easing),
         label = "optionPress",
     )
     val shape = RoundedCornerShape(Radius.md)
@@ -673,6 +783,7 @@ fun RankCrest(
     size: Int = 88,
     showProgress: Boolean = true,
     muted: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     val (ridges, segments, pips) = crestSpec(rank.tier, rank.division)
     // Resolved here, not inside the draw scope: a Compose colour accessor is a
@@ -683,15 +794,52 @@ fun RankCrest(
     val surface = Card1
     val outline = Ink
 
-    Canvas(modifier = Modifier.size(size.dp)) {
+    //
+    // The crest assembles itself, the way the website's does: the dial ticks
+    // fade in around the ring, the ring sweeps to the learner's progress on the
+    // meter spring, then the chevrons and the division pips pop in behind it.
+    //
+    // The delays are the web's own — 12ms per tick capped at 200, 60 + 45ms per
+    // chevron, 160 + 50ms per pip — but they are read off two clocks rather than
+    // started as one spring per element, because a draw scope cannot call a
+    // composable per element. The ring keeps its exact spring; the pops use the
+    // web's delays with an overshoot curve, which is what that spring looks like.
+    //
+    val ring = remember { androidx.compose.animation.core.Animatable(0f) }
+    val clock = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(rank.tier, rank.division) {
+        ring.snapTo(0f)
+        clock.snapTo(0f)
+        launch {
+            ring.animateTo(
+                rank.percent.coerceIn(0, 100).toFloat(),
+                Motion.Springs.meter.spec(),
+            )
+        }
+        clock.animateTo(1f, tween(900, easing = androidx.compose.animation.core.LinearEasing))
+    }
+    val elapsed = clock.value * 0.9f
+    // The pop: overshoots past its target and settles, like `SPRING.pop`.
+    val overshoot = androidx.compose.animation.core.CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
+
+    Canvas(modifier = modifier.size(size.dp)) {
         val unit = this.size.minDimension / 100f
         fun p(x: Float, y: Float) = Offset(x * unit, y * unit)
 
+        /** How far through its own entrance an element is, in 0..1. */
+        fun step(delaySeconds: Float, windowSeconds: Float): Float =
+            ((elapsed - delaySeconds) / windowSeconds).coerceIn(0f, 1f)
+
+        /** A point scaled about a pivot — the pop, without a transform layer. */
+        fun scaled(origin: Float, pivot: Float, by: Float) = pivot + (origin - pivot) * by
+
         // Dial ticks — the mechanism. Longer with every tier.
         for (i in 0 until segments) {
+            val alpha = step(minOf(i * 0.012f, 0.2f), 0.18f)
+            if (alpha <= 0f) continue
             val angle = (i.toFloat() / segments) * (2 * Math.PI).toFloat() - (Math.PI / 2).toFloat()
             drawLine(
-                color = tick,
+                color = tick.copy(alpha = tick.alpha * alpha),
                 start = Offset((50 + cos(angle) * 40) * unit, (50 + sin(angle) * 40) * unit),
                 end = Offset((50 + cos(angle) * 44) * unit, (50 + sin(angle) * 44) * unit),
                 strokeWidth = 1.5f * unit,
@@ -711,8 +859,8 @@ fun RankCrest(
                 size = Size(radius * 2, radius * 2),
                 style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
-            val progress = rank.percent.coerceIn(0, 100)
-            if (progress > 0) {
+            val progress = ring.value
+            if (progress > 0f) {
                 drawArc(
                     color = mark,
                     startAngle = -90f,
@@ -745,19 +893,27 @@ fun RankCrest(
         drawPath(shield, color = surface)
         drawPath(shield, color = outline, style = Stroke(width = 2.5f * unit))
 
-        // Chevrons — the tier count, military-stripe style.
+        // Chevrons — the tier count, military-stripe style. Each pops in from
+        // 60% around the shield's centre, 45ms behind the one above it.
         val gap = 7.5f
         val top = 48f - ((ridges - 1) * gap) / 2f
         for (i in 0 until ridges) {
+            val popped = overshoot.transform(step(0.06f + i * 0.045f, 0.34f))
+            if (popped <= 0f) continue
+            val shrink = 0.6f + 0.4f * popped
             val y = top + i * gap
             val chevron = Path().apply {
-                moveTo(p(37f, y).x, p(37f, y).y)
-                lineTo(p(50f, y - 6f).x, p(50f, y - 6f).y)
-                lineTo(p(63f, y).x, p(63f, y).y)
+                fun at(x: Float, yAt: Float) = p(scaled(x, 50f, shrink), scaled(yAt, 48f, shrink))
+                val start = at(37f, y)
+                moveTo(start.x, start.y)
+                val apex = at(50f, y - 6f)
+                lineTo(apex.x, apex.y)
+                val end = at(63f, y)
+                lineTo(end.x, end.y)
             }
             drawPath(
                 chevron,
-                color = mark,
+                color = mark.copy(alpha = mark.alpha * popped.coerceAtMost(1f)),
                 style = Stroke(width = 2.75f * unit, cap = StrokeCap.Round),
             )
         }
@@ -831,3 +987,205 @@ fun VerticalGap(height: Int) = Spacer(Modifier.height(height.dp))
 
 @Composable
 fun HorizontalGap(width: Int) = Spacer(Modifier.width(width.dp))
+
+// ── polarity panels ─────────────────────────────────────────────────────────
+
+/**
+ * The web's `TilePanel` — a band at app-page scale.
+ *
+ * The stylesheet divides pages with **surface change, not chrome**: bands
+ * alternating canvas → ink → canvas, edge to edge, with no border and no shadow
+ * between them, because the polarity shift *is* the divider. Inside the shell
+ * that becomes a rounded panel, and it is the loudest structural device in the
+ * whole system — the near-black slab on a white page is what makes the scoreboard
+ * read as a scoreboard without a second accent colour.
+ *
+ * The point of doing it with the palette rather than with explicit colours is
+ * that everything *inside* the panel — a card, a muted caption, a pill — comes
+ * out right on either ground without being told which ground it is on. That is
+ * the `.band` scope in `globals.css`, reproduced here as a local override.
+ */
+enum class TileTone { Dark, Light, Parchment }
+
+@Composable
+fun TilePanel(
+    tone: TileTone = TileTone.Dark,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val base = revisioColors
+    val colors = when (tone) {
+        TileTone.Dark -> base.copy(
+            background = base.band,
+            foreground = base.bandForeground,
+            card = base.bandCard,
+            cardForeground = base.bandForeground,
+            popover = base.bandCard,
+            // A `bg-primary` pill turns white with black ink on a dark band —
+            // exactly how the web inverts its CTA there.
+            primary = base.bandForeground,
+            primaryForeground = base.band,
+            secondary = base.bandSecondary,
+            secondaryForeground = base.bandForeground,
+            muted = base.bandCard,
+            mutedForeground = base.bandMuted,
+            accent = base.bandSecondary,
+            accentForeground = base.bandForeground,
+            border = base.bandBorder,
+            input = base.bandSecondary,
+            ring = base.bandForeground,
+            lipSoft = hexBand(0xFF2A2A2AL),
+        )
+        TileTone.Light -> base
+        TileTone.Parchment -> base
+    }
+    val surface = when (tone) {
+        TileTone.Dark -> base.band
+        TileTone.Light -> base.card
+        TileTone.Parchment -> base.secondary
+    }
+
+    CompositionLocalProvider(LocalColors provides colors) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.lg))
+                .then(
+                    if (tone == TileTone.Dark) Modifier.background(surface)
+                    else Modifier.background(surface).border(1.dp, base.border, RoundedCornerShape(Radius.lg)),
+                ),
+        ) {
+            if (tone == TileTone.Dark) {
+                // A 1px specular sheen along the top edge and one off-centre wash
+                // of light. Not decoration: they are the light source, and they
+                // are why a near-black panel reads as a surface rather than as a
+                // hole in the page.
+                Canvas(modifier = Modifier.matchParentSize()) {
+                    drawRect(
+                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.5f to Color.White.copy(alpha = 0.20f),
+                            1f to Color.Transparent,
+                        ),
+                        size = Size(size.width, 1f),
+                    )
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.10f),
+                        radius = size.minDimension * 0.34f,
+                        center = Offset(size.width * 1.02f, -size.minDimension * 0.14f),
+                    )
+                }
+            }
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)) { content() }
+        }
+    }
+}
+
+/** The band's soft lip, spelled out because the generated palette stops at
+the base tokens. */
+private fun hexBand(value: Long) = androidx.compose.ui.graphics.Color(value)
+
+// ── counters ────────────────────────────────────────────────────────────────
+
+/**
+ * The web's `NumberTicker` — a number that counts to its value.
+ *
+ * Springs rather than tweens (the web runs `damping: 60, stiffness: 100`), so a
+ * queue that empties fast reads as fast and a big XP total arrives with some
+ * weight. The counter is *staggered by the entrance*, not started on mount: a
+ * row of numbers counting under a card that has not landed yet looks broken.
+ */
+@Composable
+fun NumberTicker(
+    value: Int,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    val animated = androidx.compose.animation.core.Animatable(0f)
+    androidx.compose.runtime.LaunchedEffect(value) {
+        animated.animateTo(value.toFloat(), Motion.Springs.meter.spec())
+    }
+    Text(text = "${animated.value.toInt()}", style = style, modifier = modifier)
+}
+
+// ── confetti ────────────────────────────────────────────────────────────────
+
+/**
+ * A burst of paper, drawn with the same rules the web's `Confetti` uses: the
+ * game's own colours only, a short life, and gravity.
+ *
+ * Reserved for the two moments something is *finished* — a session closed and a
+ * paper handed in — which is why it is a screen-level effect rather than a
+ * decoration any card can ask for.
+ */
+@Composable
+fun Confetti(trigger: Int, modifier: Modifier = Modifier) {
+    if (trigger <= 0) return
+    val pieces = remember(trigger) {
+        kotlin.random.Random(trigger).let { random ->
+            List(140) {
+                ConfettiPiece(
+                    x = random.nextFloat(),
+                    vx = (random.nextFloat() - 0.5f) * 1.6f,
+                    vy = -random.nextFloat() * 1.3f - 0.35f,
+                    spin = (random.nextFloat() - 0.5f) * 12f,
+                    size = 0.5f + random.nextFloat(),
+                    delay = random.nextFloat() * 0.18f,
+                    colour = it % 4,
+                )
+            }
+        }
+    }
+    val clock = remember(trigger) { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(trigger) {
+        clock.snapTo(0f)
+        clock.animateTo(1f, tween(2200, easing = androidx.compose.animation.core.LinearEasing))
+    }
+    val colours = listOf(Good, Gold, Info, revisioColors.streak)
+    Canvas(modifier = modifier) {
+        val t = clock.value
+        for (piece in pieces) {
+            val local = (t - piece.delay) / (1f - piece.delay)
+            if (local <= 0f || local >= 1f) continue
+            val x = (piece.x + piece.vx * local) * size.width
+            val y = (piece.vy * local + 0.9f * local * local) * size.height + size.height * 0.35f
+            val alpha = (1f - local * local).coerceIn(0f, 1f)
+            rotate(piece.spin * local, Offset(x, y)) {
+                drawRect(
+                    color = colours[piece.colour].copy(alpha = alpha),
+                    topLeft = Offset(x - 4f * piece.size, y - 3f * piece.size),
+                    size = Size(8f * piece.size, 6f * piece.size),
+                )
+            }
+        }
+    }
+}
+
+private data class ConfettiPiece(
+    val x: Float,
+    val vx: Float,
+    val vy: Float,
+    val spin: Float,
+    val size: Float,
+    val delay: Float,
+    val colour: Int,
+)
+
+// ── the reading progress hairline ───────────────────────────────────────────
+
+/**
+ * The web's `ScrollProgress` — the 2px ink line that fills as a long page is
+ * read. Only Learn carries one, because only Learn is long enough to lose your
+ * place in.
+ */
+@Composable
+fun ScrollProgress(progress: Float, modifier: Modifier = Modifier) {
+    val width by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = Motion.Springs.meter.spec(),
+        label = "scrollProgress",
+    )
+    Box(modifier = modifier.fillMaxWidth().height(2.dp).background(revisioColors.border)) {
+        Box(Modifier.fillMaxWidth(width).height(2.dp).background(Ink))
+    }
+}

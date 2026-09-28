@@ -1,142 +1,72 @@
 import RevisioEngine
 import SwiftUI
 
-/// Today — the loop.
+/// Today — the dashboard.
 ///
-/// The screen the app opens on, and the one it can still serve with no network
-/// at all: the session it carries is on the device, and everything here is either
-/// the stored pack or the last thing the server told us.
+/// The screen the app opens on, and the one it can still serve with no network at
+/// all: the session it carries is on the device, and everything here is either the
+/// stored pack or the last thing the server told us.
 ///
-/// The layout is the website's dashboard: the companion first (a body whose face
-/// is your own crest), then one card holding the day's number and the streak
-/// badges, then the single green CTA that starts the session. Green appears here
-/// and nowhere else on this screen, because it is the one control that earns
-/// rather than navigates.
+/// The layout is the website's dashboard, in the Duolingo order of operations:
+///
+///   1. **The hero** — the greeting, one rotating line of conversation, and the
+///      single green button that starts a session. On a phone it is the only thing
+///      above the fold, which is the point: there is one thing to do.
+///   2. **Four numbers** — due, done, streak, XP, two to a row so each is a
+///      comfortable tap-and-read block rather than a 60px sliver.
+///   3. **Rank** — the same near-black band the Rank page uses, because where you
+///      stand is the second half of the answer to "what now".
+///   4. **Four ways in** — one line each. A hint is four words; the page that
+///      follows can explain itself.
+///
+/// The tile rhythm carries the structure (dark hero → light grid → dark rank band
+/// → light grid), which is the spec's polarity flip doing the work that borders
+/// and shadows are not allowed to do here.
 struct TodayView: View {
     @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
 
+    private struct Action {
+        let title: String
+        let hint: String
+        let icon: String
+        let destination: Destination
+    }
+
+    private let actions: [Action] = [
+        Action(title: "Cram", hint: "Before an exam", icon: "cram", destination: .cram),
+        Action(title: "Notes", hint: "The full topic", icon: "learn", destination: .learn),
+        Action(title: "Exam", hint: "A marked paper", icon: "exam", destination: .exam),
+        Action(title: "Rank", hint: "Ladder and lobby", icon: "rank", destination: .rank),
+    ]
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer().frame(height: 20)
-
-                // The greeting, then the companion. No page title: Today is the
-                // home, and nobody needs to be told which screen they are on.
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        LabelText(
-                            text: model.online ? "Today" : "Offline",
-                            token: Type.eyebrow,
-                            color: model.online ? colors.mutedForeground : colors.streak
-                        )
-                        Text(model.name.isEmpty ? "Welcome back" : "Hi, \(model.name)")
-                            .font(Type.title.font)
-                            .foregroundStyle(colors.foreground)
-                    }
-                    Spacer(minLength: 0)
-                    Avatar(emoji: model.me?.avatarEmoji, size: 44)
-                }
+            VStack(alignment: .leading, spacing: 14) {
+                Spacer().frame(height: 6)
 
                 if let home = model.home {
-                    Spacer().frame(height: 18)
-                    // The dashboard's rotating opener, over the state it describes.
-                    RotatingHeadline(
-                        words: openers(
-                            due: home.due,
-                            streak: home.streak,
-                            level: home.level,
-                            subject: model.me?.subjects.first?.name
+                    hero(home)
+                    numbers(home)
+
+                    if let data = model.ranked?.ranked {
+                        RankStripBand(
+                            rank: data.rank,
+                            lobby: data.lobby,
+                            week: data.week,
+                            placement: data.placement,
+                            xpThisWeek: data.xpThisWeek,
+                            onLadder: { model.go(.rank) }
                         )
-                    )
-                    .frame(height: 40, alignment: .leading)
-                }
-
-                Spacer().frame(height: 18)
-
-                if let home = model.home {
-                    // The companion needs a body, so it only appears once a rank
-                    // has been computed — an empty shield would say less than
-                    // nothing.
-                    if let rank = model.ranked?.ranked.rank {
-                        Companion(
-                            rank: rank,
-                            line: companionLine(home: home, rank: rank),
-                            action: model.online ? "See the ladder" : nil,
-                            onAction: { model.selectTab(.rank) }
-                        )
-                        Spacer().frame(height: 20)
+                        .entrance(2, scale: true)
                     }
 
-                    SurfaceCard {
-                        HStack(alignment: .center, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                LabelText(text: "Due now", token: Type.eyebrow, color: colors.mutedForeground)
-                                Text("\(home.due)")
-                                    .font(Type.num.font)
-                                    .foregroundStyle(colors.foreground)
-                                Text(home.due == 1 ? "card ready" : "cards ready")
-                                    .font(Type.caption.font)
-                                    .foregroundStyle(colors.mutedForeground)
-                            }
-                            Spacer(minLength: 0)
-                            VStack(alignment: .trailing, spacing: 6) {
-                                if home.streak > 0 {
-                                    Badge(
-                                        text: "\(home.streak) day\(home.streak == 1 ? "" : "s")",
-                                        tone: .streak,
-                                        icon: "streak"
-                                    )
-                                }
-                                Badge(text: "Level \(home.level)", tone: .quiet, icon: "level")
-                            }
-                        }
+                    SectionTitle(text: "Ways in")
+                    waysIn
 
-                        Spacer().frame(height: 16)
-                        HStack(alignment: .top, spacing: 20) {
-                            Stat(label: "XP", value: "\(home.totalXp)")
-                            Stat(
-                                label: "Today",
-                                value: home.reviewedToday > 0 ? "\(home.correctToday)/\(home.reviewedToday)" : "—"
-                            )
-                            Stat(label: "Streak", value: "\(home.streak)d")
-                            Spacer(minLength: 0)
-                        }
-
-                        if home.fromCache {
-                            Spacer().frame(height: 16)
-                            Hairline()
-                            Spacer().frame(height: 12)
-                            HStack(spacing: 8) {
-                                Icon("clock", size: 14, color: colors.streak)
-                                Text("Showing the session saved on this device.")
-                                    .font(Type.fine.font)
-                                    .foregroundStyle(colors.mutedForeground)
-                            }
-                        }
-                    }
-
-                    Spacer().frame(height: 16)
-                    // The green CTA. It carries the due count inside the pill,
-                    // the way the dashboard's does, so starting a session answers
-                    // "how much is left" in the same glance.
-                    PillButton(
-                        text: home.packCards > 0 ? "Start review" : "Connect once to download cards",
-                        tone: home.packCards > 0 ? .good : .secondary,
-                        icon: home.packCards > 0 ? "review" : "download",
-                        trailing: home.packCards > 0 ? "\(home.due)" : nil,
-                        enabled: home.packCards > 0,
-                        large: true
-                    ) {
-                        model.startTodayReview()
-                    }
-                    Spacer().frame(height: 10)
-                    PillButton(text: "Cram instead", tone: .secondary, icon: "cram", large: true) {
-                        model.selectTab(.cram)
-                    }
+                    subjects(home)
 
                     if model.pending > 0 {
-                        Spacer().frame(height: 16)
                         SoftCard {
                             HStack(spacing: 10) {
                                 Icon("rotate", size: 16, color: colors.mutedForeground)
@@ -150,14 +80,21 @@ struct TodayView: View {
                                 .foregroundStyle(colors.mutedForeground)
                             if model.online {
                                 Spacer().frame(height: 10)
-                                Button {
-                                    model.refreshHome()
-                                } label: {
-                                    Text("Sync now")
-                                        .font(Type.captionS.font)
-                                        .foregroundStyle(colors.foreground)
-                                }
-                                .buttonStyle(.plain)
+                                Button("Sync now") { model.refreshHome() }
+                                    .buttonStyle(.plain)
+                                    .font(Type.captionS.font)
+                                    .foregroundStyle(colors.foreground)
+                            }
+                        }
+                    }
+
+                    if home.fromCache {
+                        SoftCard {
+                            HStack(spacing: 8) {
+                                Icon("clock", size: 14, color: colors.streak)
+                                Text("Showing the session saved on this device.")
+                                    .font(Type.fine.font)
+                                    .foregroundStyle(colors.mutedForeground)
                             }
                         }
                     }
@@ -170,97 +107,243 @@ struct TodayView: View {
                 }
 
                 Spacer().frame(height: 28)
-                SectionTitle(text: "Elsewhere")
-                VStack(spacing: 10) {
-                    ShortcutRow(
-                        label: "Read notes",
-                        icon: "learn",
-                        hint: "The prose behind the cards",
-                        tab: .learn,
-                        model: model
-                    )
-                    ShortcutRow(
-                        label: "Cram",
-                        icon: "cram",
-                        hint: "Sprint before an exam",
-                        tab: .cram,
-                        model: model
-                    )
-                    ShortcutRow(
-                        label: "Your rank",
-                        icon: "rank",
-                        hint: "Ladder and weekly lobby",
-                        tab: .rank,
-                        model: model
-                    )
-                    ShortcutRow(
-                        label: "Profile",
-                        icon: "person",
-                        hint: "You and your settings",
-                        tab: .you,
-                        model: model
-                    )
-                }
-
-                Spacer().frame(height: 16)
-                PillButton(text: "Refresh", tone: .ghost, icon: "rotate") {
-                    model.refreshHome()
-                }
-                Spacer().frame(height: 28)
             }
             .padding(.horizontal, 20)
         }
     }
-}
 
-/// A quiet destination row: an icon, a label and its four-word hint.
-private struct ShortcutRow: View {
-    @Environment(\.revisio) private var colors
-    let label: String
-    let icon: String
-    let hint: String
-    let tab: Tab
-    @ObservedObject var model: AppModel
+    // ── 1. The hero: greeting, one line, one green button ────────────────────
 
-    var body: some View {
-        Button {
-            model.selectTab(tab)
-        } label: {
-            SurfaceCard {
-                HStack(spacing: 14) {
-                    Icon(icon, size: 18, color: colors.foreground)
-                        .frame(width: 38, height: 38)
-                        .background(colors.secondary, in: Circle())
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(label)
+    @ViewBuilder private func hero(_ home: Home) -> some View {
+        TilePanel(tone: .dark) {
+            HStack(spacing: 10) {
+                // The greeting takes the room it needs and wraps rather than being
+                // clipped: a name is the one string here that must never be cut.
+                Text(Copy.greetingFor(model.name.isEmpty ? nil : model.name, hour: hourNow))
+                    .font(Type.eyebrow.font)
+                    .foregroundStyle(colors.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if !model.online {
+                    // Said on the hero rather than in a banner: the one thing that
+                    // changes what the buttons do belongs next to the buttons.
+                    Badge(text: "Offline", tone: .streak, icon: "clock")
+                }
+            }
+
+            // The dashboard's rotating opener, over the state it describes.
+            RotatingHeadline(
+                words: Copy.openers(
+                    due: home.due,
+                    streak: home.streak,
+                    level: home.level,
+                    subject: model.me?.subjects.first?.name
+                )
+            )
+            .frame(height: 40, alignment: .leading)
+            .padding(.vertical, 2)
+
+            VStack(spacing: 10) {
+                PillButton(
+                    text: home.due > 0 ? "Start review" : "Get ahead",
+                    tone: .good,
+                    icon: home.due > 0 ? "review" : "learn",
+                    trailing: home.due > 0 ? "\(home.due)" : nil,
+                    enabled: home.packCards > 0,
+                    large: true
+                ) {
+                    if home.due > 0 { model.startTodayReview() } else { model.go(.learn) }
+                }
+                PillButton(text: "Cram instead", tone: .secondary, icon: "cram", large: true) {
+                    model.go(.cram)
+                }
+            }
+            .padding(.top, 14)
+
+            // The companion, under a hairline, inside the hero — the way the
+            // dashboard puts it: the numbers got you here, this says what they mean.
+            if let rank = model.ranked?.ranked.rank {
+                Divider().overlay(colors.border).padding(.vertical, 16)
+                Companion(
+                    rank: rank,
+                    line: Copy.companionFor(
+                        name: model.name,
+                        due: home.due,
+                        reviewed: home.reviewedToday,
+                        correct: home.correctToday,
+                        streak: home.streak,
+                        bestStreak: model.me?.gamification.bestStreak ?? home.streak,
+                        totalXp: home.totalXp,
+                        rankLabel: rank.label,
+                        hour: hourNow
+                    ).line
+                )
+            }
+        }
+    }
+
+    // ── 2. Four numbers ─────────────────────────────────────────────────────
+
+    @ViewBuilder private func numbers(_ home: Home) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            StatTile(icon: "review", label: "Due", value: home.due, tint: home.due > 0 ? colors.good : nil)
+            StatTile(icon: "reviewed", label: "Done today", value: home.reviewedToday)
+            StatTile(
+                icon: "streak",
+                label: "Streak",
+                value: home.streak,
+                suffix: home.streak == 1 ? " day" : " days",
+                tint: home.streak > 0 ? colors.streak : nil
+            )
+            StatTile(icon: "xp", label: "Total XP", value: home.totalXp)
+        }
+    }
+
+    // ── 4. Four ways in ─────────────────────────────────────────────────────
+
+    private var waysIn: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            ForEach(Array(actions.enumerated()), id: \.element.title) { index, action in
+                Button { model.go(action.destination) } label: {
+                    ActionTile(title: action.title, hint: action.hint, icon: action.icon)
+                }
+                .buttonStyle(PressScaleStyle())
+                .entrance(index, scale: true)
+            }
+        }
+    }
+
+    private func subjects(_ home: Home) -> some View {
+        SurfaceCard {
+            HStack(spacing: 12) {
+                Text("Your subjects")
+                    .font(Type.strong.font)
+                    .foregroundStyle(colors.foreground)
+                Spacer(minLength: 0)
+                Button("Manage") { model.go(.library) }
+                    .buttonStyle(.plain)
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.foreground)
+                    .underline()
+            }
+            Spacer().frame(height: 12)
+            let names = (model.me?.subjects ?? []).map(\.name)
+            if names.isEmpty {
+                Text("Pick a subject and your queue fills itself.")
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.mutedForeground)
+            } else {
+                ChipRows(items: names, perRow: 3)
+            }
+            Spacer().frame(height: 14)
+            Hairline()
+            Spacer().frame(height: 12)
+            HStack(alignment: .top, spacing: 24) {
+                let best = model.me?.gamification.bestStreak ?? home.streak
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Best streak")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                    HStack(spacing: 0) {
+                        NumberTicker(value: best, font: Type.strong.font, color: colors.foreground)
+                        Text(best == 1 ? " day" : " days")
                             .font(Type.strong.font)
-                            .foregroundStyle(colors.foreground)
-                        Text(hint)
-                            .font(Type.fine.font)
                             .foregroundStyle(colors.mutedForeground)
                     }
-                    Spacer(minLength: 0)
-                    Icon("expand", size: 16, color: colors.mutedForeground)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Accuracy today")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                    Text(
+                        home.reviewedToday > 0
+                            ? "\(Int((Double(home.correctToday) / Double(home.reviewedToday) * 100).rounded()))%"
+                            : "—"
+                    )
+                    .font(Type.strong.font)
+                    .foregroundStyle(colors.foreground)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var hourNow: Int {
+        Calendar.current.component(.hour, from: Date())
+    }
+}
+
+/// One of the four ways in: an icon, a title, and a four-word hint.
+private struct ActionTile: View {
+    @Environment(\.revisio) private var colors
+    let title: String
+    let hint: String
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Icon(icon, size: 18, color: colors.foreground)
+                .frame(width: 36, height: 36)
+                .background(colors.secondary, in: Circle())
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(Type.strong.font)
+                    .foregroundStyle(colors.foreground)
+                Text(hint)
+                    .font(.system(size: 13))
+                    .foregroundStyle(colors.mutedForeground)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(colors.card)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(colors.border, lineWidth: 1)
+        )
+    }
+}
+
+/// One number, at the size the dashboard gives it.
+///
+/// Counted rather than printed: the web runs a `NumberTicker` on every stat, so a
+/// dashboard that has just loaded counts up to its numbers instead of appearing
+/// with them — which is the difference between "here is your day" and "here is a
+/// table".
+private struct StatTile: View {
+    @Environment(\.revisio) private var colors
+    let icon: String
+    let label: String
+    let value: Int
+    var suffix: String?
+    var tint: Color?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Icon(icon, size: 15, color: tint ?? colors.mutedForeground)
+                Text(label)
+                    .font(Type.fine.font)
+                    .foregroundStyle(tint ?? colors.mutedForeground)
+            }
+            HStack(alignment: .bottom, spacing: 0) {
+                NumberTicker(value: value, font: Type.numSm.font, color: colors.foreground)
+                if let suffix {
+                    Text(suffix)
+                        .font(.system(size: 12))
+                        .foregroundStyle(colors.mutedForeground)
                 }
             }
         }
-        .buttonStyle(PressScaleStyle())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(colors.card)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(colors.border, lineWidth: 1)
+        )
     }
-}
-
-/// The companion's line.
-///
-/// The website decides this server-side (`companionFor`, so the shell, the
-/// account sheet and the dashboard cannot read the same numbers three ways).
-/// Where the server has not sent one, this says something true from the numbers
-/// it did send rather than inventing a personality.
-private func companionLine(home: Home, rank: Rank) -> String {
-    let remaining = rank.remaining
-    if home.due == 0 && home.reviewedToday > 0 { return "All clear for today. Nice." }
-    if home.due == 0 { return "Nothing due. Come back when the cards are." }
-    if remaining > 0 && home.reviewedToday > 0 {
-        return "\(home.reviewedToday) done today — \(remaining) XP to the next division."
-    }
-    if home.streak > 6 { return "\(home.streak) days running. Don't break it now." }
-    return "\(home.due) due. Starting is the hard part."
 }

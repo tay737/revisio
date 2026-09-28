@@ -31,12 +31,27 @@ struct SessionView: View {
                     header
                     progress
                     notes(for: card)
-                    Spacer().frame(height: 20)
-                    promptBlock(card)
-                    Spacer().frame(height: 20)
-                    answerBlock(card)
-                    Spacer().frame(height: 20)
-                    actionBlock(card)
+                    //
+                    // The one motion the review loop is built around.
+                    //
+                    // On the web the question and its verdict share a keyed
+                    // element, so answering re-mounts nothing while the next card
+                    // rises into place — enter 14px below with a fade, over the
+                    // quick duration. Keying this block on the card's own id does
+                    // the same thing here: a new card is a new view identity, so
+                    // its entrance runs, while the header, the meter and the notes
+                    // stay exactly where they were. Nothing is torn down between
+                    // cards, which is the difference between a deck being dealt
+                    // and a page reloading.
+                    VStack(alignment: .leading, spacing: 0) {
+                        promptBlock(card)
+                        Spacer().frame(height: 20)
+                        answerBlock(card)
+                        Spacer().frame(height: 20)
+                        actionBlock(card)
+                    }
+                    .entrance()
+                    .id(card.id)
                     Spacer().frame(height: 12)
                     PillButton(text: "Leave session", tone: .ghost) { model.endReview() }
                     Spacer().frame(height: 28)
@@ -311,8 +326,13 @@ private struct SummaryView: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: 40)
 
+                // Finishing a session is the moment the ladder moves, so the crest
+                // arrives on the pop spring — scale 0.7 and a slight rotation,
+                // overshooting into place — while everything under it settles with
+                // plain rises. One flourish on the screen that earned it.
                 if let rank = model.ranked?.ranked.rank {
                     RankCrest(rank: rank, size: 104)
+                        .pop()
                     Spacer().frame(height: 18)
                     RankChip(rank: rank, size: 26)
                     Spacer().frame(height: 22)
