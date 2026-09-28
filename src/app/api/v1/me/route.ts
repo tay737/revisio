@@ -9,16 +9,24 @@ import { totalXpFor } from '@/services/study';
 import { todayStats } from '@/services/stats';
 import { validateUsername, DEFAULT_VISIBILITY } from '@/services/profile';
 
-// The GET is all reads, so when Neon is configured the whole payload comes
-// from the replica — as one readReplica block, so a dead mirror fails the
-// whole GET over to the primary in one move. PATCH below still writes the
-// primary. Auth itself never reads here — the access token is stateless JWT.
+// The GET is all reads, so when Neon is configured most of the payload comes
+// from the replica — but the identity row comes from the PRIMARY: a save that
+// lands here must be visible on the very next /me, and the drain that carries
+// PATCH writes to the mirror runs on the daily cron plus kicks after reviews —
+// a settings save can sit undrained for hours, and reading the mirror then
+// shows the old username as if the save had failed. Stats behind it can be
+// briefly stale; who you are cannot. PATCH below still writes the primary.
+// Auth itself never reads here — the access token is stateless JWT.
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
 
   const payload = await readReplica(async (rdb) => {
-    const [rowRes, subsRes, xpRes, achRes, statsRes] = await Promise.all([
-      rdb.select().from(users).where(eq(users.id, user.id)).limit(1),
+    // Identity from the primary (see the comment above the handler); the rest
+    // of the payload tolerates the mirror's brief staleness.
+    const [rowRes] = await Promise.all([
+      db.select().from(users).where(eq(users.id, user.id)).limit(1),
+    ]);
+    const [subsRes, xpRes, achRes, statsRes] = await Promise.all([
       rdb
         .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
         .from(userSubjects)

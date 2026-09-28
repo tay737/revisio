@@ -1,5 +1,5 @@
 import 'server-only';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand, CreateBucketCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
@@ -50,6 +50,59 @@ function client(): S3Client {
   });
 }
 
+/** Origins the bucket must accept browser uploads from. */
+const UPLOAD_ORIGINS = [
+  'https://revisio-srs.vercel.app',
+  'https://revisio-tay737.vercel.app',
+  'http://localhost:3100',
+  'http://localhost:3000',
+];
+
+const BUCKET_CORS = { CORSRules: [{
+  AllowedOrigins: UPLOAD_ORIGINS,
+  AllowedMethods: ['PUT', 'GET'],
+  AllowedHeaders: ['content-type'],
+  MaxAgeSeconds: 3600,
+}] };
+
+let bucketChecked: Promise<void> | null = null;
+
+/**
+ * The bucket is the one piece of the media path nothing else provisions: the
+ * Neon integration creates its default bucket, but the app uploads into its
+ * own, and a missing bucket or a bucket without CORS turns every upload into
+ * a browser-side "Failed to fetch" — the preflight is answered 403 before a
+ * byte moves, and the server logs stay silent. So presign self-heals: ensure
+ * the bucket exists and answers preflights, once per process, before minting
+ * a URL. A bucket that exists and already passes HEAD is one cheap call; the
+ * CORS check runs only when the bucket had to be created.
+ */
+async function ensureBucket(): Promise<void> {
+  if (!bucketChecked) {
+    bucketChecked = (async () => {
+      const s3 = client();
+      try {
+        await s3.send(new HeadBucketCommand({ Bucket: BUCKET }));
+        return;
+      } catch {
+        // Missing (or invisible to us) — create it and teach it CORS.
+      }
+      try {
+        await s3.send(new CreateBucketCommand({ Bucket: BUCKET }));
+      } catch (e) {
+        const name = (e as { name?: string }).name;
+        if (name !== 'BucketAlreadyOwnedByYou' && name !== 'BucketAlreadyExists') throw e;
+      }
+      await s3.send(new PutBucketCorsCommand({ Bucket: BUCKET, CORSConfiguration: BUCKET_CORS }));
+      console.log(`[storage] created bucket "${BUCKET}" with upload CORS`);
+    })().catch((e) => {
+      bucketChecked = null; // retry next presign rather than caching a failure
+      throw e;
+    });
+  }
+  return bucketChecked;
+}
+
 export function contentTypeFor(ext: string): string | null {
   const map: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif' };
   return map[ext.toLowerCase()] ?? null;
@@ -67,6 +120,7 @@ export async function presignMediaUpload(userId: string, kind: MediaKind, conten
     throw new ApiError(413, 'too_large', `Images must be between 1 byte and ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`);
   }
   const key = `u/${userId}/${kind}-${Date.now().toString(36)}${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  await ensureBucket();
   const url = await getSignedUrl(
     client(),
     new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
