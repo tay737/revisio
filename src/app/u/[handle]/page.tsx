@@ -76,18 +76,21 @@ export default async function ProfilePage({
       )}
 
       {/* ── Banner ─────────────────────────────────────────────────────── */}
-      <ProfileBanner imageUrl={profile.bannerUrl} color={profile.bannerColor} className="-mx-4 -mt-10 sm:-mx-6" />
+      {/* No negative top margin: it made the banner paint over the Back pill
+          whenever the wash or image reached the top edge. */}
+      <ProfileBanner imageUrl={profile.bannerUrl} color={profile.bannerColor} className="-mx-4 sm:-mx-6" />
 
       {/* ── Identity ─────────────────────────────────────────────────────── */}
       {/*
-        Two stacked rows, never a wrap-flex: the avatar row (pulled up over the
-        banner) and the text row (always fully below the avatar). Overlap
-        is impossible by construction — the text can never ride up beside a
-        44px-tall avatar column on a narrow screen, which is what the old
-        flex-wrap layout did.
+        Two stacked rows, never a wrap-flex: the avatar row (pulled up over
+        the banner) and the text row (always fully below the avatar). The
+        avatar wrapper is z-10 so an opaque banner image can never paint over
+        it — positioned siblings stack above z-0 by document order, which is
+        exactly how an image banner could cover the pulled-up avatar half.
+        Text is never positioned, so it always paints last.
       */}
       <header className="px-1">
-        <div className="-mt-12 mb-3 inline-block rounded-full ring-4 ring-background">
+        <div className="relative z-10 -mt-12 mb-3 inline-block rounded-full ring-4 ring-background">
           <Avatar name={display} emoji={profile.avatarEmoji} color={profile.avatarColor} imageUrl={profile.avatarUrl} size={88} />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">

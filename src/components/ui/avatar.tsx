@@ -100,7 +100,7 @@ export function ProfileBanner({
 }) {
   const wash = BANNER_WASH[(color ?? 'dusk') as BannerColor] ?? BANNER_WASH.dusk;
   return (
-    <div className={cn('relative h-32 w-full overflow-hidden rounded-[var(--radius-card,16px)] sm:h-40', className)}>
+    <div className={cn('relative z-0 h-32 w-full overflow-hidden rounded-[var(--radius-card,16px)] sm:h-40', className)}>
       {imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
