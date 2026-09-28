@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { neonConfigured, mirrorHealth } from '@/db/replica';
-import { installSyncInfrastructure, runSync, sharedSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, type SyncHandles, type SyncDb } from '@/db/sync';
+import { installSyncInfrastructure, runSync, sharedSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, ensureSyncWriteAccess, type SyncHandles, type SyncDb } from '@/db/sync';
 import { fail, ok, requireUser, route } from '@/services/api';
 
 export const maxDuration = 60;
@@ -87,6 +87,10 @@ async function ensureInfrastructure(handles: SyncHandles): Promise<void> {
     } finally {
       client.release();
     }
+    // A table that exists but rejects the connecting role's writes is the
+    // failure that silently broke every application write once; probe and
+    // repair on every run, cron included.
+    await ensureSyncWriteAccess(db);
   }
   if (missing.length > 0) {
     const pkMap = await loadPrimaryKeys(handles.primary);

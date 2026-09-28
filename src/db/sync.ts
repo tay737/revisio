@@ -291,6 +291,61 @@ AFTER INSERT OR UPDATE OR DELETE ON "${table}"
 FOR EACH ROW EXECUTE FUNCTION sync_capture_event('${def.pkCols.join(',')}');`;
 }
 
+// ── write access ────────────────────────────────────────────────────────────
+
+/**
+ * The app's own path into the event log, exercised exactly as the capture
+ * trigger fires it: INSERT as the connecting role, then DELETE, all inside a
+ * transaction that rolls back — nothing persists, no event is created.
+ *
+ * This exists because the failure it catches was invisible: a Supabase RLS
+ * sweep enabled row security on every public table, and `_sync_events` — a
+ * table the mirror added *after* the app's `app_full_access` policies were
+ * written — got RLS with no policy. Every application write then died inside
+ * the capture trigger (login, register, a submitted review) while every read
+ * sailed through, and the site looked broken in exactly the way a database
+ * outage looks. Probing the real write path here, and repairing it — policy
+ * for the connecting role, table grants, sequence USAGE for the bigserial
+ * `seq` — turns that recurrence into something the next sync run heals.
+ */
+const SYNC_PROBE_SQL = `
+BEGIN;
+INSERT INTO _sync_events (table_name, op, pk) VALUES ('__probe__', 'INSERT', '__probe__');
+DELETE FROM _sync_events WHERE table_name = '__probe__';
+ROLLBACK;
+`;
+
+/**
+ * Probe that the connecting role can write the event log; if the probe fails,
+ * install the policy and grants it needs and probe again — the second probe
+ * throwing surfaces the genuine, still-unfixed error. Idempotent; cheap
+ * enough to run on every sync invocation (cron included).
+ */
+export async function ensureSyncWriteAccess(db: SyncDb): Promise<void> {
+  const client = await db.pool.connect();
+  try {
+    try {
+      await client.query(SYNC_PROBE_SQL);
+      return;
+    } catch {
+      // Fall through to the repair; the original error is not worth keeping —
+      // the probe after the repair is the one that must tell the truth.
+    }
+    const who: string = (await client.query('SELECT current_user AS u')).rows[0]?.u;
+    if (!who) throw new Error('sync: could not resolve current_user for repair');
+    await client.query(`
+      DROP POLICY IF EXISTS sync_app_access ON public._sync_events;
+      CREATE POLICY sync_app_access ON public._sync_events FOR ALL TO "${who}"
+        USING (true) WITH CHECK (true);
+      GRANT SELECT, INSERT, DELETE ON public._sync_events TO "${who}";
+      GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "${who}";
+    `);
+    await client.query(SYNC_PROBE_SQL);
+  } finally {
+    client.release();
+  }
+}
+
 /** Create every app table on a bare database by replaying drizzle/0000_init.sql. */
 export async function bootstrapSchemaFromMigration(dbs: SyncDb[]): Promise<void> {
   const { readFileSync } = await import('node:fs');
