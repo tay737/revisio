@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { initials } from '@/lib/profile';
+import { AVATAR_COLORS, BANNER_COLORS, type AvatarColor, type BannerColor } from '@/lib/colors';
+
+// The palettes live in lib/colors (client-safe, server-importable); these
+// re-exports keep every existing call site working.
+export { AVATAR_COLORS, BANNER_COLORS };
+export type { AvatarColor, BannerColor };
 
 /**
  * The one avatar treatment.
@@ -13,9 +19,6 @@ import { initials } from '@/lib/profile';
  * light and dark, so no caller can assemble an unreadable combination — and a
  * broken image URL degrades to the glyph rather than showing a hole.
  */
-export const AVATAR_COLORS = ['ink', 'moss', 'bee', 'dawn', 'sky'] as const;
-export type AvatarColor = (typeof AVATAR_COLORS)[number];
-
 const SURFACE: Record<AvatarColor, string> = {
   ink: 'bg-foreground text-background',
   moss: 'bg-good-soft text-good-pressed',
@@ -25,6 +28,15 @@ const SURFACE: Record<AvatarColor, string> = {
 };
 
 export const AVATAR_EMOJI = ['🦉', '🧠', '📚', '⚡', '🌟', '🦊', '🐢', '🌙', '🎯', '🧪'] as const;
+
+export const BANNER_WASH: Record<BannerColor, string> = {
+  dusk: 'bg-gradient-to-br from-primary/12 via-transparent to-gold/15',
+  rose: 'bg-gradient-to-br from-destructive/18 via-transparent to-gold/10',
+  sea: 'bg-gradient-to-br from-primary/14 via-transparent to-good/12',
+  moss: 'bg-gradient-to-br from-good-soft via-transparent to-primary/8',
+  bee: 'bg-gradient-to-br from-gold/30 via-transparent to-destructive/8',
+  ember: 'bg-gradient-to-br from-destructive/25 via-gold/10 to-transparent',
+};
 
 export function Avatar({
   name,
@@ -71,15 +83,29 @@ export function Avatar({
   );
 }
 
-/** The profile banner: the uploaded image if there is one, else a quiet token wash. */
-export function ProfileBanner({ imageUrl, className }: { imageUrl?: string | null; className?: string }) {
+/**
+ * The profile banner: the uploaded image if there is one, else the chosen
+ * token wash. The banner reserves the space below it for the avatar's
+ * overlap — it never carries content of its own, so nothing inside it can
+ * collide with the identity block that sits on its lower edge.
+ */
+export function ProfileBanner({
+  imageUrl,
+  color,
+  className,
+}: {
+  imageUrl?: string | null;
+  color?: string | null;
+  className?: string;
+}) {
+  const wash = BANNER_WASH[(color ?? 'dusk') as BannerColor] ?? BANNER_WASH.dusk;
   return (
     <div className={cn('relative h-32 w-full overflow-hidden rounded-[var(--radius-card,16px)] sm:h-40', className)}>
       {imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <div className="h-full w-full bg-gradient-to-br from-primary/10 via-transparent to-gold/15" aria-hidden />
+        <div className={cn('h-full w-full', wash)} aria-hidden />
       )}
     </div>
   );

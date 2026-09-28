@@ -27,6 +27,8 @@ export const users = pgTable('users', {
   /** Uploaded avatar / banner — keys in the media bucket, served via /api/v1/assets. */
   avatarUrl: text('avatar_url'),
   bannerUrl: text('banner_url'),
+  /** Token key of the banner wash shown when no image is uploaded ('rose' | 'sea' | …). */
+  bannerColor: text('banner_color').notNull().default('dusk'),
   /** Email awaiting confirmation by link — the only thing that swaps it in. */
   pendingEmail: text('pending_email'),
   /** Which profile fields a signed-out visitor may see. Absent key = hidden. */
@@ -420,4 +422,34 @@ export const mediaAssets = pgTable('media_assets', {
 }, (t) => ({
   userIdx: index('media_assets_user_idx').on(t.userId),
   keyUnique: uniqueIndex('media_assets_key_idx').on(t.key),
+}));
+
+// ── profile badges (v1.7) ───────────────────────────────────────────────────
+// A badge is a chip a developer mints — a label, an optional glyph and a
+// colour treatment — and grants to a user's profile. Badges ride beside the
+// role badge: a developer might grant '<3' to a community helper, or
+// 'Alpha Tester' to everyone who used the app before launch. One row per
+// (user, badge); the profile shows every grant in order.
+export const profileBadges = pgTable('profile_badges', {
+  id: text('id').primaryKey(),
+  /** Short slug, e.g. 'heart', 'alpha-tester' — shown to admins in pickers. */
+  slug: text('slug').notNull(),
+  /** What the chip reads, e.g. '<3' or 'Alpha Tester'. */
+  label: text('label').notNull(),
+  /** Optional registry icon name; empty renders no glyph. */
+  icon: text('icon').notNull().default(''),
+  /** Chip treatment: 'gold' | 'primary' | 'good' | 'rose'. */
+  color: text('color', { enum: ['gold', 'primary', 'good', 'rose'] }).notNull().default('gold'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  slugUnique: uniqueIndex('profile_badges_slug_idx').on(t.slug),
+}));
+
+export const userProfileBadges = pgTable('user_profile_badges', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  badgeId: text('badge_id').notNull().references(() => profileBadges.id, { onDelete: 'cascade' }),
+  grantedBy: text('granted_by'),
+  grantedAt: timestamp('granted_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  pk: uniqueIndex('user_profile_badges_pk').on(t.userId, t.badgeId),
 }));

@@ -8,6 +8,7 @@ import { levelForXp } from '@/domain/gamification';
 import { totalXpFor } from '@/services/study';
 import { todayStats } from '@/services/stats';
 import { validateUsername, DEFAULT_VISIBILITY } from '@/services/profile';
+import { BANNER_COLORS } from '@/components/ui/avatar';
 
 // The GET is all reads, so when Neon is configured most of the payload comes
 // from the replica — but the identity row comes from the PRIMARY: a save that
@@ -60,6 +61,7 @@ export const GET = route(async (req: NextRequest) => {
       avatarColor: row.avatarColor,
       avatarUrl: row.avatarUrl,
       bannerUrl: row.bannerUrl,
+      bannerColor: row.bannerColor,
       profileVisibility: { ...DEFAULT_VISIBILITY, ...(row.profileVisibility ?? {}) },
       role: row.role,
       status: row.status,
@@ -88,6 +90,7 @@ export const PATCH = route(async (req: NextRequest) => {
     bio?: string;
     avatarEmoji?: string | null;
     avatarColor?: string;
+    bannerColor?: string;
     profileVisibility?: Partial<ProfileVisibility>;
     leaderboardOptOut?: boolean;
     prefs?: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean };
@@ -104,6 +107,12 @@ export const PATCH = route(async (req: NextRequest) => {
       throw new ApiError(400, 'bad_avatar_color', 'That colour is not one of ours. Pick from the palette.');
     }
     update.avatarColor = body.avatarColor;
+  }
+  if (body.bannerColor !== undefined) {
+    if (!BANNER_COLORS.includes(body.bannerColor as (typeof BANNER_COLORS)[number])) {
+      throw new ApiError(400, 'bad_banner_color', 'That banner wash is not one of ours.');
+    }
+    update.bannerColor = body.bannerColor;
   }
   if (body.profileVisibility !== undefined) {
     // Merge with the stored value: absent keys keep their current setting, so

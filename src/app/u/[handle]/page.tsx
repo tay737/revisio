@@ -12,6 +12,7 @@ import { verifyAccessToken } from '@/services/auth';
 import { getPublicProfile } from '@/services/profile';
 import { rankFor } from '@/domain/ranked';
 import { cappedDelay } from '@/lib/motion';
+import { ProfileBadgeChip } from '@/components/ui/profile-badge';
 
 /**
  * The public profile — /u/<username>.
@@ -54,25 +55,35 @@ export default async function ProfilePage({ params }: { params: { handle: string
   return (
     <div className="mx-auto w-full max-w-[720px] px-4 py-10">
       {/* ── Banner ─────────────────────────────────────────────────────── */}
-      <ProfileBanner imageUrl={profile.bannerUrl} className="-mx-4 -mt-10 sm:-mx-6" />
+      <ProfileBanner imageUrl={profile.bannerUrl} color={profile.bannerColor} className="-mx-4 -mt-10 sm:-mx-6" />
 
       {/* ── Identity ─────────────────────────────────────────────────────── */}
-      <header className="-mt-12 flex flex-wrap items-end gap-4 px-1">
-        <div className="rounded-full ring-4 ring-background">
+      {/*
+        The avatar pulls up over the banner's lower edge; the header carries a
+        padding floor beneath it so the avatar's hang (88px − 48px pull-up =
+        40px below the banner) never collides with the bio or meta lines on
+        any width — the old layout let the flex row ride up into both.
+      */}
+      <header className="-mt-12 flex flex-wrap items-end gap-x-4 gap-y-3 px-1 pb-5">
+        <div className="shrink-0 rounded-full ring-4 ring-background">
           <Avatar name={display} emoji={profile.avatarEmoji} color={profile.avatarColor} imageUrl={profile.avatarUrl} size={88} />
         </div>
-        <div className="min-w-0 flex-1 pb-1">
+        <div className="min-w-0 flex-1">
           <h1 className="t-display truncate">{display}</h1>
-          <p className="t-caption mt-0.5 flex flex-wrap items-center gap-2 text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
             <RoleBadge role={profile.role} />
-            {profile.username ? `@${profile.username}` : ''}
-            {profile.username && profile.name && profile.visibility.name ? ' · ' : ''}
-            {profile.visibility.name && profile.name && profile.name !== display ? profile.name : ''}
-          </p>
+            {profile.badges.map((b) => (
+              <ProfileBadgeChip key={b.id} label={b.label} icon={b.icon} color={b.color} />
+            ))}
+            {profile.username ? <span className="t-caption text-muted-foreground">@{profile.username}</span> : null}
+            {profile.visibility.name && profile.name && profile.name !== display ? (
+              <span className="t-caption text-muted-foreground">· {profile.name}</span>
+            ) : null}
+          </div>
           {profile.bio && <p className="mt-2 max-w-[52ch] text-[15px] leading-relaxed">{profile.bio}</p>}
         </div>
         {owner && (
-          <Link href="/settings" className="btn btn-secondary btn-sm mb-1 shrink-0 gap-1.5">
+          <Link href="/settings" className="btn btn-secondary btn-sm shrink-0 gap-1.5">
             <Icon name="edit" size={14} />
             Edit profile
           </Link>

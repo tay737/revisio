@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSWRConfig } from 'swr';
+import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { Avatar, ProfileBanner, AVATAR_COLORS, AVATAR_EMOJI } from '@/components/ui/avatar';
+import { Avatar, ProfileBanner, AVATAR_COLORS, AVATAR_EMOJI, BANNER_COLORS, BANNER_WASH } from '@/components/ui/avatar';
 import { RoleBadge } from '@/components/ui/role-badge';
 import PageSkeleton from '@/components/PageSkeleton';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
@@ -72,6 +73,7 @@ function SettingsBody({
   const [avatarColor, setAvatarColor] = useState(me.avatarColor);
   const [avatarUrl, setAvatarUrl] = useState(me.avatarUrl);
   const [bannerUrl, setBannerUrl] = useState(me.bannerUrl);
+  const [bannerColor, setBannerColor] = useState(me.bannerColor ?? 'dusk');
   const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -158,6 +160,7 @@ function SettingsBody({
         bio: bio.trim() || null,
         avatarEmoji,
         avatarColor,
+        bannerColor,
       });
       setNote('Profile saved.');
       void refresh();
@@ -229,7 +232,8 @@ function SettingsBody({
     username !== (me.username ?? '') ||
     bio !== (me.bio ?? '') ||
     avatarEmoji !== me.avatarEmoji ||
-    avatarColor !== me.avatarColor;
+    avatarColor !== me.avatarColor ||
+    bannerColor !== (me.bannerColor ?? 'dusk');
   // avatarUrl/bannerUrl are not part of the dirty check: uploads confirm and
   // save themselves, so "Unsaved changes" never lies about them.
 
@@ -265,7 +269,30 @@ function SettingsBody({
         <div className="mt-5">
           <span className="label">Banner</span>
           <div className="mt-1.5">
-            <ProfileBanner imageUrl={bannerUrl} />
+            <ProfileBanner imageUrl={bannerUrl} color={bannerColor} />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Banner colour">
+            {BANNER_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Banner: ${c}`}
+                aria-pressed={bannerColor === c}
+                disabled={!!bannerUrl}
+                title={bannerUrl ? 'Remove the banner image to use a colour wash' : `Banner: ${c}`}
+                onClick={() => setBannerColor(c)}
+                className={cn(bannerColor === c)}
+              >
+                <span
+                  className={cn(
+                    'inline-block h-7 w-11 rounded-md border border-border/60',
+                    BANNER_WASH[c as keyof typeof BANNER_WASH] ?? BANNER_WASH.dusk,
+                    bannerColor === c && 'ring-2 ring-foreground ring-offset-1 ring-offset-background',
+                  )}
+                />
+              </button>
+            ))}
+            <span className="t-fine ml-1 text-muted-foreground">{bannerUrl ? 'An uploaded image is covering the wash' : 'The wash shows when no image is uploaded'}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="btn btn-secondary btn-sm gap-1.5 cursor-pointer">
@@ -302,7 +329,7 @@ function SettingsBody({
                 aria-label={`Colour: ${c}`}
                 aria-pressed={avatarColor === c}
                 onClick={() => setAvatarColor(c)}
-                className={cnColor(avatarColor === c)}
+                className={cn(avatarColor === c)}
               >
                 <Avatar name="Aa" color={c} size={28} />
               </button>

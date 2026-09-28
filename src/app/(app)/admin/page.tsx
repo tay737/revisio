@@ -25,6 +25,8 @@ type AdminData = {
   flags: { key: string; description: string; enabled: boolean }[];
   algorithms: { name: string; description: string; defaultParams: Record<string, number> }[];
   users: { id: string; email: string; name: string; role: string; status: string; emailVerifiedAt: string | null; totpEnabled: boolean; createdAt: string }[];
+  userBadges: { userId: string; badgeId: string }[];
+  userAchievements: { userId: string; achievementId: string }[];
   pendingTopics: { id: string; name: string; ownerId: string | null; createdAt: string }[];
   audit: { id: string; action: string; target: string; createdAt: string }[];
   contentStats: {
@@ -36,6 +38,8 @@ type AdminData = {
     emptyTopics: number;
   };
   subjects: { id: string; name: string; slug: string; mathsEnabled: boolean }[];
+  badges: { id: string; slug: string; label: string; icon: string; color: string; grants: number }[];
+  manualAchievements: { id: string; name: string; description: string; icon: string }[];
 };
 
 const ROLES = ['student', 'teacher', 'developer'] as const;
@@ -56,6 +60,12 @@ export default function AdminPage() {
   const [algoParams, setAlgoParams] = useState('');
   const [newSubject, setNewSubject] = useState('');
   const [renameTo, setRenameTo] = useState<Record<string, string>>({});
+  // Badge minting form state.
+  const [badgeLabel, setBadgeLabel] = useState('');
+  const [badgeIcon, setBadgeIcon] = useState('');
+  const [badgeColor, setBadgeColor] = useState<'gold' | 'primary' | 'good' | 'rose'>('gold');
+  // Per-user pickers, held open one user at a time.
+  const [badgePickerFor, setBadgePickerFor] = useState<string | null>(null);
 
   const load = () =>
     api
@@ -408,6 +418,85 @@ export default function AdminPage() {
         </div>
       </section>
 
+      {/* ── Badges ──────────────────────────────────────────────────────── */}
+      <section className="card">
+        <h2 className="t-strong">Profile badges</h2>
+        <p className="t-caption mt-1 text-muted-foreground">
+          Chips that ride beside the role badge on a profile — a {'<3'}, an Alpha Tester, whatever you mint.
+          Grant them per user below; deleting one removes it from every profile wearing it.
+        </p>
+
+        {data?.badges.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.badges.map((b) => (
+              <span key={b.id} className="chip chip-active gap-2">
+                {b.icon && <Icon name={b.icon as never} size={12} />}
+                {b.label}
+                <span className="num text-[11px] text-muted-foreground">×{b.grants}</span>
+                <button
+                  type="button"
+                  aria-label={`Delete badge ${b.label}`}
+                  className="text-muted-foreground transition-colors hover:text-destructive"
+                  onClick={() => {
+                    if (window.confirm(`Delete "${b.label}"? It disappears from all ${b.grants} profile(s) wearing it.`)) {
+                      act({ action: 'delete_badge', badgeId: b.id }, `Badge "${b.label}" deleted.`);
+                    }
+                  }}
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="t-caption mt-3 text-muted-foreground">No badges minted yet.</p>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <input
+            className="input max-w-[180px]"
+            placeholder="Label — e.g. <3"
+            value={badgeLabel}
+            maxLength={24}
+            onChange={(e) => setBadgeLabel(e.target.value)}
+            aria-label="Badge label"
+          />
+          <input
+            className="input max-w-[140px]"
+            placeholder="Icon (optional)"
+            value={badgeIcon}
+            onChange={(e) => setBadgeIcon(e.target.value)}
+            aria-label="Badge icon name"
+          />
+          <select
+            className="input max-w-[110px]"
+            value={badgeColor}
+            aria-label="Badge colour"
+            onChange={(e) => setBadgeColor(e.target.value as typeof badgeColor)}
+          >
+            <option value="gold">gold</option>
+            <option value="primary">ink</option>
+            <option value="good">green</option>
+            <option value="rose">rose</option>
+          </select>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={!badgeLabel.trim()}
+            onClick={() => {
+              const slug = badgeLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `badge-${Date.now().toString(36)}`;
+              void act({ action: 'create_badge', slug, label: badgeLabel.trim(), icon: badgeIcon.trim(), color: badgeColor }, `Badge "${badgeLabel.trim()}" minted.`).then(() => {
+                setBadgeLabel('');
+                setBadgeIcon('');
+              });
+            }}
+          >
+            <Icon name="add" size={14} />
+            Mint badge
+          </button>
+        </div>
+      </section>
+
       {/* ── Users ────────────────────────────────────────────────────────── */}
       <section className="card">
         <h2 className="t-strong">Users</h2>
@@ -421,6 +510,7 @@ export default function AdminPage() {
               <tr className="t-eyebrow">
                 <th scope="col" className="pb-2 pr-3 font-semibold">User</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Role</th>
+                <th scope="col" className="pb-2 pr-3 font-semibold">Badges</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Status</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">2FA</th>
                 <th scope="col" className="pb-2 font-semibold" />
@@ -447,6 +537,81 @@ export default function AdminPage() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td className="py-3 pr-3">
+                    {(() => {
+                      const worn = data?.userBadges.filter((g) => g.userId === u.id) ?? [];
+                      const open = badgePickerFor === u.id;
+                      return (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {worn.map((g) => {
+                              const b = data?.badges.find((x) => x.id === g.badgeId);
+                              if (!b) return null;
+                              return (
+                                <button
+                                  key={g.badgeId}
+                                  type="button"
+                                  title={`Revoke "${b.label}"`}
+                                  className="chip chip-active gap-1"
+                                  onClick={() => act({ action: 'revoke_badge', userId: u.id, badgeId: b.id }, `Badge "${b.label}" revoked from ${u.name}.`)}
+                                >
+                                  {b.label}
+                                  <Icon name="close" size={10} />
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              aria-label={`Badges for ${u.name}`}
+                              aria-expanded={open}
+                              className="chip gap-1"
+                              onClick={() => setBadgePickerFor(open ? null : u.id)}
+                            >
+                              <Icon name={open ? 'collapse' : 'add'} size={10} />
+                            </button>
+                          </div>
+                          {open && (
+                            <div className="inset space-y-2 rounded-md p-2.5">
+                              <div className="flex flex-wrap gap-1">
+                                {(data?.badges.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">Mint a badge first.</span>}
+                                {data?.badges.filter((b) => !worn.some((g) => g.badgeId === b.id)).map((b) => (
+                                  <button
+                                    key={b.id}
+                                    type="button"
+                                    className="chip gap-1"
+                                    onClick={() => act({ action: 'grant_badge', userId: u.id, badgeId: b.id }, `"${b.label}" granted to ${u.name}.`)}
+                                  >
+                                    <Icon name="add" size={10} />
+                                    {b.label}
+                                  </button>
+                                ))}
+                              </div>
+                              {(data?.manualAchievements.length ?? 0) > 0 && (
+                                <div className="flex flex-wrap gap-1 border-t border-border/60 pt-2">
+                                  {data!.manualAchievements.map((a) => {
+                                    const held = data?.userAchievements.some((g) => g.userId === u.id && g.achievementId === a.id);
+                                    return (
+                                      <button
+                                        key={a.id}
+                                        type="button"
+                                        disabled={held}
+                                        title={a.description}
+                                        className={`chip gap-1 ${held ? 'chip-active' : ''}`}
+                                        onClick={() => act({ action: 'grant_achievement', userId: u.id, achievementId: a.id }, `${a.name} granted to ${u.name}.`)}
+                                      >
+                                        {held ? <Icon name="reviewed" size={10} /> : <Icon name="add" size={10} />}
+                                        {a.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="py-3 pr-3">
                     <span
