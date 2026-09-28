@@ -354,6 +354,43 @@ const swiftWeight = (weight) => {
   return map[weight];
 };
 
+/**
+ * Join entries with newlines, never leaving a comma on the last one.
+ *
+ * Swift only gained trailing commas in argument lists in 6.1 (SE-0439), so a
+ * `RevisioColors(a: …, b: …, )` compiles on a developer's new Xcode and fails
+ * the release on the runner's older toolchain — which is exactly the failure
+ * this generator hit on its first published run. The generator does not write
+ * one, and `assertNoTrailingComma` below refuses to emit one if it ever does.
+ */
+const joinEntries = (entries) => entries.join('\n').replace(/,\s*$/, '');
+
+/**
+ * Fail loudly here rather than silently on a runner with an older Swift.
+ *
+ * `,\s*)` is legal from Swift 6.1 and a syntax error before it, so the one
+ * environment that cannot see the difference is the one that publishes.
+ */
+const assertNoTrailingComma = (source, label) => {
+  const lines = source.split('\n');
+  const offenders = [];
+  lines.forEach((line, index) => {
+    if (!/,\s*$/.test(line)) return;
+    let next = index + 1;
+    while (next < lines.length && lines[next].trim() === '') next += 1;
+    if (next < lines.length && /^\s*\)/.test(lines[next])) offenders.push(index + 1);
+  });
+  for (const [, match] of source.matchAll(/,([ \t]*)\)/g)) {
+    offenders.push(source.slice(0, match.index).split('\n').length);
+  }
+  if (offenders.length > 0) {
+    throw new Error(
+      `${label}: trailing comma before ')' on line(s) ${[...new Set(offenders)].join(', ')} — ` +
+        'legal only from Swift 6.1, so it would break the release build',
+    );
+  }
+};
+
 // No `import UIKit`: every colour is built by SwiftUI's own `Color(hex:)`, so
 // the theme compiles wherever SwiftUI does — including the macOS host that runs
 // `swift test`, which is where this layer gets compiled on every push.
@@ -366,11 +403,11 @@ public struct RevisioColors: Sendable {
 ${ROLES.map(([, name]) => `    public let ${name}: Color`).join('\n')}
 
     public static let light = RevisioColors(
-${ROLES.map(([, name]) => `        ${name}: Color(hex: ${colors[name].light.rgba}),`).join('\n')}
+${joinEntries(ROLES.map(([, name]) => `        ${name}: Color(hex: ${colors[name].light.rgba}),`))}
     )
 
     public static let dark = RevisioColors(
-${ROLES.map(([, name]) => `        ${name}: Color(hex: ${colors[name].dark.rgba}),`).join('\n')}
+${joinEntries(ROLES.map(([, name]) => `        ${name}: Color(hex: ${colors[name].dark.rgba}),`))}
     )
 
     public static func forScheme(_ scheme: ColorScheme) -> RevisioColors {
@@ -462,6 +499,8 @@ ${Object.entries(metrics)
   .join('\n')}
 }
 `;
+
+assertNoTrailingComma(swift, 'Theme.swift');
 
 await writeFile(
   path.join(root, 'mobile/android/app/src/main/kotlin/app/revisio/ui/Theme.kt'),
