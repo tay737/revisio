@@ -25,6 +25,15 @@ Non-obvious facts about this repo that cannot be recovered by reading the code. 
 - New `users` columns replicate through the mirror automatically (triggers capture `to_jsonb(NEW)`) — but the drizzle migration must be applied to BOTH Supabase and Neon (`npm run neon:bootstrap` handles fresh targets; for an existing mirror apply the SQL by hand on both).
 - drizzle-kit `generate` diffs against `DATABASE_URL`'s live schema; if that URL points at Neon (not Supabase) the generated migration can be wrong — point `DATABASE_URL` at the primary first.
 
+## Native clients (Android + iOS)
+
+- Four generators own the clients' constants, all re-runnable via `npm run native:generate`: `make-theme.mjs` (globals.css + `lib/motion.ts` → Theme.kt/.swift), `make-icons.mjs` (lucide registry → Icons.kt/.swift), `make-account.mjs` (`lib/username.ts` → AccountRules.kt/.swift), `make-rank.mjs` (`domain/ranked.ts` → RankLadder.kt/.swift). Never hand-edit their outputs; edit the web source and regenerate.
+- `Copy.kt`/`Copy.swift` and the generated `RankLadder.*` are parity-checked, not just hand-ported: `npm run vectors:copy` freezes `domain/ranked.ts` + `lib/profile.ts` into `mobile/shared/copy-vectors.json`, which both engines' `CopyConformanceTest(s)` replay. Change the web copy and both native test suites fail until they follow.
+- The offline smoke asserts against real screen text, so it breaks on copy changes: it now reads the dashboard's `Start review`, the More sheet behind `More`, and the *first-name* greeting (`Copy.greetingFor` uppercases and shortens the name). Numbers in `NumberTicker` read as 0 in an accessibility dump taken mid-spring.
+- The account destination is `ui/SettingsScreen.kt` / `Revisio/SettingsView.swift` (the old `YouScreen`/`YouView` are gone). Renaming an app-target Swift file also means editing `Revisio.xcodeproj/project.pbxproj` by hand — the SwiftPM target picks files up automatically, the Xcode target does not.
+- In Compose, calling `kotlinx.coroutines.launch { }` as a bare expression inside `LaunchedEffect` does not compile (the scope is the receiver, not a namespace) — import `kotlinx.coroutines.launch` and call `launch { }`.
+- `Avatar` takes an explicit `color` token matching the web's `SURFACE` map (ink/moss/bee/dawn/sky); it does not derive a tint from the glyph, because a picker must show the colour it will actually save.
+
 ## App conventions
 
 - `server-only` modules must never be imported from client components (build fails with a pages/-directory error). Shared validation lives in client-safe `src/lib/*` (e.g. `lib/username.ts`); server modules import it.

@@ -210,6 +210,32 @@ public struct Rank: Codable, Equatable {
     public var percent: Int
     public var remaining: Int
     public var isApex: Bool
+
+    public init(
+        tier: String,
+        division: Int,
+        index: Int,
+        label: String,
+        short: String,
+        points: Int,
+        intoDivision: Int,
+        forDivision: Int,
+        percent: Int,
+        remaining: Int,
+        isApex: Bool
+    ) {
+        self.tier = tier
+        self.division = division
+        self.index = index
+        self.label = label
+        self.short = short
+        self.points = points
+        self.intoDivision = intoDivision
+        self.forDivision = forDivision
+        self.percent = percent
+        self.remaining = remaining
+        self.isApex = isApex
+    }
 }
 
 public struct Placement: Codable, Equatable {
@@ -362,6 +388,9 @@ public struct MeDetail: Codable, Equatable {
     public var bio: String?
     public var avatarEmoji: String?
     public var avatarColor: String
+    /// Set once a picture has been uploaded; it replaces the emoji.
+    public var avatarUrl: String?
+    public var bannerUrl: String?
     public var profileVisibility: Visibility
     public var role: String
     public var status: String?
@@ -373,6 +402,171 @@ public struct MeDetail: Codable, Equatable {
     public var gamification: Gamification
     public var today: TodaySummary
     public var achievements: [AchievementRef]
+}
+
+// ── the exam simulator ──────────────────────────────────────────────────────
+//
+// An exam is a paper, not a queue: the questions are dealt by topic, the mark
+// scheme stays on the server until submission, and what comes back is a scored
+// attempt rather than a rescheduled card. Nothing here touches the scheduler,
+// which is the whole point of sitting a paper.
+
+public struct ExamTopic: Codable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+}
+
+public struct ExamQuestion: Codable, Equatable, Identifiable {
+    public var id: String
+    public var kind: String
+    public var topicId: String
+    public var questionMd: String
+    public var marks: Int
+    /// Dealt only for a multiple-choice question, and only for the paper.
+    public var options: [String]?
+    public var board: String?
+    public var sourceYear: Int?
+}
+
+public struct ExamAttempt: Codable, Equatable, Identifiable {
+    public var id: String
+    /// Halves, as the server stores them — `score` is doubled on write.
+    public var score: Double
+    public var maxScore: Double
+    public var createdAt: String?
+}
+
+/// `GET /exam` — what the pool holds and how this learner has done before.
+public struct ExamPool: Codable, Equatable {
+    public var topics: [ExamTopic]
+    public var questionsAvailable: Int
+    public var attempts: [ExamAttempt]
+}
+
+/// What the screen shows while the pool is unavailable. Stated here rather than
+/// spelled out at the call site so "no pool" means the same thing in both places.
+public extension ExamPool {
+    static let empty = ExamPool(topics: [], questionsAvailable: 0, attempts: [])
+}
+
+/// `POST /exam { topicIds }` — the paper, with the mark scheme withheld.
+public struct ExamPaper: Codable, Equatable {
+    public var paper: [ExamQuestion]
+    public var topics: [ExamTopic]
+}
+
+/// One line of the marked script. `awarded` is half-mark granular.
+public struct ExamMark: Codable, Equatable {
+    public var questionId: String
+    public var userAnswer: String
+    public var awarded: Double
+    public var marks: Int
+    public var correct: Bool
+    public var feedback: String
+}
+
+public struct ExamResult: Codable, Equatable {
+    public var score: Double
+    public var maxScore: Double
+    public var percentage: Int
+    public var detail: [ExamMark]
+    public var xpAwarded: Int
+}
+
+// ── maths practice ──────────────────────────────────────────────────────────
+//
+// The generator is the server's, and this is the important part: a question is
+// *derived* from its id, so the client never holds an answer key and there is no
+// second implementation of the maths to drift. The phone asks for a paper, shows
+// the prompt, and sends back the id and a string.
+
+public struct MathsConcept: Codable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+}
+
+public struct MathsSetRef: Codable, Equatable, Identifiable {
+    public var id: String
+    public var title: String
+    public var conceptCount: Int
+    public var defaultCount: Int
+    public var defaultDifficulty: String
+}
+
+public struct PracticeTopic: Codable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+    public var description: String?
+    public var sets: [MathsSetRef]
+}
+
+/// `GET /maths?subjectId=` — the concept catalogue plus what may be drilled.
+public struct MathsCatalogue: Codable, Equatable {
+    public var concepts: [MathsConcept]
+    public var mathsEnabled: Bool
+    public var topics: [PracticeTopic]
+}
+
+public extension MathsCatalogue {
+    static let empty = MathsCatalogue(concepts: [], mathsEnabled: false, topics: [])
+}
+
+public struct MathsQuestion: Codable, Equatable, Identifiable {
+    public var questionId: String
+    public var conceptId: String
+    public var conceptName: String
+    public var difficulty: String
+    public var marks: Int
+    public var prompt: String
+    public var style: String
+    public var options: [String]?
+
+    public var id: String { questionId }
+}
+
+public struct MathsSession: Codable, Equatable {
+    public var topics: [ExamTopic]
+    public var difficulty: String
+    public var count: Int
+    public var paper: [MathsQuestion]
+}
+
+public struct MathsMark: Codable, Equatable {
+    public var questionId: String
+    public var correct: Bool
+    /// The right answer, sent back only once the question has been attempted.
+    public var answer: String
+    public var solution: String
+    public var marks: Int
+}
+
+public struct MathsMarked: Codable, Equatable {
+    public var results: [MathsMark]
+}
+
+public struct MathsXp: Codable, Equatable {
+    public var xpAwarded: Int
+    public var capped: Bool
+}
+
+// ── the library's own write ─────────────────────────────────────────────────
+
+/// `PATCH /content` — who may see a topic this learner owns.
+public struct TopicVisibilityResult: Codable, Equatable {
+    public var cards: Int
+    public var lessons: Int
+}
+
+/// `class` is a Swift keyword in a member position, so the wire name is carried.
+public struct ClassJoinResult: Codable, Equatable {
+    public var joined: ClassRef
+
+    enum CodingKeys: String, CodingKey { case joined = "class" }
+}
+
+public struct ClassRef: Codable, Equatable {
+    public var id: String
+    public var name: String
 }
 
 /// `PATCH /me` — identity, profile and preferences through one door.

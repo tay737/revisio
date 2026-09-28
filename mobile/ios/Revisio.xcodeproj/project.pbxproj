@@ -16,11 +16,12 @@
 		AA000000000000000000001F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000001E /* LearnView.swift */; };
 		AA0000000000000000000021 /* CramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* CramView.swift */; };
 		AA0000000000000000000023 /* RankView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* RankView.swift */; };
-		AA0000000000000000000025 /* YouView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* YouView.swift */; };
+		AA0000000000000000000025 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* SettingsView.swift */; };
 		AA0000000000000000000027 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* Theme.swift */; };
 		AA0000000000000000000029 /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000028 /* Design.swift */; };
 		AA000000000000000000002B /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002A /* Icons.swift */; };
 		AA000000000000000000002D /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002C /* SVGPath.swift */; };
+		AA0000000000000000000031 /* RankBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000030 /* RankBand.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,11 +35,12 @@
 		AA000000000000000000001E /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/LearnView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000020 /* CramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/CramView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000022 /* RankView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/RankView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000024 /* YouView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/YouView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/SettingsView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000026 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Theme.swift; sourceTree = "<group>"; };
 		AA0000000000000000000028 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Design.swift; sourceTree = "<group>"; };
 		AA000000000000000000002A /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Icons.swift; sourceTree = "<group>"; };
 		AA000000000000000000002C /* SVGPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/SVGPath.swift; sourceTree = "<group>"; };
+		AA0000000000000000000030 /* RankBand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/RankBand.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,11 +65,12 @@
 				AA000000000000000000001E /* LearnView.swift */,
 				AA0000000000000000000020 /* CramView.swift */,
 				AA0000000000000000000022 /* RankView.swift */,
-				AA0000000000000000000024 /* YouView.swift */,
+				AA0000000000000000000024 /* SettingsView.swift */,
 				AA0000000000000000000026 /* Theme.swift */,
 				AA0000000000000000000028 /* Design.swift */,
 				AA000000000000000000002A /* Icons.swift */,
 				AA000000000000000000002C /* SVGPath.swift */,
+				AA0000000000000000000030 /* RankBand.swift */,
 				AA0000000000000000000004 /* RevisioAppSupport */,
 				AA0000000000000000000003 /* Products */,
 			);
@@ -172,11 +175,12 @@
 				AA000000000000000000001F /* LearnView.swift in Sources */,
 				AA0000000000000000000021 /* CramView.swift in Sources */,
 				AA0000000000000000000023 /* RankView.swift in Sources */,
-				AA0000000000000000000025 /* YouView.swift in Sources */,
+				AA0000000000000000000025 /* SettingsView.swift in Sources */,
 				AA0000000000000000000027 /* Theme.swift in Sources */,
 				AA0000000000000000000029 /* Design.swift in Sources */,
 				AA000000000000000000002B /* Icons.swift in Sources */,
 				AA000000000000000000002D /* SVGPath.swift in Sources */,
+				AA0000000000000000000031 /* RankBand.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

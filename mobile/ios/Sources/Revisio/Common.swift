@@ -32,29 +32,60 @@ struct Wordmark: View {
     }
 }
 
-/// The learner's face: their emoji on their colour, or the crest of their rank.
+/// The learner's face: their symbol on their colour, or their initials.
+///
+/// The colour is the *stored* one rather than something derived from the glyph —
+/// `SURFACE` in `src/components/ui/avatar.tsx` owns what "moss" looks like, and a
+/// picker that showed a different tint from the one it would save would be lying
+/// about what the choice does. The settings screen shows all five side by side
+/// for exactly that reason.
 struct Avatar: View {
     @Environment(\.revisio) private var colors
     var emoji: String?
     var size: CGFloat = 40
+    var color: String = "ink"
+    var name: String = ""
 
-    private var tint: Color {
-        switch abs((emoji ?? "").hashValue) % 5 {
-        case 0: return colors.secondary
-        case 1: return colors.good.opacity(0.22)
-        case 2: return colors.streak.opacity(0.22)
-        case 3: return colors.info.opacity(0.22)
-        default: return colors.accent
+    private var surface: Color {
+        switch color {
+        case "moss": return colors.goodSoft
+        case "bee": return colors.gold.opacity(0.3)
+        case "dawn": return colors.destructive.opacity(0.15)
+        case "sky": return colors.info.opacity(0.15)
+        default: return colors.foreground
         }
     }
 
-    var body: some View {
-        Text(emoji?.isEmpty == false ? emoji! : "R")
-            .font(.system(size: size * 0.46))
-            .frame(width: size, height: size)
-            .background(tint, in: Circle())
-            .overlay { Circle().strokeBorder(colors.border, lineWidth: 1) }
+    private var ink: Color {
+        switch color {
+        case "ink": return colors.background
+        case "moss": return colors.goodPressed
+        case "dawn": return colors.destructive
+        case "sky": return colors.info
+        default: return colors.foreground
+        }
     }
+
+    private var glyph: String { emoji?.isEmpty == false ? emoji! : initials(of: name) }
+
+    var body: some View {
+        Text(glyph)
+            .font(.system(size: size * (glyph.count > 2 ? 0.46 : 0.38), weight: .semibold))
+            .foregroundStyle(ink)
+            .frame(width: size, height: size)
+            .background(surface, in: Circle())
+            .overlay {
+                if color == "bee" { Circle().strokeBorder(colors.border, lineWidth: 1) }
+            }
+    }
+}
+
+/// `initials()` from the web — two letters, or one, or nothing to fall back on.
+func initials(of name: String) -> String {
+    let words = name.split(whereSeparator: { $0.isWhitespace }).filter { !$0.isEmpty }
+    guard let first = words.first?.first else { return "R" }
+    let letters = words.count > 1 ? "\(first)\(words[1].first!)" : "\(first)"
+    return letters.uppercased()
 }
 
 /// A 16px-radius card with a hairline and no shadow. Level 0 is the default.

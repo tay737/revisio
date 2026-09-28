@@ -60,7 +60,7 @@ struct LearnView: View {
                         model.loadSubjects()
                     }
                     PillButton(text: "Cram instead", tone: .ghost, icon: "cram") {
-                        model.selectTab(.cram)
+                        model.go(.cram)
                     }
                 }
                 Spacer().frame(height: 28)

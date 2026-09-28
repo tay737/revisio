@@ -11,6 +11,28 @@ import kotlinx.serialization.json.Json
 /** A signed-in session, with the refresh token the server handed us at login. */
 data class AuthSession(val accessToken: String, val refreshToken: String?, val user: ApiUser)
 
+/**
+ * What a refresh attempt actually told us.
+ *
+ * A `null` used to stand for two opposite things — "the server rejected this
+ * token" and "we never reached the server" — and the app treated both as "could
+ * not load". That is how a learner who was in fact signed out ended up looking
+ * at an account screen claiming to load: nothing was ever going to answer.
+ *
+ * This is the distinction `RefreshOutcome` makes in `src/lib/api.ts`, where the
+ * comment records what conflating them cost: people signed out mid-session
+ * whenever the database was merely busy.
+ */
+sealed interface RefreshOutcome {
+    data class Renewed(val session: AuthSession) : RefreshOutcome
+
+    /** The server said no. The session is over and only signing in can fix it. */
+    data object Rejected : RefreshOutcome
+
+    /** We could not find out: offline, a 5xx, a capacity refusal. Keep the session. */
+    data object Unavailable : RefreshOutcome
+}
+
 class ApiException(val status: Int, val code: String, override val message: String) : Exception(message)
 
 @kotlinx.serialization.Serializable
@@ -37,6 +59,41 @@ private data class SubmitRequest(
     val mode: String = "daily",
     val sessionId: String? = null,
 )
+
+@kotlinx.serialization.Serializable
+data class ExamAnswer(val questionId: String, val answer: String? = null, val selectedOptionId: String? = null)
+
+/** One door for the exam route: the presence of `answers` is what decides its job. */
+@kotlinx.serialization.Serializable
+private data class ExamRequest(
+    val topicIds: List<String>,
+    val questionCount: Int? = null,
+    val answers: List<ExamAnswer>? = null,
+)
+
+@kotlinx.serialization.Serializable
+data class MathsAnswer(val questionId: String, val answer: String? = null)
+
+/** The maths route's actions share one body shape, as the server's switch expects. */
+@kotlinx.serialization.Serializable
+private data class MathsRequest(
+    val action: String,
+    val topicIds: List<String>? = null,
+    val conceptIds: List<String>? = null,
+    val difficulty: String? = null,
+    val count: Int? = null,
+    val answers: List<MathsAnswer>? = null,
+    val marks: Int? = null,
+    val maxMarks: Int? = null,
+    val correct: Int? = null,
+    val total: Int? = null,
+)
+
+@kotlinx.serialization.Serializable
+private data class EmailChangeRequest(val password: String, val newEmail: String)
+
+@kotlinx.serialization.Serializable
+private data class PasswordChangeRequest(val currentPassword: String, val newPassword: String)
 
 @kotlinx.serialization.Serializable
 private data class ApiErrorEnvelope(val error: ApiErrorBody? = null)
@@ -104,18 +161,31 @@ class RevisioApi(
         }
     }
 
-    suspend fun refresh(refreshToken: String): AuthSession? = withContext(Dispatchers.IO) {
+    suspend fun refresh(refreshToken: String): RefreshOutcome = withContext(Dispatchers.IO) {
         val body = json.encodeToString(RefreshRequest.serializer(), RefreshRequest(refreshToken))
-        client.newCall(request("/api/v1/auth/refresh", body = body, method = "POST")).execute().use { response ->
-            if (!response.isSuccessful) return@withContext null
-            val text = response.body?.string().orEmpty()
-            val parsed = runCatching { json.decodeFromString(RefreshResponse.serializer(), text) }.getOrNull()
-                ?: return@withContext null
-            AuthSession(
-                parsed.accessToken,
-                refreshTokenFrom(response.headers("Set-Cookie")) ?: refreshToken,
-                parsed.user ?: ApiUser("", "", "", "student"),
-            )
+        try {
+            client.newCall(request("/api/v1/auth/refresh", body = body, method = "POST")).execute().use { response ->
+                // 401/403 is the server answering. Anything else that is not a
+                // success is us failing to hear the answer, and the two must not
+                // be confused: one ends the session, the other must not.
+                if (response.code == 401 || response.code == 403) return@withContext RefreshOutcome.Rejected
+                if (!response.isSuccessful) return@withContext RefreshOutcome.Unavailable
+                val text = response.body?.string().orEmpty()
+                val parsed = runCatching { json.decodeFromString(RefreshResponse.serializer(), text) }.getOrNull()
+                    ?: return@withContext RefreshOutcome.Unavailable
+                RefreshOutcome.Renewed(
+                    AuthSession(
+                        parsed.accessToken,
+                        refreshTokenFrom(response.headers("Set-Cookie")) ?: refreshToken,
+                        parsed.user ?: ApiUser("", "", "", "student"),
+                    ),
+                )
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // A dropped socket, a DNS failure or a timeout is not a rejection.
+            RefreshOutcome.Unavailable
         }
     }
 
@@ -230,6 +300,136 @@ class RevisioApi(
         }
     }
 
+    // ── the library's own write ─────────────────────────────────────────────
+
+    /** Who may see a public topic this learner owns. Learners only ever see their own. */
+    suspend fun setTopicVisibility(token: String, topicId: String, visibility: String): TopicVisibilityResult =
+        withContext(Dispatchers.IO) {
+            val body = json.encodeToString(
+                TopicVisibilityPatch.serializer(),
+                TopicVisibilityPatch(topicId, visibility),
+            )
+            send(request("/api/v1/content", token = token, body = body, method = "PATCH")) {
+                json.decodeFromString(TopicVisibilityResult.serializer(), it)
+            }
+        }
+
+    /** Join a class by its code. The teacher's own door, entered from the library. */
+    suspend fun joinClass(token: String, code: String): ClassJoinResult = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(ClassJoinRequest.serializer(), ClassJoinRequest(code))
+        send(request("/api/v1/classes/join", token = token, body = body, method = "POST")) {
+            json.decodeFromString(ClassJoinResult.serializer(), it)
+        }
+    }
+
+    // ── the exam simulator ──────────────────────────────────────────────────
+
+    /** What the question pool holds for this learner, and how they have done. */
+    suspend fun examPool(token: String, subjectId: String? = null): ExamPool = withContext(Dispatchers.IO) {
+        val query = subjectId?.let { "?subjectId=$it" } ?: ""
+        send(request("/api/v1/exam$query", token = token)) { json.decodeFromString(ExamPool.serializer(), it) }
+    }
+
+    /**
+     * Deal a paper.
+     *
+     * There is no matching `submit` here in the sense of a separate endpoint: the
+     * same route either builds a paper or marks one, and which it does is decided
+     * by whether answers came with the request. That is deliberate on the server
+     * — the paper and the marking have to agree about which questions were dealt,
+     * and one route is the only way to guarantee it.
+     */
+    suspend fun examPaper(token: String, topicIds: List<String>, questionCount: Int = 5): ExamPaper =
+        withContext(Dispatchers.IO) {
+            val body = json.encodeToString(
+                ExamRequest.serializer(),
+                ExamRequest(topicIds = topicIds, questionCount = questionCount),
+            )
+            send(request("/api/v1/exam", token = token, body = body, method = "POST")) {
+                json.decodeFromString(ExamPaper.serializer(), it)
+            }
+        }
+
+    suspend fun markExam(
+        token: String,
+        topicIds: List<String>,
+        answers: List<ExamAnswer>,
+    ): ExamResult = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(
+            ExamRequest.serializer(),
+            ExamRequest(topicIds = topicIds, answers = answers),
+        )
+        send(request("/api/v1/exam", token = token, body = body, method = "POST")) {
+            json.decodeFromString(ExamResult.serializer(), it)
+        }
+    }
+
+    // ── maths practice ──────────────────────────────────────────────────────
+
+    /**
+     * What may be drilled in a subject.
+     *
+     * The concept catalogue and the topics arrive together because a practice
+     * session picks from both, and two round trips would let a learner choose a
+     * concept from a catalogue the chosen subject no longer offers.
+     */
+    suspend fun mathsCatalogue(token: String, subjectId: String): MathsCatalogue = withContext(Dispatchers.IO) {
+        send(request("/api/v1/maths?subjectId=$subjectId", token = token)) {
+            json.decodeFromString(MathsCatalogue.serializer(), it)
+        }
+    }
+
+    suspend fun startPractice(
+        token: String,
+        topicIds: List<String>,
+        conceptIds: List<String> = emptyList(),
+        difficulty: String = "mixed",
+        count: Int = 10,
+    ): MathsSession = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(
+            MathsRequest.serializer(),
+            MathsRequest(
+                action = "start",
+                topicIds = topicIds,
+                conceptIds = conceptIds.ifEmpty { null },
+                difficulty = difficulty,
+                count = count,
+            ),
+        )
+        send(request("/api/v1/maths", token = token, body = body, method = "POST")) {
+            json.decodeFromString(MathsSession.serializer(), it)
+        }
+    }
+
+    suspend fun markPractice(token: String, answers: List<MathsAnswer>): List<MathsMark> =
+        withContext(Dispatchers.IO) {
+            val body = json.encodeToString(
+                MathsRequest.serializer(),
+                MathsRequest(action = "mark", answers = answers),
+            )
+            send(request("/api/v1/maths", token = token, body = body, method = "POST")) {
+                json.decodeFromString(MathsMarked.serializer(), it)
+            }
+        }.results
+
+    /**
+     * Claim the session's XP, once, at the end.
+     *
+     * Practice deliberately writes no review log and moves no schedule, so this
+     * is the only thing a finished drill changes — which is why it is a separate
+     * call rather than part of marking each question.
+     */
+    suspend fun awardPracticeXp(token: String, marks: Int, maxMarks: Int, correct: Int, total: Int): MathsXp =
+        withContext(Dispatchers.IO) {
+            val body = json.encodeToString(
+                MathsRequest.serializer(),
+                MathsRequest(action = "award_xp", marks = marks, maxMarks = maxMarks, correct = correct, total = total),
+            )
+            send(request("/api/v1/maths", token = token, body = body, method = "POST")) {
+                json.decodeFromString(MathsXp.serializer(), it)
+            }
+        }
+
     // ── rank, lobby, achievements ───────────────────────────────────────────
 
     suspend fun gamification(token: String, scope: String = "weekly"): GamificationPayload = withContext(Dispatchers.IO) {
@@ -247,6 +447,34 @@ class RevisioApi(
     suspend fun patchMe(token: String, patch: MePatch): Unit = withContext(Dispatchers.IO) {
         val body = json.encodeToString(MePatch.serializer(), patch)
         send(request("/api/v1/me", token = token, body = body, method = "PATCH")) { it }
+    }
+
+    /**
+     * `POST /me/email` — start an email change.
+     *
+     * The address is not swapped here. The server stores it as pending and mails
+     * a one-hour link to the *new* address; only the click moves it. A phone that
+     * holds a live session but not the new mailbox therefore cannot quietly take
+     * the account somewhere else, which is why this is a request rather than a
+     * write — and why the screen's confirmation says "check your inbox" instead
+     * of "email changed".
+     */
+    suspend fun requestEmailChange(token: String, password: String, newEmail: String): Unit = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(EmailChangeRequest.serializer(), EmailChangeRequest(password, newEmail))
+        send(request("/api/v1/me/email", token = token, body = body, method = "POST")) { it }
+    }
+
+    /**
+     * `POST /me/password` — change the password.
+     *
+     * Every refresh token is revoked server-side, so the caller's own session is
+     * dead the moment this returns. The caller must mint a fresh one immediately
+     * (see `refresh`) or the next request will be answered 401 and the app will
+     * look signed out for no visible reason.
+     */
+    suspend fun changePassword(token: String, currentPassword: String, newPassword: String): Unit = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(PasswordChangeRequest.serializer(), PasswordChangeRequest(currentPassword, newPassword))
+        send(request("/api/v1/me/password", token = token, body = body, method = "POST")) { it }
     }
 
     /**

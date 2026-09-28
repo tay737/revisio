@@ -56,12 +56,99 @@ struct RevisioTheme<Content: View>: View {
     }
 }
 
-/// The two curves the whole app animates on, from the stylesheet's tokens.
-enum Motion {
-    static let snap = Easing.snap
-    static let out = Easing.out
-    /// The stylesheet's 90ms press.
-    static let press = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.09)
+// ── motion ──────────────────────────────────────────────────────────────────
+//
+// The motion language itself is generated: `Motion`, in Theme.swift, is read out
+// of `src/lib/motion.ts` — six springs, five durations, four curves and the four
+// entrance gestures — so the springs these modifiers use are the web's own
+// numbers rather than a stand-in chosen by hand.
+
+///
+/// The web's `press`: `scale(0.95)`, on the spring that has teeth.
+///
+/// The 90ms lip under a button stays a timing curve, because that is what the
+/// stylesheet does with `--ease-snap`. This is the other half: the surfaces the
+/// web wraps in `whileTap`, which spring.
+///
+struct PressScale: ViewModifier {
+    @Environment(\.revisio) private var colors
+    let pressed: Bool
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(pressed && enabled ? Motion.pressScale : 1)
+            .animation(Motion.Springs.press.animation, value: pressed)
+    }
+}
+
+///
+/// The web's `fadeUp` — and `fadeScale` when a card or a crest arrives.
+///
+/// Rise and settle, once, when the element appears, after the web's capped
+/// stagger: five cards arrive as a wave, fifty still finish in a third of a
+/// second instead of trickling in.
+///
+struct Entrance: ViewModifier {
+    @State private var shown = false
+    let index: Int
+    let scales: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : (scales ? Motion.enterScaleRise : Motion.enterRise))
+            .scaleEffect(scales && !shown ? Motion.enterScale : 1)
+            .animation(
+                (scales ? Motion.Springs.settle.animation : Motion.Enter.base)
+                    .delay(Motion.stagger(index)),
+                value: shown
+            )
+            .onAppear { shown = true }
+    }
+}
+
+extension View {
+    /// Press feedback: the web's `scale(0.95)` on the press spring.
+    func pressScale(_ pressed: Bool, enabled: Bool = true) -> some View {
+        modifier(PressScale(pressed: pressed, enabled: enabled))
+    }
+
+    /// Entrance: rise and settle, once, after the capped stagger.
+    func entrance(_ index: Int = 0, scale: Bool = false) -> some View {
+        modifier(Entrance(index: index, scales: scale))
+    }
+
+    /// The web's `SPRING.pop` entrance — a crest or a badge arriving with teeth.
+    ///
+    /// `initial={{ scale: 0.7, opacity: 0, rotate: -6 }}` in the app: the element
+    /// comes up from seven tenths, slightly rotated, and overshoots because the pop
+    /// spring is underdamped (damping ratio 0.64). It is used only where something
+    /// has been *earned* — a promotion, a session summary, an unlocked badge — so
+    /// the overshoot reads as a flourish rather than as the interface being loose.
+    func pop(delay: Double = 0, from: CGFloat = 0.7, rotate: Double = -6) -> some View {
+        modifier(Pop(delay: delay, from: from, rotate: rotate))
+    }
+}
+
+/// The earned-entrance modifier behind `pop()`. SwiftUI's own spring can only be
+/// expressed as a response/damping pair, and the web authors the same spring as
+/// stiffness/damping/mass, so the conversion lives in `SpringSpec` — the numbers
+/// here are the web's, not a lookalike.
+struct Pop: ViewModifier {
+    @State private var shown = false
+    let delay: Double
+    let from: CGFloat
+    let rotate: Double
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .scaleEffect(shown ? 1 : from)
+            .rotationEffect(.degrees(shown ? 0 : rotate))
+            .animation(Motion.Springs.pop.animation.delay(delay), value: shown)
+            .onAppear { shown = true }
+    }
 }
 
 // ── type ────────────────────────────────────────────────────────────────────
@@ -211,7 +298,7 @@ private struct LipButtonStyle: ButtonStyle {
             .shadow(color: configuration.isPressed ? .clear : lipColor, radius: 0, x: 0, y: lip)
             .offset(y: configuration.isPressed ? lip : 0)
             .scaleEffect(configuration.isPressed ? 0.99 : 1)
-            .animation(Motion.press, value: configuration.isPressed)
+            .animation(Motion.Springs.press.animation, value: configuration.isPressed)
     }
 }
 
@@ -362,7 +449,8 @@ struct Meter: View {
             }
         }
         .frame(height: height)
-        .animation(Motion.snap, value: percent)
+        // The web's meter spring: smooth, no wobble.
+        .animation(Motion.Springs.meter.animation, value: percent)
     }
 }
 
@@ -745,7 +833,7 @@ struct RotatingHeadline: View {
                 insertion: .move(edge: .bottom).combined(with: .opacity),
                 removal: .move(edge: .top).combined(with: .opacity)
             ))
-            .animation(Motion.snap, value: index)
+            .animation(Motion.Enter.base, value: index)
             .onAppear { advance() }
     }
 
@@ -754,27 +842,254 @@ struct RotatingHeadline: View {
         Task { @MainActor in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 4_600_000_000)
-                withAnimation(Motion.out) { index = (index + 1) % words.count }
+                withAnimation(Motion.Enter.base) { index = (index + 1) % words.count }
             }
         }
     }
 }
 
-/// The lines the opener rotates through — `openers` from `src/lib/profile.ts`,
-/// mirrored so the phone rotates the same sentences the dashboard does.
+/// The lines the opener rotates through — `Copy.openers`, from the engine, so the
+/// phone rotates exactly the sentences the dashboard does.
 func openers(due: Int, streak: Int, level: Int, subject: String?) -> [String] {
-    var lines: [String] = []
-    if due > 0 {
-        lines.append("\(due) \(due == 1 ? "card is" : "cards are") waiting")
-        lines.append("Let's clear today's queue")
-    } else {
-        lines.append("Nothing is due — you're ahead")
-        lines.append("Want to get ahead instead?")
+    Copy.openers(due: due, streak: streak, level: level, subject: subject)
+}
+
+// ── polarity panels ─────────────────────────────────────────────────────────
+
+/// The web's `.band` scope.
+///
+/// The stylesheet divides pages with **surface change, not chrome**: bands
+/// alternating canvas → ink → canvas, with no border and no shadow between them,
+/// because the polarity shift *is* the divider. Remapping the *palette* rather
+/// than the classes is what lets one view — written once with `colors.card`,
+/// `colors.mutedForeground`, a `colors.primary` pill — come out right on either
+/// ground.
+extension RevisioColors {
+    /// Every semantic role remapped as if the band were the page.
+    var bandScoped: RevisioColors {
+        RevisioColors(
+            background: band,
+            foreground: bandForeground,
+            card: bandCard,
+            cardForeground: bandForeground,
+            popover: bandCard,
+            primary: bandForeground,
+            primaryForeground: band,
+            secondary: bandSecondary,
+            secondaryForeground: bandForeground,
+            muted: bandCard,
+            mutedForeground: bandMuted,
+            accent: bandSecondary,
+            accentForeground: bandForeground,
+            destructive: destructive,
+            destructiveForeground: destructiveForeground,
+            border: bandBorder,
+            borderStrong: borderStrong,
+            input: bandSecondary,
+            ring: bandForeground,
+            good: good,
+            goodPressed: goodPressed,
+            goodSoft: goodSoft,
+            streak: streak,
+            gold: gold,
+            info: info,
+            band: band,
+            bandForeground: bandForeground,
+            bandCard: bandCard,
+            bandBorder: bandBorder,
+            bandMuted: bandMuted,
+            bandSecondary: bandSecondary,
+            lip: lip,
+            lipSoft: Color(hex: 0x2A2A2AFF),
+            scrim: scrim
+        )
     }
-    if streak >= 2 { lines.append("Day \(streak) of your streak") }
-    if level > 1 { lines.append("Level \(level) — keep it moving") }
-    if let subject { lines.append("Back to \(subject)?") }
-    var seen = Set<String>()
-    let unique = lines.filter { seen.insert($0).inserted }
-    return unique.isEmpty ? ["Let's get started"] : unique
+}
+
+/// The web's `TilePanel` — a band at app-page scale.
+///
+/// In the shell it is a rounded panel rather than a full-bleed section, and it is
+/// the loudest structural device in the system: the near-black slab on a white
+/// page is what makes the scoreboard read as a scoreboard without a second accent
+/// colour. A `tone` of `.light` or `.parchment` is the same panel on the other
+/// ground.
+enum TileTone { case dark, light, parchment }
+
+struct TilePanel<Content: View>: View {
+    @Environment(\.revisio) private var colors
+    var tone: TileTone = .dark
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let scoped = tone == .dark ? colors.bandScoped : colors
+        let surface = tone == .dark ? colors.band : (tone == .parchment ? colors.secondary : colors.card)
+
+        ZStack(alignment: .topLeading) {
+            if tone == .dark {
+                // One off-centre wash of light, and a 1px specular sheen along the
+                // top edge. Not decoration: they are the light source, and they
+                // are why a near-black panel reads as a surface rather than as a
+                // hole in the page. White at 10% — a rank is not a colour.
+                Circle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(width: 224, height: 224)
+                    .blur(radius: 48)
+                    .offset(x: 96, y: -120)
+                LinearGradient(
+                    colors: [.clear, Color.white.opacity(0.20), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 1)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            VStack(alignment: .leading, spacing: 0) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 24)
+        }
+        .background(surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(tone == .dark ? Color.clear : colors.border, lineWidth: 1)
+        )
+        .environment(\.revisio, scoped)
+    }
+}
+
+// ── counters ────────────────────────────────────────────────────────────────
+
+/// The web's `NumberTicker` — a number that counts to its value.
+///
+/// Springs rather than tweens (the web runs `damping: 60, stiffness: 100`), so a
+/// queue that empties fast reads as fast and a big XP total arrives with some
+/// weight.
+struct NumberTicker: View {
+    var value: Int
+    var font: Font
+    var color: Color
+
+    @State private var shown: Double = 0
+
+    var body: some View {
+        Text("\(Int(shown.rounded()))")
+            .font(font)
+            .foregroundStyle(color)
+            .monospacedDigit()
+            .onAppear { shown = Double(value) }
+            .onChange(of: value) { next in
+                withAnimation(Motion.Springs.meter.animation) { shown = Double(next) }
+            }
+    }
+}
+
+// ── confetti ────────────────────────────────────────────────────────────────
+
+/// A burst of paper, resting on the same rules the web's `Confetti` uses: the
+/// game's own colours only, a short life, and gravity.
+///
+/// Reserved for the two moments something is *finished* — a session closed and a
+/// paper handed in — which is why it is a screen-level effect rather than a
+/// decoration any card can ask for.
+struct Confetti: View {
+    @Environment(\.revisio) private var colors
+    var trigger: Int
+
+    private struct Piece {
+        let x: Double
+        let vx: Double
+        let vy: Double
+        let spin: Double
+        let size: Double
+        let delay: Double
+        let colour: Int
+    }
+
+    @State private var pieces: [Piece] = []
+    @State private var clock: Double = 0
+
+    var body: some View {
+        Canvas { context, size in
+            guard clock > 0 else { return }
+            let palette = [colors.good, colors.gold, colors.info, colors.streak]
+            for piece in pieces {
+                let local = (clock - piece.delay) / (1 - piece.delay)
+                if local <= 0 || local >= 1 { continue }
+                let x = (piece.x + piece.vx * local) * size.width
+                let y = (piece.vy * local + 0.9 * local * local) * size.height + size.height * 0.35
+                let alpha = max(0, min(1, 1 - local * local))
+                var layer = context
+                layer.translateBy(x: x, y: y)
+                layer.rotate(by: .radians(piece.spin * local))
+                let rect = CGRect(
+                    x: -4 * piece.size,
+                    y: -3 * piece.size,
+                    width: 8 * piece.size,
+                    height: 6 * piece.size
+                )
+                layer.fill(Path(rect), with: .color(palette[piece.colour].opacity(alpha)))
+            }
+        }
+        .allowsHitTesting(false)
+        .onChange(of: trigger) { next in
+            if next > 0 { seed(next) }
+        }
+        .onAppear { if trigger > 0 { seed(trigger) } }
+    }
+
+    private func seed(_ seedValue: Int) {
+        var generator = SeededGenerator(seed: UInt64(abs(seedValue) &+ 1))
+        pieces = (0..<140).map { index in
+            Piece(
+                x: Double.random(in: 0...1, using: &generator),
+                vx: (Double.random(in: 0...1, using: &generator) - 0.5) * 1.6,
+                vy: -Double.random(in: 0...1, using: &generator) * 1.3 - 0.35,
+                spin: (Double.random(in: 0...1, using: &generator) - 0.5) * 12,
+                size: 0.5 + Double.random(in: 0...1, using: &generator),
+                delay: Double.random(in: 0...1, using: &generator) * 0.18,
+                colour: index % 4
+            )
+        }
+        clock = 0
+        withAnimation(.linear(duration: 2.2)) { clock = 1 }
+    }
+}
+
+/// A tiny deterministic generator, so a burst replays identically rather than
+/// scattering differently on every redraw.
+struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) { state = seed == 0 ? 0x9E3779B97F4A7C15 : seed }
+
+    mutating func next() -> UInt64 {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return state
+    }
+}
+
+// ── the reading progress hairline ───────────────────────────────────────────
+
+/// The web's `ScrollProgress` — the 2px ink line that fills as a long page is
+/// read. Only Learn carries one, because only Learn is long enough to lose your
+/// place in.
+struct ScrollProgress: View {
+    @Environment(\.revisio) private var colors
+    var progress: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Rectangle().fill(colors.border)
+                Rectangle()
+                    .fill(colors.foreground)
+                    .frame(width: geo.size.width * max(0, min(1, progress)))
+                    .animation(Motion.Springs.meter.animation, value: progress)
+            }
+        }
+        .frame(height: 2)
+    }
 }
