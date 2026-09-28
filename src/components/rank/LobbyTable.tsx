@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { cn } from '@/lib/utils';
@@ -7,6 +8,7 @@ import { type LobbyZone, type Rank } from '@/domain/ranked';
 
 export type LobbyRow = {
   position: number;
+  userId?: string;
   name: string;
   xp: number;
   isMe: boolean;
@@ -91,9 +93,18 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
               )}
 
               <span className="min-w-0 flex-1">
-                <span className={cn('block truncate text-[15px]', row.isMe && 'font-bold')}>
-                  {row.isMe ? 'You' : row.name}
-                </span>
+                {row.isMe || !row.userId ? (
+                  <span className={cn('block truncate text-[15px]', row.isMe && 'font-bold')}>
+                    {row.isMe ? 'You' : row.name}
+                  </span>
+                ) : (
+                  <Link
+                    href={`/u/${row.userId}?from=/progress`}
+                    className="block truncate text-[15px] underline-offset-4 hover:underline"
+                  >
+                    {row.name}
+                  </Link>
+                )}
                 {!row.isMe && (
                   <span className="block truncate text-[12px] text-muted-foreground">
                     {row.rank.label}

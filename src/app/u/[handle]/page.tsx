@@ -37,7 +37,13 @@ export async function generateMetadata({ params }: { params: { handle: string } 
   };
 }
 
-export default async function ProfilePage({ params }: { params: { handle: string } }) {
+export default async function ProfilePage({
+  params,
+  searchParams,
+}: {
+  params: { handle: string };
+  searchParams: { from?: string };
+}) {
   // The page is public; a signed-in visitor carries their access token in the
   // Authorization header, and it is only used to answer "is this yours?".
   const auth = (await headers()).get('authorization');
@@ -52,42 +58,58 @@ export default async function ProfilePage({ params }: { params: { handle: string
     : null;
   const joined = new Date(profile.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
+  // A profile opened from the leaderboard carries ?from=<app path>; the back
+  // link returns there so the visitor lands back mid-app rather than at the
+  // landing screen. Only same-app paths are honoured — never an off-site URL.
+  const from = searchParams.from?.startsWith('/') ? searchParams.from : null;
+
   return (
     <div className="mx-auto w-full max-w-[720px] px-4 py-10">
+      {from && (
+        <Link
+          href={from}
+          className="t-caption mb-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1 font-semibold backdrop-blur"
+        >
+          <Icon name="collapse" size={13} className="rotate-90" />
+          Back
+        </Link>
+      )}
+
       {/* ── Banner ─────────────────────────────────────────────────────── */}
       <ProfileBanner imageUrl={profile.bannerUrl} color={profile.bannerColor} className="-mx-4 -mt-10 sm:-mx-6" />
 
       {/* ── Identity ─────────────────────────────────────────────────────── */}
       {/*
-        The avatar pulls up over the banner's lower edge; the header carries a
-        padding floor beneath it so the avatar's hang (88px − 48px pull-up =
-        40px below the banner) never collides with the bio or meta lines on
-        any width — the old layout let the flex row ride up into both.
+        Two stacked rows, never a wrap-flex: the avatar row (pulled up over the
+        banner) and the text row (always fully below the avatar). Overlap
+        is impossible by construction — the text can never ride up beside a
+        44px-tall avatar column on a narrow screen, which is what the old
+        flex-wrap layout did.
       */}
-      <header className="-mt-12 flex flex-wrap items-end gap-x-4 gap-y-3 px-1 pb-5">
-        <div className="shrink-0 rounded-full ring-4 ring-background">
+      <header className="px-1">
+        <div className="-mt-12 mb-3 inline-block rounded-full ring-4 ring-background">
           <Avatar name={display} emoji={profile.avatarEmoji} color={profile.avatarColor} imageUrl={profile.avatarUrl} size={88} />
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="t-display truncate">{display}</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <RoleBadge role={profile.role} />
-            {profile.badges.map((b) => (
-              <ProfileBadgeChip key={b.id} label={b.label} icon={b.icon} color={b.color} />
-            ))}
-            {profile.username ? <span className="t-caption text-muted-foreground">@{profile.username}</span> : null}
-            {profile.visibility.name && profile.name && profile.name !== display ? (
-              <span className="t-caption text-muted-foreground">· {profile.name}</span>
-            ) : null}
-          </div>
-          {profile.bio && <p className="mt-2 max-w-[52ch] text-[15px] leading-relaxed">{profile.bio}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="t-display min-w-0 truncate">{display}</h1>
+          {owner && (
+            <Link href="/settings" className="btn btn-secondary btn-sm shrink-0 gap-1.5">
+              <Icon name="edit" size={14} />
+              Edit profile
+            </Link>
+          )}
         </div>
-        {owner && (
-          <Link href="/settings" className="btn btn-secondary btn-sm shrink-0 gap-1.5">
-            <Icon name="edit" size={14} />
-            Edit profile
-          </Link>
-        )}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <RoleBadge role={profile.role} />
+          {profile.badges.map((b) => (
+            <ProfileBadgeChip key={b.id} label={b.label} icon={b.icon} color={b.color} />
+          ))}
+          {profile.username ? <span className="t-caption text-muted-foreground">@{profile.username}</span> : null}
+          {profile.visibility.name && profile.name && profile.name !== display ? (
+            <span className="t-caption text-muted-foreground">· {profile.name}</span>
+          ) : null}
+        </div>
+        {profile.bio && <p className="mt-2.5 max-w-[52ch] text-[15px] leading-relaxed">{profile.bio}</p>}
       </header>
 
       {/* ── Rank + stats ─────────────────────────────────────────────────── */}

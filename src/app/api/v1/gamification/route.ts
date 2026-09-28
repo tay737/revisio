@@ -26,6 +26,8 @@ const LOBBY_CAPACITY = 30;
 
 export type LobbyRow = {
   position: number;
+  /** The member's id — the handle a profile link needs (/u/<userId> works). */
+  userId: string;
   name: string;
   xp: number;
   isMe: boolean;
@@ -173,6 +175,7 @@ export const GET = route(async (req: NextRequest) => {
       zone: zoneFor(position, LOBBY_CAPACITY, Number(reviewCount?.c ?? 0)),
       rows: lobbySeats.map((s, i) => ({
         position: i + 1,
+        userId: s.userId,
         name: s.userId === user.id ? 'You' : s.name,
         xp: s.xp,
         isMe: s.userId === user.id,

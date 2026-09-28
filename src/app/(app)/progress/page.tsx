@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
+import Link from 'next/link';
 import { api, downloadFile } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { useRanked, type RankedScope } from '@/lib/useRanked';
@@ -225,7 +226,13 @@ export default function RankPage() {
                         {row.rank}
                       </span>
                       <span className={cn('min-w-0 flex-1 truncate text-[15px]', row.isMe && 'font-bold')}>
-                        {row.isMe ? 'You' : row.name}
+                        {row.isMe || !row.userId ? (
+                          row.isMe ? 'You' : row.name
+                        ) : (
+                          <Link href={`/u/${row.userId}?from=/progress`} className="underline-offset-4 hover:underline">
+                            {row.name}
+                          </Link>
+                        )}
                       </span>
                       <span className="num shrink-0 text-[14px] text-muted-foreground">
                         <NumberTicker value={row.xp} /> XP

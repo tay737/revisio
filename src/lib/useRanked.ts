@@ -24,7 +24,7 @@ export type AchievementRow = {
   unlockedAt: string | null;
 };
 
-export type BoardRow = { rank: number; name: string; xp: number; isMe: boolean };
+export type BoardRow = { rank: number; userId?: string; name: string; xp: number; isMe: boolean };
 
 export type RankedScope = 'daily' | 'weekly' | 'monthly';
 
