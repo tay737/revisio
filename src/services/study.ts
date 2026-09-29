@@ -567,5 +567,25 @@ export async function submitExam(userId: string, topicIds: string[], submission:
   if (xpAwarded > 0) {
     await db.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: xpAwarded, source: 'exam' });
   }
-  return { score, maxScore, detail, xpAwarded };
+  // The AO profile answers the question a percentage cannot: *what kind* of
+  // marks am I losing? Aggregated over the paper's questions, per assessment
+  // objective, it turns the mark scheme's structure into a revision directive.
+  const aoTotals = new Map<string, { awarded: number; available: number }>();
+  for (const d of detail) {
+    for (const a of d.aoSplit ?? []) {
+      const t = aoTotals.get(a.ao) ?? { awarded: 0, available: 0 };
+      t.awarded += d.awarded > 0 ? a.marks : 0;
+      t.available += a.marks;
+      aoTotals.set(a.ao, t);
+    }
+  }
+  const aoProfile = [...aoTotals.entries()]
+    .map(([ao, t]) => ({
+      ao,
+      awarded: t.awarded,
+      available: t.available,
+      percentage: t.available > 0 ? Math.round((t.awarded / t.available) * 100) : 0,
+    }))
+    .sort((a, b) => a.ao.localeCompare(b.ao));
+  return { score, maxScore, detail, xpAwarded, aoProfile };
 }

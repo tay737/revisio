@@ -81,6 +81,31 @@ const PAPER_KIND_LABEL: Record<string, string> = {
   other: 'Document',
 };
 
+/**
+ * One-sentence revision directive from the AO profile: name the weakest
+ * objective and say what practising it means. Ties only when every objective
+ * scored the same — in that case say the honest thing.
+ */
+function aoDirective(profile: { ao: string; percentage: number }[]): string {
+  const sorted = [...profile].sort((a, b) => a.percentage - b.percentage);
+  const weakest = sorted[0];
+  const strongest = sorted[sorted.length - 1];
+  const label = (ao: string) => AO_EXPLAINER[ao]?.label.toLowerCase() ?? ao;
+  if (sorted.length > 1 && weakest.percentage === strongest.percentage) {
+    return 'Every objective scored the same — revise the questions you lost, whatever kind of mark they were.';
+  }
+  if (weakest.percentage >= strongest.percentage - 10) {
+    return `Marks are spread evenly across objectives. Revise from the per-question breakdown below.`;
+  }
+  return `Your weakest objective is ${weakest.ao} (${label(weakest.ao)}) at ${weakest.percentage}% — ${
+    weakest.ao === 'AO1'
+      ? 're-read the notes for the facts and definitions you were expected to state.'
+      : weakest.ao === 'AO2'
+        ? 'practise tying your answers to the scenario — every point should name the business, person or data in the question.'
+        : 'practise finishing answers with a reasoned judgement: weigh both sides, then decide.'
+  }`;
+}
+
 type Marked = {
   score: number;
   maxScore: number;
@@ -102,6 +127,7 @@ type Marked = {
     missedPhrases: string[];
   }[];
   xpAwarded: number;
+  aoProfile: { ao: string; awarded: number; available: number; percentage: number }[] | null;
 };
 type ExamInfo = { topics: { id: string; name: string }[]; questionsAvailable: number; papers: StoredPaper[]; attempts: Attempt[] };
 
@@ -132,6 +158,7 @@ export default function ExamPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const confettiRef = useRef<ConfettiRef>(null);
+  const resultHeadingRef = useRef<HTMLDivElement>(null);
 
   const loadInfo = () =>
     api
@@ -193,6 +220,10 @@ export default function ExamPage() {
           disableForReducedMotion: true,
         });
       }
+      // The submitted form unmounts, which would leave keyboard and screen-reader
+      // users at the top of the page with no announcement — move focus to the
+      // result and let the live region read the score.
+      requestAnimationFrame(() => resultHeadingRef.current?.focus());
       loadInfo();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'We could not mark that paper.');
@@ -237,7 +268,7 @@ export default function ExamPage() {
             {info.topics.length === 0 ? (
               <p className="t-caption text-muted-foreground">No exam topics are available on this deployment yet.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Topics in this paper">
                 {info.topics.map((t) => {
                   const on = picked.has(t.id);
                   return (
@@ -299,7 +330,8 @@ export default function ExamPage() {
       {paper && !result && (
         <div className="space-y-3">
           <div className="glass-bar sticky top-[52px] z-10 -mx-4 flex items-center justify-between border-b border-border/70 px-4 py-2.5 md:-mx-6 md:px-6">
-            <span className="t-caption text-muted-foreground">
+            <span className="t-caption text-muted-foreground" role="status">
+              <span className="sr-only">Answered </span>
               <span className="tabular-nums font-semibold text-foreground">{answeredCount}</span> of{' '}
               <span className="tabular-nums">{paper.length}</span> answered
             </span>
@@ -377,8 +409,9 @@ export default function ExamPage() {
       {result && (
         <div className="relative space-y-4">
           <Confetti ref={confettiRef} className="pointer-events-none fixed inset-0 z-[60]" />
-          <div className="card p-8 text-center">
-            <div className="t-num">
+          <div className="card p-8 text-center" tabIndex={-1} ref={resultHeadingRef}>
+            <div className="t-num" role="status">
+              <span className="sr-only">You scored </span>
               <NumberTicker value={result.percentage} className="num" />%
             </div>
             <p className="t-body mt-2 text-muted-foreground">
@@ -397,6 +430,34 @@ export default function ExamPage() {
           {result.detail.map((d, i) => (
             <ResultDetail key={d.questionId} d={d} index={i} />
           ))}
+
+          {result.aoProfile && result.aoProfile.length > 0 && (
+            <div className="card space-y-2">
+              <div className="flex items-baseline justify-between">
+                <h2 className="t-strong">Where the marks went</h2>
+                <span className="t-caption text-muted-foreground">marks earned by assessment objective</span>
+              </div>
+              {result.aoProfile.map((row) => {
+                const guide = AO_EXPLAINER[row.ao];
+                return (
+                  <div key={row.ao} className="inset px-3 py-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="t-caption font-semibold">
+                        {row.ao} — {guide?.label ?? 'Assessment objective'}
+                      </span>
+                      <span className="t-caption-s tabular-nums text-muted-foreground">
+                        {row.awarded}/{row.available} · {row.percentage}%
+                      </span>
+                    </div>
+                    {guide && <p className="t-fine mt-0.5 text-muted-foreground">{guide.description}</p>}
+                  </div>
+                );
+              })}
+              <p className="t-caption text-muted-foreground">
+                {aoDirective(result.aoProfile)}
+              </p>
+            </div>
+          )}
 
           <button
             type="button"
