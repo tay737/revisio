@@ -266,6 +266,8 @@ data class BoardRow(
 @Serializable
 data class LobbySeat(
     val position: Int = 0,
+    /** Present since the lobby grew profile links: the seat opens `/u/<id>`. */
+    val userId: String? = null,
     val name: String = "",
     val xp: Int = 0,
     val isMe: Boolean = false,
@@ -392,6 +394,7 @@ data class MeDetail(
     val gamification: Gamification = Gamification(),
     val today: TodaySummary = TodaySummary(),
     val achievements: List<AchievementRef> = emptyList(),
+    val bannerColor: String = "dusk",
 )
 
 // ── the exam simulator ──────────────────────────────────────────────────────
@@ -412,9 +415,14 @@ data class ExamQuestion(
     val questionMd: String = "",
     val marks: Int = 1,
     /** Dealt only for a multiple-choice question, and only for the paper. */
-    val options: List<String>? = null,
+    val options: List<CardOption>? = null,
     val board: String? = null,
     val sourceYear: Int? = null,
+    // ── exam-board fidelity: dealt with the paper, mark scheme withheld ──
+    val aoSplit: List<AoSplit>? = null,
+    val qwcMarks: Int = 0,
+    val questionRef: String = "",
+    val specRefs: String = "",
 )
 
 @Serializable
@@ -432,6 +440,8 @@ data class ExamPool(
     val topics: List<ExamTopic> = emptyList(),
     val questionsAvailable: Int = 0,
     val attempts: List<ExamAttempt> = emptyList(),
+    /** The board's own documents, ordered question papers → mark schemes → reference. */
+    val papers: List<StoredPaper> = emptyList(),
 )
 
 /** `POST /exam { topicIds }` — the paper, with the mark scheme withheld. */
@@ -450,7 +460,19 @@ data class ExamMark(
     val marks: Int = 0,
     val correct: Boolean = false,
     val feedback: String = "",
-)
+    // The full marking material arrives only after submission.
+    val questionRef: String = "",
+    val aoSplit: List<AoSplit>? = null,
+    val modelAnswerMd: String = "",
+    val markSchemeMd: String = "",
+    val markingNotesMd: String = "",
+    val qwcMarks: Int = 0,
+    val matchedPhrases: List<String> = emptyList(),
+    val missedPhrases: List<String> = emptyList(),
+) {
+    /** Marks for the row as the web shows it: the question's plus QWC. */
+    val total: Int get() = marks + qwcMarks
+}
 
 @Serializable
 data class ExamResult(
@@ -459,6 +481,8 @@ data class ExamResult(
     val percentage: Int = 0,
     val detail: List<ExamMark> = emptyList(),
     val xpAwarded: Int = 0,
+    /** Marks earned per assessment objective — *what kind* of mark was lost. */
+    val aoProfile: List<AoRow> = emptyList(),
 )
 
 // ── maths practice ──────────────────────────────────────────────────────────
@@ -560,6 +584,7 @@ data class MePatch(
     val bio: String? = null,
     val avatarEmoji: String? = null,
     val avatarColor: String? = null,
+    val bannerColor: String? = null,
     val profileVisibility: Visibility? = null,
     val leaderboardOptOut: Boolean? = null,
     val prefs: Prefs? = null,
@@ -600,4 +625,10 @@ data class PublicProfile(
     val subjects: List<SubjectRef> = emptyList(),
     val achievements: List<AchievementRef> = emptyList(),
     val reviewCount: Int = 0,
+    // ── media: the uploaded picture and banner, plus the banner's wash colour ──
+    val avatarUrl: String? = null,
+    val bannerUrl: String? = null,
+    val bannerColor: String = "dusk",
+    /** Granted by staff; the web renders these beside the role. */
+    val badges: List<ProfileBadgeChip> = emptyList(),
 )

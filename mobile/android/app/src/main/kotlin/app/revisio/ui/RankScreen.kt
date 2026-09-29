@@ -241,7 +241,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                                 }
                             }
                         } else {
-                            LobbyTable(data.lobby)
+                            LobbyTable(data.lobby) { seatId -> viewModel.openProfile(seatId) }
                         }
                     }
                 }
@@ -412,7 +412,7 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
 
 /** The lobby's seat table, in the compact form a phone can show. */
 @Composable
-private fun LobbyTable(lobby: Lobby) {
+private fun LobbyTable(lobby: Lobby, onOpenProfile: (String) -> Unit) {
     Column {
         ConfidenceBand(lobby.band, lobby.size)
         Spacer(Modifier.height(8.dp))
@@ -422,8 +422,21 @@ private fun LobbyTable(lobby: Lobby) {
         )
         Spacer(Modifier.height(6.dp))
         for (seat in lobby.rows.take(12)) {
+            // The web links every seat but your own to its profile; a phone keeps
+            // exactly that rule, with your own row staying inert because tapping
+            // "You" can only ever mean editing yourself, which Settings owns.
+            val clickable = !seat.isMe && !seat.userId.isNullOrBlank()
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (clickable) {
+                            Modifier.clickable { onOpenProfile(seat.userId!!) }
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -439,6 +452,10 @@ private fun LobbyTable(lobby: Lobby) {
                     seat.rank?.let { Text(it.label, style = Type.label.copy(size = 11, uppercase = false).style(Muted)) }
                 }
                 Text("${seat.xp}", style = Type.fine.style(if (seat.isMe) Ink else Muted))
+                if (clickable) {
+                    Spacer(Modifier.width(4.dp))
+                    Icon(RevisioIcons.expand, size = 13, tint = Muted)
+                }
             }
         }
     }

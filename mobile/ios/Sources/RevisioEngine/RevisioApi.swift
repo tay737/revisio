@@ -107,6 +107,36 @@ public final class RevisioApi: ReviewApi {
         return (try decoder.decode(T.self, from: data), http)
     }
 
+    /// The transport without a decoder, for the calls whose body the caller does
+    /// not need — an action envelope's `{ok:true}` says nothing worth typing.
+    private func sendRaw(
+        _ path: String,
+        method: String = "GET",
+        token: String? = nil,
+        body: Data? = nil,
+    ) async throws -> Data {
+        var request = URLRequest(url: URL(string: base + path)!)
+        request.httpMethod = method
+        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let body {
+            request.httpBody = body
+            request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ApiError(status: 0, code: "error", message: "No response from the server.")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let envelope = try? decoder.decode(ApiErrorEnvelope.self, from: data)
+            throw ApiError(
+                status: http.statusCode,
+                code: envelope?.error?.code ?? "error",
+                message: envelope?.error?.message ?? "Request failed (\(http.statusCode)).",
+            )
+        }
+        return data
+    }
+
     public func login(email: String, password: String) async throws -> AuthSession {
         let body = try encoder.encode(LoginBody(email: email, password: password))
         let (parsed, http) = try await send("/api/v1/auth/login", method: "POST", body: body, as: LoginResponse.self)
@@ -446,6 +476,107 @@ public final class RevisioApi: ReviewApi {
     public func profile(handle: String, token: String? = nil) async throws -> PublicProfile {
         let (parsed, _) = try await send("/api/v1/profile/\(escaped(handle))", token: token, as: PublicProfile.self)
         return parsed
+    }
+
+    // ── the update check ────────────────────────────────────────────────
+
+    /// `GET /version` — the newest client the server knows about.
+    ///
+    /// Deliberately unauthenticated and the first thing the app asks on launch:
+    /// an install that is behind deserves to know before it does anything else,
+    /// and the endpoint has to work even for a session the server has since
+    /// refused.
+    public func version() async throws -> VersionInfo {
+        try await send("/api/v1/version", as: VersionInfo.self).0
+    }
+
+    // ── teaching and admin consoles ─────────────────────────────────────
+
+    /// `GET /teacher` — my classes with per-student rosters.
+    public func teacher(token: String) async throws -> TeacherPayload {
+        try await send("/api/v1/teacher", token: token, as: TeacherPayload.self).0
+    }
+
+    /// `GET /content?mine=1` — the topics this account may edit, with counts.
+    public func myTopics(token: String) async throws -> MyTopicsPayload {
+        try await send("/api/v1/content?mine=1", token: token, as: MyTopicsPayload.self).0
+    }
+
+    /// `GET /admin` — the whole console in one payload, developers only.
+    public func admin(token: String) async throws -> AdminPayload {
+        try await send("/api/v1/admin", token: token, as: AdminPayload.self).0
+    }
+
+    /// `POST /teacher` — an action envelope, exactly as the web sends it.
+    public func teacherAction(token: String, body: [String: Any]) async throws {
+        _ = try await postAction("/api/v1/teacher", token: token, body: body)
+    }
+
+    /// `POST /admin` — an action envelope, exactly as the web sends it.
+    public func adminAction(token: String, body: [String: Any]) async throws {
+        _ = try await postAction("/api/v1/admin", token: token, body: body)
+    }
+
+    private func postAction(_ path: String, token: String, body: [String: Any]) async throws -> Data {
+        guard JSONSerialization.isValidJSONObject(body),
+              let payload = try? JSONSerialization.data(withJSONObject: body) else {
+            throw ApiError(status: 0, code: "bad_request", message: "That action could not be built.")
+        }
+        return try await sendRaw(path, method: "POST", token: token, body: payload)
+    }
+
+    // ── media: avatar and banner uploads ────────────────────────────────
+
+    /// The web's upload dance, driven from a phone.
+    ///
+    /// 1. `presign` — the server names where the bytes go;
+    /// 2. the client PUTs the bytes straight to that URL, no auth header — the
+    ///    presigned URL carries its own;
+    /// 3. `confirm` — only now does the pointer swap, so an abandoned upload
+    ///    never half-lands. This mirrors `settings/page.tsx` exactly.
+    public func uploadProfileImage(token: String, kind: String, contentType: String, bytes: Data) async throws -> String {
+        let presignBody = try encoder.encode(
+            MediaPresignBody(action: "presign", kind: kind, contentType: contentType, sizeBytes: bytes.count),
+        )
+        let presigned = try await send(
+            "/api/v1/media",
+            method: "POST",
+            token: token,
+            body: presignBody,
+            as: MediaPresign.self,
+        ).0
+
+        guard let url = URL(string: presigned.url) else {
+            throw ApiError(status: 0, code: "bad_presign", message: "The upload location was not usable.")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        let (_, putResponse) = try await session.data(for: request)
+        guard let putHttp = putResponse as? HTTPURLResponse, (200..<300).contains(putHttp.statusCode) else {
+            throw ApiError(status: 0, code: "upload_failed", message: "The image upload was rejected. Try a smaller file.")
+        }
+
+        let confirmBody = try encoder.encode(
+            MediaConfirmBody(action: "confirm", kind: kind, key: presigned.key, contentType: contentType, sizeBytes: bytes.count),
+        )
+        return try await send(
+            "/api/v1/media",
+            method: "POST",
+            token: token,
+            body: confirmBody,
+            as: MediaConfirm.self,
+        ).0.url
+    }
+
+    public func removeProfileImage(token: String, kind: String) async throws {
+        let body = try encoder.encode(MediaRemoveBody(action: "remove", kind: kind))
+        _ = try await send("/api/v1/media", method: "POST", token: token, body: body, as: Data.self)
+    }
+
+    /// `GET /exam?paperId=` — one stored paper, verbatim.
+    public func examPaperDoc(token: String, paperId: String) async throws -> PaperDoc {
+        try await send("/api/v1/exam?paperId=\(escaped(paperId))", token: token, as: PaperEnvelope.self).0.paper
     }
 }
 

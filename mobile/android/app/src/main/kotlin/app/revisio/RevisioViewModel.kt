@@ -24,7 +24,15 @@ import app.revisio.engine.MathsQuestion
 import app.revisio.engine.MathsXp
 import app.revisio.engine.MeDetail
 import app.revisio.engine.MePatch
+import app.revisio.engine.AdminPayload
+import app.revisio.engine.MyTopic
+import app.revisio.engine.MyTopicsPayload
 import app.revisio.engine.Note
+import app.revisio.engine.PaperDoc
+import app.revisio.engine.TeacherPayload
+import app.revisio.engine.UpdateKind
+import app.revisio.engine.UpdateStatus
+import app.revisio.engine.checkForUpdate
 import app.revisio.engine.OfflineStore
 import app.revisio.engine.Prefs
 import app.revisio.engine.PublicProfile
@@ -134,6 +142,8 @@ data class UiState(
     val answered: Int = 0,
     val correct: Int = 0,
     val finished: Boolean = false,
+    /** The learner ended the session early — the summary says "ended", not "complete". */
+    val ended: Boolean = false,
     val inReview: Boolean = false,
     val mode: StudyMode = StudyMode.DAILY,
     val sessionTitle: String = "",
@@ -194,6 +204,8 @@ data class UiState(
     val examAnswers: Map<String, String> = emptyMap(),
     val examResult: ExamResult? = null,
     val examBusy: Boolean = false,
+    /** A stored board paper opened verbatim. */
+    val paperDoc: PaperDoc? = null,
     /** A public profile someone shared, and why it could not be opened. */
     val profile: PublicProfile? = null,
     val profileError: String? = null,
@@ -213,6 +225,18 @@ data class UiState(
     val savingProfile: Boolean = false,
     val savingPassword: Boolean = false,
     val savingEmail: Boolean = false,
+    // ── the update check ──────────────────────────────────────────────────
+    /** Set once the server has been asked what the newest client is. */
+    val update: UpdateStatus = UpdateStatus(UpdateKind.None, ""),
+    /** The update card is dismissed for this run of the app. */
+    val updateDismissed: Boolean = false,
+    // ── teaching and admin consoles ───────────────────────────────────────
+    val teacherData: TeacherPayload? = null,
+    val myTopics: List<MyTopic> = emptyList(),
+    val adminData: AdminPayload? = null,
+    val staffBusy: Boolean = false,
+    val staffNote: String? = null,
+    val staffError: String? = null,
 )
 
 data class HomeState(
@@ -262,7 +286,40 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
     init {
         observeConnectivity(app)
         bootstrap()
+        checkUpdate()
     }
+
+    // ── the update check ────────────────────────────────────────────────────
+
+    /**
+     * Ask the server what the newest client is, once on launch.
+     *
+     * The comparison is by build number (see `checkForUpdate`), and the result
+     * is only ever shown — an old build that ignores it keeps working, which is
+     * exactly the point: an update notice must never be the thing that stops a
+     * learner from doing their reviews.
+     */
+    private fun checkUpdate() {
+        viewModelScope.launch {
+            val info = runCatching { api.version() }.getOrNull() ?: return@launch
+            val mine = appBuild()
+            _state.update { it.copy(update = checkForUpdate(mine, info.build, info.minBuild), updateDismissed = false) }
+        }
+    }
+
+    private fun appBuild(): Int {
+        val context = getApplication<Application>()
+        return try {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0).let { info ->
+                if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else info.versionCode
+            }
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    fun dismissUpdate() = _state.update { it.copy(updateDismissed = true) }
 
     // ── session ─────────────────────────────────────────────────────────────
 
@@ -511,7 +568,8 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             Destination.LIBRARY -> loadSubjects()
             Destination.PRACTICE -> loadMathsSubjects()
             Destination.EXAM -> loadExamPool()
-            Destination.TEACHING, Destination.ADMIN -> Unit
+            Destination.TEACHING -> if (_state.value.teacherData == null) loadTeaching()
+            Destination.ADMIN -> if (_state.value.adminData == null) loadAdmin()
         }
     }
 
@@ -623,6 +681,62 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             block = { api.patchMe(it, patch); api.meDetail(it) },
             onResult = { me ->
                 _state.update { it.copy(me = me, savingProfile = false, settingsNote = "Profile saved.") }
+            },
+            onFailure = { note -> _state.update { it.copy(savingProfile = false, settingsError = note) } },
+        )
+    }
+
+    /** The banner's wash, saved through the same `/me` door as the avatar's. */
+    fun saveBannerColor(color: String) {
+        _state.update { it.copy(savingProfile = true, settingsError = null, settingsNote = null) }
+        withToken(
+            block = { api.patchMe(it, MePatch(bannerColor = color)); api.meDetail(it) },
+            onResult = { me ->
+                _state.update { it.copy(me = me, savingProfile = false, settingsNote = "Banner saved.") }
+            },
+            onFailure = { note -> _state.update { it.copy(savingProfile = false, settingsError = note) } },
+        )
+    }
+
+    /**
+     * Upload a profile image — the web's presign → PUT → confirm dance.
+     *
+     * The web filters to ≤5 MB before starting; the phone does the same check
+     * locally so the refusal is instant rather than a round trip.
+     */
+    fun uploadImage(kind: String, bytes: ByteArray, contentType: String) {
+        if (bytes.size > 5 * 1024 * 1024) {
+            _state.update { it.copy(settingsError = "That image is over 5 MB — pick a smaller one.", settingsNote = null) }
+            return
+        }
+        _state.update { it.copy(savingProfile = true, settingsError = null, settingsNote = null) }
+        withToken(
+            block = { api.uploadProfileImage(it, kind, contentType, bytes) },
+            onResult = {
+                viewModelScope.launch {
+                    val token = ensureToken()
+                    val me = token?.let { t -> runCatching { api.meDetail(t) }.getOrNull() }
+                    _state.update {
+                        it.copy(me = me ?: it.me, savingProfile = false, settingsNote = "Image updated.")
+                    }
+                }
+            },
+            onFailure = { note -> _state.update { it.copy(savingProfile = false, settingsError = note) } },
+        )
+    }
+
+    fun removeImage(kind: String) {
+        _state.update { it.copy(savingProfile = true, settingsError = null, settingsNote = null) }
+        withToken(
+            block = { api.removeProfileImage(it, kind) },
+            onResult = {
+                viewModelScope.launch {
+                    val token = ensureToken()
+                    val me = token?.let { t -> runCatching { api.meDetail(t) }.getOrNull() }
+                    _state.update {
+                        it.copy(me = me ?: it.me, savingProfile = false, settingsNote = "Image removed.")
+                    }
+                }
             },
             onFailure = { note -> _state.update { it.copy(savingProfile = false, settingsError = note) } },
         )
@@ -1048,6 +1162,75 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         it.copy(examPaper = emptyList(), examAnswers = emptyMap(), examResult = null)
     }
 
+    /** One stored paper, verbatim — opened from the pool's papers list. */
+    fun loadPaperDoc(paperId: String) {
+        _state.update { it.copy(examBusy = true) }
+        withToken(
+            block = { api.examPaperDoc(it, paperId) },
+            onResult = { doc -> _state.update { it.copy(examBusy = false, paperDoc = doc) } },
+            onFailure = { note -> _state.update { it.copy(examBusy = false, message = note) } },
+        )
+    }
+
+    fun closePaperDoc() = _state.update { it.copy(paperDoc = null) }
+
+    // ── teaching and admin consoles ──────────────────────────────────────────
+
+    /** Everything the Teaching screen reads, in one go — as the web's page does. */
+    fun loadTeaching() {
+        _state.update { it.copy(staffBusy = true, staffNote = null, staffError = null) }
+        withToken(
+            block = { token ->
+                val classes = api.teacher(token)
+                val topics = runCatching { api.myTopics(token) }.getOrNull()
+                classes to topics
+            },
+            onResult = { (classes, topics) ->
+                _state.update {
+                    it.copy(
+                        staffBusy = false,
+                        teacherData = classes,
+                        myTopics = topics?.topics ?: emptyList(),
+                    )
+                }
+            },
+            onFailure = { note -> _state.update { it.copy(staffBusy = false, staffError = note) } },
+        )
+    }
+
+    fun loadAdmin() {
+        _state.update { it.copy(staffBusy = true, staffNote = null, staffError = null) }
+        withToken(
+            block = { api.admin(it) },
+            onResult = { data -> _state.update { it.copy(staffBusy = false, adminData = data) } },
+            onFailure = { note -> _state.update { it.copy(staffBusy = false, staffError = note) } },
+        )
+    }
+
+    /**
+     * One staff action, then re-read whatever it changed.
+     *
+     * The web's `post()` confirms in a `Notice` and reloads; this is the same
+     * shape — the note lands in `staffNote`, the error in `staffError`, and the
+     * console's data is refreshed so the screen never shows a state the server
+     * has already moved past.
+     */
+    fun staffAction(admin: Boolean, body: kotlinx.serialization.json.JsonObject, okMsg: String) {
+        _state.update { it.copy(staffBusy = true, staffNote = null, staffError = null) }
+        withToken(
+            block = { token ->
+                if (admin) api.adminAction(token, body) else api.teacherAction(token, body)
+            },
+            onResult = {
+                _state.update { it.copy(staffBusy = false, staffNote = okMsg) }
+                if (admin) loadAdmin() else loadTeaching()
+            },
+            onFailure = { note -> _state.update { it.copy(staffBusy = false, staffError = note) } },
+        )
+    }
+
+    fun clearStaffNote() = _state.update { it.copy(staffNote = null, staffError = null) }
+
     // ── a public profile ────────────────────────────────────────────────────
 
     /**
@@ -1262,6 +1445,18 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * The learner ends the session early — the web's "End session".
+     *
+     * Every answered card's XP and count is already banked, so nothing is lost;
+     * the summary still opens (titled "Session ended", not "complete") and the
+     * remaining cards simply stay due.
+     */
+    fun endSessionEarly() {
+        _state.update { it.copy(finished = true, ended = true, feedback = null) }
+        viewModelScope.launch { ensureToken()?.let { drainOutbox(it) } }
+    }
+
     fun endReview() {
         _state.update {
             it.copy(
@@ -1269,6 +1464,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 index = 0,
                 inReview = false,
                 finished = false,
+                ended = false,
                 answered = 0,
                 correct = 0,
                 feedback = null,

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -69,6 +70,9 @@ import app.revisio.engine.usernameProblem
 /** `AVATAR_COLORS` — the five the website offers, in its order. */
 private val AVATAR_COLORS = listOf("ink", "moss", "bee", "dawn", "sky")
 
+/** `BANNER_COLORS` — the six washes `BANNER_WASH` owns, in its order. */
+private val BANNER_COLORS = listOf("dusk", "rose", "sea", "moss", "bee", "ember")
+
 /** `AVATAR_EMOJI` — ditto. An uploaded picture replaces whichever is chosen. */
 private val AVATAR_EMOJI = listOf("🦉", "🧠", "📚", "⚡", "🌟", "🦊", "🐢", "🌙", "🎯", "🧪")
 
@@ -110,6 +114,7 @@ fun SettingsScreen(state: UiState, viewModel: RevisioViewModel) {
 
         Identity(me, state)
         ProfileCard(me, state, viewModel)
+        MediaCard(me, state, viewModel)
         PrivacyCard(me, viewModel)
         AccountCard(me, state, viewModel)
         SecurityCard(me, state, viewModel)
@@ -182,7 +187,7 @@ private fun Identity(me: MeDetail, state: UiState) {
             if (rank != null) {
                 RankCrest(rank, size = 58, showProgress = false)
             } else {
-                Avatar(me.avatarEmoji, 58, me.avatarColor, me.name)
+                Avatar(me.avatarEmoji, 58, me.avatarColor, me.name, imageUrl = me.avatarUrl)
             }
             Spacer(Modifier.size(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -336,6 +341,125 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
             if (dirty && problem == null) {
                 Text("Unsaved changes", style = Type.caption.style(Muted))
             }
+        }
+    }
+}
+
+/**
+ * Pictures — the uploaded avatar and banner, plus the banner's wash colour.
+ *
+ * The web keeps uploads inside the Profile card; on a phone the photo picker
+ * needs somewhere to explain itself, so it is its own card with the same copy.
+ * Uploads confirm and save themselves (presign → PUT → confirm, the web's own
+ * dance), so nothing here participates in the profile's dirty check.
+ */
+@Composable
+private fun MediaCard(me: MeDetail, state: UiState, viewModel: RevisioViewModel) {
+    val avatarPicker = remember {
+        androidx.activity.result.PickVisualMediaRequest(
+            androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
+        )
+    }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var picking by remember { mutableStateOf<String?>(null) }
+
+    fun readBytes(uri: android.net.Uri): Pair<ByteArray, String>? = runCatching {
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        val type = context.contentResolver.getType(uri) ?: "image/jpeg"
+        bytes to type
+    }.getOrNull()
+
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        val kind = picking
+        picking = null
+        if (uri != null && kind != null) {
+            readBytes(uri)?.let { (bytes, type) -> viewModel.uploadImage(kind, bytes, type) }
+        }
+    }
+
+    Spacer(Modifier.height(20.dp))
+    SurfaceCard(modifier = Modifier.entrance(index = 2)) {
+        Text("Pictures", style = Type.strong.style(Ink))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Up to 5 MB. An uploaded picture replaces the symbol; the banner image covers the wash.",
+            style = Type.caption.style(Muted),
+        )
+
+        Spacer(Modifier.height(16.dp))
+        // The banner preview — what a visitor sees behind the identity block.
+        ProfileBanner(me.bannerUrl, me.bannerColor, height = 96)
+
+        Spacer(Modifier.height(14.dp))
+        Label("Banner colour", token = Type.eyebrow, color = Muted)
+        Spacer(Modifier.height(6.dp))
+        // The web's BANNER_WASH names, in its order. The web marks the choice
+        // with a ring; the same treatment, the same order, the same names.
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            BANNER_COLORS.forEach { option ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Radius.pill))
+                        .border(
+                            width = 2.dp,
+                            color = if (option == me.bannerColor) Ink else Color.Transparent,
+                            shape = RoundedCornerShape(Radius.pill),
+                        )
+                        .padding(2.dp)
+                        .clickable { viewModel.saveBannerColor(option) },
+                ) {
+                    ProfileBanner(null, option, height = 28, modifier = Modifier.width(44.dp))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton(
+                text = if (me.avatarUrl != null) "Replace avatar" else "Upload avatar",
+                onClick = {
+                    picking = "avatar"
+                    launcher.launch(avatarPicker)
+                },
+                tone = PillTone.Secondary,
+                icon = RevisioIcons.upload,
+                enabled = !state.savingProfile,
+            )
+            if (me.avatarUrl != null) {
+                PillButton(
+                    text = "Remove",
+                    onClick = { viewModel.removeImage("avatar") },
+                    tone = PillTone.Ghost,
+                    enabled = !state.savingProfile,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PillButton(
+                text = if (me.bannerUrl != null) "Replace banner" else "Upload banner",
+                onClick = {
+                    picking = "banner"
+                    launcher.launch(avatarPicker)
+                },
+                tone = PillTone.Secondary,
+                icon = RevisioIcons.upload,
+                enabled = !state.savingProfile,
+            )
+            if (me.bannerUrl != null) {
+                PillButton(
+                    text = "Remove",
+                    onClick = { viewModel.removeImage("banner") },
+                    tone = PillTone.Ghost,
+                    enabled = !state.savingProfile,
+                )
+            }
+        }
+        if (state.savingProfile) {
+            Spacer(Modifier.height(10.dp))
+            Text("Working…", style = Type.fine.style(Muted))
         }
     }
 }
@@ -562,7 +686,7 @@ private fun PreferencesCard(me: MeDetail, viewModel: RevisioViewModel) {
  * promise from a line of text that stays until the next thing happens.
  */
 @Composable
-private fun Notice(text: String, good: Boolean, onDismiss: () -> Unit) {
+internal fun Notice(text: String, good: Boolean, onDismiss: () -> Unit) {
     val ink = if (good) revisioColors.goodPressed else Bad
     Row(
         modifier = Modifier
@@ -638,7 +762,7 @@ private fun Toggle(checked: Boolean, label: String, onChange: (Boolean) -> Unit)
  * with the field when the value is refused, which is the web's `bad` state.
  */
 @Composable
-private fun SettingsField(
+internal fun SettingsField(
     label: String,
     value: String,
     onChange: (String) -> Unit,

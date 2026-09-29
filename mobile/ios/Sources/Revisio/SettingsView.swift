@@ -1,4 +1,5 @@
 import RevisioEngine
+import PhotosUI
 import SwiftUI
 
 /// `AVATAR_COLORS` — the five the website offers, in its order.
@@ -86,6 +87,7 @@ struct SettingsView: View {
                 if let me = model.me {
                     identity(me)
                     profile(me)
+                    media(me)
                     privacy(me)
                     account(me)
                     security(me)
@@ -154,7 +156,7 @@ struct SettingsView: View {
                 if let rank = model.ranked?.ranked.rank {
                     RankCrest(rank: rank, size: 58, showProgress: false)
                 } else {
-                    Avatar(emoji: me.avatarEmoji, size: 58, color: me.avatarColor, name: me.name)
+                    Avatar(emoji: me.avatarEmoji, size: 58, color: me.avatarColor, name: me.name, imageUrl: me.avatarUrl)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(me.name.isEmpty ? "No name" : me.name)
@@ -182,6 +184,90 @@ struct SettingsView: View {
     }
 
     // ── Profile ─────────────────────────────────────────────────────────────
+
+    /// Pictures — the uploaded avatar and banner, plus the banner's wash colour.
+    ///
+    /// The web keeps uploads inside the Profile card; on a phone the photo
+    /// picker needs somewhere to explain itself, so it is its own card with the
+    /// same copy. Uploads confirm and save themselves (presign → PUT →
+    /// confirm, the web's own dance), so nothing here participates in the
+    /// profile's dirty check.
+    private func media(_ me: MeDetail) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 20)
+            SurfaceCard {
+                Text("Pictures")
+                    .font(Type.strong.font)
+                    .foregroundStyle(colors.foreground)
+                Spacer().frame(height: 4)
+                Text("Up to 5 MB. An uploaded picture replaces the symbol; the banner image covers the wash.")
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer().frame(height: 16)
+                // The banner preview — what a visitor sees behind the identity.
+                ProfileBanner(imageUrl: me.bannerUrl, color: me.bannerColor ?? "dusk", height: 96)
+
+                Spacer().frame(height: 14)
+                LabelText(text: "Banner colour", token: Type.eyebrow, color: colors.mutedForeground)
+                Spacer().frame(height: 6)
+                // The web's BANNER_WASH names, in its order. The web marks the
+                // choice with a ring; the same treatment, the same order.
+                HStack(spacing: 4) {
+                    ForEach(BANNER_COLORS, id: \.self) { option in
+                        Button {
+                            model.saveBannerColor(option)
+                        } label: {
+                            ProfileBanner(imageUrl: nil, color: option, height: 28)
+                                .frame(width: 44)
+                                .padding(2)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: Radius.lg)
+                                        .strokeBorder(
+                                            option == (me.bannerColor ?? "dusk") ? colors.foreground : .clear,
+                                            lineWidth: 2
+                                        )
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Spacer().frame(height: 16)
+                PhotoPickerButton(
+                    model: model,
+                    kind: "avatar",
+                    label: me.avatarUrl == nil ? "Upload avatar" : "Replace avatar",
+                )
+                if me.avatarUrl != nil {
+                    Spacer().frame(height: 8)
+                    PillButton(text: "Remove avatar", tone: .ghost, enabled: !model.savingProfile) {
+                        model.removeImage(kind: "avatar")
+                    }
+                }
+                Spacer().frame(height: 12)
+                PhotoPickerButton(
+                    model: model,
+                    kind: "banner",
+                    label: me.bannerUrl == nil ? "Upload banner" : "Replace banner",
+                )
+                if me.bannerUrl != nil {
+                    Spacer().frame(height: 8)
+                    PillButton(text: "Remove banner", tone: .ghost, enabled: !model.savingProfile) {
+                        model.removeImage(kind: "banner")
+                    }
+                }
+                if model.savingProfile {
+                    Spacer().frame(height: 10)
+                    Text("Working…")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                }
+            }
+            .entrance(2)
+        }
+    }
 
     private func profile(_ me: MeDetail) -> some View {
         let handle = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -747,5 +833,31 @@ private struct SettingsKeyboard: ViewModifier {
         #else
         content
         #endif
+    }
+}
+
+/// One photo-picking upload control — `PhotosPicker` from PhotosUI, handing the
+/// bytes straight to the model's upload dance. The 5 MB floor is enforced in the
+/// model, so the refusal reads the same everywhere.
+struct PhotoPickerButton: View {
+    @ObservedObject var model: AppModel
+    let kind: String
+    let label: String
+
+    var body: some View {
+        PhotosPicker(selection: Binding(
+            get: { nil },
+            set: { selection in
+                guard let selection else { return }
+                model.loadAndUpload(selection: selection, kind: kind)
+            },
+        ), matching: .images) {
+            HStack(spacing: 8) {
+                Icon("upload", size: 14, color: .primary)
+                Text(label)
+            }
+            .font(Type.captionS.font)
+        }
+        .disabled(model.savingProfile)
     }
 }

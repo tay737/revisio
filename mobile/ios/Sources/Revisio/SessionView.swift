@@ -63,14 +63,34 @@ struct SessionView: View {
 
     /// What this session is, and how far through it we are.
     private var header: some View {
-        HStack(spacing: 0) {
-            LabelText(text: model.mode.label, token: Type.eyebrow, color: model.mode.tint(colors))
-            Spacer().frame(width: 10)
-            Text(model.sessionTitle)
-                .font(Type.fine.font)
-                .foregroundStyle(colors.mutedForeground)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            LabelText(text: "\(model.index + 1) / \(model.cards.count)", token: Type.micro, color: colors.mutedForeground)
+        VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                LabelText(text: model.mode.label, token: Type.eyebrow, color: model.mode.tint(colors))
+                Spacer().frame(width: 10)
+                Text(model.sessionTitle)
+                    .font(Type.fine.font)
+                    .foregroundStyle(colors.mutedForeground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                LabelText(text: "\(model.index + 1) / \(model.cards.count)", token: Type.micro, color: colors.mutedForeground)
+            }
+            HStack {
+                Spacer(minLength: 0)
+                // Ink, not green — leaving is not something to celebrate. Ending a
+                // session keeps every point already earned; the summary opens and
+                // the remaining cards stay due. The web puts the same quiet
+                // control beside the running XP.
+                HStack(spacing: 5) {
+                    Icon("signOut", size: 12, color: colors.mutedForeground)
+                    Text("End session")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(colors.background, in: Capsule())
+                .contentShape(Rectangle())
+                .onTapGesture { model.endSessionEarly() }
+            }
         }
     }
 
@@ -313,7 +333,7 @@ private struct SummaryView: View {
         switch model.mode {
         case .cram: return "Cram complete"
         case .learn: return "Topic met"
-        case .daily: return "Session complete"
+        case .daily: return model.ended ? "Session ended" : "Session complete"
         }
     }
 
