@@ -39,6 +39,7 @@ Non-obvious facts about this repo that cannot be recovered by reading the code. 
 - `server-only` modules must never be imported from client components (build fails with a pages/-directory error). Shared validation lives in client-safe `src/lib/*` (e.g. `lib/username.ts`); server modules import it.
 - Profile privacy is enforced server-side in `src/services/profile.ts` (`getPublicProfile`); never filter on the client. Hidden fields return as `null`.
 - Bash in this sandbox: `UID` is readonly (use another var name); python3 is 3.9 (no `json.dumps` fancy args needed but keep scripts simple).
+- **Vault content imports** go through `scripts/vault/manifests/*.ts` (idempotent upserts keyed on deterministic ids) — see `.claude/skills/vault-import/SKILL.md`. The importer updates an existing subject by its DB id; never invent a new id for a live subject. `exam_papers_doc_idx` makes (subject, board, series, paperCode, kind) unique — placeholder codes like Pearson's `P00XXXXX` need a suffix. Locally the Neon sync drain hangs (pgbouncer parameterisation); drain via production `/api/v1/sync` after deploy.
 
 ## Deploy & CI
 
