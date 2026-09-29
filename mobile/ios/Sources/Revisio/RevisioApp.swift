@@ -864,7 +864,7 @@ final class AppModel: ObservableObject {
         examBusy = true
         withToken(
             { try await self.api.examPaperDoc(token: $0, paperId: paperId) },
-            onFailure: { note in self.examBusy = false; self.message = note },
+            onFailure: { note in self.examBusy = false; self.message = note }
         ) { doc in
             self.examBusy = false
             self.paperDoc = doc
@@ -886,7 +886,7 @@ final class AppModel: ObservableObject {
                 let topics = try? await self.api.myTopics(token: token)
                 return (classes, topics?.topics ?? [])
             },
-            onFailure: { note in self.staffBusy = false; self.staffError = note },
+            onFailure: { note in self.staffBusy = false; self.staffError = note }
         ) { payload in
             self.teacherData = payload.0
             self.myTopics = payload.1
@@ -900,7 +900,7 @@ final class AppModel: ObservableObject {
         staffError = nil
         withToken(
             { try await self.api.admin(token: $0) },
-            onFailure: { note in self.staffBusy = false; self.staffError = note },
+            onFailure: { note in self.staffBusy = false; self.staffError = note }
         ) { data in
             self.adminData = data
             self.staffBusy = false
@@ -922,7 +922,7 @@ final class AppModel: ObservableObject {
                 if admin { try await self.api.adminAction(token: token, body: body) }
                 else { try await self.api.teacherAction(token: token, body: body) }
             },
-            onFailure: { note in self.staffBusy = false; self.staffError = note },
+            onFailure: { note in self.staffBusy = false; self.staffError = note }
         ) { _ in
             self.staffBusy = false
             self.staffNote = okMsg
@@ -942,7 +942,7 @@ final class AppModel: ObservableObject {
         settingsNote = nil
         withToken(
             { try await self.api.patchMe(token: $0, patch: MePatch(bannerColor: color)) },
-            onFailure: { note in self.savingProfile = false; self.settingsError = note },
+            onFailure: { note in self.savingProfile = false; self.settingsError = note }
         ) { _ in
             self.refreshMe(after: "Banner saved.")
         }
@@ -960,7 +960,7 @@ final class AppModel: ObservableObject {
         settingsNote = nil
         withToken(
             { try await self.api.uploadProfileImage(token: $0, kind: kind, contentType: contentType, bytes: bytes) },
-            onFailure: { note in self.savingProfile = false; self.settingsError = note },
+            onFailure: { note in self.savingProfile = false; self.settingsError = note }
         ) { _ in
             self.refreshMe(after: "Image updated.")
         }
@@ -972,7 +972,7 @@ final class AppModel: ObservableObject {
         settingsNote = nil
         withToken(
             { try await self.api.removeProfileImage(token: $0, kind: kind) },
-            onFailure: { note in self.savingProfile = false; self.settingsError = note },
+            onFailure: { note in self.savingProfile = false; self.settingsError = note }
         ) { _ in
             self.refreshMe(after: "Image removed.")
         }
@@ -1007,7 +1007,7 @@ final class AppModel: ObservableObject {
     private func refreshMe(after note: String) {
         withToken(
             { try await self.api.meDetail(token: $0) },
-            onFailure: { _ in self.savingProfile = false },
+            onFailure: { _ in self.savingProfile = false }
         ) { me in
             self.me = me
             self.savingProfile = false

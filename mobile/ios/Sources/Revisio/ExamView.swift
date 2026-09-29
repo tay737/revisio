@@ -499,7 +499,7 @@ struct MarkedQuestionCard: View {
                     PillButton(
                         text: open ? "Hide marking material" : "Mark scheme & model answer",
                         tone: .ghost,
-                        icon: open ? "collapse" : "expand",
+                        icon: open ? "collapse" : "expand"
                     ) {
                         open.toggle()
                     }

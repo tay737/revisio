@@ -238,7 +238,7 @@ struct SettingsView: View {
                 PhotoPickerButton(
                     model: model,
                     kind: "avatar",
-                    label: me.avatarUrl == nil ? "Upload avatar" : "Replace avatar",
+                    label: me.avatarUrl == nil ? "Upload avatar" : "Replace avatar"
                 )
                 if me.avatarUrl != nil {
                     Spacer().frame(height: 8)
@@ -250,7 +250,7 @@ struct SettingsView: View {
                 PhotoPickerButton(
                     model: model,
                     kind: "banner",
-                    label: me.bannerUrl == nil ? "Upload banner" : "Replace banner",
+                    label: me.bannerUrl == nil ? "Upload banner" : "Replace banner"
                 )
                 if me.bannerUrl != nil {
                     Spacer().frame(height: 8)
@@ -850,7 +850,7 @@ struct PhotoPickerButton: View {
             set: { selection in
                 guard let selection else { return }
                 model.loadAndUpload(selection: selection, kind: kind)
-            },
+            }
         ), matching: .images) {
             HStack(spacing: 8) {
                 Icon("upload", size: 14, color: .primary)

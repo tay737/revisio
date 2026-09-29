@@ -88,7 +88,7 @@ struct ProfileView: View {
                     size: 72,
                     color: profile.avatarColor,
                     name: shown,
-                    imageUrl: profile.avatarUrl,
+                    imageUrl: profile.avatarUrl
                 )
                 VStack(alignment: .leading, spacing: 4) {
                     Text(shown)

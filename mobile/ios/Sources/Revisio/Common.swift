@@ -115,32 +115,32 @@ struct ProfileBanner: View {
         case "rose":
             return LinearGradient(
                 colors: [colors.destructive.opacity(0.18), .clear, colors.gold.opacity(0.10)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
         case "sea":
             return LinearGradient(
                 colors: [colors.info.opacity(0.14), .clear, colors.good.opacity(0.12)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
         case "moss":
             return LinearGradient(
                 colors: [colors.goodSoft, .clear, colors.info.opacity(0.08)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
         case "bee":
             return LinearGradient(
                 colors: [colors.gold.opacity(0.30), .clear, colors.destructive.opacity(0.08)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
         case "ember":
             return LinearGradient(
                 colors: [colors.destructive.opacity(0.25), colors.gold.opacity(0.10), .clear],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
         default: // "dusk" and anything unrecognised — the default wash.
             return LinearGradient(
                 colors: [colors.info.opacity(0.12), .clear, colors.gold.opacity(0.15)],
-                startPoint: .topLeading, endPoint: .bottomTrailing,
+                startPoint: .topLeading, endPoint: .bottomTrailing
             )
         }
     }
