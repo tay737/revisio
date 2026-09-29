@@ -61,6 +61,7 @@ export const POST = route(async (req: NextRequest) => {
     percentage: result.maxScore ? Math.round((result.score / result.maxScore) * 100) : 0,
     detail: result.detail,
     xpAwarded: result.xpAwarded,
+    aoProfile: result.aoProfile ?? null,
   });
 });
 
