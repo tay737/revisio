@@ -45,6 +45,9 @@ struct Avatar: View {
     var size: CGFloat = 40
     var color: String = "ink"
     var name: String = ""
+    /// An uploaded picture takes priority over the glyph, exactly as the web's
+    /// priority order does; a URL that fails falls through to the glyph.
+    var imageUrl: String? = nil
 
     private var surface: Color {
         switch color {
@@ -69,6 +72,24 @@ struct Avatar: View {
     private var glyph: String { emoji?.isEmpty == false ? emoji! : initials(of: name) }
 
     var body: some View {
+        if let imageUrl, !imageUrl.isEmpty {
+            AsyncImage(url: URL(string: imageUrl)) { phase in
+                if let image = phase.image {
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(Circle())
+                } else {
+                    glyphView
+                }
+            }
+        } else {
+            glyphView
+        }
+    }
+
+    private var glyphView: some View {
         Text(glyph)
             .font(.system(size: size * (glyph.count > 2 ? 0.46 : 0.38), weight: .semibold))
             .foregroundStyle(ink)
@@ -77,6 +98,72 @@ struct Avatar: View {
             .overlay {
                 if color == "bee" { Circle().strokeBorder(colors.border, lineWidth: 1) }
             }
+    }
+}
+
+/// The profile banner: the uploaded image if there is one, else the chosen token
+/// wash. Mirrors `BANNER_WASH` in `avatar.tsx` — six diagonal washes drawn from
+/// the same palette the stylesheet owns.
+struct ProfileBanner: View {
+    @Environment(\.revisio) private var colors
+    var imageUrl: String?
+    var color: String
+    var height: CGFloat = 128
+
+    private var wash: LinearGradient {
+        switch color {
+        case "rose":
+            return LinearGradient(
+                colors: [colors.destructive.opacity(0.18), .clear, colors.gold.opacity(0.10)],
+                startPoint: .topLeading, endPoint: .bottomTrailing,
+            )
+        case "sea":
+            return LinearGradient(
+                colors: [colors.info.opacity(0.14), .clear, colors.good.opacity(0.12)],
+                startPoint: .topLeading, endPoint: .bottomTrailing,
+            )
+        case "moss":
+            return LinearGradient(
+                colors: [colors.goodSoft, .clear, colors.info.opacity(0.08)],
+                startPoint: .topLeading, endPoint: .bottomTrailing,
+            )
+        case "bee":
+            return LinearGradient(
+                colors: [colors.gold.opacity(0.30), .clear, colors.destructive.opacity(0.08)],
+                startPoint: .topLeading, endPoint: .bottomTrailing,
+            )
+        case "ember":
+            return LinearGradient(
+                colors: [colors.destructive.opacity(0.25), colors.gold.opacity(0.10), .clear],
+                startPoint: .topLeading, endPoint: .bottomTrailing,
+            )
+        default: // "dusk" and anything unrecognised — the default wash.
+            return LinearGradient(
+                colors: [colors.info.opacity(0.12), .clear, colors.gold.opacity(0.15)],
+                startPoint: .topLeading, endPoint: .bottomTrailing,
+            )
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            if let imageUrl, !imageUrl.isEmpty {
+                AsyncImage(url: URL(string: imageUrl)) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Rectangle().fill(colors.secondary)
+                    }
+                }
+            } else {
+                Rectangle().fill(wash)
+            }
+        }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
     }
 }
 

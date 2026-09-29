@@ -54,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.revisio.Destination
 import app.revisio.RevisioViewModel
 import app.revisio.UiState
+import app.revisio.engine.UpdateKind
 
 /**
  * The root of the native app.
@@ -82,6 +83,10 @@ fun RevisioApp(viewModel: RevisioViewModel = viewModel()) {
                     // which is what a link out of a chat window should do.
                     state.profileHandle != null -> ProfileScreen(state, viewModel)
                     else -> Column(modifier = Modifier.fillMaxSize()) {
+                        // The update notice rides above every destination: asked
+                        // once at launch, shown until dismissed, and never in the
+                        // way of the screens themselves.
+                        UpdateBanner(state, viewModel::dismissUpdate)
                         Box(modifier = Modifier.weight(1f)) {
                             when (state.destination) {
                                 Destination.TODAY -> TodayScreen(state, viewModel)
@@ -93,7 +98,8 @@ fun RevisioApp(viewModel: RevisioViewModel = viewModel()) {
                                 Destination.PRACTICE -> PracticeScreen(state, viewModel)
                                 Destination.LIBRARY -> LibraryScreen(state, viewModel)
                                 Destination.SETTINGS -> SettingsScreen(state, viewModel)
-                                Destination.TEACHING, Destination.ADMIN -> ComingSoon(state.destination)
+                                Destination.TEACHING -> TeachingScreen(state, viewModel)
+                                Destination.ADMIN -> AdminScreen(state, viewModel)
                             }
                         }
                         BottomBar(
@@ -127,24 +133,39 @@ fun RevisioApp(viewModel: RevisioViewModel = viewModel()) {
 }
 
 /**
- * A destination that is real but has no screen yet.
+ * The update notice, shown over every destination until dismissed.
  *
- * The consoles are roles-gated, so a learner never arrives here; a teacher does,
- * and "we have not built this yet" is a worse answer than the truth. Saying so on
- * the page is the honest version of a port in progress.
+ * The server was asked once at launch what the newest client is; this renders
+ * the answer. "Available" is a sentence, "required" is a sentence and a
+ * different weight — the server's `minBuild` floor is what makes the
+ * difference, and the copy does not pretend otherwise. Either way the app
+ * keeps working: an update notice must never be the thing that stops a learner
+ * from doing their reviews.
  */
 @Composable
-private fun ComingSoon(destination: Destination) {
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
-        Spacer(Modifier.height(24.dp))
-        ScreenTitle(destination.label, eyebrow = "Destination")
-        Spacer(Modifier.height(12.dp))
-        SoftCard {
-            Text(
-                "${destination.label} is a teacher and admin console on the website. " +
-                    "It is not ported to the phone yet.",
-                style = Type.caption.style(Muted),
-            )
+private fun UpdateBanner(state: UiState, onDismiss: () -> Unit) {
+    val update = state.update
+    if (state.updateDismissed || update.kind == UpdateKind.None) return
+    val required = update.kind == UpdateKind.Required
+    SurfaceCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BoxedGlyph(if (required) RevisioIcons.rocket else RevisioIcons.download, tint = if (required) Warn else Ink)
+            Spacer(Modifier.size(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (required) "This version must be updated" else "An update is available",
+                    style = Type.strong.style(Ink),
+                )
+                Text(
+                    if (required) {
+                        "Version ${update.latest} is required — older builds can no longer be guaranteed to work."
+                    } else {
+                        "Version ${update.latest} is out. You can keep studying either way."
+                    },
+                    style = Type.fine.style(Muted),
+                )
+            }
+            IconPill(RevisioIcons.close, onDismiss)
         }
     }
 }

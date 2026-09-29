@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -15,8 +16,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -90,16 +98,105 @@ fun Wordmark(size: TypeToken = Type.tagline) {
 }
 
 /**
+ * A remote image, loaded on demand with the app's own HttpClient-free path.
+ *
+ * The web's avatar renders an `<img>` with an `onError` fallback to the glyph;
+ * this is the same contract — a URL that fails paints *nothing* rather than a
+ * hole, and the caller's fallback (emoji or initials) shows through. No image
+ * library is pulled in for the two URLs the app renders; OkHttp is already on
+ * the classpath, and the bytes are decoded off the main thread.
+ */
+@Composable
+fun RemoteImage(url: String, contentDescription: String?, modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var failed by remember(url) { mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(url) {
+        val painted = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val request = okhttp3.Request.Builder().url(url).build()
+                okhttp3.OkHttpClient().newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) null
+                    else response.body?.byteStream()?.use { android.graphics.BitmapFactory.decodeStream(it) }
+                }
+            }.getOrNull()
+        }
+        if (painted != null) bitmap = painted else failed = true
+    }
+
+    if (bitmap != null) {
+        androidx.compose.foundation.Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = contentDescription,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = modifier,
+        )
+    } else if (!failed) {
+        // Hold the space while the bytes travel; the fallback never jumps.
+        Box(modifier = modifier.background(Card2))
+    } else {
+        Box(modifier = modifier.background(androidx.compose.ui.graphics.Color.Transparent))
+    }
+}
+
+/**
+ * The profile banner: the uploaded image if there is one, else the chosen token
+ * wash. Mirrors `BANNER_WASH` in `avatar.tsx` — six diagonal washes, generated
+ * from the same palette the stylesheet owns.
+ */
+@Composable
+fun ProfileBanner(imageUrl: String?, color: String, modifier: Modifier = Modifier, height: Int = 128) {
+    Box(modifier = modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(Radius.lg))) {
+        if (!imageUrl.isNullOrBlank()) {
+            RemoteImage(
+                url = imageUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth().height(height.dp),
+            )
+        } else {
+            val wash = when (color) {
+                "rose" -> Brush.linearGradient(listOf(Bad.copy(alpha = 0.18f), androidx.compose.ui.graphics.Color.Transparent, Gold.copy(alpha = 0.10f)))
+                "sea" -> Brush.linearGradient(listOf(Info.copy(alpha = 0.14f), androidx.compose.ui.graphics.Color.Transparent, Good.copy(alpha = 0.12f)))
+                "moss" -> Brush.linearGradient(listOf(GoodSoft, androidx.compose.ui.graphics.Color.Transparent, Info.copy(alpha = 0.08f)))
+                "bee" -> Brush.linearGradient(listOf(Gold.copy(alpha = 0.30f), androidx.compose.ui.graphics.Color.Transparent, Bad.copy(alpha = 0.08f)))
+                "ember" -> Brush.linearGradient(listOf(Bad.copy(alpha = 0.25f), Gold.copy(alpha = 0.10f), androidx.compose.ui.graphics.Color.Transparent))
+                // "dusk" and anything unrecognised — the default wash.
+                else -> Brush.linearGradient(listOf(Info.copy(alpha = 0.12f), androidx.compose.ui.graphics.Color.Transparent, Gold.copy(alpha = 0.15f)))
+            }
+            Box(modifier = Modifier.fillMaxSize().background(wash))
+        }
+    }
+}
+
+/**
  * The learner's face: their symbol on their colour, or their initials.
  *
  * The colour is the *stored* one rather than something derived from the glyph —
  * `SURFACE` in `src/components/ui/avatar.tsx` is the owner of what "moss" looks
  * like, and a picker that showed a different tint from the one it would save
  * would be lying about what the choice does. The settings screen shows all five
- * side by side for exactly that reason.
+ * side by side for exactly that reason. An uploaded image takes priority over
+ * the glyph, exactly as the web's priority order does.
  */
 @Composable
-fun Avatar(emoji: String?, size: Int = 40, color: String = "ink", name: String = "") {
+fun Avatar(
+    emoji: String?,
+    size: Int = 40,
+    color: String = "ink",
+    name: String = "",
+    imageUrl: String? = null,
+) {
+    if (!imageUrl.isNullOrBlank()) {
+        RemoteImage(
+            url = imageUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .size(size.dp)
+                .clip(RoundedCornerShape(Radius.pill)),
+        )
+        return
+    }
     val surface = when (color) {
         "moss" -> GoodSoft
         "bee" -> Gold.copy(alpha = 0.3f)

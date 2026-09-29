@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -75,6 +76,24 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
             Spacer(Modifier.size(10.dp))
             Text(state.sessionTitle, style = Type.fine.style(Muted), modifier = Modifier.weight(1f))
             Label("${state.index + 1} / ${state.cards.size}", token = Type.micro, color = Muted)
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            // Ink, not green — leaving is not something to celebrate. Ending a
+            // session keeps every point already earned; the summary opens and the
+            // remaining cards stay due. The web puts the same quiet control beside
+            // the running XP.
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .clickable(onClick = viewModel::endSessionEarly)
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Icon(RevisioIcons.signOut, size = 12, tint = Muted)
+                Text("End session", style = Type.fine.style(Muted))
+            }
         }
         Spacer(Modifier.height(10.dp))
         val progress by animateFloatAsState(
@@ -361,10 +380,11 @@ private fun SummaryScreen(state: UiState, viewModel: RevisioViewModel) {
         }
 
         Text(
-            when (state.mode) {
-                StudyMode.CRAM -> "Cram complete"
-                StudyMode.LEARN -> "Topic met"
-                StudyMode.DAILY -> "Session complete"
+            when {
+                state.mode == StudyMode.CRAM -> "Cram complete"
+                state.mode == StudyMode.LEARN -> "Topic met"
+                state.ended -> "Session ended"
+                else -> "Session complete"
             },
             style = Type.title.style(Ink),
             textAlign = TextAlign.Center,

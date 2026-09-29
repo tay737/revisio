@@ -28,6 +28,11 @@ struct ProfileView: View {
                 Spacer().frame(height: 18)
 
                 if let profile = model.profile {
+                    // The web's profile page leads with the banner and pulls the
+                    // avatar up over its lower edge; the same two stacked pieces
+                    // here, with the overlap reserved by the spacer.
+                    ProfileBanner(imageUrl: profile.bannerUrl, color: profile.bannerColor ?? "dusk")
+                    Spacer().frame(height: 14)
                     identity(profile)
                     if let stats = profile.gamification {
                         rankCard(stats, profile)
@@ -78,7 +83,13 @@ struct ProfileView: View {
         let shown = display(profile)
         return SurfaceCard {
             HStack(spacing: 16) {
-                Avatar(emoji: profile.avatarEmoji, size: 72, color: profile.avatarColor, name: shown)
+                Avatar(
+                    emoji: profile.avatarEmoji,
+                    size: 72,
+                    color: profile.avatarColor,
+                    name: shown,
+                    imageUrl: profile.avatarUrl,
+                )
                 VStack(alignment: .leading, spacing: 4) {
                     Text(shown)
                         .font(Type.displaySm.font)
@@ -89,6 +100,15 @@ struct ProfileView: View {
                             Text("@\(username)")
                                 .font(Type.fine.font)
                                 .foregroundStyle(colors.mutedForeground)
+                        }
+                    }
+                    // Staff-granted badge chips, exactly as the web renders them
+                    // beside the role. Colour resolves from the same four tokens.
+                    if let badges = profile.badges, !badges.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(badges.prefix(4)) { badge in
+                                ProfileBadgeChipView(badge: badge)
+                            }
                         }
                     }
                     // The real name only appears when the owner allows it *and* it
@@ -222,5 +242,47 @@ struct ProfileView: View {
                 .padding(.vertical, 12)
             }
         }
+    }
+}
+
+/// A staff-granted badge chip. Colour tokens match `profile-badge.tsx`: gold on
+/// its amber, primary on info, good on green, rose on destructive — all at the
+/// soft opacities the web wears.
+struct ProfileBadgeChipView: View {
+    @Environment(\.revisio) private var colors
+    let badge: ProfileBadgeChip
+
+    private var background: Color {
+        switch badge.color {
+        case "primary": return colors.info.opacity(0.15)
+        case "good": return colors.goodSoft
+        case "rose": return colors.destructive.opacity(0.15)
+        default: return colors.gold.opacity(0.30)
+        }
+    }
+
+    private var ink: Color {
+        switch badge.color {
+        case "primary": return colors.info
+        case "good": return colors.goodPressed
+        case "rose": return colors.destructive
+        default: return colors.foreground
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if !badge.icon.isEmpty {
+                Text(badge.icon)
+                    .font(Type.fine.font)
+                    .foregroundStyle(ink)
+            }
+            Text(badge.label)
+                .font(Type.fine.font)
+                .foregroundStyle(ink)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(background, in: Capsule())
     }
 }

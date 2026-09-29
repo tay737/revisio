@@ -263,6 +263,8 @@ public struct BoardRow: Codable, Equatable, Identifiable {
 
 public struct LobbySeat: Codable, Equatable, Identifiable {
     public var position: Int
+    /// Present since the lobby grew profile links: the seat opens `/u/<id>`.
+    public var userId: String?
     public var name: String
     public var xp: Int
     public var isMe: Bool
@@ -402,6 +404,8 @@ public struct MeDetail: Codable, Equatable {
     public var gamification: Gamification
     public var today: TodaySummary
     public var achievements: [AchievementRef]
+    /// The banner's wash colour, added when banners grew colour schemes.
+    public var bannerColor: String?
 }
 
 // ── the exam simulator ──────────────────────────────────────────────────────
@@ -423,9 +427,14 @@ public struct ExamQuestion: Codable, Equatable, Identifiable {
     public var questionMd: String
     public var marks: Int
     /// Dealt only for a multiple-choice question, and only for the paper.
-    public var options: [String]?
+    public var options: [CardOption]?
     public var board: String?
     public var sourceYear: Int?
+    // ── exam-board fidelity: dealt with the paper, mark scheme withheld ──
+    public var aoSplit: [AoSplit]?
+    public var qwcMarks: Int?
+    public var questionRef: String?
+    public var specRefs: String?
 }
 
 public struct ExamAttempt: Codable, Equatable, Identifiable {
@@ -441,6 +450,8 @@ public struct ExamPool: Codable, Equatable {
     public var topics: [ExamTopic]
     public var questionsAvailable: Int
     public var attempts: [ExamAttempt]
+    /// The board's own documents, ordered question papers → mark schemes → reference.
+    public var papers: [StoredPaper]?
 }
 
 /// What the screen shows while the pool is unavailable. Stated here rather than
@@ -463,6 +474,18 @@ public struct ExamMark: Codable, Equatable {
     public var marks: Int
     public var correct: Bool
     public var feedback: String
+    // The full marking material arrives only after submission.
+    public var questionRef: String?
+    public var aoSplit: [AoSplit]?
+    public var modelAnswerMd: String?
+    public var markSchemeMd: String?
+    public var markingNotesMd: String?
+    public var qwcMarks: Int?
+    public var matchedPhrases: [String]?
+    public var missedPhrases: [String]?
+
+    /// Marks for the row as the web shows it: the question's plus QWC.
+    public var total: Int { marks + (qwcMarks ?? 0) }
 }
 
 public struct ExamResult: Codable, Equatable {
@@ -471,6 +494,8 @@ public struct ExamResult: Codable, Equatable {
     public var percentage: Int
     public var detail: [ExamMark]
     public var xpAwarded: Int
+    /// Marks earned per assessment objective — *what kind* of mark was lost.
+    public var aoProfile: [AoRow]?
 }
 
 // ── maths practice ──────────────────────────────────────────────────────────
@@ -580,6 +605,7 @@ public struct MePatch: Encodable {
     public var bio: String?
     public var avatarEmoji: String?
     public var avatarColor: String?
+    public var bannerColor: String?
     public var profileVisibility: Visibility?
     public var leaderboardOptOut: Bool?
     public var prefs: Prefs?
@@ -591,6 +617,7 @@ public struct MePatch: Encodable {
         bio: String? = nil,
         avatarEmoji: String? = nil,
         avatarColor: String? = nil,
+        bannerColor: String? = nil,
         profileVisibility: Visibility? = nil,
         leaderboardOptOut: Bool? = nil,
         prefs: Prefs? = nil
@@ -601,6 +628,7 @@ public struct MePatch: Encodable {
         self.bio = bio
         self.avatarEmoji = avatarEmoji
         self.avatarColor = avatarColor
+        self.bannerColor = bannerColor
         self.profileVisibility = profileVisibility
         self.leaderboardOptOut = leaderboardOptOut
         self.prefs = prefs
@@ -635,4 +663,10 @@ public struct PublicProfile: Codable, Equatable {
     public var subjects: [SubjectRef]
     public var achievements: [AchievementRef]
     public var reviewCount: Int
+    // ── media: the uploaded picture and banner, plus the banner's wash colour ──
+    public var avatarUrl: String?
+    public var bannerUrl: String?
+    public var bannerColor: String?
+    /// Granted by staff; the web renders these beside the role.
+    public var badges: [ProfileBadgeChip]?
 }

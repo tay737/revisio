@@ -27,6 +27,8 @@
 		AA0000000000000000000037 /* PracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000036 /* PracticeView.swift */; };
 		AA0000000000000000000039 /* ExamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000038 /* ExamView.swift */; };
 		AA000000000000000000003B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000003A /* ProfileView.swift */; };
+		AA000000000000000000003D /* TeachingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000003C /* TeachingView.swift */; };
+		AA000000000000000000003F /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000003E /* AdminView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +53,8 @@
 		AA0000000000000000000036 /* PracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/PracticeView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000038 /* ExamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/ExamView.swift; sourceTree = "<group>"; };
 		AA000000000000000000003A /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/ProfileView.swift; sourceTree = "<group>"; };
+		AA000000000000000000003C /* TeachingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/TeachingView.swift; sourceTree = "<group>"; };
+		AA000000000000000000003E /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/AdminView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +90,8 @@
 				AA0000000000000000000036 /* PracticeView.swift */,
 				AA0000000000000000000038 /* ExamView.swift */,
 				AA000000000000000000003A /* ProfileView.swift */,
+				AA000000000000000000003C /* TeachingView.swift */,
+				AA000000000000000000003E /* AdminView.swift */,
 				AA0000000000000000000004 /* RevisioAppSupport */,
 				AA0000000000000000000003 /* Products */,
 			);
@@ -201,6 +207,8 @@
 				AA0000000000000000000037 /* PracticeView.swift in Sources */,
 				AA0000000000000000000039 /* ExamView.swift in Sources */,
 				AA000000000000000000003B /* ProfileView.swift in Sources */,
+				AA000000000000000000003D /* TeachingView.swift in Sources */,
+				AA000000000000000000003F /* AdminView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -286,7 +294,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0-alpha.5;
+				MARKETING_VERSION = 1.0.0-alpha.6;
 				PRODUCT_BUNDLE_IDENTIFIER = app.revisio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -307,7 +315,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0-alpha.5;
+				MARKETING_VERSION = 1.0.0-alpha.6;
 				PRODUCT_BUNDLE_IDENTIFIER = app.revisio;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

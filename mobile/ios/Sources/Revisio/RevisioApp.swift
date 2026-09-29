@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import Network
 import RevisioEngine
@@ -251,6 +252,24 @@ final class AppModel: ObservableObject {
     @Published var savingProfile = false
     @Published var savingPassword = false
     @Published var savingEmail = false
+    // ── the update check ─────────────────────────────────────────────────
+    /// Set once the server has been asked what the newest client is.
+    @Published var update = UpdateStatus.none
+    /// The update card is dismissed for this run of the app.
+    @Published var updateDismissed = false
+    // ── teaching and admin consoles ──────────────────────────────────────
+    @Published var teacherData: TeacherPayload?
+    @Published var myTopics: [MyTopic] = []
+    @Published var adminData: AdminPayload?
+    @Published var staffBusy = false
+    @Published var staffNote: String?
+    @Published var staffError: String?
+    // exam fidelity
+    /// A stored board paper opened verbatim.
+    @Published var paperDoc: PaperDoc?
+    // review session, ended early
+    /// The learner ended the session early — the summary says "ended", not "complete".
+    @Published var ended = false
 
     private let store: OfflineStore
     private let sessionStore: SessionStore
@@ -271,7 +290,33 @@ final class AppModel: ObservableObject {
         sync = SyncEngine(store: store, api: api)
         observeConnectivity()
         bootstrap()
+        checkUpdate()
     }
+
+    // ── the update check ───────────────────────────────────────────────────
+
+    /// Ask the server what the newest client is, once on launch.
+    ///
+    /// The comparison is by build number (see `checkForUpdate`), and the result
+    /// is only ever shown — an old build that ignores it keeps working, which is
+    /// exactly the point: an update notice must never be the thing that stops a
+    /// learner from doing their reviews.
+    private func checkUpdate() {
+        Task {
+            guard let info = try? await api.version() else { return }
+            let mine = Self.buildNumber
+            update = checkForUpdate(mine: mine, latestBuild: info.build, minBuild: info.minBuild)
+            updateDismissed = false
+        }
+    }
+
+    /// CFBundleVersion, the monotonic integer the release stamps.
+    static var buildNumber: Int {
+        let value = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        return Int(value ?? "") ?? 0
+    }
+
+    func dismissUpdate() { updateDismissed = true }
 
     // ── session ─────────────────────────────────────────────────────────────
 
@@ -492,7 +537,8 @@ final class AppModel: ObservableObject {
         case .library: loadSubjects()
         case .practice: loadMathsSubjects()
         case .exam: loadExamPool()
-        case .teaching, .admin: break
+        case .teaching: if teacherData == nil { loadTeaching() }
+        case .admin: if adminData == nil { loadAdmin() }
         }
     }
 
@@ -811,6 +857,162 @@ final class AppModel: ObservableObject {
         examPaper = []
         examAnswers = [:]
         examResult = nil
+    }
+
+    /// One stored paper, verbatim — opened from the pool's papers list.
+    func loadPaperDoc(_ paperId: String) {
+        examBusy = true
+        withToken(
+            { try await self.api.examPaperDoc(token: $0, paperId: paperId) },
+            onFailure: { note in self.examBusy = false; self.message = note },
+        ) { doc in
+            self.examBusy = false
+            self.paperDoc = doc
+        }
+    }
+
+    func closePaperDoc() { paperDoc = nil }
+
+    // ── teaching and admin consoles ─────────────────────────────────────────
+
+    /// Everything the Teaching screen reads, in one go — as the web's page does.
+    func loadTeaching() {
+        staffBusy = true
+        staffNote = nil
+        staffError = nil
+        withToken(
+            { token in
+                let classes = try await self.api.teacher(token: token)
+                let topics = try? await self.api.myTopics(token: token)
+                return (classes, topics?.topics ?? [])
+            },
+            onFailure: { note in self.staffBusy = false; self.staffError = note },
+        ) { payload in
+            self.teacherData = payload.0
+            self.myTopics = payload.1
+            self.staffBusy = false
+        }
+    }
+
+    func loadAdmin() {
+        staffBusy = true
+        staffNote = nil
+        staffError = nil
+        withToken(
+            { try await self.api.admin(token: $0) },
+            onFailure: { note in self.staffBusy = false; self.staffError = note },
+        ) { data in
+            self.adminData = data
+            self.staffBusy = false
+        }
+    }
+
+    /// One staff action, then re-read whatever it changed.
+    ///
+    /// The web's `post()` confirms in a `Notice` and reloads; this is the same
+    /// shape — the note lands in `staffNote`, the error in `staffError`, and the
+    /// console's data is refreshed so the screen never shows a state the server
+    /// has already moved past.
+    func staffAction(admin: Bool, _ body: [String: Any], okMsg: String) {
+        staffBusy = true
+        staffNote = nil
+        staffError = nil
+        withToken(
+            { token in
+                if admin { try await self.api.adminAction(token: token, body: body) }
+                else { try await self.api.teacherAction(token: token, body: body) }
+            },
+            onFailure: { note in self.staffBusy = false; self.staffError = note },
+        ) { _ in
+            self.staffBusy = false
+            self.staffNote = okMsg
+            if admin { self.loadAdmin() } else { self.loadTeaching() }
+        }
+    }
+
+    func clearStaffNote() {
+        staffNote = nil
+        staffError = nil
+    }
+
+    /// The banner's wash, saved through the same `/me` door as the avatar's.
+    func saveBannerColor(_ color: String) {
+        savingProfile = true
+        settingsError = nil
+        settingsNote = nil
+        withToken(
+            { try await self.api.patchMe(token: $0, patch: MePatch(bannerColor: color)) },
+            onFailure: { note in self.savingProfile = false; self.settingsError = note },
+        ) { _ in
+            self.refreshMe(after: "Banner saved.")
+        }
+    }
+
+    /// Upload a profile image — the web's presign → PUT → confirm dance.
+    func uploadImage(kind: String, bytes: Data, contentType: String) {
+        guard bytes.count <= 5 * 1024 * 1024 else {
+            settingsError = "That image is over 5 MB — pick a smaller one."
+            settingsNote = nil
+            return
+        }
+        savingProfile = true
+        settingsError = nil
+        settingsNote = nil
+        withToken(
+            { try await self.api.uploadProfileImage(token: $0, kind: kind, contentType: contentType, bytes: bytes) },
+            onFailure: { note in self.savingProfile = false; self.settingsError = note },
+        ) { _ in
+            self.refreshMe(after: "Image updated.")
+        }
+    }
+
+    func removeImage(kind: String) {
+        savingProfile = true
+        settingsError = nil
+        settingsNote = nil
+        withToken(
+            { try await self.api.removeProfileImage(token: $0, kind: kind) },
+            onFailure: { note in self.savingProfile = false; self.settingsError = note },
+        ) { _ in
+            self.refreshMe(after: "Image removed.")
+        }
+    }
+
+    /// Read the picked photo into bytes and hand it to the upload dance.
+    ///
+    /// Kept off the view so the picker control stays a control: it selects, the
+    /// model decides what an upload is. Content type comes from the data itself
+    /// where possible — the server rejects mismatches at the bucket.
+    func loadAndUpload(selection: PhotosPickerItem, kind: String) {
+        savingProfile = true
+        Task {
+            guard let data = try? await selection.loadTransferable(type: Data.self), !data.isEmpty else {
+                savingProfile = false
+                settingsError = "That photo could not be read. Try another."
+                return
+            }
+            let type = Self.imageContentType(data)
+            uploadImage(kind: kind, bytes: data, contentType: type)
+        }
+    }
+
+    /// Sniff the two content types the bucket accepts, defaulting to JPEG —
+    /// the same practical set the web's `accept="image/*"` funnels to.
+    static func imageContentType(_ data: Data) -> String {
+        if data.starts(with: Data([0x89, 0x50, 0x4E, 0x47])) { return "image/png" }
+        return "image/jpeg"
+    }
+
+    /// Re-read the account after a media write, and confirm in the page's slot.
+    private func refreshMe(after note: String) {
+        withToken(
+            { try await self.api.meDetail(token: $0) },
+            onFailure: { _ in self.savingProfile = false },
+        ) { me in
+            self.me = me
+            self.savingProfile = false
+            self.settingsNote = note
+        }
     }
 
     // ── a public profile ────────────────────────────────────────────────────
@@ -1248,6 +1450,7 @@ final class AppModel: ObservableObject {
         index = 0
         inReview = false
         finished = false
+        ended = false
         answered = 0
         correct = 0
         feedback = nil
@@ -1257,6 +1460,18 @@ final class AppModel: ObservableObject {
         total = 0
         refreshHome()
         if ranked != nil { loadProgress() }
+    }
+
+    /// The learner ends the session early — the web's "End session".
+    ///
+    /// Every answered card's XP and count is already banked, so nothing is lost;
+    /// the summary still opens (titled "Session ended", not "complete") and the
+    /// remaining cards simply stay due.
+    func endSessionEarly() {
+        finished = true
+        ended = true
+        feedback = nil
+        Task { if let token = await ensureToken() { await drainOutbox(token: token) } }
     }
 
     /// The notes for the card on screen, if this session carried any.
@@ -1352,18 +1567,23 @@ private struct RootView: View {
             ProfileView(model: model)
         } else {
             VStack(spacing: 0) {
+                // The update notice rides above every destination: asked once at
+                // launch, shown until dismissed, and never in the way of the
+                // screens themselves.
+                UpdateBanner(model: model)
                 Group {
                     switch model.destination {
                     case .today: TodayView(model: model)
                     case .review: ReviewView(model: model)
                     case .learn: LearnView(model: model)
                     case .cram: CramView(model: model)
-                    case .rank: RankView(model: model)
+                    case .rank: RankView(model: model, onOpenProfile: { model.openProfile($0) })
                     case .exam: ExamView(model: model)
                     case .practice: PracticeView(model: model)
                     case .library: LibraryView(model: model)
                     case .settings: SettingsView(model: model)
-                    case .teaching, .admin: ComingSoonView(destination: model.destination)
+                    case .teaching: TeachingView(model: model)
+                    case .admin: AdminView(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -1381,30 +1601,44 @@ private struct RootView: View {
 }
 
 ///
-/// A destination that is real but has no screen yet.
+/// The update notice, shown over every destination until dismissed.
 ///
-/// The consoles are roles-gated, so a learner never arrives here; a teacher does,
-/// and "we have not built this yet" is a worse answer than the truth. Saying so on
-/// the page is the honest version of a port in progress.
+/// The server was asked once at launch what the newest client is; this renders
+/// the answer. "Available" is a sentence, "required" is a sentence and a
+/// different weight — the server's `minBuild` floor is what makes the
+/// difference, and the copy does not pretend otherwise. Either way the app
+/// keeps working: an update notice must never be the thing that stops a learner
+/// from doing their reviews.
 ///
-private struct ComingSoonView: View {
+struct UpdateBanner: View {
     @Environment(\.revisio) private var colors
-    let destination: Destination
+    @ObservedObject var model: AppModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer().frame(height: 24)
-                ScreenTitle(title: destination.label, eyebrow: "Destination")
-                Spacer().frame(height: 12)
-                SoftCard {
-                    Text("\(destination.label) is a teacher and admin console on the website. It is not ported to the phone yet.")
-                        .font(Type.caption.font)
+        if !model.updateDismissed && model.update.kind != .none {
+            let required = model.update.kind == .required
+            SurfaceCard {
+                HStack(spacing: 12) {
+                    BoxedGlyph(icon: required ? "rocket" : "download", tint: required ? colors.streak : nil)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(required ? "This version must be updated" : "An update is available")
+                            .font(Type.strong.font)
+                            .foregroundStyle(colors.foreground)
+                        Text(
+                            required
+                                ? "Version \(model.update.latest) is required — older builds can no longer be guaranteed to work."
+                                : "Version \(model.update.latest) is out. You can keep studying either way."
+                        )
+                        .font(Type.fine.font)
                         .foregroundStyle(colors.mutedForeground)
                         .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    IconPill(icon: "close") { model.dismissUpdate() }
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
     }
 }

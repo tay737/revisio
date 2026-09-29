@@ -17,6 +17,8 @@ import SwiftUI
 struct RankView: View {
     @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
+    /// Seats but the learner's own open their profile — the web's `/u/<id>` link.
+    var onOpenProfile: (String) -> Void = { _ in }
 
     enum View3: String, CaseIterable {
         case ladder, week, board
@@ -177,7 +179,7 @@ struct RankView: View {
                                     in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
                                 )
                             } else {
-                                LobbyTable(lobby: payload.ranked.lobby)
+                                LobbyTable(lobby: payload.ranked.lobby, onOpenProfile: onOpenProfile)
                             }
                         }
 
@@ -368,6 +370,7 @@ private struct AchievementCard: View {
 private struct LobbyTable: View {
     @Environment(\.revisio) private var colors
     let lobby: Lobby
+    var onOpenProfile: (String) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -387,6 +390,9 @@ private struct LobbyTable: View {
                 .foregroundStyle(colors.mutedForeground)
 
             ForEach(lobby.rows.prefix(12)) { seat in
+                // The web links every seat but your own to its profile; a phone
+                // keeps exactly that rule, with your own row staying inert.
+                let tappable = !seat.isMe && !(seat.userId ?? "").isEmpty
                 HStack(spacing: 0) {
                     Text("\(seat.position)")
                         .font(Type.fine.font)
@@ -406,6 +412,16 @@ private struct LobbyTable: View {
                     Text("\(seat.xp)")
                         .font(Type.fine.font)
                         .foregroundStyle(seat.isMe ? colors.foreground : colors.mutedForeground)
+                    if tappable {
+                        BoxedGlyph(icon: "expand", size: 22)
+                            .padding(.leading, 4)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if tappable, let userId = seat.userId {
+                        onOpenProfile(userId)
+                    }
                 }
                 .padding(.vertical, 6)
             }

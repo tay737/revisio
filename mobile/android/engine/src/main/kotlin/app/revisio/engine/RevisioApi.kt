@@ -1,12 +1,15 @@
 package app.revisio.engine
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import kotlinx.serialization.json.Json
 
 /** A signed-in session, with the refresh token the server handed us at login. */
 data class AuthSession(val accessToken: String, val refreshToken: String?, val user: ApiUser)
@@ -62,6 +65,26 @@ private data class SubmitRequest(
 
 @kotlinx.serialization.Serializable
 data class ExamAnswer(val questionId: String, val answer: String? = null, val selectedOptionId: String? = null)
+
+@kotlinx.serialization.Serializable
+private data class MediaPresignRequest(
+    val action: String,
+    val kind: String,
+    val contentType: String,
+    val sizeBytes: Long,
+)
+
+@kotlinx.serialization.Serializable
+private data class MediaConfirmRequest(
+    val action: String,
+    val kind: String,
+    val key: String,
+    val contentType: String,
+    val sizeBytes: Long,
+)
+
+@kotlinx.serialization.Serializable
+private data class MediaRemoveRequest(val action: String, val kind: String)
 
 /** One door for the exam route: the presence of `answers` is what decides its job. */
 @kotlinx.serialization.Serializable
@@ -364,6 +387,13 @@ class RevisioApi(
         }
     }
 
+    /** `GET /exam?paperId=` — one stored paper, verbatim. */
+    suspend fun examPaperDoc(token: String, paperId: String): PaperDoc = withContext(Dispatchers.IO) {
+        send(request("/api/v1/exam?paperId=$paperId", token = token)) {
+            json.decodeFromString(PaperEnvelope.serializer(), it).paper
+        }
+    }
+
     // ── maths practice ──────────────────────────────────────────────────────
 
     /**
@@ -484,6 +514,103 @@ class RevisioApi(
     suspend fun profile(handle: String, token: String? = null): PublicProfile = withContext(Dispatchers.IO) {
         send(request("/api/v1/profile/$handle", token = token)) {
             json.decodeFromString(PublicProfile.serializer(), it)
+        }
+    }
+
+    // ── the update check ────────────────────────────────────────────────────
+
+    /**
+     * `GET /version` — the newest client the server knows about.
+     *
+     * Deliberately unauthenticated and the first thing the app asks on launch:
+     * an install that is behind deserves to know before it does anything else,
+     * and the endpoint has to work even for a session the server has since
+     * refused.
+     */
+    suspend fun version(): VersionInfo = withContext(Dispatchers.IO) {
+        send(request("/api/v1/version")) { json.decodeFromString(VersionInfo.serializer(), it) }
+    }
+
+    // ── teaching and admin consoles ──────────────────────────────────────────
+
+    /** `GET /teacher` — my classes with per-student rosters. */
+    suspend fun teacher(token: String): TeacherPayload = withContext(Dispatchers.IO) {
+        send(request("/api/v1/teacher", token = token)) { json.decodeFromString(TeacherPayload.serializer(), it) }
+    }
+
+    /** `GET /content?mine=1` — the topics this account may edit, with counts. */
+    suspend fun myTopics(token: String): MyTopicsPayload = withContext(Dispatchers.IO) {
+        send(request("/api/v1/content?mine=1", token = token)) { json.decodeFromString(MyTopicsPayload.serializer(), it) }
+    }
+
+    /** `GET /admin` — the whole console in one payload, developers only. */
+    suspend fun admin(token: String): AdminPayload = withContext(Dispatchers.IO) {
+        send(request("/api/v1/admin", token = token)) { json.decodeFromString(AdminPayload.serializer(), it) }
+    }
+
+    /**
+     * `POST /teacher` and `POST /admin` share the same envelope: an `action`
+     * plus whatever that action needs. One door each, exactly as the web does.
+     */
+    suspend fun teacherAction(token: String, body: JsonObject): JsonObject = withContext(Dispatchers.IO) {
+        postJson("/api/v1/teacher", token, body)
+    }
+
+    suspend fun adminAction(token: String, body: JsonObject): JsonObject = withContext(Dispatchers.IO) {
+        postJson("/api/v1/admin", token, body)
+    }
+
+    private suspend fun postJson(path: String, token: String, body: JsonObject): JsonObject =
+        withContext(Dispatchers.IO) {
+            send(request(path, token = token, body = body.toString(), method = "POST")) {
+                json.parseToJsonElement(it).jsonObject
+            }
+        }
+
+    // ── media: avatar and banner uploads ────────────────────────────────────
+
+    /**
+     * The web's upload dance, driven from a phone.
+     *
+     * 1. `presign` — the server names where the bytes go;
+     * 2. the client PUTs the bytes straight to that URL, no auth header — the
+     *    presigned URL carries its own;
+     * 3. `confirm` — only now does the pointer swap, so an abandoned upload
+     *    never half-lands. This mirrors `settings/page.tsx` exactly.
+     */
+    suspend fun uploadProfileImage(token: String, kind: String, contentType: String, bytes: ByteArray): String =
+        withContext(Dispatchers.IO) {
+            val presigned = send(request("/api/v1/media", token = token, body = json.encodeToString(
+                MediaPresignRequest.serializer(),
+                MediaPresignRequest(action = "presign", kind = kind, contentType = contentType, sizeBytes = bytes.size.toLong()),
+            ), method = "POST")) {
+                json.decodeFromString(MediaPresign.serializer(), it)
+            }
+            uploadBytes(presigned.url, contentType, bytes)
+            send(request("/api/v1/media", token = token, body = json.encodeToString(
+                MediaConfirmRequest.serializer(),
+                MediaConfirmRequest(action = "confirm", kind = kind, key = presigned.key, contentType = contentType, sizeBytes = bytes.size.toLong()),
+            ), method = "POST")) {
+                json.decodeFromString(MediaConfirm.serializer(), it).url
+            }
+        }
+
+    suspend fun removeProfileImage(token: String, kind: String): Unit = withContext(Dispatchers.IO) {
+        send(request("/api/v1/media", token = token, body = json.encodeToString(
+            MediaRemoveRequest.serializer(),
+            MediaRemoveRequest(action = "remove", kind = kind),
+        ), method = "POST")) { it }
+    }
+
+    private fun uploadBytes(url: String, contentType: String, bytes: ByteArray): Unit = runBlocking {
+        withContext(Dispatchers.IO) {
+            val req = Request.Builder()
+                .url(url)
+                .put(bytes.toRequestBody(contentType.toMediaType()))
+                .build()
+            client.newCall(req).execute().use { response ->
+                if (!response.isSuccessful) throw ApiException(response.code, "upload_failed", "The image upload was rejected. Try a smaller file.")
+            }
         }
     }
 

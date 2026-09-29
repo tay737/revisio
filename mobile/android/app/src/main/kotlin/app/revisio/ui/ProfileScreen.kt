@@ -1,5 +1,6 @@
 package app.revisio.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,17 +11,53 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.revisio.Destination
 import app.revisio.RevisioViewModel
 import app.revisio.UiState
 import app.revisio.engine.PublicProfile
 import app.revisio.engine.Rank
+
+/**
+ * A staff-granted badge chip. Colour tokens match `profile-badge.tsx`: gold on
+ * its amber, primary on info, good on green, rose on destructive — all at the
+ * soft opacities the web wears, with ink to match.
+ */
+@Composable
+private fun BadgeChip(badge: app.revisio.engine.ProfileBadgeChip) {
+    val background = when (badge.color) {
+        "primary" -> Info.copy(alpha = 0.15f)
+        "good" -> GoodSoft
+        "rose" -> Bad.copy(alpha = 0.15f)
+        else -> Gold.copy(alpha = 0.30f)
+    }
+    val ink = when (badge.color) {
+        "primary" -> Info
+        "good" -> revisioColors.goodPressed
+        "rose" -> Bad
+        else -> Ink
+    }
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(100))
+            .background(background)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        badge.icon.takeIf { it.isNotBlank() }?.let { glyph ->
+            Text(glyph, style = Type.fine.style(ink))
+        }
+        Text(badge.label, style = Type.fine.style(ink))
+    }
+}
 
 /**
  * A public profile — `/u/:handle`, ported.
@@ -65,9 +102,20 @@ fun ProfileScreen(state: UiState, viewModel: RevisioViewModel) {
         val mine = profile.id.isNotEmpty() && state.me?.id == profile.id
 
         // ── identity ───────────────────────────────────────────────────────
+        // The web's profile page leads with the banner and pulls the avatar up
+        // over its lower edge; the same two stacked pieces here, with the avatar's
+        // overlap reserved by the spacer rather than by negative padding.
+        ProfileBanner(profile.bannerUrl, profile.bannerColor)
+        Spacer(Modifier.height(14.dp))
         SurfaceCard(modifier = Modifier.entrance(scale = true)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(profile.avatarEmoji, size = 72, color = profile.avatarColor, name = display)
+                Avatar(
+                    profile.avatarEmoji,
+                    size = 72,
+                    color = profile.avatarColor,
+                    name = display,
+                    imageUrl = profile.avatarUrl,
+                )
                 Spacer(Modifier.size(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(display, style = Type.displaySm.style(Ink))
@@ -75,6 +123,14 @@ fun ProfileScreen(state: UiState, viewModel: RevisioViewModel) {
                         Badge(profile.role.replaceFirstChar { it.uppercase() })
                         profile.username?.let { handle ->
                             Text("@$handle", style = Type.fine.style(Muted))
+                        }
+                    }
+                    // Staff-granted badge chips, exactly as the web renders them
+                    // beside the role. Colour resolves from the same four tokens.
+                    if (profile.badges.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            profile.badges.take(4).forEach { badge -> BadgeChip(badge) }
                         }
                     }
                     // The real name only appears when the owner allows it *and* it
