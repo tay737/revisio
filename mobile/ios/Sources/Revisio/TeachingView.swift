@@ -199,7 +199,7 @@ private struct ClassCardView: View {
                     model.staffAction(
                         admin: false,
                         ["action": "rotate_code", "classId": klass.id],
-                        okMsg: "New code generated. The old one no longer works.",
+                        okMsg: "New code generated. The old one no longer works."
                     )
                 }
             }
@@ -225,7 +225,7 @@ private struct ClassCardView: View {
                     model.staffAction(
                         admin: false,
                         ["action": "delete_class", "classId": klass.id],
-                        okMsg: "Class \"\(klass.name)\" deleted.",
+                        okMsg: "Class \"\(klass.name)\" deleted."
                     )
                 }
             }
@@ -236,12 +236,12 @@ private struct ClassCardView: View {
                 Spacer().frame(height: 8)
                 PillButton(
                     text: "Save",
-                    enabled: !renameDraft.trimmingCharacters(in: .whitespaces).isEmpty && !model.staffBusy,
+                    enabled: !renameDraft.trimmingCharacters(in: .whitespaces).isEmpty && !model.staffBusy
                 ) {
                     model.staffAction(
                         admin: false,
                         ["action": "rename_class", "classId": klass.id, "name": renameDraft.trimmingCharacters(in: .whitespaces)],
-                        okMsg: "Class renamed.",
+                        okMsg: "Class renamed."
                     )
                     renaming = false
                 }
@@ -253,12 +253,12 @@ private struct ClassCardView: View {
                 Spacer().frame(height: 8)
                 PillButton(
                     text: "Add to class",
-                    enabled: inviteEmail.contains("@") && !model.staffBusy,
+                    enabled: inviteEmail.contains("@") && !model.staffBusy
                 ) {
                     model.staffAction(
                         admin: false,
                         ["action": "add_class_member", "classId": klass.id, "email": inviteEmail.trimmingCharacters(in: .whitespaces)],
-                        okMsg: "\(inviteEmail.trimmingCharacters(in: .whitespaces)) added to \(klass.name).",
+                        okMsg: "\(inviteEmail.trimmingCharacters(in: .whitespaces)) added to \(klass.name)."
                     )
                     inviting = false
                 }
@@ -276,7 +276,7 @@ private struct ClassCardView: View {
                     model.staffAction(
                         admin: false,
                         ["action": "set_class_subject", "classId": klass.id, "subjectId": next],
-                        okMsg: "Subject updated.",
+                        okMsg: "Subject updated."
                     )
                 }
             }
@@ -323,7 +323,7 @@ private struct RosterRowView: View {
                     model.staffAction(
                         admin: false,
                         ["action": "remove_class_member", "classId": klass.id, "userId": student.userId],
-                        okMsg: "\(student.name) removed from \(klass.name).",
+                        okMsg: "\(student.name) removed from \(klass.name)."
                     )
                 }
             }
@@ -380,7 +380,7 @@ private struct TopicPublishRow: View {
             PillButton(
                 text: live ? "Withdraw" : "Publish",
                 tone: live ? .ghost : .secondary,
-                icon: live ? "unpublish" : "publish",
+                icon: live ? "unpublish" : "publish"
             ) {
                 model.staffAction(
                     admin: false,
@@ -389,7 +389,7 @@ private struct TopicPublishRow: View {
                         "topicId": topic.id,
                         "visibility": live ? "private" : "public",
                     ],
-                    okMsg: live ? "\(topic.name) withdrawn." : "\(topic.name) is live — questions included.",
+                    okMsg: live ? "\(topic.name) withdrawn." : "\(topic.name) is live — questions included."
                 )
             }
         }

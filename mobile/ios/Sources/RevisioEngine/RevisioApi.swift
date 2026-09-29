@@ -113,7 +113,7 @@ public final class RevisioApi: ReviewApi {
         _ path: String,
         method: String = "GET",
         token: String? = nil,
-        body: Data? = nil,
+        body: Data? = nil
     ) async throws -> Data {
         var request = URLRequest(url: URL(string: base + path)!)
         request.httpMethod = method
@@ -131,7 +131,7 @@ public final class RevisioApi: ReviewApi {
             throw ApiError(
                 status: http.statusCode,
                 code: envelope?.error?.code ?? "error",
-                message: envelope?.error?.message ?? "Request failed (\(http.statusCode)).",
+                message: envelope?.error?.message ?? "Request failed (\(http.statusCode))."
             )
         }
         return data
@@ -536,14 +536,14 @@ public final class RevisioApi: ReviewApi {
     ///    never half-lands. This mirrors `settings/page.tsx` exactly.
     public func uploadProfileImage(token: String, kind: String, contentType: String, bytes: Data) async throws -> String {
         let presignBody = try encoder.encode(
-            MediaPresignBody(action: "presign", kind: kind, contentType: contentType, sizeBytes: bytes.count),
+            MediaPresignBody(action: "presign", kind: kind, contentType: contentType, sizeBytes: bytes.count)
         )
         let presigned = try await send(
             "/api/v1/media",
             method: "POST",
             token: token,
             body: presignBody,
-            as: MediaPresign.self,
+            as: MediaPresign.self
         ).0
 
         guard let url = URL(string: presigned.url) else {
@@ -558,14 +558,14 @@ public final class RevisioApi: ReviewApi {
         }
 
         let confirmBody = try encoder.encode(
-            MediaConfirmBody(action: "confirm", kind: kind, key: presigned.key, contentType: contentType, sizeBytes: bytes.count),
+            MediaConfirmBody(action: "confirm", kind: kind, key: presigned.key, contentType: contentType, sizeBytes: bytes.count)
         )
         return try await send(
             "/api/v1/media",
             method: "POST",
             token: token,
             body: confirmBody,
-            as: MediaConfirm.self,
+            as: MediaConfirm.self
         ).0.url
     }
 

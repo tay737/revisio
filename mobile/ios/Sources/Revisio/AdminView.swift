@@ -82,7 +82,7 @@ struct AdminView: View {
                 Stat(
                     label: "Empty topics",
                     value: "\(data.contentStats.emptyTopics)",
-                    tint: data.contentStats.emptyTopics > 0 ? colors.streak : colors.mutedForeground,
+                    tint: data.contentStats.emptyTopics > 0 ? colors.streak : colors.mutedForeground
                 )
                 Spacer(minLength: 0)
             }
@@ -123,14 +123,14 @@ struct AdminView: View {
                                     model.staffAction(
                                         admin: true,
                                         ["action": "approve_request", "approvalId": request.id],
-                                        okMsg: "\(request.name) is now a \(request.roleRequested).",
+                                        okMsg: "\(request.name) is now a \(request.roleRequested)."
                                     )
                                 }
                                 PillButton(text: "Reject", tone: .ghost) {
                                     model.staffAction(
                                         admin: true,
                                         ["action": "reject_request", "approvalId": request.id],
-                                        okMsg: "\(request.name)'s request was rejected.",
+                                        okMsg: "\(request.name)'s request was rejected."
                                     )
                                 }
                             }
@@ -163,7 +163,7 @@ struct AdminView: View {
                                 model.staffAction(
                                     admin: true,
                                     ["action": "review_topic", "topicId": topic.id, "approveTopic": true],
-                                    okMsg: "\(topic.name) approved and live.",
+                                    okMsg: "\(topic.name) approved and live."
                                 )
                             }
                         }
@@ -193,12 +193,12 @@ struct AdminView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             PillButton(
                                 text: flag.enabled ? "Disable" : "Enable",
-                                tone: flag.enabled ? .secondary : .ghost,
+                                tone: flag.enabled ? .secondary : .ghost
                             ) {
                                 model.staffAction(
                                     admin: true,
                                     ["action": "set_flag", "flagKey": flag.key, "enabled": !flag.enabled],
-                                    okMsg: "\(flag.key) \(flag.enabled ? "disabled" : "enabled").",
+                                    okMsg: "\(flag.key) \(flag.enabled ? "disabled" : "enabled")."
                                 )
                             }
                         }
@@ -329,7 +329,7 @@ private struct AdminUserRow: View {
                             model.staffAction(
                                 admin: true,
                                 ["action": "remove_class_member", "classId": klass.id, "userId": user.id],
-                                okMsg: "\(user.name) removed from \(klass.name).",
+                                okMsg: "\(user.name) removed from \(klass.name)."
                             )
                         } label: {
                             ChipPill(text: "\(klass.name) ×", active: true)
@@ -350,7 +350,7 @@ private struct AdminUserRow: View {
                         model.staffAction(
                             admin: true,
                             ["action": "add_class_member", "classId": klass.id, "userId": user.id],
-                            okMsg: "\(user.name) added to \(klass.name).",
+                            okMsg: "\(user.name) added to \(klass.name)."
                         )
                     }
                     .padding(.vertical, 6)
@@ -364,12 +364,12 @@ private struct AdminUserRow: View {
                 HStack(spacing: 8) {
                     PillButton(
                         text: user.status == "suspended" ? "Activate" : "Suspend",
-                        tone: user.status == "suspended" ? .good : .ghost,
+                        tone: user.status == "suspended" ? .good : .ghost
                     ) {
                         model.staffAction(
                             admin: true,
                             ["action": user.status == "suspended" ? "activate_user" : "suspend_user", "userId": user.id],
-                            okMsg: user.status == "suspended" ? "\(user.name) activated." : "\(user.name) suspended.",
+                            okMsg: user.status == "suspended" ? "\(user.name) activated." : "\(user.name) suspended."
                         )
                     }
                     if user.emailVerifiedAt == nil {
@@ -377,7 +377,7 @@ private struct AdminUserRow: View {
                             model.staffAction(
                                 admin: true,
                                 ["action": "verify_user_email", "userId": user.id],
-                                okMsg: "\(user.name)'s email marked verified.",
+                                okMsg: "\(user.name)'s email marked verified."
                             )
                         }
                     }
@@ -385,7 +385,7 @@ private struct AdminUserRow: View {
                         model.staffAction(
                             admin: true,
                             ["action": "revoke_sessions", "userId": user.id],
-                            okMsg: "All of \(user.name)'s devices are signed out.",
+                            okMsg: "All of \(user.name)'s devices are signed out."
                         )
                     }
                 }
@@ -402,7 +402,7 @@ private struct AdminUserRow: View {
                                 model.staffAction(
                                     admin: true,
                                     ["action": "set_user_role", "userId": user.id, "role": role],
-                                    okMsg: "\(user.name) is now a \(role).",
+                                    okMsg: "\(user.name) is now a \(role)."
                                 )
                             }
                         }
@@ -432,14 +432,14 @@ private struct AdminClassRow: View {
                     model.staffAction(
                         admin: true,
                         ["action": "rotate_code", "classId": klass.id],
-                        okMsg: "New code for \(klass.name).",
+                        okMsg: "New code for \(klass.name)."
                     )
                 }
                 PillButton(text: "Delete", tone: .ghost) {
                     model.staffAction(
                         admin: true,
                         ["action": "delete_class", "classId": klass.id],
-                        okMsg: "Class \"\(klass.name)\" deleted.",
+                        okMsg: "Class \"\(klass.name)\" deleted."
                     )
                 }
             }
