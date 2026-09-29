@@ -507,7 +507,16 @@ export async function getExamPaper(paperId: string, userId?: string) {
 export type ExamSubmission = { questionId: string; answer?: string; selectedOptionId?: string }[];
 
 export async function submitExam(userId: string, topicIds: string[], submission: ExamSubmission) {
-  const qs = await db.select().from(examQuestions).where(inArray(examQuestions.topicId, topicIds));
+  // Grade only the questions that were on the built paper (the submission
+  // carries one entry per paper question) — not every question in the topic,
+  // which would dilute the score with questions the student never saw.
+  const askedIds = submission.map((s) => s.questionId);
+  const qs = askedIds.length
+    ? await db
+        .select()
+        .from(examQuestions)
+        .where(and(inArray(examQuestions.topicId, topicIds), inArray(examQuestions.id, askedIds)))
+    : [];
   const detail: {
     questionId: string; userAnswer: string; awarded: number; marks: number; correct: boolean; feedback: string;
     questionRef: string; aoSplit: { ao: string; marks: number }[] | null; modelAnswerMd: string;
