@@ -36,7 +36,7 @@ type Roster = {
   streak: number;
   masteryPct: number;
 };
-type Klass = { id: string; name: string; joinCode: string; roster: Roster[] };
+type Klass = { id: string; name: string; joinCode: string; subjectId: string; roster: Roster[] };
 type TeacherData = { classes: Klass[]; subjects: { id: string; name: string }[] };
 
 /**
@@ -55,6 +55,12 @@ export default function TeacherPage() {
   const [newSubject, setNewSubject] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  // Per-class editing state: which card is being renamed, the draft name, and
+  // the email box for adding a student directly (no join code needed).
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [inviteFor, setInviteFor] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [myTopics, setMyTopics] = useState<{ id: string; name: string; visibility: string; cardCount?: number; lessonCount?: number }[]>([]);
 
   const load = () =>
@@ -213,7 +219,121 @@ export default function TeacherPage() {
                   <Icon name="rotate" size={14} />
                   Rotate
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost gap-1.5"
+                  aria-expanded={renamingId === c.id}
+                  onClick={() => {
+                    if (renamingId === c.id) {
+                      setRenamingId(null);
+                    } else {
+                      setRenamingId(c.id);
+                      setRenameDraft(c.name);
+                    }
+                  }}
+                >
+                  <Icon name="edit" size={14} />
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost gap-1.5"
+                  aria-expanded={inviteFor === c.id}
+                  onClick={() => {
+                    if (inviteFor === c.id) {
+                      setInviteFor(null);
+                    } else {
+                      setInviteFor(c.id);
+                      setInviteEmail('');
+                    }
+                  }}
+                >
+                  <Icon name="add" size={14} />
+                  Add student
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost gap-1.5 text-destructive"
+                  onClick={() => {
+                    if (window.confirm(`Delete "${c.name}"? Its ${c.roster.length} ${c.roster.length === 1 ? 'student' : 'students'} lose the class; their questions and XP are untouched.`)) {
+                      void post({ action: 'delete_class', classId: c.id }, `Class "${c.name}" deleted.`);
+                    }
+                  }}
+                >
+                  <Icon name="remove" size={14} />
+                  Delete
+                </button>
               </div>
+            </div>
+
+            {renamingId === c.id && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                  className="input flex-1 sm:min-w-[200px]"
+                  value={renameDraft}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  aria-label="New class name"
+                  maxLength={80}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm shrink-0"
+                  disabled={!renameDraft.trim()}
+                  onClick={() =>
+                    void post({ action: 'rename_class', classId: c.id, name: renameDraft.trim() }, 'Class renamed.').then(() => setRenamingId(null))
+                  }
+                >
+                  Save
+                </button>
+              </div>
+            )}
+
+            {inviteFor === c.id && (
+              <form
+                className="mt-3 flex flex-wrap gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!inviteEmail.trim()) return;
+                  void post({ action: 'add_class_member', classId: c.id, email: inviteEmail.trim() }, `${inviteEmail.trim()} added to ${c.name}.`).then(() => {
+                    setInviteEmail('');
+                    setInviteFor(null);
+                  });
+                }}
+              >
+                <input
+                  type="email"
+                  className="input flex-1 sm:min-w-[200px]"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="student@school.org"
+                  aria-label="Student email"
+                  required
+                />
+                <button type="submit" className="btn btn-primary btn-sm shrink-0">
+                  Add to class
+                </button>
+              </form>
+            )}
+
+            {/* A class belongs to a subject; switching it here keeps the
+                dashboard grouping truthful without recreating the class. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="t-fine text-muted-foreground" htmlFor={`subject-${c.id}`}>
+                Subject
+              </label>
+              <select
+                id={`subject-${c.id}`}
+                className="input max-w-[220px]"
+                value={c.subjectId}
+                onChange={(e) => post({ action: 'set_class_subject', classId: c.id, subjectId: e.target.value }, 'Subject updated.')}
+              >
+                <option value="">No subject</option>
+                {data?.subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {c.roster.length === 0 ? (
@@ -259,6 +379,19 @@ export default function TeacherPage() {
                       <span className="num w-10 text-right text-[12px] text-muted-foreground">
                         {Math.round(r.masteryPct)}%
                       </span>
+                      <button
+                        type="button"
+                        title={`Remove ${r.name} from ${c.name}`}
+                        aria-label={`Remove ${r.name} from ${c.name}`}
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => {
+                          if (window.confirm(`Remove ${r.name} from ${c.name}? They can rejoin with the code.`)) {
+                            void post({ action: 'remove_class_member', classId: c.id, userId: r.userId }, `${r.name} removed from ${c.name}.`);
+                          }
+                        }}
+                      >
+                        <Icon name="close" size={12} />
+                      </button>
                     </div>
                   </li>
                 ))}

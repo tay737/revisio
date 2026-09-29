@@ -40,6 +40,15 @@ type AdminData = {
   subjects: { id: string; name: string; slug: string; mathsEnabled: boolean }[];
   badges: { id: string; slug: string; label: string; icon: string; color: string; grants: number }[];
   manualAchievements: { id: string; name: string; description: string; icon: string }[];
+  classes: {
+    id: string;
+    name: string;
+    joinCode: string;
+    teacherId: string;
+    teacherName: string;
+    subjectId: string;
+    members: { classId: string; userId: string; name: string; email: string }[];
+  }[];
 };
 
 const ROLES = ['student', 'teacher', 'developer'] as const;
@@ -66,6 +75,10 @@ export default function AdminPage() {
   const [badgeColor, setBadgeColor] = useState<'gold' | 'primary' | 'good' | 'rose'>('gold');
   // Per-user pickers, held open one user at a time.
   const [badgePickerFor, setBadgePickerFor] = useState<string | null>(null);
+  // Class picker follows the same one-open-at-a-time rule as the badge picker;
+  // the per-class rename inputs live here too.
+  const [classPickerFor, setClassPickerFor] = useState<string | null>(null);
+  const [classRenameTo, setClassRenameTo] = useState<Record<string, string>>({});
 
   const load = () =>
     api
@@ -511,6 +524,7 @@ export default function AdminPage() {
                 <th scope="col" className="pb-2 pr-3 font-semibold">User</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Role</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Badges</th>
+                <th scope="col" className="pb-2 pr-3 font-semibold">Classes</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Status</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">2FA</th>
                 <th scope="col" className="pb-2 font-semibold" />
@@ -614,6 +628,61 @@ export default function AdminPage() {
                     })()}
                   </td>
                   <td className="py-3 pr-3">
+                    {(() => {
+                      // Membership chips behave exactly like the badge chips
+                      // beside them: click a chip to remove, open the picker
+                      // to add. Only classes the account is not in are listed.
+                      const inClasses = data?.classes.filter((c) => c.members.some((m) => m.userId === u.id)) ?? [];
+                      const open = classPickerFor === u.id;
+                      return (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {inClasses.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                title={`Remove ${u.name} from ${c.name}`}
+                                className="chip chip-active gap-1"
+                                onClick={() => act({ action: 'remove_class_member', classId: c.id, userId: u.id }, `${u.name} removed from ${c.name}.`)}
+                              >
+                                {c.name}
+                                <Icon name="close" size={10} />
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              aria-label={`Classes for ${u.name}`}
+                              aria-expanded={open}
+                              className="chip gap-1"
+                              onClick={() => setClassPickerFor(open ? null : u.id)}
+                            >
+                              <Icon name={open ? 'collapse' : 'add'} size={10} />
+                            </button>
+                          </div>
+                          {open && (
+                            <div className="inset flex flex-wrap gap-1 rounded-md p-2.5">
+                              {(data?.classes.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">No classes exist yet — a teacher can create one.</span>}
+                              {data?.classes
+                                .filter((c) => !c.members.some((m) => m.userId === u.id))
+                                .map((c) => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    title={`${c.teacherName} · code ${c.joinCode}`}
+                                    className="chip gap-1"
+                                    onClick={() => act({ action: 'add_class_member', classId: c.id, userId: u.id }, `${u.name} added to ${c.name}.`)}
+                                  >
+                                    <Icon name="class" size={10} />
+                                    {c.name}
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="py-3 pr-3">
                     <span
                       className={`chip ${
                         u.status === 'active' ? 'chip-active' : u.status === 'suspended' ? 'border-destructive/50 text-destructive' : ''
@@ -673,6 +742,148 @@ export default function AdminPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* ── Classes (all of them, any owner) ────────────────────────────── */}
+      <section className="card">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="t-strong">Classes</h2>
+          <span className="chip">{data?.classes.length ?? 0} on the platform</span>
+        </div>
+        <p className="t-caption mt-1 text-muted-foreground">
+          Every class with its owner and code. Rename, retune owner or subject, remove members — teachers manage their own from Teaching.
+        </p>
+        {(data?.classes.length ?? 0) === 0 ? (
+          <p className="t-caption mt-3 text-muted-foreground">No classes exist yet.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {data?.classes.map((c) => (
+              <div key={c.id} className="inset px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="t-strong flex items-center gap-2">
+                      <Icon name="class" size={15} className="shrink-0 text-primary" />
+                      <span className="truncate">{c.name}</span>
+                    </span>
+                    <span className="t-caption mt-0.5 block text-muted-foreground">
+                      {c.teacherName} · {c.members.length} {c.members.length === 1 ? 'member' : 'members'} · code{' '}
+                      <code className="font-mono tracking-[0.15em]">{c.joinCode}</code>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm gap-1.5"
+                      aria-expanded={classRenameTo[c.id] !== undefined}
+                      onClick={() => {
+                        const next = { ...classRenameTo };
+                        if (next[c.id] !== undefined) delete next[c.id];
+                        else next[c.id] = c.name;
+                        setClassRenameTo(next);
+                      }}
+                    >
+                      <Icon name="edit" size={13} />
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm gap-1.5 text-destructive"
+                      onClick={() => {
+                        if (window.confirm(`Delete "${c.name}"? Its ${c.members.length} ${c.members.length === 1 ? 'member' : 'members'} lose the class; questions and XP are untouched.`)) {
+                          void act({ action: 'delete_class', classId: c.id }, `Class "${c.name}" deleted.`);
+                        }
+                      }}
+                    >
+                      <Icon name="remove" size={13} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {classRenameTo[c.id] !== undefined && (
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <input
+                      className="input flex-1 sm:min-w-[200px]"
+                      value={classRenameTo[c.id]}
+                      onChange={(e) => setClassRenameTo({ ...classRenameTo, [c.id]: e.target.value })}
+                      aria-label={`New name for ${c.name}`}
+                      maxLength={80}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm shrink-0"
+                      disabled={!classRenameTo[c.id].trim()}
+                      onClick={() =>
+                        void act({ action: 'rename_class', classId: c.id, name: classRenameTo[c.id].trim() }, 'Class renamed.').then(() => {
+                          const next = { ...classRenameTo };
+                          delete next[c.id];
+                          setClassRenameTo(next);
+                        })
+                      }
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+
+                {/* Owner + subject rows — selects, because the honest control
+                    for "point this at someone else" is a pick list. */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <select
+                    className="input max-w-[220px]"
+                    value={c.teacherId}
+                    aria-label={`Owner of ${c.name}`}
+                    onChange={(e) => act({ action: 'set_class_teacher', classId: c.id, teacherId: e.target.value }, `${c.name} now belongs to a new owner.`)}
+                  >
+                    {data?.users
+                      .filter((u) => u.role !== 'student')
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </option>
+                      ))}
+                    {/* Always include the current owner even if they no longer
+                        appear in the staff filter (stale data, demotion). */}
+                    {!data?.users.some((u) => u.id === c.teacherId && u.role !== 'student') && (
+                      <option value={c.teacherId}>{c.teacherName}</option>
+                    )}
+                  </select>
+                  <select
+                    className="input max-w-[200px]"
+                    value={c.subjectId}
+                    aria-label={`Subject of ${c.name}`}
+                    onChange={(e) => act({ action: 'set_class_subject', classId: c.id, subjectId: e.target.value }, `${c.name} subject updated.`)}
+                  >
+                    <option value="">No subject</option>
+                    {data?.subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Roster — same chip grammar as the Users table. */}
+                {c.members.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1">
+                    {c.members.map((m) => (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        title={`Remove ${m.name} from ${c.name}`}
+                        className="chip gap-1"
+                        onClick={() => act({ action: 'remove_class_member', classId: c.id, userId: m.userId }, `${m.name} removed from ${c.name}.`)}
+                      >
+                        {m.name}
+                        <Icon name="close" size={10} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ── Audit ────────────────────────────────────────────────────────── */}

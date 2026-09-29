@@ -100,13 +100,18 @@ export const POST = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   if (!canManageContent(user)) throw new ApiError(403, 'forbidden', 'Teachers and developers only.');
   const body = (await req.json()) as {
-    action: 'create_class' | 'rotate_code' | 'create_public_topic' | 'create_subject' | 'rename_subject' | 'set_topic_visibility';
+    action: 'create_class' | 'rotate_code' | 'rename_class' | 'delete_class' | 'set_class_subject'
+      | 'add_class_member' | 'remove_class_member'
+      | 'create_public_topic' | 'create_subject' | 'rename_subject' | 'set_topic_visibility';
     name?: string;
     description?: string;
     subjectId?: string;
     classId?: string;
     topicId?: string;
     visibility?: Visibility;
+    userId?: string;
+    /** add_class_member by email — teachers know emails, not user ids. */
+    email?: string;
   };
 
   switch (body.action) {
@@ -132,6 +137,64 @@ export const POST = route(async (req: NextRequest) => {
       if (cls.teacherId !== user.id) throw new ApiError(403, 'forbidden', 'Not your class.');
       const [updated] = await db.update(classes).set({ joinCode: newCode() }).where(eq(classes.id, cls.id)).returning();
       return ok({ class: updated });
+    }
+
+    // ── owning-class mutations ────────────────────────────────────────────
+    // The four cases below repeat one guard, so it reads as a helper: staff
+    // may manage any class, a teacher only their own. Deleting cascades to
+    // the memberships, so the response states what the roster was.
+    case 'rename_class':
+    case 'set_class_subject':
+    case 'delete_class': {
+      if (!body.classId) throw new ApiError(400, 'bad_request', 'classId required');
+      const [cls] = await db.select().from(classes).where(eq(classes.id, body.classId)).limit(1);
+      if (!cls) throw new ApiError(404, 'not_found', 'Class not found.');
+      if (cls.teacherId !== user.id) throw new ApiError(403, 'forbidden', 'Not your class.');
+
+      if (body.action === 'rename_class') {
+        const name = (body.name ?? '').trim();
+        if (!name) throw new ApiError(400, 'bad_request', 'Give the class a name.');
+        if (name.length > 80) throw new ApiError(400, 'bad_request', 'Class names are 80 characters or fewer.');
+        const [updated] = await db.update(classes).set({ name }).where(eq(classes.id, cls.id)).returning();
+        return ok({ class: updated });
+      }
+      if (body.action === 'set_class_subject') {
+        if (!body.subjectId) throw new ApiError(400, 'bad_request', 'subjectId required');
+        const [sub] = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.id, body.subjectId)).limit(1);
+        if (!sub) throw new ApiError(404, 'not_found', 'Subject not found.');
+        const [updated] = await db.update(classes).set({ subjectId: sub.id }).where(eq(classes.id, cls.id)).returning();
+        return ok({ class: updated });
+      }
+      const memberRows = await db.select({ n: sql<number>`count(*)::int` }).from(classMemberships).where(eq(classMemberships.classId, cls.id));
+      await db.delete(classes).where(eq(classes.id, cls.id));
+      return ok({ deleted: true, members: memberRows[0]?.n ?? 0 });
+    }
+
+    case 'add_class_member': {
+      if (!body.classId) throw new ApiError(400, 'bad_request', 'classId required');
+      const [cls] = await db.select().from(classes).where(eq(classes.id, body.classId)).limit(1);
+      if (!cls) throw new ApiError(404, 'not_found', 'Class not found.');
+      if (cls.teacherId !== user.id) throw new ApiError(403, 'forbidden', 'Not your class.');
+      // Teachers address students by email; the admin panel passes a userId.
+      let memberId = body.userId ?? null;
+      if (!memberId && body.email) {
+        const [byEmail] = await db.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${body.email.trim().toLowerCase()}`).limit(1);
+        memberId = byEmail?.id ?? null;
+      }
+      if (!memberId) throw new ApiError(404, 'not_found', 'No account matches that email.');
+      await db.insert(classMemberships).values({ classId: cls.id, userId: memberId }).onConflictDoNothing();
+      return ok({ ok: true });
+    }
+
+    case 'remove_class_member': {
+      if (!body.classId || !body.userId) throw new ApiError(400, 'bad_request', 'classId and userId required');
+      const [cls] = await db.select().from(classes).where(eq(classes.id, body.classId)).limit(1);
+      if (!cls) throw new ApiError(404, 'not_found', 'Class not found.');
+      if (cls.teacherId !== user.id) throw new ApiError(403, 'forbidden', 'Not your class.');
+      await db
+        .delete(classMemberships)
+        .where(sql`${classMemberships.classId} = ${cls.id} and ${classMemberships.userId} = ${body.userId}`);
+      return ok({ ok: true });
     }
 
     case 'create_public_topic':

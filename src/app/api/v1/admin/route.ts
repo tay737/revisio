@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { achievements, approvalRequests, cards, featureFlags, lessons, profileBadges, subjects, userAchievements, userProfileBadges, users } from '@/db/schema';
+import { achievements, approvalRequests, cards, classMemberships, classes, featureFlags, lessons, profileBadges, subjects, userAchievements, userProfileBadges, users } from '@/db/schema';
 import { revokeAllRefreshTokens } from '@/services/auth';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { isDeveloper } from '@/services/roles';
@@ -17,7 +17,7 @@ export const GET = route(async (req: NextRequest) => {
   if (!isDeveloper(user)) throw new ApiError(403, 'forbidden', 'Developers only.');
   void user;
 
-  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, subjectList, badgeRows, manualAchievements, userBadgeRows, userAchievementRows] = await Promise.all([
+  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, subjectList, badgeRows, manualAchievements, userBadgeRows, userAchievementRows, classRows, classMemberRows] = await Promise.all([
     db
       .select({
         id: approvalRequests.id,
@@ -81,6 +81,27 @@ export const GET = route(async (req: NextRequest) => {
       .from(userAchievements)
       .innerJoin(achievements, eq(userAchievements.achievementId, achievements.id))
       .where(sql`${achievements.rule} ->> 'kind' = 'manual'`),
+    // Every class with its owning teacher, so the panel can retune ownership
+    // and see what it is deleting before it does.
+    db
+      .select({
+        id: classes.id,
+        name: classes.name,
+        joinCode: classes.joinCode,
+        teacherId: classes.teacherId,
+        teacherName: users.name,
+        subjectId: classes.subjectId,
+        createdAt: classes.createdAt,
+      })
+      .from(classes)
+      .innerJoin(users, eq(classes.teacherId, users.id))
+      .orderBy(classes.name),
+    // Rosters for the whole platform in one grouped query — the per-user class
+    // pickers in the Users table read the same rows.
+    db
+      .select({ classId: classMemberships.classId, userId: classMemberships.userId, name: users.name, email: users.email })
+      .from(classMemberships)
+      .innerJoin(users, eq(classMemberships.userId, users.id)),
   ]);
 
   return ok({
@@ -103,6 +124,15 @@ export const GET = route(async (req: NextRequest) => {
     manualAchievements,
     userBadges: userBadgeRows,
     userAchievements: userAchievementRows,
+    classes: classRows.map((c) => ({
+      id: c.id,
+      name: c.name,
+      joinCode: c.joinCode,
+      teacherId: c.teacherId,
+      teacherName: c.teacherName,
+      subjectId: c.subjectId,
+      members: classMemberRows.filter((m) => m.classId === c.id),
+    })),
   });
 });
 
@@ -119,7 +149,9 @@ export const POST = route(async (req: NextRequest) => {
       | 'verify_user_email' | 'revoke_sessions' | 'delete_subject'
       | 'create_badge' | 'update_badge' | 'delete_badge'
       | 'grant_badge' | 'revoke_badge'
-      | 'grant_achievement';
+      | 'grant_achievement'
+      | 'rename_class' | 'delete_class' | 'set_class_teacher' | 'set_class_subject'
+      | 'add_class_member' | 'remove_class_member';
     approvalId?: string;
     flagKey?: string;
     enabled?: boolean;
@@ -138,6 +170,8 @@ export const POST = route(async (req: NextRequest) => {
     icon?: string;
     color?: 'gold' | 'primary' | 'good' | 'rose';
     achievementId?: string;
+    classId?: string;
+    teacherId?: string;
   };
 
   const audit = async (action: string, target: string, meta?: Record<string, unknown>) => {
@@ -335,6 +369,64 @@ export const POST = route(async (req: NextRequest) => {
       if (!body.badgeId || !body.userId) throw new ApiError(400, 'bad_request', 'badgeId and userId required');
       await db.delete(userProfileBadges).where(sql`${userProfileBadges.userId} = ${body.userId} and ${userProfileBadges.badgeId} = ${body.badgeId}`);
       await audit('revoke_badge', body.badgeId, { user: body.userId });
+      return ok({ ok: true });
+    }
+
+    // ── classes (developer-side management) ─────────────────────────────
+    // Membership changes are single-row and idempotent where it matters;
+    // deleting a class cascades to its memberships, so the audit row keeps
+    // the roster size for the record.
+    case 'rename_class': {
+      const name = (body.name ?? '').trim();
+      if (!body.classId || !name) throw new ApiError(400, 'bad_request', 'classId and name required');
+      if (name.length > 80) throw new ApiError(400, 'bad_request', 'Class names are 80 characters or fewer.');
+      const [updated] = await db.update(classes).set({ name }).where(eq(classes.id, body.classId)).returning();
+      if (!updated) throw new ApiError(404, 'not_found', 'Class not found.');
+      await audit('rename_class', updated.id, { name });
+      return ok({ class: updated });
+    }
+    case 'delete_class': {
+      if (!body.classId) throw new ApiError(400, 'bad_request', 'classId required');
+      const [cls] = await db.select().from(classes).where(eq(classes.id, body.classId)).limit(1);
+      if (!cls) throw new ApiError(404, 'not_found', 'Class not found.');
+      const memberRows = await db.select({ n: sql<number>`count(*)::int` }).from(classMemberships).where(eq(classMemberships.classId, cls.id));
+      await db.delete(classes).where(eq(classes.id, cls.id));
+      await audit('delete_class', cls.id, { name: cls.name, members: memberRows[0]?.n ?? 0 });
+      return ok({ deleted: true });
+    }
+    case 'set_class_teacher': {
+      if (!body.classId || !body.teacherId) throw new ApiError(400, 'bad_request', 'classId and teacherId required');
+      const [next] = await db.select({ id: users.id, role: users.role, name: users.name }).from(users).where(eq(users.id, body.teacherId)).limit(1);
+      if (!next) throw new ApiError(404, 'not_found', 'User not found.');
+      if (next.role === 'student') throw new ApiError(400, 'bad_request', 'A class needs a teacher or developer as its owner.');
+      const [updated] = await db.update(classes).set({ teacherId: next.id }).where(eq(classes.id, body.classId)).returning();
+      if (!updated) throw new ApiError(404, 'not_found', 'Class not found.');
+      await audit('set_class_teacher', updated.id, { teacher: next.id, teacherName: next.name });
+      return ok({ class: updated });
+    }
+    case 'set_class_subject': {
+      if (!body.classId || !body.subjectId) throw new ApiError(400, 'bad_request', 'classId and subjectId required');
+      const [sub] = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.id, body.subjectId)).limit(1);
+      if (!sub) throw new ApiError(404, 'not_found', 'Subject not found.');
+      const [updated] = await db.update(classes).set({ subjectId: sub.id }).where(eq(classes.id, body.classId)).returning();
+      if (!updated) throw new ApiError(404, 'not_found', 'Class not found.');
+      await audit('set_class_subject', updated.id, { subjectId: sub.id });
+      return ok({ class: updated });
+    }
+    case 'add_class_member': {
+      if (!body.classId || !body.userId) throw new ApiError(400, 'bad_request', 'classId and userId required');
+      const [cls] = await db.select({ id: classes.id }).from(classes).where(eq(classes.id, body.classId)).limit(1);
+      if (!cls) throw new ApiError(404, 'not_found', 'Class not found.');
+      await db.insert(classMemberships).values({ classId: body.classId, userId: body.userId }).onConflictDoNothing();
+      await audit('add_class_member', body.classId, { user: body.userId });
+      return ok({ ok: true });
+    }
+    case 'remove_class_member': {
+      if (!body.classId || !body.userId) throw new ApiError(400, 'bad_request', 'classId and userId required');
+      await db
+        .delete(classMemberships)
+        .where(sql`${classMemberships.classId} = ${body.classId} and ${classMemberships.userId} = ${body.userId}`);
+      await audit('remove_class_member', body.classId, { user: body.userId });
       return ok({ ok: true });
     }
 
