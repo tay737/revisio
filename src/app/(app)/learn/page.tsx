@@ -2,40 +2,33 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { BlurFade } from '@/components/ui/blur-fade';
-import { SPRING } from '@/lib/motion';
-import { ScrollProgress } from '@/components/ui/scroll-progress';
 import PageSkeleton from '@/components/PageSkeleton';
-import { Markdown } from '@/components/Markdown';
 
-type Subject = { id: string; name: string; description: string; enrolled: boolean; topicCount: number };
-type Topic = { id: string; name: string; description: string; visibility: string };
-type Lesson = { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string };
+type Subject = {
+  id: string;
+  name: string;
+  description: string;
+  enrolled: boolean;
+  topicCount: number;
+};
 
 /**
- * Learn — the reading surface.
+ * Learn — the catalogue.
  *
- * Structure is unchanged (subject → topic → notes) but the hierarchy is now
- * legible at a glance: chevrons replace the ▾/▸ glyphs, the subject row carries
- * an enrolment state rather than a floating "Enroll" label, and the notes
- * render at the spec's 17px body size instead of 14px, which is what makes a
- * page of prose read as an article rather than a tooltip.
- *
- * Subjects are loaded once; topics and lessons load on demand and cache in
- * route state, so re-opening a subject does not refetch.
+ * A subject is a place, not an accordion. The old page folded the whole
+ * subject → topic → notes tree into one pull-out list, which collapsed under
+ * its own length: everything was the same component, nothing had a stable
+ * home, and the notes rendered inside whatever height was left. Now this page
+ * is only the choice of subject — a bounded, link-first list — and each
+ * subject gets a real screen with its specification and its topics.
  */
 export default function LearnPage() {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
-  const [openSubject, setOpenSubject] = useState<string | null>(null);
-  const [topicsBySubject, setTopicsBySubject] = useState<Record<string, Topic[]>>({});
-  const [openTopic, setOpenTopic] = useState<string | null>(null);
-  const [lessonsByTopic, setLessonsByTopic] = useState<Record<string, Lesson[]>>({});
-  const [density, setDensity] = useState<'detailed' | 'summary'>('detailed');
-  const [busyTopic, setBusyTopic] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -44,79 +37,21 @@ export default function LearnPage() {
       .catch(() => setSubjects([]));
   }, []);
 
-  const toggleSubject = async (subjectId: string) => {
-    if (openSubject === subjectId) {
-      setOpenSubject(null);
-      return;
-    }
-    setOpenSubject(subjectId);
-    setOpenTopic(null);
-    if (topicsBySubject[subjectId]) return;
-    try {
-      const d = await api.get<{ topics: Topic[] }>(`/api/v1/content?subjectId=${subjectId}`);
-      setTopicsBySubject((prev) => ({ ...prev, [subjectId]: d.topics }));
-    } catch {
-      setTopicsBySubject((prev) => ({ ...prev, [subjectId]: [] }));
-    }
-  };
-
-  const toggleTopic = async (topicId: string) => {
-    if (openTopic === topicId) {
-      setOpenTopic(null);
-      return;
-    }
-    setOpenTopic(topicId);
-    if (lessonsByTopic[topicId]) return;
-    try {
-      const d = await api.get<{ lessons: Lesson[] }>(`/api/v1/lessons?topicId=${topicId}`);
-      setLessonsByTopic((prev) => ({ ...prev, [topicId]: d.lessons }));
-    } catch {
-      setLessonsByTopic((prev) => ({ ...prev, [topicId]: [] }));
-    }
-  };
-
-  const enroll = async (subject: Subject) => {
-    setBusyTopic(subject.id);
+  const follow = async (subject: Subject) => {
+    setBusy(subject.id);
     try {
       await api.post('/api/v1/subjects', { subjectId: subject.id });
       setSubjects((prev) => prev?.map((x) => (x.id === subject.id ? { ...x, enrolled: true } : x)) ?? prev);
     } finally {
-      setBusyTopic(null);
+      setBusy(null);
     }
   };
 
   if (!subjects) return <PageSkeleton />;
 
-  const topics = openSubject ? topicsBySubject[openSubject] : undefined;
-
   return (
     <div className="space-y-6">
-      {/* Reading progress on long notes. Magic UI ships this in its own brand
-          gradient — four colours in a system that allows one, so it is
-          overridden to ink. `!bg-none` is required: the gradient is a
-          background-image and the colour alone would be painted over. */}
-      <ScrollProgress className="h-0.5 !bg-none bg-foreground" />
-
-      <PageHeader
-        icon="learn"
-        title="Learn"
-        subtitle="Notes for every topic."
-        actions={
-          <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1 backdrop-blur">
-            {(['detailed', 'summary'] as const).map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDensity(d)}
-                aria-pressed={density === d}
-                className={`segment ${density === d ? 'segment-active' : ''}`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      <PageHeader icon="learn" title="Learn" subtitle="Pick a subject to see its topics, notes and specification." />
 
       {subjects.length === 0 && (
         <div className="card p-8 text-center">
@@ -133,171 +68,51 @@ export default function LearnPage() {
         </div>
       )}
 
-      <div className="space-y-3">
-        {subjects.map((s, i) => {
-          const open = openSubject === s.id;
-          return (
-            <BlurFade key={s.id} delay={Math.min(i * 0.04, 0.24)}>
-              <section className="card p-0">
-                {/* Two real buttons side by side: the row toggles, "Follow"
-                    subscribes. Nesting a second control inside the first was
-                    invalid markup and broke keyboard use. */}
-                <div className="flex w-full items-center gap-3 p-5">
+      <ul className="space-y-3">
+        {subjects.map((s, i) => (
+          <BlurFade key={s.id} delay={Math.min(i * 0.04, 0.24)}>
+            <li className="card p-0">
+              {/* Link-first: the whole card navigates, the Follow control is a
+                  sibling action — never a button inside a button. */}
+              <div className="flex w-full items-center gap-3 p-5">
+                <Link
+                  href={`/learn/${s.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary">
+                    <Icon name="topic" size={18} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="t-strong block">{s.name}</span>
+                    <span className="t-caption mt-0.5 block text-muted-foreground">{s.description}</span>
+                  </span>
+                </Link>
+                <span className="chip shrink-0">
+                  {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
+                </span>
+                {!s.enrolled ? (
                   <button
                     type="button"
-                    onClick={() => toggleSubject(s.id)}
-                    aria-expanded={open}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    onClick={() => follow(s)}
+                    disabled={busy === s.id}
+                    className="btn btn-secondary btn-sm shrink-0"
                   >
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                      <Icon name="topic" size={17} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="t-strong block">{s.name}</span>
-                      <span className="t-caption mt-0.5 block text-muted-foreground">{s.description}</span>
-                    </span>
-                    <span className="chip shrink-0">
-                      {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
-                    </span>
-                    <motion.span
-                      animate={{ rotate: open ? 90 : 0 }}
-                      transition={SPRING.press}
-                      className="shrink-0 text-muted-foreground"
-                    >
-                      <Icon name="expand" size={16} />
-                    </motion.span>
+                    {busy === s.id ? 'Adding…' : 'Follow'}
                   </button>
-
-                  {!s.enrolled && (
-                    <button
-                      type="button"
-                      onClick={() => enroll(s)}
-                      disabled={busyTopic === s.id}
-                      className="btn btn-secondary btn-sm shrink-0"
-                    >
-                      {busyTopic === s.id ? 'Adding…' : 'Follow'}
-                    </button>
-                  )}
-                </div>
-
-                <AnimatePresence initial={false}>
-                  {open && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={SPRING.soft}
-                      className="overflow-hidden"
-                    >
-                      <div className="space-y-2 border-t border-border/70 px-5 py-4">
-                        {topics === undefined && <p className="t-caption text-muted-foreground">Loading topics…</p>}
-                        {topics?.length === 0 && (
-                          <p className="t-caption text-muted-foreground">No topics under this subject yet.</p>
-                        )}
-                        {topics?.map((t) => {
-                          const topicOpen = openTopic === t.id;
-                          const lessons = lessonsByTopic[t.id];
-                          return (
-                            <div key={t.id} className="inset overflow-hidden">
-                              {/* One column on a phone, one row on a laptop. Inline,
-                                  the two actions squeezed the title into a sliver
-                                  of one word per line and sat on top of it; the
-                                  title now owns the full width and the actions
-                                  get their own row of two equal targets. */}
-                              <div className="px-4 py-3 sm:flex sm:items-center sm:gap-2 sm:pr-3 sm:py-0">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleTopic(t.id)}
-                                  aria-expanded={topicOpen}
-                                  className="flex w-full min-w-0 items-center gap-3 text-left sm:flex-1 sm:py-3"
-                                >
-                                  <motion.span animate={{ rotate: topicOpen ? 90 : 0 }} transition={SPRING.press} className="shrink-0 text-muted-foreground">
-                                    <Icon name="expand" size={14} />
-                                  </motion.span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="t-strong flex flex-wrap items-center gap-2">
-                                      {t.name}
-                                      {t.visibility === 'private' && (
-                                        <span className="chip">
-                                          <Icon name="private" size={12} />
-                                          private
-                                        </span>
-                                      )}
-                                    </span>
-                                    {t.description && (
-                                      <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
-                                    )}
-                                  </span>
-                                </button>
-                                {/* Meeting a topic's questions for the first time is a
-                                    different intention from cramming them, so it gets the
-                                    ink button and the notes travel with it. */}
-                                <div className="mt-3 flex gap-2 sm:mt-0 sm:shrink-0">
-                                  <Link
-                                    href={`/review?topic=${t.id}`}
-                                    className="btn btn-primary btn-sm flex-1 justify-center gap-1.5 sm:flex-none"
-                                  >
-                                    <Icon name="learn" size={14} />
-                                    Learn
-                                  </Link>
-                                  <Link
-                                    href={`/cram?topic=${t.id}`}
-                                    className="btn btn-secondary btn-sm flex-1 justify-center gap-1.5 sm:flex-none"
-                                  >
-                                    <Icon name="cram" size={14} />
-                                    Cram
-                                  </Link>
-                                </div>
-                              </div>
-
-                              <AnimatePresence initial={false}>
-                                {topicOpen && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={SPRING.soft}
-                                    className="overflow-hidden"
-                                  >
-                                    <div className="space-y-3 border-t border-border/60 px-4 py-4">
-                                      {lessons === undefined && <p className="t-caption text-muted-foreground">Loading notes…</p>}
-                                      {lessons?.length === 0 && (
-                                        <p className="t-caption text-muted-foreground">No notes written for this topic yet.</p>
-                                      )}
-                                      {lessons?.map((l) => (
-                                        <article key={l.id}>
-                                          <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <h4 className="t-strong">{l.title}</h4>
-                                            {l.specRefs && (
-                                              <span className="chip">
-                                                <Icon name="spec" size={12} />
-                                                {l.specRefs}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <Markdown
-                                            text={(density === 'detailed' ? l.detailedMd : l.summaryMd) || l.detailedMd}
-                                            className="mt-3"
-                                          />
-                                        </article>
-                                      ))}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </section>
-            </BlurFade>
-          );
-        })}
-      </div>
+                ) : (
+                  <Link
+                    href={`/learn/${s.id}`}
+                    className="btn btn-primary btn-sm shrink-0"
+                    aria-label={`Open ${s.name}`}
+                  >
+                    Open
+                  </Link>
+                )}
+              </div>
+            </li>
+          </BlurFade>
+        ))}
+      </ul>
     </div>
   );
 }
-

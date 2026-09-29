@@ -103,6 +103,19 @@ export type PaperSpec = {
   contentMd: string;
 };
 
+/**
+ * A summaries-only patch: real revision summaries for lessons that already
+ * exist in the database under another manifest's topics (e.g. pre-existing
+ * T-Level topics imported before the vault pipeline). Only `summary_md` is
+ * written — titles, detailed notes, topics and positions stay untouched — and
+ * every id must match an existing lesson or the run fails loudly.
+ */
+export type SummaryPatchSpec = {
+  kind: 'summary-patch';
+  /** Only these lesson ids may be touched. */
+  lessons: { id: string; title: string; summaryMd: string }[];
+};
+
 export type SubjectSpec = {
   /** Deterministic subject id, e.g. "core-maths". */
   id: string;
@@ -295,6 +308,31 @@ export async function importSubject(spec: SubjectSpec): Promise<Record<string, n
 }
 
 /** Load manifests: named ones, or every manifest in the directory. */
+/**
+ * Patch manifests (kind: 'summary-patch') update summaryMd for existing
+ * lessons and nothing else. A patch is refuse-if-missing, refuse-if-identical:
+ * it cannot create lessons, and a summary that would land byte-identical to
+ * the detailed notes (the failure this exists to fix) is an error, not a write.
+ */
+async function applySummaryPatch(spec: SummaryPatchSpec): Promise<number> {
+  let changed = 0;
+  for (const l of spec.lessons) {
+    const [existing] = await db
+      .select({ id: lessons.id, title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd })
+      .from(lessons)
+      .where(eq(lessons.id, l.id))
+      .limit(1);
+    if (!existing) throw new Error(`summary-patch: lesson ${l.id} (${l.title}) does not exist — patches never create lessons`);
+    if (l.summaryMd.trim() === existing.detailedMd.trim()) {
+      throw new Error(`summary-patch: ${l.id} (${l.title}) summary is a copy of the detailed notes — refusing`);
+    }
+    if (l.summaryMd === existing.summaryMd) continue;
+    await db.update(lessons).set({ summaryMd: l.summaryMd }).where(eq(lessons.id, l.id));
+    changed += 1;
+  }
+  return changed;
+}
+
 function manifestPaths(names: string[]): string[] {
   const dir = join(dirname(fileURLToPath(import.meta.url)), 'manifests');
   const all = readdirSync(dir).filter((f) => f.endsWith('.ts')).sort();
@@ -311,8 +349,13 @@ async function main() {
   const paths = manifestPaths(names);
   for (const path of paths) {
     const mod = await import(path);
-    const spec: SubjectSpec = mod.default;
-    if (!spec?.id || !spec?.name) throw new Error(`import: ${path} must default-export a SubjectSpec`);
+    const spec = mod.default as SubjectSpec | SummaryPatchSpec;
+    if ('kind' in spec) {
+      const n = await applySummaryPatch(spec);
+      console.log(`✓ ${spec.lessons.length} lesson summaries updated (${n} changed)`);
+      continue;
+    }
+    if (!spec?.id || !spec?.name) throw new Error(`import: ${path} must default-export a SubjectSpec or SummaryPatchSpec`);
     const counts = await importSubject(spec);
     console.log(`✓ ${spec.name}: ${counts.topics} topics, ${counts.lessons} lessons, ${counts.mathSets} maths sets, ${counts.papers} papers, ${counts.questions} exam questions`);
   }

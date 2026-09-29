@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { cards, cardAnswers, lessons, subjects, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
@@ -177,7 +177,27 @@ export const GET = route(async (req: NextRequest) => {
       .where(and(eq(topics.subjectId, subjectId), topicReaches(user.id)))
       .orderBy(asc(topics.position), asc(topics.name));
     const counts = await topicContentCounts(user.id, rows.map((r) => r.id), { onlyReachable: true });
-    return ok({ topics: rows.map((t) => ({ ...t, ...counts.get(t.id) })) });
+
+    // The spec references each topic's lessons declare, deduped and in lesson
+    // order. One query — the Learn subject screen renders them as the subject's
+    // specification coverage, so a student sees the exam-facing map of a
+    // subject without opening every topic.
+    const specRefs = new Map<string, string[]>();
+    if (rows.length) {
+      const lessonSpecs = await db
+        .select({ topicId: lessons.topicId, specRefs: lessons.specRefs })
+        .from(lessons)
+        .where(and(inArray(lessons.topicId, rows.map((r) => r.id)), ne(lessons.specRefs, '')));
+      for (const row of lessonSpecs) {
+        const list = specRefs.get(row.topicId) ?? [];
+        for (const ref of row.specRefs.split(';').map((s) => s.trim()).filter(Boolean)) {
+          if (!list.includes(ref)) list.push(ref);
+        }
+        specRefs.set(row.topicId, list);
+      }
+    }
+
+    return ok({ topics: rows.map((t) => ({ ...t, ...counts.get(t.id), specRefs: specRefs.get(t.id) ?? [] })) });
   }
 
   const rows = isDeveloper(user)
