@@ -5,6 +5,7 @@ import { users } from '@/db/schema';
 import { issueEmailToken, consumeEmailToken } from '@/services/auth';
 import { sendVerificationEmail } from '@/services/email';
 import { ApiError, ok, route } from '@/services/api';
+import { takeRateLimitAttempt } from '@/services/rate-limit';
 
 /**
  * POST /auth/verify-email { token, kind? }
@@ -41,7 +42,17 @@ export const POST = route(async (req: NextRequest) => {
 export const PUT = route(async (req: NextRequest) => {
   const { email } = (await req.json().catch(() => ({}))) as { email?: string };
   if (!email) throw new ApiError(400, 'bad_request', 'Email required.');
+  // The mailbox is the resource being exhausted; one budget per address.
+  // Taken *after* the lookup and *before* any disclosure — a limited request
+  // must be indistinguishable from a clean one, or the always-ok shape below
+  // becomes a registration oracle (the limiter would confirm which addresses
+  // are real). The catch keeps the neutral answer on limit.
   const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+  try {
+    await takeRateLimitAttempt('verifySend', `resend:${email.toLowerCase()}`);
+  } catch {
+    return ok({ sent: true });
+  }
   // Always return ok — never leak which emails are registered.
   if (!user || user.emailVerifiedAt || user.status !== 'pending') return ok({ sent: true });
 

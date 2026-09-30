@@ -10,7 +10,22 @@ import { users, refreshTokens, emailTokens } from '@/db/schema';
 export type Role = 'student' | 'teacher' | 'developer';
 export type SessionUser = { id: string; email: string; name: string; role: Role; status: string };
 
-const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'dev-only-secret-change-me');
+// The dev fallback is a boot choice, not a runtime default: if production ever
+// starts without AUTH_SECRET, tokens would be signed with a key anyone can
+// read in this repository — every account forgeable. So the module refuses to
+// start (build/RSC init throws) unless the env explicitly says it is a
+// non-production run. Failing closed here is what keeps the fallback from
+// silently shipping.
+const secret = new TextEncoder().encode(
+  process.env.AUTH_SECRET ||
+    (process.env.NODE_ENV === 'production' || process.env.VERCEL
+      ? undefined
+      : 'dev-only-secret-change-me') ||
+    '',
+);
+if (secret.byteLength === 0) {
+  throw new Error('AUTH_SECRET must be set in production. Generate one with: openssl rand -hex 32');
+}
 export const ACCESS_TTL_SECONDS = 15 * 60;
 export const REFRESH_TTL_DAYS = 30;
 
@@ -152,9 +167,18 @@ export function hashRecoveryCode(code: string): string {
 
 export type EmailTokenKind = 'verify' | 'reset' | 'email_change';
 
-export async function issueEmailToken(userId: string, kind: EmailTokenKind): Promise<string> {
+/**
+ * Issue a single-use email token. Password resets get a deliberately shorter
+ * life (30 minutes) than verification (24h): a reset link in an inbox is the
+ * one token whose value decays fastest.
+ */
+export async function issueEmailToken(
+  userId: string,
+  kind: EmailTokenKind,
+  ttlMinutes = 24 * 60,
+): Promise<string> {
   const raw = randomBytes(24).toString('hex');
-  const expiresAt = new Date(Date.now() + 24 * 3_600_000);
+  const expiresAt = new Date(Date.now() + ttlMinutes * 3_600_000);
   await db.insert(emailTokens).values({ id: crypto.randomUUID(), userId, kind, tokenHash: sha256(raw), expiresAt });
   return raw;
 }
