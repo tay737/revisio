@@ -428,6 +428,7 @@ type SyncEvent = { seq: string; table_name: string; op: string; pk: string; row_
  */
 export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap, maxEvents = 2_000): Promise<number> {
   let drained = 0;
+  const deadline = Date.now() + DRAIN_BUDGET_MS;
   for (;;) {
     const fromClient = await from.pool.connect();
     let events: SyncEvent[];
@@ -458,9 +459,22 @@ export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap
     }
     drained += events.length;
     if (events.length < maxEvents) break;
+    // A backlog larger than one budget should leave the rest for the next
+    // tick rather than have the whole invocation killed by the platform's
+    // function timeout — which deleted nothing and made no progress at all.
+    if (Date.now() > deadline) break;
   }
   return drained;
 }
+
+/**
+ * How long one drain may keep applying batches. Bounded so a backlog bigger
+ * than any single invocation can chew makes *partial* progress: the cron's
+ * maxDuration would otherwise kill the request mid-run, the consumed-event
+ * deletes never commit, and every retry restarts the same minute from zero —
+ * the shape of outage where pending > ~1000 never drains at all.
+ */
+const DRAIN_BUDGET_MS = Number(process.env.NEON_DRAIN_BUDGET_MS ?? 25_000);
 
 /**
  * Apply one batch in dependency order, retrying rows whose parents are later

@@ -1,9 +1,17 @@
 import { NextRequest } from 'next/server';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { examAttempts, examQuestions, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { getExamPaper, listExamPapers, submitExam } from '@/services/study';
+import { topicReaches } from '@/services/visibility';
+
+/**
+ * The visibility filter for exam topic selection — the same rule as everywhere
+ * else (services/visibility.ts). Without it, a user could enumerate any
+ * private topic id and read another user's questions: the pool summary, the
+ * built paper and the marking all accepted topic ids the caller had no right
+ * to. `getExamPaper` already checked paper ownership; the topics did not.
 
 /** GET /exam?subjectId= — question pool summary + stored papers + my attempts.
  *  GET /exam?paperId=… — one stored paper, verbatim. */
@@ -17,9 +25,10 @@ export const GET = route(async (req: NextRequest) => {
   }
   const subjectId = req.nextUrl.searchParams.get('subjectId');
 
-  const topicsPool = subjectId
-    ? await db.select({ id: topics.id, name: topics.name }).from(topics).where(eq(topics.subjectId, subjectId))
-    : await db.select({ id: topics.id, name: topics.name }).from(topics);
+  const topicsPool = await db
+    .select({ id: topics.id, name: topics.name })
+    .from(topics)
+    .where(subjectId ? and(eq(topics.subjectId, subjectId), topicReaches(user.id)) : topicReaches(user.id));
   const topicIds = topicsPool.map((t) => t.id);
   const [count, papers] = await Promise.all([
     topicIds.length
@@ -43,10 +52,13 @@ export const POST = route(async (req: NextRequest) => {
   };
 
   if (!body.topicIds?.length) throw new ApiError(400, 'bad_request', 'topicIds required');
+  // Only topics this user may reach — the same condition as the picker and the
+  // cram queue. A private topic id guessed or shared between accounts used to
+  // pass straight through to build/submit here.
   const ownedTopics = await db
     .select({ id: topics.id, name: topics.name })
     .from(topics)
-    .where(inArray(topics.id, body.topicIds));
+    .where(and(inArray(topics.id, body.topicIds), topicReaches(user.id)));
   if (ownedTopics.length === 0) throw new ApiError(404, 'not_found', 'Topics not found.');
 
   if (!body.answers) {

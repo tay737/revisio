@@ -5,8 +5,13 @@ import { users, approvalRequests, userSubjects } from '@/db/schema';
 import { hashPassword, issueEmailToken } from '@/services/auth';
 import { sendVerificationEmail } from '@/services/email';
 import { ApiError, ok, route } from '@/services/api';
+import { takeRateLimitAttempt, clientIp } from '@/services/rate-limit';
 
 export const POST = route(async (req: NextRequest) => {
+  // One wall per source IP: account creation is the seed of every abuse
+  // pattern (spam profiles, bulk spam submissions, a mailshot of verification
+  // links), and it is the cheapest door to close.
+  await takeRateLimitAttempt('registerIp', clientIp(req));
   const body = await req.json().catch(() => null);
   if (!body) throw new ApiError(400, 'bad_request', 'Invalid JSON body.');
   const { email, password, name, role, note, subjectIds, classCode } = body as {
