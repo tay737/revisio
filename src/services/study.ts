@@ -8,7 +8,7 @@ import {
 } from '@/db/schema';
 import { gradeClozeWithPolicy, gradeFlashcard, gradeMcq, type AcceptedAnswer, type Verdict } from '@/domain/grading';
 import { resolveClozeMarking } from '@/services/grading-policy';
-import { getScheduler, newCardState, type Rating } from '@/domain/srs';
+import { getScheduler, newCardState, srsInfoForState, srsLevelFor, srsLevelInfo, type Rating } from '@/domain/srs';
 import { evaluateAchievements, levelForXp, nextStreak, utcDateKey, xpForReview } from '@/domain/gamification';
 import { enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
 
@@ -41,9 +41,19 @@ export type QueueCard = {
   question: string | null;
   options: { id: string; text: string }[] | null;
   stage: string;
+  /** BunPro-style strength rung 1–12, derived from the scheduler state. */
+  srsLevel: number;
+  srsLabel: string;
   // answers are sent for cloze/flashcard only after grading (see submitReview);
   // for the queue we never send accepted answers to the client.
 };
+
+/** The strength pair every queue builder attaches, derived from the card's
+ *  scheduler state — one helper so the three builders cannot drift. */
+function srsFields(state: { stage: string; intervalDays: number } | null | undefined) {
+  const info = srsInfoForState({ stage: state?.stage ?? 'new', intervalDays: state?.intervalDays ?? 0 });
+  return { srsLevel: info.level, srsLabel: info.label };
+}
 
 export async function buildDailyQueue(userId: string, limit = 20): Promise<QueueCard[]> {
   const enrolled = await enrolledSubjectIds(userId);
@@ -92,6 +102,7 @@ export async function buildDailyQueue(userId: string, limit = 20): Promise<Queue
     question: card.kind === 'mcq' ? card.question : null,
     options: card.kind === 'mcq' ? card.options ?? null : null,
     stage: state?.stage ?? 'new',
+    ...srsFields(state),
   }));
 }
 
@@ -123,6 +134,9 @@ export type SubmitReviewResult = {
   streak: number;
   newAchievements: { id: string; name: string; icon: string; description: string }[];
   nextDueAt: string;
+  /** Strength rung the card now holds, so the verdict can say where it moved. */
+  srsLevel: number;
+  srsLabel: string;
 };
 
 export async function submitReview(userId: string, input: SubmitReviewInput): Promise<SubmitReviewResult> {
@@ -233,6 +247,12 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   const newAchievements = await checkAchievements(userId, verdict.correct);
 
   const primary = answersRes.find((a) => a.isPrimary) ?? answersRes[0];
+  // The rung the card holds after this review — cram mode leaves the schedule
+  // (and therefore the rung) untouched.
+  const nextSrsState = {
+    stage: (scheduling?.stage ?? prevState.stage) as string,
+    intervalDays: scheduling?.intervalDays ?? prevState.intervalDays,
+  };
   return {
     verdict,
     primaryAnswer: card.kind === 'cloze' ? primary?.text : undefined,
@@ -240,6 +260,8 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     explanation: card.explanationMd || undefined,
     xpAwarded, totalXp, level, streak: streakCurrent, newAchievements,
     nextDueAt: (scheduling?.dueAt ?? new Date()).toISOString(),
+    srsLevel: srsLevelFor(nextSrsState),
+    srsLabel: srsLevelInfo(srsLevelFor(nextSrsState)).label,
   };
 }
 
@@ -402,6 +424,7 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
       question: card.kind === 'mcq' ? card.question : null,
       options: card.kind === 'mcq' ? card.options ?? null : null,
       stage: state?.stage ?? 'new',
+      ...srsFields(state),
     })),
     progress: { met, total, remaining: Math.max(0, total - met) },
   };
@@ -443,6 +466,7 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     question: card.kind === 'mcq' ? card.question : null,
     options: card.kind === 'mcq' ? card.options ?? null : null,
     stage: state?.stage ?? 'new',
+    ...srsFields(state),
   }));
 }
 

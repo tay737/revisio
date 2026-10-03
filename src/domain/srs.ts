@@ -127,6 +127,69 @@ export class FsrsLiteScheduler implements Scheduler {
   }
 }
 
+// ── Strength ladder (levels 1–12) ──────────────────────────────────────────
+// A BunPro-style ranking laid over whichever scheduler produces the intervals
+// (sm2, fsrs-lite, or a dev-registered one). The ladder is deliberately NOT a
+// third scheduler: it reads the state a scheduler produced and answers "how
+// strong is this memory" on one fixed 1–12 scale, so the queue, the review
+// verdict and the staff progress panel can never disagree about a card.
+
+export type SrsTier = 'beginner' | 'adept' | 'seasoned' | 'mastered';
+
+export type SrsLevel = {
+  /** 1–12. */
+  level: number;
+  tier: SrsTier;
+  /** Display name, e.g. "Adept II". Level 12 carries no numeral — it is the summit. */
+  label: string;
+  /** Interval a review at this level earns, in hours. null = complete/burned. */
+  hours: number | null;
+  /** Compact interval chip ("4h", "2w", "6mo"). null at the summit. */
+  interval: string | null;
+};
+
+export const SRS_LADDER: SrsLevel[] = [
+  { level: 1, tier: 'beginner', label: 'Beginner I', hours: 4, interval: '4h' },
+  { level: 2, tier: 'beginner', label: 'Beginner II', hours: 8, interval: '8h' },
+  { level: 3, tier: 'beginner', label: 'Beginner III', hours: 24, interval: '1d' },
+  { level: 4, tier: 'adept', label: 'Adept I', hours: 48, interval: '2d' },
+  { level: 5, tier: 'adept', label: 'Adept II', hours: 96, interval: '4d' },
+  { level: 6, tier: 'adept', label: 'Adept III', hours: 192, interval: '8d' },
+  { level: 7, tier: 'seasoned', label: 'Seasoned I', hours: 336, interval: '2w' },
+  { level: 8, tier: 'seasoned', label: 'Seasoned II', hours: 720, interval: '1mo' },
+  { level: 9, tier: 'seasoned', label: 'Seasoned III', hours: 1440, interval: '2mo' },
+  { level: 10, tier: 'mastered', label: 'Mastered I', hours: 2880, interval: '4mo' },
+  { level: 11, tier: 'mastered', label: 'Mastered II', hours: 4320, interval: '6mo' },
+  { level: 12, tier: 'mastered', label: 'Mastered', hours: null, interval: null },
+];
+
+/** The 6-month step is the last timed rung; anything past it is burned. */
+const LAST_TIMED_DAYS = 180;
+
+/**
+ * Which rung a scheduler state sits on. Learning cards hold level 1 — they are
+ * minutes away, whatever their history. Graduated cards map by interval: the
+ * level whose step the current interval has reached, and anything scheduled
+ * past the 6-month rung is burned (level 12).
+ */
+export function srsLevelFor(state: { stage: string; intervalDays: number }): number {
+  if (state.stage === 'new' || state.stage === 'learning') return 1;
+  const days = Math.max(0, state.intervalDays);
+  let level = 1;
+  for (const rung of SRS_LADDER) {
+    if (rung.hours !== null && days >= rung.hours / 24) level = rung.level;
+  }
+  return days > LAST_TIMED_DAYS ? 12 : level;
+}
+
+export function srsLevelInfo(level: number): SrsLevel {
+  return SRS_LADDER[Math.min(SRS_LADDER.length, Math.max(1, level)) - 1];
+}
+
+export function srsInfoForState(state: { stage: string; intervalDays: number }): SrsLevel {
+  return srsLevelInfo(srsLevelFor(state));
+}
+
 // ── registry ────────────────────────────────────────────────────────────────
 // Dev-added algorithms register here. Each gets tunable params stored in the
 // srs_algorithm_config feature flag payload.

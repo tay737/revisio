@@ -11,6 +11,8 @@ import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { ContentManager } from './ContentManager';
 import { ClozeMarking } from '../library/ClozeMarking';
 import PageSkeleton from '@/components/PageSkeleton';
+import { StudentProgressPanel } from '@/components/staff/StudentProgressPanel';
+import { SRS_LADDER } from '@/domain/srs';
 
 type AdminData = {
   approvals: {
@@ -80,6 +82,8 @@ export default function AdminPage() {
   // the per-class rename inputs live here too.
   const [classPickerFor, setClassPickerFor] = useState<string | null>(null);
   const [classRenameTo, setClassRenameTo] = useState<Record<string, string>>({});
+  /** Whose progress sheet is open — developers may inspect any account. */
+  const [progressFor, setProgressFor] = useState<{ id: string; name: string } | null>(null);
 
   const load = () =>
     api
@@ -380,6 +384,26 @@ export default function AdminPage() {
               <p className="t-fine mt-1 break-all font-mono text-muted-foreground">{JSON.stringify(a.defaultParams)}</p>
             </div>
           ))}
+        </div>
+
+        {/* The strength ladder is scheduler-agnostic — every algorithm maps onto
+            the same 12 rungs, so changing the scheduler never changes what a
+            learner (or a teacher) is told their cards are worth. */}
+        <div className="mt-4 border-t border-border/60 pt-4">
+          <span className="t-eyebrow">Strength ladder (shared by every algorithm)</span>
+          <p className="t-caption mt-1 text-muted-foreground">
+            Each card is ranked 1–12 by the interval it currently holds. Level 12 is complete/burned.
+          </p>
+          <ol className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {SRS_LADDER.map((rung) => (
+              <li key={rung.level} className="inset flex items-center justify-between gap-2 px-3 py-2">
+                <span className="num text-[13px] font-semibold">
+                  <span className="text-muted-foreground">Lv {rung.level}</span> · {rung.label}
+                </span>
+                <span className="t-fine num shrink-0 text-muted-foreground">{rung.interval ?? 'complete'}</span>
+              </li>
+            ))}
+          </ol>
         </div>
 
         <div className="mt-4">
@@ -691,6 +715,14 @@ export default function AdminPage() {
                   </td>
                   <td className="py-3 text-right">
                     <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => setProgressFor({ id: u.id, name: u.name })}
+                        aria-label={`View progress for ${u.name}`}
+                      >
+                        Progress
+                      </button>
                       {!u.emailVerifiedAt && (
                         <button
                           type="button"
@@ -885,6 +917,15 @@ export default function AdminPage() {
             </div>
           </section>
         </BlurFade>
+      )}
+
+      {/* ── Student progress sheet ──────────────────────────────────────── */}
+      {progressFor && (
+        <StudentProgressPanel
+          userId={progressFor.id}
+          name={progressFor.name}
+          onClose={() => setProgressFor(null)}
+        />
       )}
     </div>
   );

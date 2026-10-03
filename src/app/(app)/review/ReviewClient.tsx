@@ -40,6 +40,10 @@ type QueueCard = {
   question: string | null;
   options: { id: string; text: string }[] | null;
   stage: string;
+  /** Strength rung 1–12 from the 12-level SRS ladder (domain/srs). Optional:
+   *  sessions cached before this field existed still have to render. */
+  srsLevel?: number;
+  srsLabel?: string;
 };
 
 type Verdict = {
@@ -60,6 +64,9 @@ type ReviewResult = {
   level: number;
   streak: number;
   newAchievements: { id: string; name: string; icon: string; description: string }[];
+  /** Strength rung after grading (absent for offline-queued answers). */
+  srsLevel?: number;
+  srsLabel?: string;
   /** Graded here and owed to the server — XP arrives when it lands. */
   queued?: boolean;
 };
@@ -601,12 +608,19 @@ export default function ReviewClient() {
         >
           <div className="card">
             <div className="flex items-center justify-between gap-3">
-              <span className="badge badge-quiet">
-                <Icon
-                  name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'}
-                  size={13}
-                />
-                {KIND_LABEL[card.kind]}
+              <span className="flex items-center gap-1.5">
+                <span className="badge badge-quiet">
+                  <Icon
+                    name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'}
+                    size={13}
+                  />
+                  {KIND_LABEL[card.kind]}
+                </span>
+                {card.srsLevel != null && (
+                  <span className="badge badge-quiet num" title={`Strength: ${card.srsLabel} (level ${card.srsLevel} of 12)`}>
+                    Lv {card.srsLevel}
+                  </span>
+                )}
               </span>
               <span className="truncate text-[12px] text-muted-foreground">
                 {card.subjectName} · {card.topicName}
@@ -721,7 +735,7 @@ export default function ReviewClient() {
                 className="overflow-hidden"
               >
                 <div ref={verdictRef}>
-                  <VerdictPanel result={result} kind={card.kind} />
+                  <VerdictPanel result={result} card={card} />
                   <button onClick={next} className="btn btn-primary btn-lg mt-3 gap-2">
                     Continue
                     <Icon name="next" size={17} />
@@ -939,7 +953,7 @@ function ClozePrompt({ text, answer, revealed }: { text: string; answer: string 
  * get the cardinal wash, the model answer, and — when the grader found phrases
  * the learner did hit — the partial credit spelled out rather than implied.
  */
-function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard['kind'] }) {
+function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard }) {
   const { verdict } = result;
   const good = verdict.correct;
   const softened = verdict.feedbackKind !== 'correct' && good;
@@ -967,7 +981,23 @@ function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard[
             +{result.xpAwarded} XP
           </span>
         )}
-      </div>        {verdict.note && <p className="mt-2 text-[14px] text-foreground">{verdict.note}</p>}
+      </div>
+
+      {/* Where the card now sits on the 12-level strength ladder. The level it
+          held before the answer comes from the card itself; an offline-queued
+          answer has no server verdict yet, so the line stays silent. */}
+      {result.srsLevel != null && (
+        <p className="num mt-2 text-[13px] font-semibold text-muted-foreground" aria-live="polite">
+          Strength: {result.srsLabel} · level {result.srsLevel} of 12
+          {card.srsLevel != null && result.srsLevel > card.srsLevel && (
+            <span className="ml-1.5 text-good-pressed">↑ level up</span>
+          )}
+          {card.srsLevel != null && result.srsLevel < card.srsLevel && (
+            <span className="ml-1.5 text-destructive">↓ dropped from {card.srsLabel}</span>
+          )}
+        </p>
+      )}
+      {verdict.note && <p className="mt-2 text-[14px] text-foreground">{verdict.note}</p>}
 
         {result.queued && (
           <p className="mt-2 text-[13px] text-muted-foreground">
@@ -989,7 +1019,7 @@ function VerdictPanel({ result, kind }: { result: ReviewResult; kind: QueueCard[
         </p>
       )}
 
-      {kind === 'flashcard' && result.modelAnswer && (
+      {card.kind === 'flashcard' && result.modelAnswer && (
         <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
           <span className="t-eyebrow">Model answer</span>
           <p className="mt-0.5 text-[14px] text-foreground">{result.modelAnswer}</p>
