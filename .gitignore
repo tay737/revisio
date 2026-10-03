@@ -28,3 +28,4 @@ dist/
 .agentsroom/fork-context-*.txt
 .omp/mcp.json
 .agents/mcp.json
+.env*

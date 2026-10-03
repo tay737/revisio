@@ -12,6 +12,7 @@ import { SPRING } from '@/lib/motion';
 import { motion } from 'motion/react';
 import PageSkeleton from '@/components/PageSkeleton';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
+import { StudentProgressPanel } from '@/components/staff/StudentProgressPanel';
 
 type Roster = {
   userId: string;
@@ -53,6 +54,8 @@ export default function TeacherPage() {
   // by hand instead of announcing into a corner of the screen.
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
+  /** Whose progress sheet is open — roster names open the shared staff panel. */
+  const [progressFor, setProgressFor] = useState<{ id: string; name: string } | null>(null);
 
   const copyCode = async (classId: string, code: string) => {
     try {
@@ -349,10 +352,21 @@ export default function TeacherPage() {
               <ul className="mt-3 divide-y divide-border">
                 {c.roster.map((r) => (
                   <li key={r.userId} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[15px] font-semibold">{r.name}</div>
+                    {/* The name opens the progress sheet — the affordance is the
+                        hover underline, so the row stays quiet. */}
+                    <button
+                      type="button"
+                      onClick={() => setProgressFor({ id: r.userId, name: r.name })}
+                      aria-label={`View progress for ${r.name}`}
+                      title="View progress"
+                      className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary"
+                    >
+                      <div className="flex min-w-0 items-center gap-1">
+                        <span className="truncate text-[15px] font-semibold hover:underline">{r.name}</span>
+                        <Icon name="expand" size={12} className="shrink-0 text-muted-foreground" />
+                      </div>
                       <div className="truncate text-[12px] text-muted-foreground">{r.email}</div>
-                    </div>
+                    </button>
 
                     <div className="num flex items-center gap-3.5 text-[13px] text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -474,6 +488,15 @@ export default function TeacherPage() {
           </button>
         </div>
       </section>
+
+      {/* ── Student progress sheet ──────────────────────────────────────── */}
+      {progressFor && (
+        <StudentProgressPanel
+          userId={progressFor.id}
+          name={progressFor.name}
+          onClose={() => setProgressFor(null)}
+        />
+      )}
     </div>
   );
 }
