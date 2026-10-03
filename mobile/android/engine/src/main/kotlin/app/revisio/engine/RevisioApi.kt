@@ -39,10 +39,50 @@ sealed interface RefreshOutcome {
 class ApiException(val status: Int, val code: String, override val message: String) : Exception(message)
 
 @kotlinx.serialization.Serializable
-private data class LoginRequest(val email: String, val password: String)
+private data class LoginRequest(
+    val email: String,
+    val password: String,
+    // The 2FA stage: the first call goes out without it, and the server answers
+    // `mfaRequired`; the retry carries the six digits. Optional so the first
+    // request never serialises a null field.
+    val totp: String? = null,
+)
+
+@kotlinx.serialization.Serializable
+private data class RegisterRequest(
+    val email: String,
+    val password: String,
+    val name: String,
+    val role: String? = null,
+    val note: String? = null,
+    val subjectIds: List<String>? = null,
+    val classCode: String? = null,
+)
+
+/** `POST /auth/register` — what comes back decides what the screen says next. */
+@kotlinx.serialization.Serializable
+data class RegisterResponse(
+    val id: String = "",
+    val email: String = "",
+    val name: String = "",
+    val role: String = "student",
+    val status: String = "pending",
+    /** Only present when the deployment has no mail provider configured. */
+    val verifyUrl: String? = null,
+)
+
+/** The public id/name list the registration form offers — `GET /auth/subjects-public`. */
+@kotlinx.serialization.Serializable
+data class PublicSubject(val id: String = "", val name: String = "")
+
+@kotlinx.serialization.Serializable
+data class PublicSubjectList(val subjects: List<PublicSubject> = emptyList())
 
 @kotlinx.serialization.Serializable
 private data class RefreshRequest(val refreshToken: String)
+
+@kotlinx.serialization.Serializable
+private data class ResendVerificationRequest(val email: String)
 
 @kotlinx.serialization.Serializable
 private data class SubmitReviewRequest(
@@ -164,8 +204,18 @@ class RevisioApi(
         }
     }
 
-    suspend fun login(email: String, password: String): AuthSession = withContext(Dispatchers.IO) {
-        val body = json.encodeToString(LoginRequest.serializer(), LoginRequest(email, password))
+    suspend fun login(email: String, password: String): AuthSession = login(email, password, null)
+
+    /**
+     * Sign in, in one or two steps.
+     *
+     * An account with 2FA on answers `{ mfaRequired: true }` with 200 — that is
+     * not an error, it is the server asking for the six digits; the screen then
+     * calls this again with `totp`. (A recovery code is accepted by the same
+     * route, but the app asks only for the authenticator, as the web does.)
+     */
+    suspend fun login(email: String, password: String, totp: String?): AuthSession = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(LoginRequest.serializer(), LoginRequest(email, password, totp))
         client.newCall(request("/api/v1/auth/login", body = body, method = "POST")).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
@@ -177,10 +227,67 @@ class RevisioApi(
                 )
             }
             val parsed = json.decodeFromString(LoginResponse.serializer(), text)
-            if (parsed.mfaRequired) throw ApiException(409, "mfa_required", "This account needs a 2FA code, which this build cannot yet enter.")
+            if (parsed.mfaRequired) throw MfaRequiredException()
             val token = parsed.accessToken ?: throw ApiException(500, "no_token", "The server did not return a session.")
             val user = parsed.user ?: throw ApiException(500, "no_user", "The server did not return your account.")
             AuthSession(token, refreshTokenFrom(response.headers("Set-Cookie")), user)
+        }
+    }
+
+    /**
+     * The server asking for a second factor, raised as its own thing.
+     *
+     * The sign-in screen catches this to open the 2FA stage rather than to show
+     * a red notice — a code request is a question, not a failure.
+     */
+    class MfaRequiredException : Exception("This account needs a 2FA code.")
+
+    /**
+     * Create an account — the web's register form, verbatim.
+     *
+     * Every new account is `pending` until its email is verified, and a teacher
+     * request additionally waits for a developer's approval, so this never
+     * returns a session: the screen answers with "check your inbox".
+     */
+    suspend fun register(
+        email: String,
+        password: String,
+        name: String,
+        role: String? = null,
+        note: String? = null,
+        subjectIds: List<String>? = null,
+        classCode: String? = null,
+    ): RegisterResponse = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(
+            RegisterRequest.serializer(),
+            RegisterRequest(email, password, name, role, note, subjectIds, classCode),
+        )
+        client.newCall(request("/api/v1/auth/register", body = body, method = "POST")).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val err = runCatching { json.decodeFromString(ApiErrorEnvelope.serializer(), text) }.getOrNull()
+                throw ApiException(
+                    response.code,
+                    err?.error?.code ?: "error",
+                    err?.error?.message ?: "Registration failed (${response.code}).",
+                )
+            }
+            json.decodeFromString(RegisterResponse.serializer(), text)
+        }
+    }
+
+    /** The subjects the registration form offers, no session needed. */
+    suspend fun publicSubjects(): List<PublicSubject> = withContext(Dispatchers.IO) {
+        send(request("/api/v1/auth/subjects-public")) {
+            json.decodeFromString(PublicSubjectList.serializer(), it)
+        }.subjects
+    }
+
+    /** `PUT /auth/verify-email` — re-send the verification email. */
+    suspend fun resendVerification(email: String): Boolean = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(ResendVerificationRequest.serializer(), ResendVerificationRequest(email))
+        client.newCall(request("/api/v1/auth/verify-email", body = body, method = "PUT")).execute().use { response ->
+            response.isSuccessful
         }
     }
 

@@ -37,6 +37,7 @@ import app.revisio.engine.OfflineStore
 import app.revisio.engine.Prefs
 import app.revisio.engine.PublicProfile
 import app.revisio.engine.QuizCard
+import app.revisio.engine.RankLadder
 import app.revisio.engine.RefreshOutcome
 import app.revisio.engine.RevisioApi
 import app.revisio.engine.SessionStore
@@ -134,6 +135,16 @@ data class UiState(
     val pending: Int = 0,
     val message: String? = null,
     // the review loop, in whichever mode it was started
+    /**
+     * The reward moment. Bumped on every correct mark (small burst) and on a
+     * promotion at session end (full burst) — the two celebrations the web
+     * fires. The screen overlays `Confetti(trigger)`; reduced motion reads none.
+     */
+    val confettiTrigger: Int = 0,
+    /** The session just moved the learner up a rung — the summary's flourish. */
+    val promoted: Boolean = false,
+    /** Total XP when the session began, so its ladder movement can be judged. */
+    val xpAtSessionStart: Int? = null,
     val cards: List<QuizCard> = emptyList(),
     val index: Int = 0,
     val answer: String = "",
@@ -149,7 +160,7 @@ data class UiState(
     val sessionTitle: String = "",
     val sessionNotes: List<Note> = emptyList(),
     val sessionId: String? = null,
-    val notesOpen: Boolean = true,
+    val notesOpen: Boolean = false,
     val met: Int = 0,
     val total: Int = 0,
     // the catalogue
@@ -279,6 +290,8 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
 
     private var accessToken: String? = null
     private var cardStartedAt: Long = System.currentTimeMillis()
+    /** XP the session has earned so far — the promotion check at session end. */
+    private var xpThisSession = 0
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -345,11 +358,29 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         refreshHome()
     }
 
-    fun signIn(email: String, password: String) {
+    /** What a sign-in attempt ended in, told to the screen that asked. */
+    sealed interface SignInOutcome {
+        data object SignedIn : SignInOutcome
+
+        /** The server asked for the six digits, not refused — the 2FA stage. */
+        data object MfaRequired : SignInOutcome
+
+        data class Failed(val message: String) : SignInOutcome
+    }
+
+    /** What a registration attempt ended in. Registration never signs in. */
+    sealed interface SignUpOutcome {
+        /** `verifyUrl` is set when the deployment has no mail provider configured. */
+        data class Done(val verifyUrl: String?) : SignUpOutcome
+
+        data class Failed(val message: String) : SignUpOutcome
+    }
+
+    fun signIn(email: String, password: String, totp: String?, onDone: (SignInOutcome) -> Unit) {
         _state.update { it.copy(loading = true, message = null) }
         viewModelScope.launch {
             try {
-                val session = api.login(email, password)
+                val session = api.login(email, password, totp)
                 accessToken = session.accessToken
                 sessionStore.save(session)
                 _state.update {
@@ -357,10 +388,48 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 refreshHome()
                 loadSubjects()
+                onDone(SignInOutcome.SignedIn)
+            } catch (e: RevisioApi.MfaRequiredException) {
+                _state.update { it.copy(loading = false) }
+                onDone(SignInOutcome.MfaRequired)
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, message = e.message ?: "Sign in failed.") }
+                onDone(SignInOutcome.Failed(e.message ?: "Sign in failed."))
             }
         }
+    }
+
+    /**
+     * Create an account. The screen owns the copy that answers — check your
+     * inbox, or the verification link when the deployment mails nothing — so
+     * this only reports what the server said.
+     */
+    fun register(
+        email: String,
+        password: String,
+        name: String,
+        role: String?,
+        subjectIds: List<String>,
+        classCode: String?,
+        note: String?,
+        onDone: (SignUpOutcome) -> Unit,
+    ) {
+        viewModelScope.launch {
+            try {
+                val result = api.register(email, password, name, role, note, subjectIds.takeIf { it.isNotEmpty() }, classCode)
+                onDone(SignUpOutcome.Done(result.verifyUrl))
+            } catch (e: Exception) {
+                onDone(SignUpOutcome.Failed(e.message ?: "Registration failed."))
+            }
+        }
+    }
+
+    /** The subjects the registration form offers; empty when unreachable. */
+    suspend fun publicSubjects(): List<app.revisio.engine.PublicSubject> = api.publicSubjects()
+
+    /** Re-send a verification email; `true` when the server accepted it. */
+    fun resendVerification(email: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(api.resendVerification(email)) }
     }
 
     fun signOut() {
@@ -1357,8 +1426,10 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         total: Int,
     ) {
         cardStartedAt = System.currentTimeMillis()
+        xpThisSession = 0
         _state.update {
             it.copy(
+                xpAtSessionStart = _state.value.home?.totalXp,
                 cards = cards,
                 index = 0,
                 answer = "",
@@ -1372,7 +1443,9 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 sessionNotes = notes,
                 sessionTitle = title,
                 sessionId = sessionId,
-                notesOpen = true,
+                notesOpen = false,
+                confettiTrigger = 0,
+                promoted = false,
                 met = met,
                 total = total,
                 message = null,
@@ -1380,11 +1453,48 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Whether the typed cloze answer is already exactly right — the input ticks
+     * green and Enter becomes "continue" instead of "check".
+     *
+     * Instant marking, the web's own loop (`ReviewClient`'s `autoMark`): while a
+     * cloze answer is being typed it is graded with the same rules the server
+     * will apply, from the key the pack already carries. The moment it is right
+     * the field wears the game colour and the CTA says so. Wrong answers never
+     * auto-mark — nothing red appears until the learner actually submits — and
+     * first-exposure cards carry no key by design, so there the flow is
+     * unchanged.
+     */
+    fun autoMarkFor(state: UiState): Boolean {
+        if (state.feedback != null) return false
+        val card = state.cards.getOrNull(state.index) ?: return false
+        if (card.kind != "cloze") return false
+        val answer = state.answer.trim()
+        if (answer.isEmpty()) return false
+        return Grading.previewVerdict(card, answer, null)?.correct == true
+    }
+
     fun setAnswer(text: String) = _state.update { it.copy(answer = text) }
+
+    /** Where the XP total moved to — remembered for the promotion check. */
+    private fun noteXp(xp: Int) {
+        xpThisSession += xp
+    }
 
     fun setSelection(optionId: String) = _state.update { it.copy(selection = optionId) }
 
-    fun submit() {
+    fun submit() = submit(advanceOnCorrect = false)
+
+    /**
+     * Grade the card on screen.
+     *
+     * `advanceOnCorrect` is the web's "one Enter does the whole loop" on an
+     * already-green cloze: the verdict that comes back — the server's or the
+     * pack-key preview offline — decides whether the same press moves straight
+     * on. The check happens where the verdict lands, so there is no race
+     * between grading and advancing.
+     */
+    fun submit(advanceOnCorrect: Boolean) {
         val s = _state.value
         val card = s.cards.getOrNull(s.index) ?: return
         if (s.feedback != null) return
@@ -1411,6 +1521,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                         result.xpAwarded,
                         provisional = false,
                     )
+                    if (advanceOnCorrect && card.kind == "cloze" && result.verdict?.correct == true) next()
                     return@launch
                 }
             }
@@ -1418,16 +1529,22 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             // without one, say plainly that the mark is coming rather than invent
             // a verdict the server may disagree with.
             store.enqueueReview(card.id, answer, selection, duration, mode)
-            apply(Grading.previewVerdict(card, answer, selection), Grading.primaryAnswer(card), null, 0, provisional = true)
+            val preview = Grading.previewVerdict(card, answer, selection)
+            apply(preview, Grading.primaryAnswer(card), null, 0, provisional = true)
+            if (advanceOnCorrect && card.kind == "cloze" && preview?.correct == true) next()
         }
     }
 
     private fun apply(verdict: Verdict?, correctAnswer: String?, explanation: String?, xp: Int, provisional: Boolean) {
+        noteXp(xp)
         _state.update {
             it.copy(
                 feedback = Feedback(verdict, correctAnswer, explanation, xp, provisional),
                 answered = it.answered + 1,
                 correct = it.correct + if (verdict?.correct == true) 1 else 0,
+                // The reward moment: a correct mark fires the small burst, the
+                // same instant the web's `burst(46, 0.46)` does.
+                confettiTrigger = if (verdict?.correct == true) it.confettiTrigger + 1 else it.confettiTrigger,
                 pending = store.pendingCount(),
             )
         }
@@ -1437,7 +1554,25 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val nextIndex = s.index + 1
         if (nextIndex >= s.cards.size) {
-            _state.update { it.copy(finished = true, feedback = null) }
+            // The queue is empty — the moment the ladder visibly lands. Compare
+            // where the session started with where the fresh ladder puts us: a
+            // higher rung earns the full burst, exactly the web's
+            // `change?.promoted` celebration. Reduced motion reads no confetti
+            // (the gate lives in the overlay), and no haptic when quiet.
+            val promoted = runCatching {
+                val start = s.xpAtSessionStart ?: return@runCatching null
+                val before = RankLadder.rankFor(start)
+                val after = RankLadder.rankFor(start + xpThisSession)
+                after.index > before.index
+            }.getOrNull() == true
+            _state.update {
+                it.copy(
+                    finished = true,
+                    feedback = null,
+                    promoted = promoted,
+                    confettiTrigger = if (promoted) it.confettiTrigger + 1 else it.confettiTrigger,
+                )
+            }
             viewModelScope.launch { ensureToken()?.let { drainOutbox(it) } }
         } else {
             cardStartedAt = System.currentTimeMillis()
@@ -1465,6 +1600,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 inReview = false,
                 finished = false,
                 ended = false,
+                promoted = false,
                 answered = 0,
                 correct = 0,
                 feedback = null,
@@ -1502,7 +1638,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun observeConnectivity(context: Context) {
-        val cm = context.getSystemService(ConnectivityManager::class.java) ?: run {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: run {
             _state.update { it.copy(online = true) }
             return
         }
@@ -1516,7 +1652,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun isOnline(): Boolean =
-        getApplication<Application>().getSystemService(ConnectivityManager::class.java)?.let { isOnline(it) } ?: true
+        (getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.let { isOnline(it) } ?: true
 
     private fun isOnline(cm: ConnectivityManager): Boolean {
         val network = cm.activeNetwork ?: return false

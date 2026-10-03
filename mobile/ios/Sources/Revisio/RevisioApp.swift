@@ -5,7 +5,11 @@ import RevisioEngine
 
 /// The deployment the app talks to. A native client owns this, rather than
 /// loading a website that owns it.
-private let apiBase = "https://revisio-srs.vercel.app"
+///
+/// Internal, not private: `resolveAssetUrl(_:)` in Common.swift resolves the
+/// server's relative asset URLs against it, and a file-private constant cannot
+/// be read across files. One owner still — this declaration.
+let apiBase = "https://revisio-srs.vercel.app"
 
 ///
 /// The copy for a lost session, a lost connection and a busy server.
@@ -178,9 +182,16 @@ final class AppModel: ObservableObject {
     @Published var sessionTitle = ""
     @Published var sessionNotes: [Note] = []
     @Published var sessionId: String?
-    @Published var notesOpen = true
+    @Published var notesOpen = false
     @Published var met = 0
     @Published var total = 0
+    // the reward moment
+    /// Bumped on every correct mark (small burst) and on a promotion at session
+    /// end (full burst) — the two celebrations the web fires. Reduced motion
+    /// reads none (the gate lives in the overlay).
+    @Published var confettiTrigger = 0
+    /// The session just moved the learner up a rung — the summary's flourish.
+    @Published var promoted = false
 
     // the catalogue
     @Published var subjects: [Subject] = []
@@ -278,6 +289,10 @@ final class AppModel: ObservableObject {
     private let monitor = NWPathMonitor()
     private var accessToken: String?
     private var cardStartedAt = Date()
+    /// Total XP when the session began, so its ladder movement can be judged.
+    private var xpAtSessionStart: Int?
+    /// XP the session has earned so far — the promotion check at session end.
+    private var xpThisSession = 0
 
     init() {
         let directory = FileManager.default
@@ -335,24 +350,65 @@ final class AppModel: ObservableObject {
         refreshHome()
     }
 
-    func signIn(email: String, password: String) {
+    ///
+    /// Sign in. `mfaRequired` is an answer, not a refusal: the auth view opens
+    /// its 2FA stage and the same submit retries with the code.
+    ///
+    func signIn(email: String, password: String, totp: String? = nil) {
         loading = true
         message = nil
         Task {
             do {
-                let session = try await api.login(email: email, password: password)
-                accessToken = session.accessToken
-                sessionStore.save(session)
-                name = session.user.name
-                signedIn = true
-                loading = false
-                refreshHome()
-                loadSubjects()
+                switch try await api.login(email: email, password: password, totp: totp) {
+                case .mfaRequired:
+                    loading = false
+                    mfaStage = true
+                case .signedIn(let session):
+                    accessToken = session.accessToken
+                    sessionStore.save(session)
+                    name = session.user.name
+                    signedIn = true
+                    loading = false
+                    mfaStage = false
+                    refreshHome()
+                    loadSubjects()
+                }
             } catch {
                 loading = false
                 message = (error as? LocalizedError)?.errorDescription ?? "Sign in failed."
             }
         }
+    }
+
+    /// The 2FA stage is showing — the server asked for the six digits.
+    @Published var mfaStage = false
+
+    /// Create an account. Registration never signs in; the view owns the copy
+    /// that answers (check your inbox, or the verification link when the
+    /// deployment mails nothing).
+    func register(
+        email: String,
+        password: String,
+        name: String,
+        role: String? = nil,
+        note: String? = nil,
+        subjectIds: [String]? = nil,
+        classCode: String? = nil
+    ) async throws -> String? {
+        try await api.register(
+            email: email, password: password, name: name,
+            role: role, note: note, subjectIds: subjectIds, classCode: classCode
+        )
+    }
+
+    /// The subjects the registration form offers; empty when unreachable.
+    func publicSubjects() async -> [PublicSubject] {
+        (try? await api.publicSubjects()) ?? []
+    }
+
+    /// Re-send a verification email; `false` when the server would not take it.
+    func resendVerification(email: String) async -> Bool {
+        (try? await api.resendVerification(email: email)) ?? false
     }
 
     func signOut() {
@@ -1367,17 +1423,32 @@ final class AppModel: ObservableObject {
         sessionNotes = notes
         sessionTitle = title
         self.sessionId = sessionId
-        notesOpen = true
+        notesOpen = false
         self.met = met
         self.total = total
         message = nil
         cardStartedAt = Date()
+        confettiTrigger = 0
+        promoted = false
+        xpThisSession = 0
+        xpAtSessionStart = home?.totalXp
     }
 
     func setAnswer(_ value: String) { answer = value }
     func setSelection(_ value: String) { selection = value }
 
-    func submit() {
+    func submit() { submit(advanceOnCorrect: false) }
+
+    ///
+    /// Grade the card on screen.
+    ///
+    /// `advanceOnCorrect` is the web's "one Enter does the whole loop" on an
+    /// already-green cloze: the verdict that comes back — the server's or the
+    /// pack-key preview offline — decides whether the same press moves straight
+    /// on. The check happens where the verdict lands, so there is no race
+    /// between grading and advancing.
+    ///
+    func submit(advanceOnCorrect: Bool) {
         guard let card = cards[safe: index], feedback == nil else { return }
         let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
         let given = trimmed.isEmpty ? nil : trimmed
@@ -1388,7 +1459,7 @@ final class AppModel: ObservableObject {
         let wasOnline = online
         let mode = self.mode.rawValue
         let sessionId = self.sessionId
-        Task {
+        Task { @MainActor in
             if wasOnline, let token = await ensureToken() {
                 if let result = try? await api.submit(
                     token: token,
@@ -1407,6 +1478,7 @@ final class AppModel: ObservableObject {
                         result.xpAwarded ?? 0,
                         provisional: false
                     )
+                    if advanceOnCorrect && card.kind == "cloze" && result.verdict.correct { next() }
                     return
                 }
             }
@@ -1414,25 +1486,42 @@ final class AppModel: ObservableObject {
             // without one, say the mark is coming rather than invent a verdict the
             // server may disagree with.
             store.enqueueReview(cardId: card.id, answer: given, selectedOptionId: selection, durationMs: duration, mode: mode)
+            let preview = Grading.previewVerdict(card, answer: given, selectedOptionId: selection)
             apply(
-                Grading.previewVerdict(card, answer: given, selectedOptionId: selection),
+                preview,
                 Grading.primaryAnswer(card),
                 nil,
                 0,
                 provisional: true
             )
+            if advanceOnCorrect && card.kind == "cloze" && preview?.correct == true { next() }
         }
     }
 
     private func apply(_ verdict: Verdict?, _ correctAnswer: String?, _ explanation: String?, _ xp: Int, provisional: Bool) {
         feedback = Feedback(verdict: verdict, correctAnswer: correctAnswer, explanation: explanation, xpAwarded: xp, provisional: provisional)
         answered += 1
-        if verdict?.correct == true { correct += 1 }
+        xpThisSession += xp
+        if verdict?.correct == true {
+            correct += 1
+            // The reward moment: a correct mark fires the small burst, the same
+            // instant the web's `burst(46, 0.46)` does.
+            confettiTrigger += 1
+        }
         pending = store.pendingCount()
     }
 
     func next() {
         if index + 1 >= cards.count {
+            // The queue is empty — the moment the ladder visibly lands. Compare
+            // where the session started with where the fresh ladder puts us: a
+            // higher rung earns the full burst, exactly the web's
+            // `change?.promoted` celebration.
+            if let start = xpAtSessionStart {
+                promoted = RankLadder.rankFor(start + xpThisSession).index
+                    > RankLadder.rankFor(start).index
+            }
+            if promoted { confettiTrigger += 1 }
             finished = true
             feedback = nil
             Task { if let token = await ensureToken() { await drainOutbox(token: token) } }
@@ -1451,6 +1540,7 @@ final class AppModel: ObservableObject {
         inReview = false
         finished = false
         ended = false
+        promoted = false
         answered = 0
         correct = 0
         feedback = nil
@@ -1551,14 +1641,26 @@ private struct RootView: View {
                 }
             }
             .animation(Motion.Exit.quick, value: model.moreOpen)
+            // The account's own calm preference joins the system's: either one
+            // settles the springs, whichever switch the learner used to ask.
+            .environment(\.revisioReduceMotion, model.me?.prefs?.reducedMotion ?? false)
         }
     }
 
     @ViewBuilder private var content: some View {
         if model.loading {
-            ProgressView().tint(colors.foreground)
+            // A shape, not a bare spinner: the wordmark and one honest line —
+            // the web's skeleton, reduced to what a phone needs.
+            VStack(spacing: 10) {
+                Wordmark(token: Type.display)
+                Text("Loading your queue…")
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.mutedForeground)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if !model.signedIn {
-            AuthView(model: model)            } else if model.inReview {
+            AuthView(model: model)
+        } else if model.inReview {
             SessionView(model: model)
         } else if model.profileHandle != nil {
             // A shared profile is a page, not a destination: it opens over whatever
@@ -1871,50 +1973,493 @@ private struct Banner: View {
     }
 }
 
+///
+/// The web's auth pages, ported: a compact ink band as the header — wordmark
+/// tile, tagline, eyebrow and display line — with the form card overlapping its
+/// lower edge by a fixed 32px, exactly as `AuthShell.tsx` composes them. One
+/// screen carries login and register, as `AuthForm.tsx` does: the MFA stage
+/// appears in place, registration offers the student/teacher choice with
+/// subject chips and a class code, and every response lands in a Notice.
+///
 private struct AuthView: View {
     @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
+    @State private var mode: AuthMode = .login
     @State private var email = ""
     @State private var password = ""
+    @State private var name = ""
+    @State private var role = "student"
+    @State private var subjectIds: Set<String> = []
+    @State private var classCode = ""
+    @State private var note = ""
+    @State private var totp = ""
+    @State private var unverifiedEmail: String?
+    @State private var error = ""
+    @State private var info = ""
+    @State private var busy = false
+    @State private var subjects: [PublicSubject] = []
 
-    private var canSubmit: Bool {
-        !email.trimmed.isEmpty && !password.isEmpty && !model.busy
-    }
+    private enum AuthMode { case login, register }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                Spacer().frame(height: 72)
-                Wordmark(token: Type.displaySm)
-                Spacer().frame(height: 10)
-                Text("Sign in to study — then keep studying offline.")
-                    .font(Type.lead.font)
-                    .foregroundStyle(colors.mutedForeground)
-                    .multilineTextAlignment(.center)
-                Spacer().frame(height: 32)
+                band
+                card
+                footer
+            }
+            .padding(.horizontal, 20)
+        }
+        .background(colors.background)
+        .task {
+            // The registration form's subject list — fetched once, like the
+            // web's `/auth/subjects-public` read, and quietly absent when the
+            // network is not there: an offline register was never going to land.
+            subjects = await model.publicSubjects()
+        }
+    }
 
+    /// The ink band: wordmark tile, tagline, eyebrow, display line — and 64pt
+    /// of pad below the display line, the last 32 of which the card overlaps.
+    /// Written once against the band palette, the way `TilePanel` does it:
+    /// remap the roles, not the colours.
+    private var band: some View {
+        TilePanel(tone: .dark) {
+            VStack(alignment: .leading, spacing: 0) {
+                Spacer().frame(height: 0)
+                HStack(spacing: 10) {
+                    BandWordmark()
+                    Text("Revisio")
+                        .font(Type.tagline.font)
+                        .foregroundStyle(colors.bandScoped.foreground)
+                }
+                Spacer().frame(height: 40)
+                LabelText(text: "Spaced repetition", token: Type.eyebrow, color: colors.bandScoped.mutedForeground)
+                Spacer().frame(height: 8)
+                Text("Ten minutes a day.")
+                    .font(Type.display.font)
+                    .foregroundStyle(colors.bandScoped.foreground)
+                Spacer().frame(height: 64)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+        }
+    }
+
+    /// The form card, pulled up over the band's lower edge by a fixed 32pt —
+    /// the web's `-mt-8`, which is what makes the card look placed.
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(mode == .login ? "Welcome back" : "Create your account")
+                .font(Type.tagline.font)
+                .foregroundStyle(colors.foreground)
+            Spacer().frame(height: 6)
+            Text(mode == .login ? "Your queue is where you left it." : "Choose your subjects now — you can change them later.")
+                .font(Type.caption.font)
+                .foregroundStyle(colors.mutedForeground)
+            Spacer().frame(height: 24)
+
+            if mode == .register {
+                AuthLabeledField(icon: "person", label: "Full name", placeholder: "Ada Lovelace", text: $name)
+                Spacer().frame(height: 16)
+            }
+            AuthLabeledField(icon: "mail", label: "Email", placeholder: "you@school.edu", text: $email, keyboard: .emailAddress)
+            Spacer().frame(height: 16)
+            AuthLabeledField(
+                icon: "secure", label: "Password",
+                placeholder: mode == .login ? "Your password" : "At least 8 characters",
+                text: $password, secure: true
+            )
+
+            if mode == .register {
+                registerSection
+            }
+
+            // The 2FA stage: the server has asked for the six digits. It arrives
+            // in place with the sheet spring, as the web's AnimatePresence height
+            // animation does — the form grows rather than a second page landing.
+            if model.mfaStage {
                 VStack(alignment: .leading, spacing: 0) {
-                    LabelText(text: "Email", token: Type.eyebrow, color: colors.mutedForeground)
-                    Spacer().frame(height: 6)
-                    Field(placeholder: "you@example.com", value: $email, keyboard: .emailAddress)
                     Spacer().frame(height: 16)
-                    LabelText(text: "Password", token: Type.eyebrow, color: colors.mutedForeground)
-                    Spacer().frame(height: 6)
-                    Field(placeholder: "••••••••", value: $password, secure: true, submitLabel: .go)
+                    AuthLabeledField(
+                        icon: "private", label: "Two-factor code", placeholder: "000000",
+                        text: $totp, keyboard: .numberPad
+                    )
+                    Text("From your authenticator app — or one of your recovery codes.")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                        .padding(.top, 6)
                 }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
-                Spacer().frame(height: 24)
-                PillButton(text: "Sign in", enabled: canSubmit, large: true) {
-                    model.signIn(email: email.trimmed, password: password)
+            if !error.isEmpty {
+                AuthNoticeView(text: error, good: false) { error = "" }
+                    .padding(.top, 12)
+            }
+            if !info.isEmpty {
+                AuthNoticeView(text: info, good: true) { info = "" }
+                    .padding(.top, 12)
+            }
+
+            if let address = unverifiedEmail {
+                Spacer().frame(height: 12)
+                PillButton(
+                    text: "Re-send the verification email", tone: .secondary, icon: "rotate"
+                ) {
+                    busy = true
+                    Task {
+                        let sent = await model.resendVerification(email: address)
+                        busy = false
+                        error = ""
+                        info = sent
+                            ? "Sent again to \(address). It can take a minute to arrive."
+                            : "We could not re-send that right now. Try again shortly."
+                    }
                 }
+            }
 
-                Spacer().frame(height: 18)
-                Text("Your session and today's cards are kept on this device, so a lost connection never signs you out.")
+            Spacer().frame(height: 16)
+            PillButton(text: submitLabel, enabled: canSubmit, large: true) { submit() }
+
+            Spacer().frame(height: 20)
+            Text(mode == .login ? "No account yet? Create one" : "Already registered? Sign in")
+                .font(Type.caption.font)
+                .foregroundStyle(colors.foreground)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    error = ""
+                    info = ""
+                    model.mfaStage = false
+                    totp = ""
+                    mode = mode == .login ? .register : .login
+                }
+        }
+        .padding(20)
+        .background(colors.card, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(colors.border, lineWidth: 1)
+        )
+        .offset(y: -32)
+        .entrance(scale: true)
+        .animation(Motion.Springs.soft.animation, value: model.mfaStage)
+    }
+
+    @ViewBuilder
+    private var registerSection: some View {
+        Spacer().frame(height: 20)
+        LabelText(text: "I am joining as", token: Type.label)
+        Spacer().frame(height: 8)
+        HStack(spacing: 8) {
+            RoleOptionCard(
+                label: "Student", hint: "Study my own subjects", icon: "start",
+                selected: role == "student"
+            ) { role = "student" }
+            RoleOptionCard(
+                label: "Teacher", hint: "Run classes and share content", icon: "teacher",
+                selected: role == "teacher"
+            ) { role = "teacher" }
+        }
+
+        if role == "student" && !subjects.isEmpty {
+            Spacer().frame(height: 16)
+            LabelText(text: "Subjects", token: Type.label)
+            Spacer().frame(height: 8)
+            SubjectChipGrid(subjects: subjects, selected: subjectIds) { id in
+                if subjectIds.contains(id) { subjectIds.remove(id) } else { subjectIds.insert(id) }
+            }
+        }
+
+        Spacer().frame(height: 16)
+        AuthLabeledField(
+            icon: "join", label: "Class code (optional)", placeholder: "e.g. 7HKQ2M",
+            text: $classCode
+        )
+        .onChange(of: classCode) { next in
+            // The web's shaping: uppercase, six characters, no prompts.
+            let shaped = next.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(6)
+            if shaped != next { classCode = String(shaped) }
+        }
+
+        if role == "teacher" {
+            Spacer().frame(height: 16)
+            VStack(alignment: .leading, spacing: 6) {
+                LabelText(text: "Tell us about your teaching", token: Type.label)
+                TextField(
+                    "", text: $note,
+                    prompt: Text("School, role, subjects you teach…").foregroundColor(colors.mutedForeground.opacity(0.75)),
+                    axis: .vertical
+                )
+                .lineLimit(3...6)
+                .font(Type.body.font)
+                .foregroundStyle(colors.foreground)
+                .padding(12)
+                .background(colors.card, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                        .strokeBorder(colors.border, lineWidth: Metrics.inputBorder)
+                }
+                Text("A developer reads this before activating the account.")
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.mutedForeground)
+            }
+        }
+    }
+
+    private var submitLabel: String {
+        if busy { return "Just a moment…" }
+        if mode == .login { return model.mfaStage ? "Verify and sign in" : "Sign in" }
+        return "Create account"
+    }
+
+    private var canSubmit: Bool {
+        if busy { return false }
+        if mode == .login {
+            return !email.trimmed.isEmpty && !password.isEmpty && (!model.mfaStage || !totp.trimmed.isEmpty)
+        }
+        return !email.trimmed.isEmpty && password.count >= 8 && !name.trimmed.isEmpty
+    }
+
+    /// The one submit path, shared by the button — the keyboard's action key
+    /// routes through the same call, so the two can never disagree.
+    private func submit() {
+        if busy { return }
+        error = ""
+        info = ""
+        busy = true
+        if mode == .login {
+            // The code goes through whole: a six-digit TOTP or a recovery code —
+            // the server decides which it got, so nothing here strips characters.
+            let code = model.mfaStage ? totp.trimmed.isEmpty ? nil : totp.trimmed : nil
+            model.signIn(email: email.trimmed, password: password, totp: code)
+            // signIn sets its own loading state; reflect the outcome from there.
+            Task {
+                while model.loading { try? await Task.sleep(nanoseconds: 100_000_000) }
+                busy = false
+                if model.signedIn {
+                    // Signed in — nothing else to say.
+                } else if model.mfaStage {
+                    info = "Enter the six-digit code from your authenticator app — or one of your recovery codes."
+                } else if model.message != nil {
+                    unverifiedEmail = nil
+                    error = model.message ?? "Sign in failed."
+                }
+            }
+        } else {
+            Task {
+                do {
+                    let verifyUrl = try await model.register(
+                        email: email.trimmed,
+                        password: password,
+                        name: name.trimmed,
+                        role: role,
+                        note: note.trimmed.isEmpty ? nil : note.trimmed,
+                        subjectIds: subjectIds.isEmpty ? nil : Array(subjectIds),
+                        classCode: classCode.trimmed.isEmpty ? nil : classCode.trimmed
+                    )
+                    busy = false
+                    info = verifyUrl != nil
+                        ? "Email delivery is not configured on this deployment, so here is your verification link."
+                        : "Account created. Check your inbox for the verification link, then sign in."
+                } catch {
+                    busy = false
+                    self.error = (error as? LocalizedError)?.errorDescription ?? "Registration failed."
+                }
+            }
+        }
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Text(
+                mode == .login
+                    ? "No account yet? Create one — or study offline; your session and today's cards are kept on this device."
+                    : "Already registered? Sign in — then keep studying offline."
+            )
+            .font(Type.caption.font)
+            .foregroundStyle(colors.mutedForeground)
+            .multilineTextAlignment(.center)
+            // Password reset lives on the web for now; a stated path beats a
+            // missing affordance (the phones' share of the reset fix).
+            if mode == .login {
+                Spacer().frame(height: 6)
+                Text("Forgot your password? Reset it on the web at \(apiBase).")
                     .font(Type.fine.font)
                     .foregroundStyle(colors.mutedForeground)
                     .multilineTextAlignment(.center)
             }
-            .padding(.horizontal, 24)
+            Spacer().frame(height: 24)
         }
+        .padding(.horizontal, 4)
+    }
+}
+
+private enum AuthModeMarker {}
+
+/// The "R" tile on the auth band: primary on primary — ink-on-ink in light
+/// mode — reads through the band's own remapped roles.
+private struct BandWordmark: View {
+    @Environment(\.revisio) private var colors
+
+    var body: some View {
+        let band = colors.bandScoped
+        Text("R")
+            .font(Type.tagline.font.weight(.bold))
+            .foregroundStyle(band.primaryForeground)
+            .frame(width: 34, height: 34)
+            .background(band.primary, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+    }
+}
+
+/// Label + leading glyph + control — the web's `Field`, glyph against the pill.
+private struct AuthLabeledField: View {
+    @Environment(\.revisio) private var colors
+    let icon: String
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var secure: Bool = false
+    var keyboard: KeyboardKind = .default
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LabelText(text: label, token: Type.label)
+            HStack(spacing: 10) {
+                Icon(icon, size: 17, color: colors.mutedForeground)
+                if secure {
+                    SecureField("", text: $text, prompt: Text(placeholder).foregroundColor(colors.mutedForeground.opacity(0.75)))
+                        .autocorrectionDisabled()
+                } else {
+                    TextField("", text: $text, prompt: Text(placeholder).foregroundColor(colors.mutedForeground.opacity(0.75)))
+                        .modifier(KeyboardHints(keyboard: keyboard))
+                        .autocorrectionDisabled()
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: Metrics.inputMinHeight)
+            .background(colors.card, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                    .strokeBorder(colors.border, lineWidth: Metrics.inputBorder)
+            }
+        }
+    }
+}
+
+/// The student/teacher choice: two labelled options with meaning, not a pair of
+/// bare buttons that require guessing — the web's `option` cards.
+private struct RoleOptionCard: View {
+    @Environment(\.revisio) private var colors
+    let label: String
+    let hint: String
+    let icon: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Icon(icon, size: 17, color: colors.foreground)
+                Text(label)
+                    .font(Type.body.font.weight(.semibold))
+                    .foregroundStyle(colors.foreground)
+            }
+            Text(hint)
+                .font(Type.caption.font)
+                .foregroundStyle(colors.mutedForeground)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(selected ? colors.secondary : colors.card, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                .strokeBorder(selected ? colors.foreground : colors.border, lineWidth: 2)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+    }
+}
+
+/// Subject chips that wrap — the web's `flex flex-wrap gap-2` row.
+private struct SubjectChipGrid: View {
+    let subjects: [PublicSubject]
+    let selected: Set<String>
+    let onToggle: (String) -> Void
+
+    var body: some View {
+        FlowGrid(subjects) { subject in
+            ChipPill(
+                text: subject.name,
+                active: selected.contains(subject.id),
+                action: { onToggle(subject.id) }
+            )
+        }
+    }
+}
+
+/// The auth screen's inline notice, in the Settings `NoticeView`'s image —
+/// the web's two-slot confirm/refuse pattern, cleared on the next action.
+/// (Named locally: `NoticeView` itself is Settings' shared notice component.)
+private struct AuthNoticeView: View {
+    @Environment(\.revisio) private var colors
+    let text: String
+    let good: Bool
+    let dismiss: () -> Void
+
+    var body: some View {
+        Button(action: dismiss) {
+            HStack(spacing: 10) {
+                Icon(good ? "checked" : "secure", size: 16, color: ink)
+                Text(text)
+                    .font(Type.caption.font)
+                    .foregroundStyle(colors.foreground)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(ink.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                    .strokeBorder(ink.opacity(0.3), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var ink: Color { good ? colors.goodPressed : colors.destructive }
+}
+
+/// A wrapping grid of identifiable items, three across — the fixed-count row
+/// layout the Android port's `chunked(3)` uses, so both phones wrap identically.
+private struct FlowGrid<Element: Identifiable, Content: View>: View {
+    private let items: [Element]
+    private let content: (Element) -> Content
+
+    init(_ items: [Element], @ViewBuilder content: @escaping (Element) -> Content) {
+        self.items = items
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(0..<rowCount, id: \.self) { row in
+                HStack(spacing: 6) {
+                    ForEach(0..<columnCount(row), id: \.self) { column in
+                        content(items[row * 3 + column])
+                    }
+                }
+            }
+        }
+    }
+
+    private var rowCount: Int { (items.count + 2) / 3 }
+
+    private func columnCount(_ row: Int) -> Int {
+        let remaining = items.count - row * 3
+        return min(3, remaining)
     }
 }

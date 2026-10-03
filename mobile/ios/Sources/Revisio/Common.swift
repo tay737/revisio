@@ -32,6 +32,31 @@ struct Wordmark: View {
     }
 }
 
+///
+/// The API base the asset URLs resolve against.
+///
+/// `publicUrlFor` in `src/services/storage.ts` hands back **relative** URLs —
+/// `/api/v1/assets/<key>` — because the browser only ever needs the same origin.
+/// A phone has no such origin, so a URL the web renders fine would fail before a
+/// single byte arrived: this is why avatars and banners never loaded on either
+/// native port. The scheme-relative branch covers protocol-relative forms, and
+/// the absolute branches pass through untouched.
+///
+func resolveAssetUrl(_ url: String) -> URL? {
+    let base = apiBase.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    let resolved: String
+    if url.hasPrefix("//") {
+        resolved = "https:" + url
+    } else if url.hasPrefix("http://") || url.hasPrefix("https://") {
+        resolved = url
+    } else if url.hasPrefix("/") {
+        resolved = base + url
+    } else {
+        resolved = url
+    }
+    return URL(string: resolved)
+}
+
 /// The learner's face: their symbol on their colour, or their initials.
 ///
 /// The colour is the *stored* one rather than something derived from the glyph —
@@ -72,8 +97,8 @@ struct Avatar: View {
     private var glyph: String { emoji?.isEmpty == false ? emoji! : initials(of: name) }
 
     var body: some View {
-        if let imageUrl, !imageUrl.isEmpty {
-            AsyncImage(url: URL(string: imageUrl)) { phase in
+        if let imageUrl, !imageUrl.isEmpty, let url = resolveAssetUrl(imageUrl) {
+            AsyncImage(url: url) { phase in
                 if let image = phase.image {
                     image
                         .resizable()
@@ -147,8 +172,8 @@ struct ProfileBanner: View {
 
     var body: some View {
         ZStack {
-            if let imageUrl, !imageUrl.isEmpty {
-                AsyncImage(url: URL(string: imageUrl)) { phase in
+            if let imageUrl, !imageUrl.isEmpty, let url = resolveAssetUrl(imageUrl) {
+                AsyncImage(url: url) { phase in
                     if let image = phase.image {
                         image
                             .resizable()

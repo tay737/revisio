@@ -51,6 +51,10 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
     val home = state.home
     val due = home?.due ?: 0
     val offline = home?.fromCache == true || !state.online
+    // The estimate promises what the session will actually deal: the pack is
+    // capped at twenty, so "about 40 minutes" when due is 200 would be a lie —
+    // when offline the session deals the cached pack, not the queue.
+    val dealt = if (offline) minOf(home?.packCards ?: 0, 20).coerceAtLeast(0) else due
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
         Spacer(Modifier.height(12.dp))
@@ -74,9 +78,9 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
                     Text(
                         when {
                             due == 0 -> "The scheduler has nothing for you right now. Cram, or read ahead."
-                            due <= 5 -> "About a minute of work."
-                            due <= 20 -> "About ${(due * 12) / 60} minutes of work."
-                            else -> "A longer session — about ${(due * 12) / 60} minutes."
+                            dealt <= 5 -> "About a minute of work."
+                            dealt <= 20 -> "About ${(dealt * 12) / 60} minutes of work."
+                            else -> "A longer session — about ${(dealt * 12) / 60} minutes."
                         },
                         style = Type.fine.style(Muted),
                     )

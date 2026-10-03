@@ -19,19 +19,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,6 +63,10 @@ import app.revisio.engine.StudyMode
  */
 @Composable
 fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
+    // The reward moment: each burst keys off the trigger it belongs to, so a
+    // correct mark fires small and a promotion fires the full screen. Reduced
+    // motion is honoured inside `Confetti` — the overlay simply never draws.
+    Confetti(trigger = state.confettiTrigger, modifier = Modifier.fillMaxSize())
     if (state.finished) {
         SummaryScreen(state, viewModel)
         return
@@ -65,6 +74,28 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
     val card = state.cards.getOrNull(state.index) ?: return
     val feedback = state.feedback
     val notes = viewModel.notesFor(card)
+    // One buzz per verdict, felt once: success and error are *different*
+    // patterns, which is the point — the learner should be able to look away
+    // and still know which one landed. Guarded to the verdict transition so it
+    // never re-fires on recomposition.
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(feedback?.verdict) {
+        val verdict = feedback?.verdict ?: return@LaunchedEffect
+        if (verdict.correct) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        } else {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+    // Instant marking, the web's `autoMark`: while a cloze answer is being typed
+    // it is graded against the pack's key with the same rules the server will
+    // apply. True makes the input tick green and the CTA offer "press Enter".
+    // First-exposure cards carry no key, so there this stays false and the flow
+    // is unchanged; wrong answers never auto-mark.
+    val autoMark = feedback == null && card.kind == "cloze" &&
+        state.answer.isNotBlank() &&
+        card.key != null &&
+        app.revisio.engine.Grading.previewVerdict(card, state.answer.trim(), null)?.correct == true
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
         Spacer(Modifier.height(16.dp))
@@ -154,7 +185,12 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
                 if (card.kind == "mcq") {
                     McqInput(card, state.selection, feedback != null, viewModel::setSelection)
                 } else {
-                    AnswerField(card, state, feedback != null, viewModel::setAnswer)
+                    AnswerField(card, state, feedback != null, autoMark, viewModel::setAnswer, onDone = {
+                        // The IME's action key is the phone's Enter. On a correct
+                        // cloze one press records and advances; otherwise it just
+                        // checks, exactly as the web's form submit does.
+                        viewModel.submit(advanceOnCorrect = true)
+                    })
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -162,9 +198,11 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
                 if (feedback == null) {
                     // The in-session CTA. Uppercase and letterspaced, per the
                     // label treatment the design language reserves for controls.
+                    // A cloze the learner has already typed correctly reads like
+                    // the web's: the mark is made, the press only continues.
                     PillButton(
-                        text = "Check",
-                        onClick = viewModel::submit,
+                        text = if (autoMark) "Correct — press Enter" else "Check",
+                        onClick = { viewModel.submit(advanceOnCorrect = true) },
                         tone = PillTone.Good,
                         enabled = inputReady(card, state.answer, state.selection),
                         large = true,
@@ -195,12 +233,6 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        PillButton(
-            text = "Leave session",
-            onClick = viewModel::endReview,
-            tone = PillTone.Ghost,
-        )
         Spacer(Modifier.height(28.dp))
     }
 }
@@ -218,27 +250,43 @@ private fun AnswerField(
     card: QuizCard,
     state: UiState,
     locked: Boolean,
+    autoMark: Boolean,
     onChange: (String) -> Unit,
+    onDone: () -> Unit,
 ) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     OutlinedTextField(
         value = state.answer,
         onValueChange = onChange,
         enabled = !locked,
         placeholder = {
             Text(
-                if (card.kind == "flashcard") "Say it in your own words" else "Your answer",
+                if (card.kind == "flashcard") "Say it in your own words" else "Type the missing word",
                 style = Type.body.style(Muted.copy(alpha = 0.75f)),
             )
         },
         singleLine = card.kind == "cloze",
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardOptions = KeyboardOptions(
+            // Spelling matters here, so the keyboard must not fight the learner:
+            // the web disables every autocorrect affordance on this input.
+            keyboardType = KeyboardType.Ascii,
+            autoCorrectEnabled = false,
+            imeAction = ImeAction.Done,
+        ),
+        keyboardActions = KeyboardActions(onDone = {
+            focusManager.clearFocus()
+            onDone()
+        }),
         shape = RoundedCornerShape(Radius.sm),
-        textStyle = Type.body.style(Ink),
+        textStyle = Type.body.style(if (autoMark) revisioColors.goodPressed else Ink),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Ink,
-            unfocusedBorderColor = Line,
+            // The web's auto-marked input: the text and its border tick green
+            // while the answer is exactly right — the learner stops typing and
+            // presses Enter once to move on.
+            focusedBorderColor = if (autoMark) Good else Ink,
+            unfocusedBorderColor = if (autoMark) Good else Line,
             disabledBorderColor = Line,
-            cursorColor = Ink,
+            cursorColor = if (autoMark) Good else Ink,
             focusedContainerColor = Card1,
             unfocusedContainerColor = Card1,
             disabledContainerColor = Card2,
@@ -350,6 +398,12 @@ private fun FeedbackPanel(feedback: Feedback) {
 @Composable
 private fun SummaryScreen(state: UiState, viewModel: RevisioViewModel) {
     val percent = if (state.answered == 0) 0 else (state.correct * 100) / state.answered
+    // A promotion is felt, not only shown — the notification-grade buzz, once,
+    // when the summary announces the new rung.
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(state.promoted) {
+        if (state.promoted) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -437,6 +491,19 @@ private fun SummaryScreen(state: UiState, viewModel: RevisioViewModel) {
             onClick = viewModel::endReview,
             large = true,
         )
+        // The web's "Load more": the queue may hold more than one session dealt,
+        // so the summary offers the next batch instead of sending the learner
+        // back to Today to press Start again. Full-width, above the exit.
+        if (!state.online || (state.home?.due ?: 0) > 0) {
+            Spacer(Modifier.height(10.dp))
+            PillButton(
+                text = "Load more",
+                onClick = viewModel::startTodayReview,
+                tone = PillTone.Secondary,
+                icon = RevisioIcons.review,
+                large = true,
+            )
+        }
         Spacer(Modifier.height(24.dp))
     }
 }

@@ -34,8 +34,10 @@ public struct RevisioColors: Sendable {
     public let ring: Color
     public let good: Color
     public let goodPressed: Color
+    public let goodStrong: Color
     public let goodSoft: Color
     public let streak: Color
+    public let streakPressed: Color
     public let gold: Color
     public let info: Color
     public let band: Color
@@ -70,8 +72,10 @@ public struct RevisioColors: Sendable {
         ring: Color(hex: 0x000000FF),
         good: Color(hex: 0x58CC02FF),
         goodPressed: Color(hex: 0x58A700FF),
+        goodStrong: Color(hex: 0x419300FF),
         goodSoft: Color(hex: 0xD7FFB8FF),
         streak: Color(hex: 0xFF9600FF),
+        streakPressed: Color(hex: 0xC96A00FF),
         gold: Color(hex: 0xFFC800FF),
         info: Color(hex: 0x1CB0F6FF),
         band: Color(hex: 0x000000FF),
@@ -107,8 +111,10 @@ public struct RevisioColors: Sendable {
         ring: Color(hex: 0xFFFFFFFF),
         good: Color(hex: 0x58CC02FF),
         goodPressed: Color(hex: 0x3F9400FF),
+        goodStrong: Color(hex: 0x7AD63FFF),
         goodSoft: Color(hex: 0x1F3608FF),
         streak: Color(hex: 0xFFA53DFF),
+        streakPressed: Color(hex: 0xFFBE6BFF),
         gold: Color(hex: 0xFFD23FFF),
         info: Color(hex: 0x1CB0F6FF),
         band: Color(hex: 0x141414FF),

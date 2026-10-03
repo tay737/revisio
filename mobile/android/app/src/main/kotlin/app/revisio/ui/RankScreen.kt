@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ import app.revisio.RevisioViewModel
 import app.revisio.engine.Achievement
 import app.revisio.engine.Copy
 import app.revisio.engine.Lobby
+import app.revisio.engine.LobbySeat
 import app.revisio.engine.Rank
 import app.revisio.engine.RankLadder
 import app.revisio.engine.WeekBounds
@@ -410,9 +412,16 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
     }
 }
 
-/** The lobby's seat table, in the compact form a phone can show. */
+/**
+ * The lobby's seat table. All thirty seats are the web's contract, and a phone
+ * is not allowed to make a learner invisible in their own lobby: the table
+ * expands to everything, and the learner's own row is always rendered even when
+ * it sits past the initial window — a "···" gap marks the unseen seats.
+ */
 @Composable
 private fun LobbyTable(lobby: Lobby, onOpenProfile: (String) -> Unit) {
+    var showAll by remember { mutableStateOf(false) }
+    val meRow = lobby.rows.firstOrNull { it.isMe }
     Column {
         ConfidenceBand(lobby.band, lobby.size)
         Spacer(Modifier.height(8.dp))
@@ -421,42 +430,65 @@ private fun LobbyTable(lobby: Lobby, onOpenProfile: (String) -> Unit) {
             style = Type.fine.style(Muted),
         )
         Spacer(Modifier.height(6.dp))
-        for (seat in lobby.rows.take(12)) {
+        val visible = lobby.rows.take(if (showAll) lobby.rows.size else 12)
+        for (seat in visible) {
             // The web links every seat but your own to its profile; a phone keeps
             // exactly that rule, with your own row staying inert because tapping
             // "You" can only ever mean editing yourself, which Settings owns.
-            val clickable = !seat.isMe && !seat.userId.isNullOrBlank()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (clickable) {
-                            Modifier.clickable { onOpenProfile(seat.userId!!) }
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "${seat.position}",
-                    style = Type.fine.style(if (seat.isMe) Ink else Muted),
-                    modifier = Modifier.width(26.dp),
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        if (seat.isMe) "You" else seat.name,
-                        style = if (seat.isMe) Type.strong.style(Ink) else Type.caption.style(Ink),
-                    )
-                    seat.rank?.let { Text(it.label, style = Type.label.copy(size = 11, uppercase = false).style(Muted)) }
-                }
-                Text("${seat.xp}", style = Type.fine.style(if (seat.isMe) Ink else Muted))
+            SeatRow(seat, onOpenProfile)
+        }
+        // Your own seat, always. A learner sitting 25th still gets their row,
+        // their position and the demotion band relative to them without having
+        // to ask for it.
+        if (!showAll && meRow != null && !visible.contains(meRow)) {
+            Text("···", style = Type.fine.style(Muted), modifier = Modifier.padding(vertical = 2.dp))
+            SeatRow(meRow, onOpenProfile)
+        }
+        if (!showAll && lobby.rows.size > 12) {
+            Spacer(Modifier.height(4.dp))
+            PillButton(
+                text = "Show all ${lobby.rows.size} seats",
+                onClick = { showAll = true },
+                tone = PillTone.Ghost,
+                icon = RevisioIcons.expand,
+            )
+        }
+    }
+}
+
+/** One lobby seat, exactly as the row above always drew it. */
+@Composable
+private fun SeatRow(seat: LobbySeat, onOpenProfile: (String) -> Unit) {
+    val clickable = !seat.isMe && !seat.userId.isNullOrBlank()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
                 if (clickable) {
-                    Spacer(Modifier.width(4.dp))
-                    Icon(RevisioIcons.expand, size = 13, tint = Muted)
-                }
-            }
+                    Modifier.clickable { onOpenProfile(seat.userId!!) }
+                } else {
+                    Modifier
+                },
+            )
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "${seat.position}",
+            style = Type.fine.style(if (seat.isMe) Ink else Muted),
+            modifier = Modifier.width(26.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                if (seat.isMe) "You" else seat.name,
+                style = if (seat.isMe) Type.strong.style(Ink) else Type.caption.style(Ink),
+            )
+            seat.rank?.let { Text(it.label, style = Type.label.copy(size = 11, uppercase = false).style(Muted)) }
+        }
+        Text("${seat.xp}", style = Type.fine.style(if (seat.isMe) Ink else Muted))
+        if (clickable) {
+            Spacer(Modifier.width(4.dp))
+            Icon(RevisioIcons.expand, size = 13, tint = Muted)
         }
     }
 }

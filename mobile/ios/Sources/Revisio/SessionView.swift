@@ -20,48 +20,60 @@ import SwiftUI
 struct SessionView: View {
     @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
+    /// One buzz per verdict, felt once: success and error are *different*
+    /// patterns, which is the point — the learner should be able to look away
+    /// and still know which one landed. Guarded to the verdict transition so
+    /// it never re-fires on re-render.
+    @State private var hapticVerdict: Verdict?
+    @State private var celebratedPromotion = false
 
     var body: some View {
-        if model.finished {
-            SummaryView(model: model)
-        } else if let card = model.cards[safe: model.index] {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Spacer().frame(height: 16)
-                    header
-                    progress
-                    notes(for: card)
-                    //
-                    // The one motion the review loop is built around.
-                    //
-                    // On the web the question and its verdict share a keyed
-                    // element, so answering re-mounts nothing while the next card
-                    // rises into place — enter 14px below with a fade, over the
-                    // quick duration. Keying this block on the card's own id does
-                    // the same thing here: a new card is a new view identity, so
-                    // its entrance runs, while the header, the meter and the notes
-                    // stay exactly where they were. Nothing is torn down between
-                    // cards, which is the difference between a deck being dealt
-                    // and a page reloading.
+        ZStack {
+            // The reward moment: each burst keys off the trigger it belongs to,
+            // so a correct mark fires small and a promotion fires the full
+            // screen. Reduced motion is honoured inside `Confetti`.
+            Confetti(trigger: model.confettiTrigger)
+                .allowsHitTesting(false)
+            if model.finished {
+                SummaryView(model: model)
+            } else if let card = model.cards[safe: model.index] {
+                ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        promptBlock(card)
-                        Spacer().frame(height: 20)
-                        answerBlock(card)
-                        Spacer().frame(height: 20)
-                        actionBlock(card)
+                        Spacer().frame(height: 16)
+                        header
+                        progress
+                        notes(for: card)
+                        //
+                        // The one motion the review loop is built around.
+                        //
+                        // On the web the question and its verdict share a keyed
+                        // element, so answering re-mounts nothing while the next card
+                        // rises into place — enter 14px below with a fade, over the
+                        // quick duration. Keying this block on the card's own id does
+                        // the same thing here: a new card is a new view identity, so
+                        // its entrance runs, while the header, the meter and the notes
+                        // stay exactly where they were. Nothing is torn down between
+                        // cards, which is the difference between a deck being dealt
+                        // and a page reloading.
+                        VStack(alignment: .leading, spacing: 0) {
+                            promptBlock(card)
+                            Spacer().frame(height: 20)
+                            answerBlock(card)
+                            Spacer().frame(height: 20)
+                            actionBlock(card)
+                        }
+                        .entrance()
+                        .id(card.id)
+                        Spacer().frame(height: 28)
                     }
-                    .entrance()
-                    .id(card.id)
-                    Spacer().frame(height: 12)
-                    PillButton(text: "Leave session", tone: .ghost) { model.endReview() }
-                    Spacer().frame(height: 28)
+                    .padding(20)
                 }
-                .padding(20)
             }
         }
     }
 
-    /// What this session is, and how far through it we are.
+    /// Success and error land as different notification patterns; a promotion
+    /// is felt with the same weight as the web's celebration.
     private var header: some View {
         VStack(spacing: 6) {
             HStack(spacing: 0) {
@@ -91,6 +103,21 @@ struct SessionView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { model.endSessionEarly() }
             }
+        }
+        .onChange(of: model.feedback?.verdict) { verdict in
+            guard let verdict else { return }
+            guard hapticVerdict != verdict || model.feedback?.provisional == false else { return }
+            hapticVerdict = verdict
+            #if os(iOS)
+            // Success and error wear different patterns, so looking away is no
+            // barrier to knowing which one landed. The generator is created for
+            // the moment and released, which is how Apple's own apps fire it.
+            if verdict.correct {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
+            #endif
         }
     }
 
@@ -164,10 +191,21 @@ struct SessionView: View {
                 }
             }
         } else {
-            Field(
+            // Instant marking, the web's `autoMark`: while a cloze answer is
+            // being typed it is graded against the pack's key with the same
+            // rules the server will apply. True makes the input tick green and
+            // the CTA offer "press Enter". First-exposure cards carry no key, so
+            // there it stays false and the flow is unchanged; wrong answers
+            // never auto-mark.
+            let autoMark = model.feedback == nil && card.kind == "cloze" &&
+                !model.answer.trimmingCharacters(in: .whitespaces).isEmpty &&
+                card.key != nil &&
+                Grading.previewVerdict(card, answer: model.answer.trimmingCharacters(in: .whitespaces), selectedOptionId: nil)?.correct == true
+            AnswerField(
                 placeholder: card.kind == "flashcard" ? "Say it in your own words" : "Your answer",
-                value: Binding(get: { model.answer }, set: { model.setAnswer($0) }),
-                submitLabel: .done
+                text: Binding(get: { model.answer }, set: { model.setAnswer($0) }),
+                multiline: card.kind != "cloze",
+                autoMark: autoMark
             )
             .disabled(model.feedback != nil)
         }
@@ -199,14 +237,20 @@ struct SessionView: View {
             }
         } else {
             // The in-session CTA. Uppercase and letterspaced, per the label
-            // treatment the design language reserves for controls.
+            // treatment the design language reserves for controls. On an
+            // already-green cloze it says what the press will do — the web's
+            // "one Enter does the whole loop".
+            let autoMark = model.feedback == nil && card.kind == "cloze" &&
+                !model.answer.trimmingCharacters(in: .whitespaces).isEmpty &&
+                card.key != nil &&
+                Grading.previewVerdict(card, answer: model.answer.trimmingCharacters(in: .whitespaces), selectedOptionId: nil)?.correct == true
             PillButton(
-                text: "Check",
+                text: autoMark ? "Correct — press Enter" : "Check",
                 tone: .good,
                 enabled: inputReady(card),
                 large: true
             ) {
-                model.submit()
+                model.submit(advanceOnCorrect: true)
             }
         }
     }
@@ -345,6 +389,17 @@ private struct SummaryView: View {
         ScrollView {
             VStack(spacing: 0) {
                 Spacer().frame(height: 40)
+                // A promotion is felt, not only shown — the notification-grade
+                // buzz, once, when the summary announces the new rung.
+                #if os(iOS)
+                if model.promoted && !celebratedPromotion {
+                    Color.clear.frame(width: 0, height: 0)
+                        .onAppear {
+                            celebratedPromotion = true
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        }
+                }
+                #endif
 
                 // Finishing a session is the moment the ladder moves, so the crest
                 // arrives on the pop spring — scale 0.7 and a slight rotation,
@@ -404,6 +459,15 @@ private struct SummaryView: View {
 
                 Spacer().frame(height: 28)
                 PillButton(text: "Done", large: true) { model.endReview() }
+                // The web's "Load more": the queue may hold more than one session
+                // dealt, so the summary offers the next batch instead of sending
+                // the learner back to Today to press Start again.
+                if !model.online || (model.home?.due ?? 0) > 0 {
+                    Spacer().frame(height: 10)
+                    PillButton(text: "Load more", tone: .ghost, icon: "review", large: true) {
+                        model.startTodayReview()
+                    }
+                }
                 Spacer().frame(height: 24)
             }
             .padding(28)

@@ -104,8 +104,16 @@ fun TodayScreen(state: UiState, viewModel: RevisioViewModel) {
             )
             Spacer(Modifier.height(18.dp))
 
+            // A grey Start with no explanation is the exact "page that never
+            // resolves" failure the app refuses elsewhere: when cards are due
+            // but the pack has not downloaded, the tap itself fetches it.
+            val packMissing = home.due > 0 && home.packCards == 0
             PillButton(
-                text = if (home.due > 0) "Start review" else "Get ahead",
+                text = when {
+                    home.due > 0 && home.packCards > 0 -> "Start review"
+                    packMissing -> "Downloading today's session…"
+                    else -> "Get ahead"
+                },
                 onClick = {
                     if (home.due > 0) viewModel.startTodayReview() else viewModel.go(Destination.LEARN)
                 },
@@ -113,7 +121,6 @@ fun TodayScreen(state: UiState, viewModel: RevisioViewModel) {
                 icon = if (home.due > 0) RevisioIcons.review else RevisioIcons.learn,
                 trailing = if (home.due > 0) "${home.due}" else null,
                 large = true,
-                enabled = home.packCards > 0,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(10.dp))
@@ -240,10 +247,15 @@ fun TodayScreen(state: UiState, viewModel: RevisioViewModel) {
                     for (subject in subjects.take(3)) {
                         Chip(subject.name)
                     }
+                    // The web wraps; a phone row truncates — say so rather than
+                    // silently dropping subjects four and up.
+                    if (subjects.size > 3) {
+                        Chip("+${subjects.size - 3}")
+                    }
                 }
             } else {
                 Text(
-                    "Pick a subject and your queue fills itself.",
+                    "Follow a subject and your queue fills itself.",
                     style = Type.caption.style(Muted),
                 )
             }

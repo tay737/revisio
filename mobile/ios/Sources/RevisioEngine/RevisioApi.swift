@@ -14,8 +14,34 @@ public struct ApiError: Error, LocalizedError {
     public var errorDescription: String? { message }
 }
 
-private struct LoginBody: Encodable { let email: String; let password: String }
+private struct LoginBody: Encodable {
+    let email: String
+    let password: String
+    /// The 2FA stage: the first call goes out without it, the server answers
+    /// `mfaRequired`, and the retry carries the code. The same field also
+    /// accepts a recovery code — the server decides which it got, so the app
+    /// sends it verbatim (`recoveryCode` mirrors it for enrolments that use
+    /// the named field).
+    var totp: String? = nil
+    var recoveryCode: String? = nil
+}
 private struct RefreshBody: Encodable { let refreshToken: String }
+private struct RegisterBody: Encodable {
+    let email: String
+    let password: String
+    let name: String
+    var role: String? = nil
+    var note: String? = nil
+    var subjectIds: [String]? = nil
+    var classCode: String? = nil
+}
+private struct RegisterResponse: Decodable {
+    public var id: String?
+    public var email: String?
+    public var name: String?
+    public var verifyUrl: String?
+}
+private struct ResendVerificationBody: Encodable { let email: String }
 private struct SubmitBody: Encodable {
     let cardId: String
     let answer: String?
@@ -23,6 +49,14 @@ private struct SubmitBody: Encodable {
     let durationMs: Int
     let mode: String
 }
+/// What a sign-in attempt actually told us. `mfaRequired` is a first-class
+/// outcome, not a throw: the 2FA stage follows it in the same form.
+public enum LoginOutcome {
+    case signedIn(AuthSession)
+    /// The server wants the six digits — or a recovery code — before it decides.
+    case mfaRequired
+}
+
 /// What a refresh attempt actually told us.
 ///
 /// A `nil` used to stand for two opposite things — "the server rejected this
@@ -137,16 +171,54 @@ public final class RevisioApi: ReviewApi {
         return data
     }
 
-    public func login(email: String, password: String) async throws -> AuthSession {
-        let body = try encoder.encode(LoginBody(email: email, password: password))
+    ///
+    /// Sign in. A 2FA-enabled account is not an error: the first attempt
+    /// answers `mfaRequired` as a **typed outcome** — the caller shows the
+    /// code field and retries with it — rather than the dead end this used to
+    /// throw. The retry sends the same credentials plus the six-digit code,
+    /// or a recovery code, and the server decides which it got.
+    ///
+    public func login(email: String, password: String, totp: String? = nil) async throws -> LoginOutcome {
+        let body = try encoder.encode(LoginBody(email: email, password: password, totp: totp, recoveryCode: nil))
         let (parsed, http) = try await send("/api/v1/auth/login", method: "POST", body: body, as: LoginResponse.self)
-        if parsed.mfaRequired == true {
-            throw ApiError(status: 409, code: "mfa_required", message: "This account needs a 2FA code.")
+        if parsed.mfaRequired == true || (parsed.accessToken == nil && totp == nil) {
+            return .mfaRequired
         }
         guard let token = parsed.accessToken, let user = parsed.user else {
             throw ApiError(status: 500, code: "no_session", message: "The server did not return a session.")
         }
-        return AuthSession(accessToken: token, refreshToken: Self.refreshToken(from: http), user: user)
+        return .signedIn(AuthSession(accessToken: token, refreshToken: Self.refreshToken(from: http), user: user))
+    }
+
+    /// `POST /auth/register` — create an account. Registration never signs in:
+    /// the address must be verified first, so the outcome is the copy's problem.
+    public func register(
+        email: String,
+        password: String,
+        name: String,
+        role: String? = nil,
+        note: String? = nil,
+        subjectIds: [String]? = nil,
+        classCode: String? = nil
+    ) async throws -> String? {
+        let body = try encoder.encode(RegisterBody(
+            email: email, password: password, name: name,
+            role: role, note: note, subjectIds: subjectIds, classCode: classCode
+        ))
+        let (parsed, _) = try await send("/api/v1/auth/register", method: "POST", body: body, as: RegisterResponse.self)
+        return parsed.verifyUrl
+    }
+
+    /// `GET /auth/subjects-public` — the registration form's subject list.
+    public func publicSubjects() async throws -> [PublicSubject] {
+        try await send("/api/v1/auth/subjects-public", as: PublicSubjects.self).0.subjects
+    }
+
+    /// `PUT /auth/verify-email` — re-send a verification email.
+    public func resendVerification(email: String) async throws -> Bool {
+        let body = try encoder.encode(ResendVerificationBody(email: email))
+        _ = try await sendRaw("/api/v1/auth/verify-email", method: "PUT", body: body)
+        return true
     }
 
     ///

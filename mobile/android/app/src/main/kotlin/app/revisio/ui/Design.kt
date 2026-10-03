@@ -47,6 +47,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
@@ -76,6 +79,18 @@ import kotlin.math.sin
 // "you are earning something", and the two never share a viewport.
 
 private val LocalColors = compositionLocalOf { DarkColors }
+
+/**
+ * The reduce-motion gate: every motion helper resolves through it, so the
+ * Preferences toggle (and the system's own animation setting) is honoured once,
+ * in one place. Motion is kept — springs *finish* instantly — so layout never
+ * changes, only the travel.
+ */
+val LocalReducedMotion = compositionLocalOf { false }
+
+/** Whether springs should settle without travelling. A composable read. */
+@Composable
+fun reducedMotion(): Boolean = LocalReducedMotion.current
 
 /** The palette in scope. Screens read the accessors below, never the raw tables. */
 val revisioColors: RevisioColors
@@ -123,7 +138,11 @@ val LipSoft: Color @Composable @ReadOnlyComposable get() = revisioColors.lipSoft
 fun Modifier.pressScale(pressed: Boolean, enabled: Boolean = true): Modifier {
     val scale by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (pressed && enabled) Motion.pressScale else 1f,
-        animationSpec = Motion.Springs.press.spec(),
+        animationSpec = if (reducedMotion()) {
+            androidx.compose.animation.core.snap()
+        } else {
+            Motion.Springs.press.spec()
+        },
         label = "pressScale",
     )
     return this.graphicsLayer { scaleX = scale; scaleY = scale }
@@ -138,10 +157,19 @@ fun Modifier.pressScale(pressed: Boolean, enabled: Boolean = true): Modifier {
  */
 @Composable
 fun Modifier.entrance(index: Int = 0, scale: Boolean = false): Modifier {
+    // The gate is composition state, so read it in composable scope; the
+    // effect below is a plain coroutine and cannot read composition locals.
+    val motionOff = reducedMotion()
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(Motion.stagger(index).toLong())
-        progress.animateTo(1f, if (scale) Motion.Springs.settle.spec() else Motion.enter)
+        if (motionOff) {
+            // Keep the arrival; lose the travel. A snap still recomposes once,
+            // so staggered content appears in order without moving.
+            progress.snapTo(1f)
+        } else {
+            kotlinx.coroutines.delay(Motion.stagger(index).toLong())
+            progress.animateTo(1f, if (scale) Motion.Springs.settle.spec() else Motion.enter)
+        }
     }
     val value = progress.value
     return this.graphicsLayer {
@@ -166,10 +194,15 @@ fun Modifier.entrance(index: Int = 0, scale: Boolean = false): Modifier {
  */
 @Composable
 fun Modifier.pop(delayMillis: Int = 0, from: Float = 0.7f, rotate: Float = -6f): Modifier {
+    val motionOff = reducedMotion()
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (delayMillis > 0) kotlinx.coroutines.delay(delayMillis.toLong())
-        progress.animateTo(1f, Motion.Springs.pop.spec())
+        if (motionOff) {
+            progress.snapTo(1f)
+        } else {
+            if (delayMillis > 0) kotlinx.coroutines.delay(delayMillis.toLong())
+            progress.animateTo(1f, Motion.Springs.pop.spec())
+        }
     }
     val value = progress.value
     return this.graphicsLayer {
@@ -194,7 +227,18 @@ fun RevisioTheme(content: @Composable () -> Unit) {
     val dark = (configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
         android.content.res.Configuration.UI_MODE_NIGHT_YES
     val colors = if (dark) DarkColors else LightColors
-    CompositionLocalProvider(LocalColors provides colors) {
+    // The system's own animation switch seeds the gate: a learner who has
+    // turned animations off in the OS gets the calm surface even before any
+    // account preference is read. The app's own pref is provided where the
+    // signed-in tree reads `me`.
+    val resolver = androidx.compose.ui.platform.LocalContext.current.contentResolver
+    val systemMotionOff = remember {
+        android.provider.Settings.Global.getFloat(resolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+    CompositionLocalProvider(
+        LocalColors provides colors,
+        LocalReducedMotion provides systemMotionOff,
+    ) {
         MaterialTheme(
             colorScheme = if (dark) {
                 darkColorScheme(
@@ -741,6 +785,9 @@ fun OptionRow(
                 .background(face)
                 .border(2.dp, border, shape)
                 .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
+                // Selection is a *state*, not a style: the chosen row says so
+                // to TalkBack the way the web's `aria-pressed` does.
+                .semantics { selected = state == OptionState.Selected }
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -822,7 +869,14 @@ fun RankCrest(
     // The pop: overshoots past its target and settles, like `SPRING.pop`.
     val overshoot = androidx.compose.animation.core.CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
 
-    Canvas(modifier = modifier.size(size.dp)) {
+    Canvas(
+        modifier = modifier
+            .size(size.dp)
+            // The crest is a *picture of a rank*: named for AT, like the web's
+            // `role="img"` + `aria-label`, so TalkBack says the rung rather than
+            // reading nothing at all.
+            .semantics { contentDescription = rank.label },
+    ) {
         val unit = this.size.minDimension / 100f
         fun p(x: Float, y: Float) = Offset(x * unit, y * unit)
 
@@ -1085,6 +1139,52 @@ fun TilePanel(
 the base tokens. */
 private fun hexBand(value: Long) = androidx.compose.ui.graphics.Color(value)
 
+/**
+ * The `.band` scope as a palette — every semantic role remapped as if the band
+ * were the page, the same transformation `TilePanel` applies and the same one
+ * `AuthShell`'s band needs: the auth header is full-bleed rather than a rounded
+ * panel, but the components inside it are written exactly the same way.
+ */
+@Composable
+fun bandScopedColors(): RevisioColors {
+    val base = revisioColors
+    return base.copy(
+        background = base.band,
+        foreground = base.bandForeground,
+        card = base.bandCard,
+        cardForeground = base.bandForeground,
+        popover = base.bandCard,
+        primary = base.bandForeground,
+        primaryForeground = base.band,
+        secondary = base.bandSecondary,
+        secondaryForeground = base.bandForeground,
+        muted = base.bandCard,
+        mutedForeground = base.bandMuted,
+        accent = base.bandSecondary,
+        accentForeground = base.bandForeground,
+        border = base.bandBorder,
+        input = base.bandSecondary,
+        ring = base.bandForeground,
+        lipSoft = hexBand(0xFF2A2A2AL),
+    )
+}
+
+/**
+ * The stylesheet's `.band` scope as a full-bleed section: edge to edge, no
+ * radius, no border — surface change is the divider. Everything composed inside
+ * reads the remapped palette, so a `bg-primary` tile turns white-on-black here
+ * without being written twice. `TilePanel` is this at app-page scale, rounded;
+ * the auth header is this at page scale, square.
+ */
+@Composable
+fun Band(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalColors provides bandScopedColors()) {
+        Box(modifier = modifier.fillMaxWidth().background(revisioColors.background)) {
+            content()
+        }
+    }
+}
+
 // ── counters ────────────────────────────────────────────────────────────────
 
 /**
@@ -1101,11 +1201,23 @@ fun NumberTicker(
     style: TextStyle,
     modifier: Modifier = Modifier,
 ) {
+    val motionOff = reducedMotion()
     val animated = androidx.compose.animation.core.Animatable(0f)
     androidx.compose.runtime.LaunchedEffect(value) {
-        animated.animateTo(value.toFloat(), Motion.Springs.meter.spec())
+        if (motionOff) {
+            animated.snapTo(value.toFloat())
+        } else {
+            animated.animateTo(value.toFloat(), Motion.Springs.meter.spec())
+        }
     }
-    Text(text = "${animated.value.toInt()}", style = style, modifier = modifier)
+    Text(
+        text = "${animated.value.toInt()}",
+        style = style,
+        modifier = modifier
+            // Assistive tech reads the *value*, never the mid-spring count —
+            // the smoke test's complaint about tickers reading 0.
+            .semantics { contentDescription = value.toString() },
+    )
 }
 
 // ── confetti ────────────────────────────────────────────────────────────────
@@ -1120,7 +1232,9 @@ fun NumberTicker(
  */
 @Composable
 fun Confetti(trigger: Int, modifier: Modifier = Modifier) {
-    if (trigger <= 0) return
+    // The reward moment respects the calm setting: reduced motion reads no
+    // burst at all, exactly as the web's `useReducedMotion` does.
+    if (trigger <= 0 || reducedMotion()) return
     val pieces = remember(trigger) {
         kotlin.random.Random(trigger).let { random ->
             List(140) {

@@ -116,6 +116,16 @@ public struct RefreshResponse: Codable {
     public var user: ApiUser?
 }
 
+/// One row of the registration form's subject list (`GET /auth/subjects-public`).
+public struct PublicSubject: Codable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+}
+
+public struct PublicSubjects: Codable {
+    public var subjects: [PublicSubject]
+}
+
 public struct Gamification: Codable, Equatable {
     public var totalXp: Int?
     public var level: Int?

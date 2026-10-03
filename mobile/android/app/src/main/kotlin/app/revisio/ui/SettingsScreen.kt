@@ -580,10 +580,15 @@ private fun SecurityCard(me: MeDetail, state: UiState, viewModel: RevisioViewMod
                 Text("Security", style = Type.strong.style(Ink))
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Two-factor authentication is ${if (me.totpEnabled) "on." else "off."}",
+                    if (me.totpEnabled)
+                        "Two-factor is on. Manage it on the web — enrolment needs a QR scan."
+                    else
+                        "Two-factor is off. Enrol on the web, in Settings → Security.",
                     style = Type.caption.style(Muted),
                 )
             }
+            // A stated path beats a dead chip: enrolment is a web flow for now,
+            // so the row says where instead of pretending to be a control.
             ChipPill(
                 if (me.totpEnabled) "2FA on" else "2FA off",
                 active = me.totpEnabled,
