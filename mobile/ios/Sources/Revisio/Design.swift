@@ -64,6 +64,27 @@ struct RevisioTheme<Content: View>: View {
 // numbers rather than a stand-in chosen by hand.
 
 ///
+/// The reduce-motion gate, and the one switch every motion helper reads.
+///
+/// The app's own Preferences toggle ("Reduce motion") is carried here from the
+/// root, *alongside* the system's `accessibilityReduceMotion` — honouring either
+/// is the point: a learner who asks for calm gets it whichever switch they use.
+/// Springs *finish* instantly rather than being removed, so layout never
+/// changes, only the travel.
+///
+private struct RevisioReduceMotionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// The account's own reduce-motion preference, seeded at the root.
+    var revisioReduceMotion: Bool {
+        get { self[RevisioReduceMotionKey.self] }
+        set { self[RevisioReduceMotionKey.self] = newValue }
+    }
+}
+
+///
 /// The web's `press`: `scale(0.95)`, on the spring that has teeth.
 ///
 /// The 90ms lip under a button stays a timing curve, because that is what the
@@ -72,13 +93,15 @@ struct RevisioTheme<Content: View>: View {
 ///
 struct PressScale: ViewModifier {
     @Environment(\.revisio) private var colors
+    @Environment(\.revisioReduceMotion) private var reduced
+    @Environment(\.accessibilityReduceMotion) private var systemReduced
     let pressed: Bool
     let enabled: Bool
 
     func body(content: Content) -> some View {
         content
             .scaleEffect(pressed && enabled ? Motion.pressScale : 1)
-            .animation(Motion.Springs.press.animation, value: pressed)
+            .animation(reduced || systemReduced ? nil : Motion.Springs.press.animation, value: pressed)
     }
 }
 
@@ -91,6 +114,8 @@ struct PressScale: ViewModifier {
 ///
 struct Entrance: ViewModifier {
     @State private var shown = false
+    @Environment(\.revisioReduceMotion) private var reduced
+    @Environment(\.accessibilityReduceMotion) private var systemReduced
     let index: Int
     let scales: Bool
 
@@ -100,7 +125,7 @@ struct Entrance: ViewModifier {
             .offset(y: shown ? 0 : (scales ? Motion.enterScaleRise : Motion.enterRise))
             .scaleEffect(scales && !shown ? Motion.enterScale : 1)
             .animation(
-                (scales ? Motion.Springs.settle.animation : Motion.Enter.base)
+                reduced || systemReduced ? nil : (scales ? Motion.Springs.settle.animation : Motion.Enter.base)
                     .delay(Motion.stagger(index)),
                 value: shown
             )
@@ -137,6 +162,8 @@ extension View {
 /// here are the web's, not a lookalike.
 struct Pop: ViewModifier {
     @State private var shown = false
+    @Environment(\.revisioReduceMotion) private var reduced
+    @Environment(\.accessibilityReduceMotion) private var systemReduced
     let delay: Double
     let from: CGFloat
     let rotate: Double
@@ -146,7 +173,7 @@ struct Pop: ViewModifier {
             .opacity(shown ? 1 : 0)
             .scaleEffect(shown ? 1 : from)
             .rotationEffect(.degrees(shown ? 0 : rotate))
-            .animation(Motion.Springs.pop.animation.delay(delay), value: shown)
+            .animation(reduced || systemReduced ? nil : Motion.Springs.pop.animation.delay(delay), value: shown)
             .onAppear { shown = true }
     }
 }
@@ -382,6 +409,9 @@ struct ChipPill: View {
     let text: String
     var active: Bool = false
     var icon: String?
+    /// Tap target. Defaults to display-only (the chips that only carry text);
+    /// callers that make the pill a button pass an action.
+    var action: (() -> Void)? = nil
 
     var body: some View {
         let ink = active ? colors.background : colors.foreground
@@ -398,6 +428,8 @@ struct ChipPill: View {
         .overlay {
             Capsule().strokeBorder(active ? .clear : colors.border, lineWidth: 1)
         }
+        .contentShape(Capsule())
+        .onTapGesture { action?() }
     }
 }
 
@@ -435,6 +467,8 @@ struct Badge: View {
 /// The 10px pill that carries division, streak and placement progress.
 struct Meter: View {
     @Environment(\.revisio) private var colors
+    @Environment(\.revisioReduceMotion) private var reduced
+    @Environment(\.accessibilityReduceMotion) private var systemReduced
     let percent: Int
     var tint: Color?
     var height: CGFloat = Metrics.meterHeight
@@ -449,8 +483,8 @@ struct Meter: View {
             }
         }
         .frame(height: height)
-        // The web's meter spring: smooth, no wobble.
-        .animation(Motion.Springs.meter.animation, value: percent)
+        // The web's meter spring: smooth, no wobble — unless calm was asked for.
+        .animation(reduced || systemReduced ? nil : Motion.Springs.meter.animation, value: percent)
     }
 }
 
@@ -514,7 +548,9 @@ struct KeyboardKind {
 #endif
 
 /// The software-keyboard hints, applied only where a software keyboard exists.
-private struct KeyboardHints: ViewModifier {
+/// (Internal: the auth screen in RevisioApp applies the same gate to its own
+/// fields, so one owner decides what compiles where.)
+struct KeyboardHints: ViewModifier {
     let keyboard: KeyboardKind
 
     @ViewBuilder func body(content: Content) -> some View {
@@ -563,6 +599,48 @@ struct Field: View {
     /// here is 16, so the prompt is tinted the way 16 spells it.
     private var promptText: Text {
         Text(placeholder).foregroundColor(colors.mutedForeground.opacity(0.75))
+    }
+}
+
+///
+/// The answer field, in both shapes the session asks for.
+///
+/// A cloze is one line — the web's `input`; a flashcard is prose and grows —
+/// the web's `textarea`, "Key ideas count, not wording", which a single-line
+/// `TextField` could never hold. The auto-marked state is the web's green
+/// input: the text and its border tick green while the typed answer is exactly
+/// right, and the keyboard's action key submits.
+///
+struct AnswerField: View {
+    @Environment(\.revisio) private var colors
+    let placeholder: String
+    @Binding var text: String
+    var multiline: Bool = false
+    var autoMark: Bool = false
+
+    var body: some View {
+        Group {
+            if multiline {
+                TextField("", text: $text, prompt: Text(placeholder).foregroundColor(colors.mutedForeground.opacity(0.75)), axis: .vertical)
+                    .lineLimit(3...8)
+            } else {
+                TextField("", text: $text, prompt: Text(placeholder).foregroundColor(colors.mutedForeground.opacity(0.75)))
+                    .submitLabel(.done)
+            }
+        }
+        .font(Type.body.font)
+        .foregroundStyle(autoMark ? colors.goodPressed : colors.foreground)
+        .modifier(KeyboardHints(keyboard: .default))
+        .autocorrectionDisabled()
+        .padding(.horizontal, 14)
+        .padding(.vertical, multiline ? 12 : 0)
+        .frame(minHeight: Metrics.inputMinHeight)
+        .background(colors.card, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                .strokeBorder(autoMark ? colors.good : colors.border, lineWidth: Metrics.inputBorder)
+        }
+        .animation(Motion.Springs.press.animation, value: autoMark)
     }
 }
 
@@ -671,88 +749,158 @@ func crestSpec(tier: String, division: Int) -> (ridges: Int, segments: Int, pips
 
 struct RankCrest: View {
     @Environment(\.revisio) private var colors
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.revisioReduceMotion) private var accountReduceMotion
     let rank: Rank
     var size: CGFloat = 88
     var showProgress: Bool = true
     var muted: Bool = false
 
+    /// The ring sweeps to the learner's progress on the meter spring.
+    @State private var ring: Double = 0
+    /// When the entrance clock started — nil until the view appears, so the
+    /// first frame draws nothing rather than everything.
+    @State private var startedAt: Date?
+
+    private var reduced: Bool { systemReduceMotion || accountReduceMotion }
+
     var body: some View {
         let spec = crestSpec(tier: rank.tier, division: rank.division)
-        let mark = muted ? colors.mutedForeground.opacity(0.45) : colors.primaryForeground
-        let tick = muted ? colors.mutedForeground.opacity(0.3) : colors.border
+        // The web's crest marks with `--primary` — ink in light mode, white in
+        // dark — NOT `--primary-foreground`, which is the colour *on* primary
+        // and invisible on the shield's own surface. The chevrons and pips are
+        // drawn on the card, so they wear primary itself.
+        // Colour and its baked-in alpha travel as a pair: SwiftUI's `Color` can
+        // apply an opacity but cannot read one back, and the entrance stagger
+        // multiplies against the base alpha.
+        let mark = muted ? (colors.mutedForeground, 0.45) : (colors.primary, 1.0)
+        let tick = muted ? (colors.mutedForeground, 0.3) : (colors.border, 1.0)
         let track = colors.border.opacity(0.6)
         let surface = colors.card
         let outline = colors.foreground
 
-        Canvas { context, canvasSize in
-            let unit = min(canvasSize.width, canvasSize.height) / 100
-            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * unit, y: y * unit) }
+        TimelineView(.animation) { (timeline: TimelineViewDefaultContext) in
+            Canvas { (context: inout GraphicsContext, canvasSize: CGSize) in
+                let elapsed = startedAt.map { timeline.date.timeIntervalSinceReferenceDate - $0.timeIntervalSinceReferenceDate } ?? 0
+                let unit = min(canvasSize.width, canvasSize.height) / 100
+                func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * unit, y: y * unit) }
 
-            // Dial ticks — the mechanism. Longer with every tier.
-            for i in 0..<spec.segments {
-                let angle = (CGFloat(i) / CGFloat(spec.segments)) * 2 * .pi - .pi / 2
-                var line = Path()
-                line.move(to: CGPoint(x: 50 * unit + cos(angle) * 40 * unit, y: 50 * unit + sin(angle) * 40 * unit))
-                line.addLine(to: CGPoint(x: 50 * unit + cos(angle) * 44 * unit, y: 50 * unit + sin(angle) * 44 * unit))
-                context.stroke(line, with: .color(tick), style: StrokeStyle(lineWidth: 1.5 * unit, lineCap: .round))
-            }
-
-            if showProgress {
-                let radius = 45.5 * unit
-                let centre = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-                let box = CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2)
-                context.stroke(Path(ellipseIn: box), with: .color(track), lineWidth: 3 * unit)
-
-                let progress = min(100, max(0, rank.percent))
-                if progress > 0 {
-                    var arc = Path()
-                    arc.addArc(
-                        center: centre,
-                        radius: radius,
-                        startAngle: .degrees(-90),
-                        endAngle: .degrees(-90 + 360 * Double(progress) / 100),
-                        clockwise: false
-                    )
-                    context.stroke(arc, with: .color(mark), style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round))
+                /// How far through its own entrance an element is, in 0..1.
+                func step(_ delay: Double, _ window: Double) -> Double {
+                    min(1, max(0, (elapsed - delay) / window))
                 }
-            }
 
-            // The shield: ink outline, interior is the surface it sits on.
-            var shield = Path()
-            shield.move(to: p(22, 26))
-            shield.addLine(to: p(78, 26))
-            shield.addLine(to: p(78, 50))
-            shield.addCurve(to: p(50, 85), control1: p(78, 67), control2: p(65, 79))
-            shield.addCurve(to: p(22, 50), control1: p(35, 79), control2: p(22, 67))
-            shield.closeSubpath()
-            context.fill(shield, with: .color(surface))
-            context.stroke(shield, with: .color(outline), style: StrokeStyle(lineWidth: 2.5 * unit, lineJoin: .round))
+                /// The pop: overshoots past its target and settles, like `SPRING.pop`.
+                func overshoot(_ t: Double) -> Double {
+                    let u = 1 - t
+                    return 1 + 1.56 * u * u * u + 0.34 * u * u
+                }
 
-            // Chevrons — the tier count, military-stripe style.
-            let gap: CGFloat = 7.5
-            let top = 48 - (CGFloat(spec.ridges - 1) * gap) / 2
-            for i in 0..<spec.ridges {
-                let y = top + CGFloat(i) * gap
-                var chevron = Path()
-                chevron.move(to: p(37, y))
-                chevron.addLine(to: p(50, y - 6))
-                chevron.addLine(to: p(63, y))
-                context.stroke(
-                    chevron,
-                    with: .color(mark),
-                    style: StrokeStyle(lineWidth: 2.75 * unit, lineCap: .round, lineJoin: .round)
-                )
-            }
+                // Dial ticks — the mechanism. Longer with every tier. Each
+                // fades in on the web's stagger: 12ms per tick, capped at 200ms.
+                // (Expressed in small, explicit steps: this Canvas was once over
+                // the type-checker's complexity budget, and the error it reports
+                // — "unable to type-check in reasonable time" — points here.)
+                for i in 0..<spec.segments {
+                    let delay: Double = min(Double(i) * 0.012, 0.2)
+                    let alpha = step(delay, 0.18)
+                    if alpha <= 0 { continue }
+                    let fraction = CGFloat(i) / CGFloat(spec.segments)
+                    let angle: CGFloat = fraction * 2 * .pi - .pi / 2
+                    let cosA = CGFloat(cos(Double(angle)))
+                    let sinA = CGFloat(sin(Double(angle)))
+                    let tickInner = CGPoint(x: (50 + cosA * 40) * unit, y: (50 + sinA * 40) * unit)
+                    let tickOuter = CGPoint(x: (50 + cosA * 44) * unit, y: (50 + sinA * 44) * unit)
+                    var line = Path()
+                    line.move(to: tickInner)
+                    line.addLine(to: tickOuter)
+                    context.stroke(line, with: .color(tick.0.opacity(tick.1 * alpha)), style: StrokeStyle(lineWidth: 1.5 * unit, lineCap: .round))
+                }
 
-            // Division pips — III is one dot, I is three.
-            for i in 0..<spec.pips {
-                let x = 50 + (CGFloat(i) - CGFloat(spec.pips - 1) / 2) * 5
-                let dot = CGRect(x: x * unit - 2.4 * unit, y: 72 * unit - 2.4 * unit, width: 4.8 * unit, height: 4.8 * unit)
-                context.fill(Path(ellipseIn: dot), with: .color(mark))
+                if showProgress {
+                    let radius = 45.5 * unit
+                    let centre = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+                    let box = CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2)
+                    context.stroke(Path(ellipseIn: box), with: .color(track), lineWidth: 3 * unit)
+
+                    let progress = min(100, max(0, ring))
+                    if progress > 0 {
+                        var arc = Path()
+                        arc.addArc(
+                            center: centre,
+                            radius: radius,
+                            startAngle: .degrees(-90),
+                            endAngle: .degrees(-90 + 360 * progress / 100),
+                            clockwise: false
+                        )
+                        context.stroke(arc, with: .color(mark.0.opacity(mark.1)), style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round))
+                    }
+                }
+
+                // The shield: ink outline, interior is the surface it sits on.
+                var shield = Path()
+                shield.move(to: p(22, 26))
+                shield.addLine(to: p(78, 26))
+                shield.addLine(to: p(78, 50))
+                shield.addCurve(to: p(50, 85), control1: p(78, 67), control2: p(65, 79))
+                shield.addCurve(to: p(22, 50), control1: p(35, 79), control2: p(22, 67))
+                shield.closeSubpath()
+                context.fill(shield, with: .color(surface))
+                context.stroke(shield, with: .color(outline), style: StrokeStyle(lineWidth: 2.5 * unit, lineJoin: .round))
+
+                // Chevrons — the tier count, military-stripe style. Each pops
+                // in from 60% about the shield's centre, 45ms behind the one
+                // above it, on the web's own delays.
+                let gap: CGFloat = 7.5
+                let top = 48 - (CGFloat(spec.ridges - 1) * gap) / 2
+                for i in 0..<spec.ridges {
+                    let popped = overshoot(step(0.06 + Double(i) * 0.045, 0.34))
+                    if popped <= 0 { continue }
+                    let shrink = 0.6 + 0.4 * popped
+                    func scaled(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                        CGPoint(x: (50 + (x - 50) * shrink) * unit, y: (48 + (y - 48) * shrink) * unit)
+                    }
+                    var chevron = Path()
+                    chevron.move(to: scaled(37, top + CGFloat(i) * gap))
+                    chevron.addLine(to: scaled(50, top + CGFloat(i) * gap - 6))
+                    chevron.addLine(to: scaled(63, top + CGFloat(i) * gap))
+                    context.stroke(
+                        chevron,
+                        with: .color(mark.0.opacity(min(1, max(0, popped)) * mark.1)),
+                        style: StrokeStyle(lineWidth: 2.75 * unit, lineCap: .round, lineJoin: .round)
+                    )
+                }
+
+                // Division pips — III is one dot, I is three. Popped last, on
+                // the web's stagger.
+                for i in 0..<spec.pips {
+                    let popped = overshoot(step(0.16 + Double(i) * 0.05, 0.3))
+                    if popped <= 0 { continue }
+                    let x = 50 + (CGFloat(i) - CGFloat(spec.pips - 1) / 2) * 5
+                    let radius = 2.4 * unit * popped
+                    let dot = CGRect(x: x * unit - radius, y: 72 * unit - radius, width: radius * 2, height: radius * 2)
+                    context.fill(Path(ellipseIn: dot), with: .color(mark.0.opacity(mark.1)))
+                }
             }
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Rank \(rank.label)")
+        .onAppear { begin() }
+        .onChange(of: rank.label) { _ in begin() }
+    }
+
+    private func begin() {
+        if reduced {
+            // Keep the crest; lose the assembly. Everything arrives at once.
+            startedAt = Date(timeIntervalSinceReferenceDate: -10)
+            ring = Double(min(100, max(0, rank.percent)))
+        } else {
+            startedAt = Date()
+            ring = 0
+            withAnimation(Motion.Springs.meter.animation) {
+                ring = Double(min(100, max(0, rank.percent)))
+            }
+        }
     }
 }
 
@@ -889,8 +1037,10 @@ extension RevisioColors {
             ring: bandForeground,
             good: good,
             goodPressed: goodPressed,
+            goodStrong: goodStrong,
             goodSoft: goodSoft,
             streak: streak,
+            streakPressed: streakPressed,
             gold: gold,
             info: info,
             band: band,
@@ -994,6 +1144,8 @@ struct NumberTicker: View {
 /// decoration any card can ask for.
 struct Confetti: View {
     @Environment(\.revisio) private var colors
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.revisioReduceMotion) private var accountReduceMotion
     var trigger: Int
 
     private struct Piece {
@@ -1010,6 +1162,17 @@ struct Confetti: View {
     @State private var clock: Double = 0
 
     var body: some View {
+        // The reward moment respects the calm setting — the account's or the
+        // system's: reduced motion reads no burst at all, exactly as the web's
+        // `useReducedMotion` does.
+        if reduceMotion || accountReduceMotion || trigger <= 0 {
+            Color.clear.frame(width: 0, height: 0)
+        } else {
+            burstCanvas
+        }
+    }
+
+    private var burstCanvas: some View {
         Canvas { context, size in
             guard clock > 0 else { return }
             let palette = [colors.good, colors.gold, colors.info, colors.streak]

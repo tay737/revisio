@@ -499,9 +499,16 @@ struct SettingsView: View {
                         Text("Security")
                             .font(Type.strong.font)
                             .foregroundStyle(colors.foreground)
-                        Text("Two-factor authentication is \(me.totpEnabled ? "on." : "off.")")
-                            .font(Type.caption.font)
-                            .foregroundStyle(colors.mutedForeground)
+                        // A stated path beats a dead chip: enrolment is a web
+                        // flow for now, so the row says where instead of
+                        // pretending to be a control.
+                        Text(
+                            me.totpEnabled
+                                ? "Two-factor is on. Manage it on the web — enrolment needs a QR scan."
+                                : "Two-factor is off. Enrol on the web, in Settings → Security."
+                        )
+                        .font(Type.caption.font)
+                        .foregroundStyle(colors.mutedForeground)
                     }
                     Spacer(minLength: 0)
                     ChipPill(text: me.totpEnabled ? "2FA on" : "2FA off", active: me.totpEnabled, icon: "secure")

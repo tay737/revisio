@@ -91,10 +91,32 @@ private val ACHIEVEMENT_BY_EMOJI: Map<String?, androidx.compose.ui.graphics.vect
     "\uD83C\uDF96\uFE0F" to RevisioIcons.league,
 )
 
-/** The brand mark is the wordmark — there is no separate logo lockup. */
+/**
+ * The brand mark is the wordmark — there is no separate logo lockup.
+ */
 @Composable
 fun Wordmark(size: TypeToken = Type.tagline) {
     Text("Revisio", style = size.style(Ink))
+}
+
+/**
+ * The API base the asset URLs resolve against.
+ *
+ * `publicUrlFor` in `src/services/storage.ts` hands back **relative** URLs —
+ * `/api/v1/assets/<key>` — because the browser only ever needs the same origin.
+ * A phone has no such origin, so a URL the web renders fine would 404 here
+ * before a single byte arrived: this is why avatars and banners never loaded
+ * on either native port. The scheme-relative branch covers protocol-relative
+ * forms, and the absolute branches pass through untouched.
+ */
+fun resolveAssetUrl(url: String): String {
+    val app = app.revisio.BuildConfig.API_BASE_URL.trimEnd('/')
+    return when {
+        url.startsWith("//") -> "https:$url"
+        url.startsWith("http://") || url.startsWith("https://") -> url
+        url.startsWith("/") -> "$app$url"
+        else -> url
+    }
 }
 
 /**
@@ -115,7 +137,7 @@ fun RemoteImage(url: String, contentDescription: String?, modifier: Modifier = M
     androidx.compose.runtime.LaunchedEffect(url) {
         val painted = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
-                val request = okhttp3.Request.Builder().url(url).build()
+                val request = okhttp3.Request.Builder().url(resolveAssetUrl(url)).build()
                 okhttp3.OkHttpClient().newCall(request).execute().use { response ->
                     if (!response.isSuccessful) null
                     else response.body?.byteStream()?.use { android.graphics.BitmapFactory.decodeStream(it) }
