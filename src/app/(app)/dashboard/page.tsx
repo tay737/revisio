@@ -187,10 +187,13 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
+            // Learners follow subjects; authors write them. A first-run student
+            // with no subjects must land in the catalogue (where following one
+            // fills the queue), not in the authoring tool.
             <p className="mt-2 text-[14px] text-muted-foreground">
-              Pick a subject and your queue fills itself.{' '}
-              <Link href="/library" className="text-foreground underline underline-offset-4">
-                Add one
+              Follow a subject and your queue fills itself.{' '}
+              <Link href="/learn" className="text-foreground underline underline-offset-4">
+                Find one
               </Link>
             </p>
           )}
@@ -230,7 +233,7 @@ function Stat({
   tone?: 'good' | 'streak';
 }) {
   const tint =
-    tone === 'good' ? 'text-good' : tone === 'streak' ? 'text-streak' : 'text-muted-foreground';
+    tone === 'good' ? 'text-good-pressed' : tone === 'streak' ? 'text-streak-pressed' : 'text-muted-foreground';
 
   return (
     <div className="card p-4">

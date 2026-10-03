@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
@@ -29,6 +29,7 @@ type Subject = {
 export default function LearnPage() {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     api
@@ -36,6 +37,18 @@ export default function LearnPage() {
       .then((d) => setSubjects(d.subjects))
       .catch(() => setSubjects([]));
   }, []);
+
+  // Client-side filter, deliberately: the catalogue is a few dozen subjects at
+  // most and the payload is already on the device, so a round trip would buy
+  // nothing but latency. This narrows by name and description.
+  const visible = useMemo(() => {
+    if (!subjects) return null;
+    const q = query.trim().toLowerCase();
+    if (!q) return subjects;
+    return subjects.filter(
+      (s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q),
+    );
+  }, [subjects, query]);
 
   const follow = async (subject: Subject) => {
     setBusy(subject.id);
@@ -47,11 +60,27 @@ export default function LearnPage() {
     }
   };
 
-  if (!subjects) return <PageSkeleton />;
+  if (!subjects || !visible) return <PageSkeleton />;
 
   return (
     <div className="space-y-6">
       <PageHeader icon="learn" title="Learn" subtitle="Pick a subject to see its topics, notes and specification." />
+
+      {subjects.length > 3 && (
+        <div className="relative">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <Icon name="search" size={17} />
+          </span>
+          <input
+            type="search"
+            className="input pl-11"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search subjects…"
+            aria-label="Search subjects"
+          />
+        </div>
+      )}
 
       {subjects.length === 0 && (
         <div className="card p-8 text-center">
@@ -68,13 +97,25 @@ export default function LearnPage() {
         </div>
       )}
 
-      <ul className="space-y-3">
-        {subjects.map((s, i) => (
+      {visible.length === 0 && subjects.length > 0 && (
+        <div className="card p-6 text-center">
+          <p className="t-strong">Nothing matches “{query}”</p>
+          <p className="t-caption mt-1 text-muted-foreground">Try a shorter piece of the name.</p>
+          <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => setQuery('')}>
+            Clear the search
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {visible.map((s, i) => (
           <BlurFade key={s.id} delay={Math.min(i * 0.04, 0.24)}>
-            <li className="card p-0">
+            <div className="card p-0">
               {/* Link-first: the whole card navigates, the Follow control is a
-                  sibling action — never a button inside a button. */}
-              <div className="flex w-full items-center gap-3 p-5">
+                  sibling action — never a button inside a button. On a phone
+                  the info and the actions are two rows; the one-line lockup was
+                  squeezing every subject description into a sliver. */}
+              <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
                 <Link
                   href={`/learn/${s.id}`}
                   className="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
@@ -87,32 +128,34 @@ export default function LearnPage() {
                     <span className="t-caption mt-0.5 block text-muted-foreground">{s.description}</span>
                   </span>
                 </Link>
-                <span className="chip shrink-0">
-                  {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
-                </span>
-                {!s.enrolled ? (
-                  <button
-                    type="button"
-                    onClick={() => follow(s)}
-                    disabled={busy === s.id}
-                    className="btn btn-secondary btn-sm shrink-0"
-                  >
-                    {busy === s.id ? 'Adding…' : 'Follow'}
-                  </button>
-                ) : (
-                  <Link
-                    href={`/learn/${s.id}`}
-                    className="btn btn-primary btn-sm shrink-0"
-                    aria-label={`Open ${s.name}`}
-                  >
-                    Open
-                  </Link>
-                )}
+                <div className="flex shrink-0 items-center gap-2 pl-[52px] sm:pl-0">
+                  <span className="chip">
+                    {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
+                  </span>
+                  {!s.enrolled ? (
+                    <button
+                      type="button"
+                      onClick={() => follow(s)}
+                      disabled={busy === s.id}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      {busy === s.id ? 'Adding…' : 'Follow'}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/learn/${s.id}`}
+                      className="btn btn-primary btn-sm"
+                      aria-label={`Open ${s.name}`}
+                    >
+                      Open
+                    </Link>
+                  )}
+                </div>
               </div>
-            </li>
+            </div>
           </BlurFade>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

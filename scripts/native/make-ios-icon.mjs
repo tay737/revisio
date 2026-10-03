@@ -10,7 +10,7 @@
  *
  * Two things the App Store insists on shape the output: an iOS icon carries no
  * transparency (rejected at upload) and no corner rounding (the springboard
- * masks it). So the mark is flattened onto the brand blue and rendered
+ * masks it). So the mark is flattened onto the brand ink and rendered
  * full-bleed at the single 1024×1024 size iOS 16+ expects.
  */
 
@@ -18,7 +18,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
-const brand = '#1C64F2';
+// The brand ground is the design system's own ink — the same `#000000` the
+// manifest and viewport theme-color declare. It was the purged blue once.
+const brand = '#000000';
 const root = process.cwd();
 const iconSet = path.join(root, 'mobile/ios/Revisio/Assets.xcassets/AppIcon.appiconset');
 

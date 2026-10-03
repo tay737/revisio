@@ -37,7 +37,7 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
         <div style="font-size:20px;font-weight:800;margin-bottom:16px">Revisio</div>
         <p style="color:#374151;line-height:1.6">Welcome! Confirm your email address to activate your account:</p>
         <p style="margin:24px 0">
-          <a href="${url}" style="background:#1c64f2;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Verify my email</a>
+          <a href="${url}" style="background:#000000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Verify my email</a>
         </p>
         <p style="color:#6b7280;font-size:13px;line-height:1.6">This link expires in 24 hours. If you didn't create a Revisio account, you can ignore this email.</p>
       </div>`,
@@ -50,6 +50,40 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
 }
 
 /** The one-hour link that moves a pending email address onto the account. */
+/**
+ * The 30-minute link that lets a learner set a new password after losing one.
+ *
+ * Always sent with the same neutral voice whether or not the account exists —
+ * the caller decides that, and the email itself never confirms which.
+ */
+export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
+  const url = `${appUrl()}/reset-password?token=${token}`;
+  const mailer = resend();
+  if (!mailer) {
+    console.log(`[email] (no RESEND_API_KEY — console mode) password-reset link for ${to}: ${url}`);
+    return;
+  }
+  const { error } = await mailer.emails.send({
+    from,
+    to,
+    subject: 'Reset your Revisio password',
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <div style="font-size:20px;font-weight:800;margin-bottom:16px">Revisio</div>
+        <p style="color:#374151;line-height:1.6">Someone asked to reset the password for this address. If it was you:</p>
+        <p style="margin:24px 0">
+          <a href="${url}" style="background:#000000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Choose a new password</a>
+        </p>
+        <p style="color:#6b7280;font-size:13px;line-height:1.6">This link works once and expires in 30 minutes. If you didn't ask for it, ignore this email — your password is unchanged.</p>
+      </div>`,
+    text: `Reset your Revisio password: ${url} (single use, expires in 30 minutes). If you didn't ask for this, ignore the email.`,
+  });
+  if (error) {
+    console.error(`[email] failed to send reset mail to ${to}:`, error);
+    throw new Error(`Email delivery failed: ${error.message}`);
+  }
+}
+
 export async function sendEmailChangeEmail(to: string, token: string): Promise<void> {
   const url = `${appUrl()}/verify-email?token=${token}&kind=email_change`;
   const mailer = resend();
@@ -66,7 +100,7 @@ export async function sendEmailChangeEmail(to: string, token: string): Promise<v
         <div style="font-size:20px;font-weight:800;margin-bottom:16px">Revisio</div>
         <p style="color:#374151;line-height:1.6">Confirm this address to move your account here:</p>
         <p style="margin:24px 0">
-          <a href="${url}" style="background:#1c64f2;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Confirm new email</a>
+          <a href="${url}" style="background:#000000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Confirm new email</a>
         </p>
         <p style="color:#6b7280;font-size:13px;line-height:1.6">This link expires in 24 hours. If you didn't request this, your account is unchanged — ignore the email.</p>
       </div>`,

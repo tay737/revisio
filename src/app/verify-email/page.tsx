@@ -110,12 +110,12 @@ function VerifyEmailInner() {
                 </p>
               ) : (
                 <form onSubmit={resend} className="mt-5 space-y-3 text-left">
-                  <div className="relative">
+                  <div>
                     <label className="label" htmlFor="resend-email">
                       Send me a new link
                     </label>
                     <div className="relative">
-                      <span className="pointer-events-none absolute left-4 top-[13px] text-muted-foreground">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
                         <Icon name="mail" size={17} />
                       </span>
                       <input
