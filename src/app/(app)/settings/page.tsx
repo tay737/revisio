@@ -13,6 +13,7 @@ import { Notice } from '@/components/Notice';
 import { Avatar, ProfileBanner, AVATAR_COLORS, AVATAR_EMOJI, BANNER_COLORS, BANNER_WASH } from '@/components/ui/avatar';
 import { RoleBadge } from '@/components/ui/role-badge';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Security2FA } from '@/app/(app)/settings/Security2FA';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 
 /**
@@ -474,42 +475,58 @@ function SettingsBody({
           <Icon name="mail" size={15} />
           Send confirmation email
         </button>
-      </section>
-
-      {/* ── Security ──────────────────────────────────────────────────────── */}
+      </section>      {/* ── Security ──────────────────────────────────────────────────────── */}
       <section className="card p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="t-strong">Security</h2>
-            <p className="t-caption mt-1 text-muted-foreground">Two-factor authentication is {me.totpEnabled ? 'on.' : 'off.'}</p>
+        <h2 className="t-strong">Security</h2>
+        <p className="t-caption mt-1 text-muted-foreground">Password and two-factor sign-in.</p>
+
+        <div className="mt-4 border-t border-border pt-4">
+          {/* The chip is an in-page anchor now: it announces state and leads to
+              the control that changes it, instead of linking to the page it is
+              already on. */}
+          <div className="flex items-center justify-between gap-3">
+            <a
+              href="#two-factor"
+              className="chip shrink-0"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('two-factor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.getElementById('two-factor')?.focus?.();
+              }}
+            >
+              <Icon name="secure" size={14} />
+              {me.totpEnabled ? '2FA on' : '2FA off'}
+            </a>
           </div>
-          <Link href={me.totpEnabled ? '/settings' : '/settings'} className="chip shrink-0">
-            <Icon name="secure" size={14} />
-            {me.totpEnabled ? '2FA on' : '2FA off'}
-          </Link>
+          <div className="mt-3">
+            <Security2FA enabled={me.totpEnabled} onChanged={refresh} />
+          </div>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <Field label="Current password" htmlFor="set-pw-current">
-            <input id="set-pw-current" type="password" className="input" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
-          </Field>
-          <Field label="New password" htmlFor="set-pw-new" hint="At least 8 characters.">
-            <input id="set-pw-new" type="password" className="input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
-          </Field>
-          <Field label="Repeat new password" htmlFor="set-pw-confirm">
-            <input id="set-pw-confirm" type="password" className="input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
-          </Field>
+        <div className="mt-6 border-t border-border pt-4">
+          <h3 className="t-caption-s">Password</h3>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <Field label="Current password" htmlFor="set-pw-current">
+              <input id="set-pw-current" type="password" className="input" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+            </Field>
+            <Field label="New password" htmlFor="set-pw-new" hint="At least 8 characters.">
+              <input id="set-pw-new" type="password" className="input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+            </Field>
+            <Field label="Repeat new password" htmlFor="set-pw-confirm">
+              <input id="set-pw-confirm" type="password" className="input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+            </Field>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary mt-4"
+            disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
+            onClick={changePassword}
+          >
+            <Icon name="secure" size={15} />
+            Change password
+          </button>
+          <p className="t-fine mt-2 text-muted-foreground">Changing your password signs out every other device.</p>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary mt-4"
-          disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
-          onClick={changePassword}
-        >
-          <Icon name="secure" size={15} />
-          Change password
-        </button>
-        <p className="t-fine mt-2 text-muted-foreground">Changing your password signs out every other device.</p>
       </section>
 
       {/* ── Preferences ───────────────────────────────────────────────────── */}

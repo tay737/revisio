@@ -79,6 +79,19 @@ export default function CramClient() {
       .catch(() => setTopics([]));
   }, []);
 
+  // Density has one owner — the account preference. The picker starts from it
+  // instead of a hardcoded 'summary', so what the learner chose in Settings is
+  // what Cram (and Learn, and the phones) show. Read-once at mount.
+  useEffect(() => {
+    api
+      .get<{ prefs?: { noteDensity?: 'detailed' | 'summary' } | null }>('/api/v1/me')
+      .then((d) => {
+        const owned = d.prefs?.noteDensity;
+        if (owned === 'detailed' || owned === 'summary') setDensity(owned);
+      })
+      .catch(() => undefined);
+  }, []);
+
   // A preselected topic that turns out to have no questions would leave a
   // ticked chip and a disabled button, so drop a selection the server does not
   // know about.
@@ -257,6 +270,7 @@ export default function CramClient() {
                     <motion.button
                       key={o.id}
                       type="button"
+                      aria-pressed={selected === o.id}
                       whileTap={{ scale: 0.99 }}
                       onClick={() => setSelected(o.id)}
                       className={`option ${selected === o.id ? 'option-selected font-semibold' : 'hover:bg-border/20'}`}

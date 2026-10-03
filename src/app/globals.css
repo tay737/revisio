@@ -59,11 +59,18 @@
   --ring: #000000;
 
   /* ── Game state (Duolingo) ───────────────────────────────────────────────
-     Five roles, each with exactly one meaning anywhere in the product. */
+     Five roles, each with exactly one meaning anywhere in the product.
+     `-pressed`/`-strong` variants exist for contrast, not decoration: the base
+     hues were specified as *fills* and are too light to carry text or an icon
+     on a light ground (white on #58cc02 is ≈2.0:1; #ff9600 on white ≈2.2:1).
+     Anything a game colour says as text or a glyph on a light surface uses the
+     strong variant; the hue stays, the pair gets legible. */
   --good: #58cc02; /* owl green  — correct, progress, in-session CTA */
   --good-pressed: #58a700; /* tree-frog  — the pressed lip below */
+  --good-strong: #419300; /* tree-frog, darkened — green as text/icon on light; the btn-good fill */
   --good-soft: #d7ffb8; /* sea-sponge — the correct-answer wash */
   --streak: #ff9600; /* fox        — the day streak, nothing else */
+  --streak-pressed: #c96a00; /* fox, darkened — streak as text/icon on light */
   --gold: #ffc800; /* bee        — trophies, promotions, achievements */
   --info: #1cb0f6; /* macaw      — notes and reference material */
 
@@ -114,10 +121,14 @@
   --input: #282828;
   --ring: #ffffff;
 
+  /* Dark mode flips the ground, so the *lighter* original hues become the
+     legible ones — the strong variants relax back toward the base hue. */
   --good: #58cc02;
   --good-pressed: #3f9400;
+  --good-strong: #7ad63f;
   --good-soft: #1f3608;
   --streak: #ffa53d;
+  --streak-pressed: #ffbe6b;
   --gold: #ffd23f;
   --info: #1cb0f6;
 
@@ -197,8 +208,10 @@
 
   --color-good: var(--good);
   --color-good-pressed: var(--good-pressed);
+  --color-good-strong: var(--good-strong);
   --color-good-soft: var(--good-soft);
   --color-streak: var(--streak);
+  --color-streak-pressed: var(--streak-pressed);
   --color-gold: var(--gold);
   --color-info: var(--info);
   --color-band: var(--band);
@@ -548,7 +561,10 @@
   /* The in-session action. Green is the only colour permitted to carry a
      primary action, and only inside a study loop — see the header note. */
   .btn-good {
-    background: var(--good);
+    /* The fill is --good-strong, not --good: white on #58cc02 was ≈2.0:1,
+       which fails 4.5:1 for the one label the whole session depends on.
+       The hue is unchanged; only the pair got legible (docs/UX-AUDIT P2-4). */
+    background: var(--good-strong);
     color: #ffffff;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -556,7 +572,7 @@
     box-shadow: 0 4px 0 0 var(--good-pressed);
   }
   .btn-good:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--good) 92%, #ffffff);
+    background: color-mix(in oklab, var(--good-strong) 90%, var(--good));
   }
   .btn-good:active:not(:disabled) {
     transform: translateY(4px);
@@ -593,6 +609,11 @@
     padding: 0 16px;
     font-size: 14px;
   }
+  @media (max-width: 639px) {
+    .btn-ghost {
+      min-height: 44px;
+    }
+  }
   .btn-ghost:hover:not(:disabled) {
     color: var(--foreground);
     border-color: var(--border-strong);
@@ -613,6 +634,12 @@
     min-height: 38px;
     padding: 0 14px;
     font-size: 14px;
+  }
+  @media (max-width: 639px) {
+    .btn-danger,
+    .btn-sm {
+      min-height: 44px;
+    }
   }
   .btn-danger:hover:not(:disabled) {
     background: color-mix(in oklab, var(--destructive) 12%, transparent);
@@ -710,6 +737,16 @@
        circle of stacked words. */
     white-space: nowrap;
   }
+  /* Thumb rule: on a touch viewport the chip is a primary control (Cram and
+     Exam topic pickers are rows of them), so it earns the 44px target. Desktop
+     pointers keep the compact 30px. */
+  @media (max-width: 639px) {
+    .chip {
+      min-height: 44px;
+      padding: 0 14px;
+      font-size: 14px;
+    }
+  }
   .chip-active {
     border-color: transparent;
     background: var(--foreground);
@@ -739,7 +776,9 @@
   }
   .badge-streak {
     background: var(--streak);
-    color: #ffffff;
+    /* Ink on fox, not white: the gold badge already does black-on-#ffc800, so
+       this is precedent inside the system, and white on #ff9600 was ≈2.2:1. */
+    color: #1c1300;
   }
   .badge-gold {
     background: var(--gold);
@@ -889,6 +928,29 @@
   .rail > * {
     scroll-snap-align: start;
     flex: 0 0 auto;
+  }
+
+  /* ── Skip link (P1-11) ─────────────────────────────────────────────
+     Visually hidden until keyboard focus makes it the first thing on screen,
+     exactly as WCAG 2.4.1 expects. It lives here so AppShell, AuthShell and
+     the error pages can share one treatment. */
+  .skip-link {
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    z-index: 100;
+    transform: translate(-50%, -200%);
+    border-radius: var(--radius-pill);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: var(--shadow-float);
+    transition: transform 120ms var(--ease-out);
+  }
+  .skip-link:focus-visible {
+    transform: translate(-50%, 0);
   }
 
   /* Safe areas. `--nav-h` is the bottom bar's height, owned by the shell. */

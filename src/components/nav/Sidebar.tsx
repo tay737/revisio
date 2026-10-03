@@ -106,7 +106,7 @@ export function Sidebar({
             <Icon
               name="streak"
               size={12}
-              className={me.gamification.streak > 0 ? 'text-streak' : undefined}
+              className={me.gamification.streak > 0 ? 'text-streak-pressed' : undefined}
             />
           </span>
         </div>

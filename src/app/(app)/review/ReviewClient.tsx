@@ -72,7 +72,7 @@ const KIND_LABEL: Record<QueueCard['kind'], string> = {
 
 type Note = { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string };
 type FirstExposure = {
-  topic: { id: string; name: string; description: string; subjectName: string };
+  topic: { id: string; name: string; description: string; subjectId: string; subjectName: string };
   notes: Note[];
   batch: QueueCard[];
   progress: { met: number; total: number; remaining: number };
@@ -443,7 +443,10 @@ export default function ReviewClient() {
               : `“${session.topic.name}” has no questions attached. Its notes are still worth reading.`}
           </p>
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-            <Link href={`/learn?topic=${session.topic.id}`} className="btn btn-secondary">
+            {/* Deep-link to the reading screen itself — /learn?topic= was never
+                consumed by the catalogue, so the button led to a page that
+                ignored it (docs/UX-AUDIT P3-2). */}
+            <Link href={`/learn/${session.topic.subjectId}/${session.topic.id}`} className="btn btn-secondary">
               Read the notes
             </Link>
             <Link href="/review" className="btn btn-primary">
@@ -505,8 +508,11 @@ export default function ReviewClient() {
       <Confetti ref={confettiRef} className="pointer-events-none fixed inset-0 z-[60]" />
 
       {/* First exposure puts the reading beside the question. A first attempt at
-          material you have not met is a guess, so the notes are one tap away and
-          open by default on the very first card. */}
+          material you have not met is a guess, so the notes are one tap away.
+          They start collapsed so the question owns the screen, but the pulsing
+          dot on the summary makes the affordance unmissable — the web comment
+          once claimed "open by default" while the code said closed; the pulsing
+          affordance is the honest resolution of the two. */}
       {session && (
         <div className="mb-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -523,6 +529,12 @@ export default function ReviewClient() {
               <summary className="flex cursor-pointer items-center gap-2.5 px-4 py-3.5">
                 <Icon name="notes" size={16} className="shrink-0" />
                 <span className="t-strong">Read first</span>
+                {!notesOpen && (
+                  <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-info" />
+                  </span>
+                )}
                 <span className="chip ml-auto shrink-0">{session.notes.length}</span>
                 <Icon name="collapse" size={15} className="shrink-0 text-muted-foreground" />
               </summary>
@@ -620,6 +632,7 @@ export default function ReviewClient() {
                   <button
                     key={o.id}
                     type="button"
+                    aria-pressed={selected === o.id}
                     onClick={() => setSelected(o.id)}
                     className={`option ${selected === o.id ? 'option-selected font-bold' : ''}`}
                   >
@@ -664,7 +677,7 @@ export default function ReviewClient() {
                     autoComplete="off"
                     autoCapitalize="off"
                     spellCheck={false}
-                    enterKeyHint="done"
+                    enterKeyHint="go"
                     aria-label="Your answer"
                   />
                 ) : (

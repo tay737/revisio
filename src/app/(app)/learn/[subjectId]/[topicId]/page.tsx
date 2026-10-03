@@ -59,11 +59,25 @@ export default function TopicScreen() {
     };
   }, [topicId]);
 
-  // Restore the saved density after first paint; localStorage events do not
-  // fire across tabs, so this is read-once, not a subscription.
+  // Density has one owner: the account preference (`prefs.noteDensity`). The
+  // localStorage copy is a *cache* for first paint only — it means the choice
+  // is visible before /me answers and on signed-out views, but the value the
+  // learner set in Settings is what wins once the account arrives. Writing a
+  // change here goes through the same PATCH /me helper Settings uses, so Learn,
+  // Cram, Settings and both phones agree from now on.
   useEffect(() => {
-    const saved = window.localStorage.getItem('revisio.noteDensity');
-    if (saved === 'detailed' || saved === 'summary') setDensity(saved);
+    const cached = window.localStorage.getItem('revisio.noteDensity');
+    if (cached === 'detailed' || cached === 'summary') setDensity(cached);
+    api
+      .get<{ prefs?: { noteDensity?: 'detailed' | 'summary' } | null }>('/api/v1/me')
+      .then((d) => {
+        const owned = d.prefs?.noteDensity;
+        if (owned === 'detailed' || owned === 'summary') {
+          setDensity(owned);
+          window.localStorage.setItem('revisio.noteDensity', owned);
+        }
+      })
+      .catch(() => undefined); // signed-out or offline: the cache stands
   }, []);
 
   useEffect(() => {
@@ -72,6 +86,7 @@ export default function TopicScreen() {
       return;
     }
     window.localStorage.setItem('revisio.noteDensity', density);
+    void api.patch('/api/v1/me', { prefs: { noteDensity: density } }).catch(() => undefined);
   }, [density]);
 
   if (!topicId || failed) {
@@ -120,15 +135,23 @@ export default function TopicScreen() {
                   aria-pressed={density === d}
                   className={`segment ${density === d ? 'segment-active' : ''}`}
                 >
-                  {d}
+                  {d === 'detailed' ? 'Detailed' : 'Summary'}
                 </button>
               ))}
             </div>
-            <Link href={`/review?topic=${topicId}`} className="btn btn-primary btn-sm">
+            <Link
+              href={`/review?topic=${topicId}`}
+              className="btn btn-primary btn-sm self-stretch"
+              aria-label={`Learn ${meta.name}`}
+            >
               <Icon name="learn" size={14} />
               Learn
             </Link>
-            <Link href={`/cram?topic=${topicId}`} className="btn btn-secondary btn-sm">
+            <Link
+              href={`/cram?topic=${topicId}`}
+              className="btn btn-secondary btn-sm self-stretch"
+              aria-label={`Cram ${meta.name}`}
+            >
               <Icon name="cram" size={14} />
               Cram
             </Link>

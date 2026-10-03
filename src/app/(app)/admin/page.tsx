@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { BlurFade } from '@/components/ui/blur-fade';
+import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { ContentManager } from './ContentManager';
 import { ClozeMarking } from '../library/ClozeMarking';
 import PageSkeleton from '@/components/PageSkeleton';
@@ -303,18 +304,13 @@ export default function AdminPage() {
               >
                 Rename
               </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm shrink-0 text-destructive"
-                onClick={() => {
-                  if (window.confirm(`Delete “${s.name}” and every topic, lesson and question inside it? This cannot be undone.`)) {
-                    act({ action: 'delete_subject', subjectId: s.id }, `${s.name} deleted.`);
-                  }
-                }}
-              >
-                <Icon name="remove" size={14} />
-                Delete
-              </button>
+              <InlineConfirm
+                label="Delete"
+                icon="remove"
+                title={`Delete “${s.name}”?`}
+                message="Every topic, lesson and question inside it goes too. This cannot be undone."
+                onConfirm={() => act({ action: 'delete_subject', subjectId: s.id }, `${s.name} deleted.`)}
+              />
             </div>
           ))}
           {data?.subjects.length === 0 && <p className="t-caption text-muted-foreground">No subjects yet.</p>}
@@ -446,18 +442,13 @@ export default function AdminPage() {
                 {b.icon && <Icon name={b.icon as never} size={12} />}
                 {b.label}
                 <span className="num text-[11px] text-muted-foreground">×{b.grants}</span>
-                <button
-                  type="button"
-                  aria-label={`Delete badge ${b.label}`}
-                  className="text-muted-foreground transition-colors hover:text-destructive"
-                  onClick={() => {
-                    if (window.confirm(`Delete "${b.label}"? It disappears from all ${b.grants} profile(s) wearing it.`)) {
-                      act({ action: 'delete_badge', badgeId: b.id }, `Badge "${b.label}" deleted.`);
-                    }
-                  }}
-                >
-                  <Icon name="close" size={12} />
-                </button>
+                <InlineConfirm
+                  label={`Remove badge ${b.label}`}
+                  title={`Remove badge “${b.label}”?`}
+                  message={`It disappears from all ${b.grants} profile(s) wearing it.`}
+                  confirmLabel="Remove"
+                  onConfirm={() => act({ action: 'delete_badge', badgeId: b.id }, `Badge "${b.label}" deleted.`)}
+                />
               </span>
             ))}
           </div>
@@ -709,17 +700,13 @@ export default function AdminPage() {
                           Verify email
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => {
-                          if (window.confirm(`Sign ${u.name} out of every device? They can sign back in.`)) {
-                            act({ action: 'revoke_sessions', userId: u.id }, `${u.name} signed out everywhere.`);
-                          }
-                        }}
-                      >
-                        Sign out everywhere
-                      </button>
+                      <InlineConfirm
+                        label="Sign out everywhere"
+                        title={`Sign ${u.name} out of every device?`}
+                        message="They can sign back in."
+                        confirmLabel="Sign out"
+                        onConfirm={() => act({ action: 'revoke_sessions', userId: u.id }, `${u.name} signed out everywhere.`)}
+                      />
                       <button
                         type="button"
                         className="btn btn-ghost"
@@ -785,18 +772,13 @@ export default function AdminPage() {
                       <Icon name="edit" size={13} />
                       Rename
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm gap-1.5 text-destructive"
-                      onClick={() => {
-                        if (window.confirm(`Delete "${c.name}"? Its ${c.members.length} ${c.members.length === 1 ? 'member' : 'members'} lose the class; questions and XP are untouched.`)) {
-                          void act({ action: 'delete_class', classId: c.id }, `Class "${c.name}" deleted.`);
-                        }
-                      }}
-                    >
-                      <Icon name="remove" size={13} />
-                      Delete
-                    </button>
+                    <InlineConfirm
+                      label="Delete"
+                      icon="remove"
+                      title={`Delete “${c.name}”?`}
+                      message={`Its ${c.members.length} ${c.members.length === 1 ? 'member' : 'members'} lose the class; questions and XP are untouched.`}
+                      onConfirm={() => void act({ action: 'delete_class', classId: c.id }, `Class "${c.name}" deleted.`)}
+                    />
                   </div>
                 </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
@@ -25,6 +25,26 @@ export default function SubjectScreen() {
   const [topics, setTopics] = useState<Topic[] | null>(null);
   const [specsOpen, setSpecsOpen] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [query, setQuery] = useState('');
+
+  // Same client-side filter as the catalogue page: the topics are already on
+  // the device, and at 30+ topics a scroll is the difference between a subject
+  // that gets studied and one that gets closed.
+  const orderedTopics = useMemo(
+    () =>
+      (topics ?? [])
+        .filter((t) => {
+          const q = query.trim().toLowerCase();
+          if (!q) return true;
+          return (
+            t.name.toLowerCase().includes(q) ||
+            t.description?.toLowerCase().includes(q) ||
+            t.specRefs.some((r) => r.toLowerCase().includes(q))
+          );
+        })
+        .sort(topicSortKey),
+    [topics, query],
+  );
 
   useEffect(() => {
     if (!subjectId) return;
@@ -65,7 +85,6 @@ export default function SubjectScreen() {
   }
   const specUnits = [...specMap.entries()].sort((a, b) => topicSortKey(a[0], b[0]));
   const specCount = [...specMap.values()].reduce((n, u) => n + u.refs.length, 0);
-  const orderedTopics = [...topics].sort(topicSortKey);
 
   return (
     <div className="space-y-6">
@@ -153,6 +172,29 @@ export default function SubjectScreen() {
         <h2 id="topics-heading" className="t-tagline">
           Topics
         </h2>
+        {topics.length > 5 && (
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Icon name="search" size={17} />
+            </span>
+            <input
+              type="search"
+              className="input pl-11"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search topics…"
+              aria-label="Search topics"
+            />
+          </div>
+        )}
+        {query && orderedTopics.length === 0 && topics.length > 0 && (
+          <p className="t-caption text-muted-foreground">
+            Nothing matches “{query}” —{' '}
+            <button type="button" className="underline underline-offset-4" onClick={() => setQuery('')}>
+              clear the search
+            </button>
+          </p>
+        )}
         {topics.length === 0 && (
           <p className="t-caption text-muted-foreground">No topics under this subject yet.</p>
         )}
@@ -160,47 +202,47 @@ export default function SubjectScreen() {
           {orderedTopics.map((t, ti) => (
             <li key={t.id} className="inset overflow-hidden">
               <BlurFade delay={Math.min(ti * 0.04, 0.2)}>
-                <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
-                      <Link
-                        href={`/learn/${subjectId}/${t.id}`}
-                        className="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="t-strong block">{t.name}</span>
-                          {t.description && (
-                            <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
-                          )}
-                          {t.specRefs.length > 0 && (
-                            <span className="t-caption-s mt-1 block text-muted-foreground">
-                              {t.specRefs.slice(0, 4).join(' · ')}
-                              {t.specRefs.length > 4 ? ` · +${t.specRefs.length - 4}` : ''}
-                            </span>
-                          )}
-                        </span>
-                        <span className="chip shrink-0">
-                          {t.lessons ?? 0} {(t.lessons ?? 0) === 1 ? 'note' : 'notes'} · {t.cards ?? 0}{' '}
-                          {(t.cards ?? 0) === 1 ? 'question' : 'questions'}
-                        </span>
-                      </Link>
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/review?topic=${t.id}`}
-                          className="btn btn-primary btn-sm"
-                          aria-label={`Learn ${t.name}`}
-                        >
-                          <Icon name="learn" size={14} />
-                          Learn
-                        </Link>
-                        <Link
-                          href={`/cram?topic=${t.id}`}
-                          className="btn btn-secondary btn-sm"
-                          aria-label={`Cram ${t.name}`}
-                        >
-                          <Icon name="cram" size={14} />
-                          Cram
-                        </Link>
-                      </div>
+                <div className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
+                <Link
+                  href={`/learn/${subjectId}/${t.id}`}
+                  className="flex min-w-0 flex-1 items-start gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="t-strong block">{t.name}</span>
+                    {t.description && (
+                      <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
+                    )}
+                    {t.specRefs.length > 0 && (
+                      <span className="t-caption-s mt-1 block text-muted-foreground">
+                        {t.specRefs.slice(0, 4).join(' · ')}
+                        {t.specRefs.length > 4 ? ` · +${t.specRefs.length - 4}` : ''}
+                      </span>
+                    )}
+                  </span>
+                  <span className="chip shrink-0">
+                    {t.lessons ?? 0} {(t.lessons ?? 0) === 1 ? 'note' : 'notes'} · {t.cards ?? 0}{' '}
+                    {(t.cards ?? 0) === 1 ? 'question' : 'questions'}
+                  </span>
+                </Link>
+                <div className="flex gap-2 sm:shrink-0">
+                  <Link
+                    href={`/review?topic=${t.id}`}
+                    className="btn btn-primary btn-sm flex-1 sm:flex-none"
+                    aria-label={`Learn ${t.name}`}
+                  >
+                    <Icon name="learn" size={14} />
+                    Learn
+                  </Link>
+                  <Link
+                    href={`/cram?topic=${t.id}`}
+                    className="btn btn-secondary btn-sm flex-1 sm:flex-none"
+                    aria-label={`Cram ${t.name}`}
+                  >
+                    <Icon name="cram" size={14} />
+                    Cram
+                  </Link>
                 </div>
+              </div>
               </BlurFade>
             </li>
           ))}

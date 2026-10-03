@@ -11,21 +11,7 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
 import { motion } from 'motion/react';
 import PageSkeleton from '@/components/PageSkeleton';
-import { toast } from 'sonner';
-
-/**
- * Copy a join code and say so. The code stays on screen, so the failure path is
- * recoverable by hand — which is why it is allowed to fail out loud instead of
- * silently.
- */
-async function copyCode(code: string) {
-  try {
-    await navigator.clipboard.writeText(code);
-    toast.success(`Join code ${code} copied`);
-  } catch {
-    toast.error('Copy blocked — select the code and copy it manually.');
-  }
-}
+import { InlineConfirm } from '@/components/ui/inline-confirm';
 
 type Roster = {
   userId: string;
@@ -62,6 +48,22 @@ export default function TeacherPage() {
   const [inviteFor, setInviteFor] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [myTopics, setMyTopics] = useState<{ id: string; name: string; visibility: string; cardCount?: number; lessonCount?: number }[]>([]);
+  // Per-class copy feedback, replacing the toast: the code stays on screen, so
+  // the confirmation belongs next to it, and the failure path says what to do
+  // by hand instead of announcing into a corner of the screen.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  const copyCode = async (classId: string, code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedId(classId);
+      setCopyFailed(false);
+    } catch {
+      setCopiedId(null);
+      setCopyFailed(true);
+    }
+  };
 
   const load = () =>
     api
@@ -204,13 +206,16 @@ export default function TeacherPage() {
                 </code>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm gap-1.5"
-                  onClick={() => copyCode(c.joinCode)}
+                  className={`btn btn-sm gap-1.5 ${copiedId === c.id ? 'btn-subtle text-good-pressed' : 'btn-secondary'}`}
+                  onClick={() => copyCode(c.id, c.joinCode)}
                   aria-label={`Copy join code ${c.joinCode}`}
                 >
-                  <Icon name="notes" size={14} />
-                  Copy
+                  <Icon name={copiedId === c.id ? 'correct' : 'notes'} size={14} />
+                  {copiedId === c.id ? 'Copied' : 'Copy'}
                 </button>
+                {copyFailed && copiedId !== c.id && (
+                  <span className="t-fine text-destructive">Copy blocked — select the code and copy it by hand.</span>
+                )}
                 <button
                   type="button"
                   className="btn btn-ghost gap-1.5"
@@ -251,18 +256,13 @@ export default function TeacherPage() {
                   <Icon name="add" size={14} />
                   Add student
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost gap-1.5 text-destructive"
-                  onClick={() => {
-                    if (window.confirm(`Delete "${c.name}"? Its ${c.roster.length} ${c.roster.length === 1 ? 'student' : 'students'} lose the class; their questions and XP are untouched.`)) {
-                      void post({ action: 'delete_class', classId: c.id }, `Class "${c.name}" deleted.`);
-                    }
-                  }}
-                >
-                  <Icon name="remove" size={14} />
-                  Delete
-                </button>
+                <InlineConfirm
+                  label="Delete"
+                  icon="remove"
+                  title={`Delete “${c.name}”?`}
+                  message={`Its ${c.roster.length} ${c.roster.length === 1 ? 'student' : 'students'} lose the class; their questions and XP are untouched.`}
+                  onConfirm={() => void post({ action: 'delete_class', classId: c.id }, `Class "${c.name}" deleted.`)}
+                />
               </div>
             </div>
 
@@ -359,7 +359,7 @@ export default function TeacherPage() {
                         <Icon
                           name="streak"
                           size={13}
-                          className={r.streak > 0 ? 'text-streak' : undefined}
+                          className={r.streak > 0 ? 'text-streak-pressed' : undefined}
                         />
                         {r.streak}d
                       </span>
@@ -379,19 +379,16 @@ export default function TeacherPage() {
                       <span className="num w-10 text-right text-[12px] text-muted-foreground">
                         {Math.round(r.masteryPct)}%
                       </span>
-                      <button
-                        type="button"
-                        title={`Remove ${r.name} from ${c.name}`}
-                        aria-label={`Remove ${r.name} from ${c.name}`}
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => {
-                          if (window.confirm(`Remove ${r.name} from ${c.name}? They can rejoin with the code.`)) {
-                            void post({ action: 'remove_class_member', classId: c.id, userId: r.userId }, `${r.name} removed from ${c.name}.`);
-                          }
-                        }}
-                      >
-                        <Icon name="close" size={12} />
-                      </button>
+                      {/* Reversible, so it confirms with one inline step rather
+                          than a dialog: the undo path is the join code. */}
+                      <InlineConfirm
+                        label="Remove"
+                        icon="close"
+                        title={`Remove ${r.name} from ${c.name}?`}
+                        message="They can rejoin with the code."
+                        confirmLabel="Remove"
+                        onConfirm={() => void post({ action: 'remove_class_member', classId: c.id, userId: r.userId }, `${r.name} removed from ${c.name}.`)}
+                      />
                     </div>
                   </li>
                 ))}

@@ -65,7 +65,7 @@ export function TopBar({
             <Icon
               name="streak"
               size={14}
-              className={streak > 0 ? 'text-streak' : 'text-muted-foreground'}
+              className={streak > 0 ? 'text-streak-pressed' : 'text-muted-foreground'}
             />
             {streak}
           </span>
@@ -107,7 +107,7 @@ export function TopBar({
             <Icon
               name="streak"
               size={14}
-              className={streak > 0 ? 'text-streak' : 'text-muted-foreground'}
+              className={streak > 0 ? 'text-streak-pressed' : 'text-muted-foreground'}
             />
             {streak}
             <span className="text-muted-foreground">day streak</span>

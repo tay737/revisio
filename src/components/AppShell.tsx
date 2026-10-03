@@ -73,6 +73,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen" style={{ '--nav-h': '64px' } as React.CSSProperties}>
+      {/* First focusable element on every page: keyboard users get past the
+          sidebar's eleven links in one Tab instead of re-trapping themselves in
+          the nav on every load. `tabIndex={-1}` lets activation move focus, not
+          merely scroll. */}
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+
       <Sidebar nav={nav} pathname={pathname} me={me} onSignOut={onSignOut} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -84,7 +92,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           onOpenAccount={() => setAccountOpen(true)}
         />
 
-        <main className="nav-offset mx-auto w-full max-w-[1080px] flex-1 px-4 pt-5 md:px-8 md:pt-7">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="nav-offset mx-auto w-full max-w-[1080px] flex-1 px-4 pt-5 outline-none md:px-8 md:pt-7"
+        >
           <motion.div key={pathname} variants={routeVariants} initial="hidden" animate="show">
             {children}
           </motion.div>

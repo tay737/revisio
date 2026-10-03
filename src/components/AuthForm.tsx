@@ -185,9 +185,9 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
 
         {mode === 'register' && !staff && (
           <>
-            <fieldset>
+            <fieldset className="m-0 border-0 p-0">
               <legend className="label">I am joining as</legend>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {(
                   [
                     { value: 'student', label: 'Student', icon: 'start' as IconName, hint: 'Study my own subjects' },
@@ -199,7 +199,9 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
                     type="button"
                     onClick={() => setRole(option.value)}
                     aria-pressed={role === option.value}
-                    className={`option ${role === option.value ? 'option-selected' : 'hover:bg-border/20'}`}
+                    className={`option flex-col items-start ${
+                      role === option.value ? 'option-selected' : 'hover:bg-border/20'
+                    }`}
                   >
                     <span className="flex items-center gap-2">
                       <Icon name={option.icon} size={17} />
@@ -358,6 +360,16 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           </>
         )}
       </p>
+
+      {/* The recovery path lives under the password field, where a locked-out
+          learner is actually looking, not only in the footer. */}
+      {mode === 'login' && (
+        <p className="t-caption mt-1.5 text-center">
+          <Link href="/forgot-password" className="text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
+            Forgot your password?
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
@@ -384,7 +396,7 @@ function Field({
         {label}
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-[13px] text-muted-foreground">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
           <Icon name={icon} size={17} />
         </span>
         {children}
