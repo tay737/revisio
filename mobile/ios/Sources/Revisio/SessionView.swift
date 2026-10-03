@@ -25,7 +25,6 @@ struct SessionView: View {
     /// and still know which one landed. Guarded to the verdict transition so
     /// it never re-fires on re-render.
     @State private var hapticVerdict: Verdict?
-    @State private var celebratedPromotion = false
 
     var body: some View {
         ZStack {
@@ -372,6 +371,8 @@ private struct FeedbackPanel: View {
 private struct SummaryView: View {
     @Environment(\.revisio) private var colors
     @ObservedObject var model: AppModel
+    /// The summary's buzz fires once per appearance, not on every re-render.
+    @State private var celebratedPromotion = false
 
     private var title: String {
         switch model.mode {
