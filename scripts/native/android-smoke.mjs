@@ -214,6 +214,15 @@ async function tapText(serial, text, timeoutMs = 20_000) {
   }
 }
 
+/**
+ * Submit the typed answer. Since the web's autoMark landed on the app, a
+ * fully-correct cloze relabels the CTA to "Correct — press Enter" the moment
+ * the text matches — before any tap — so the submit control is whichever of
+ * the two labels the screen is showing. Both submit with advance-on-correct.
+ */
+const submitAnswer = async (serial) =>
+  (await tapText(serial, 'Correct — press Enter', 5_000)) || (await tapText(serial, 'Check', 10_000));
+
 /** The centre of the largest node of a given accessibility class, or null. */
 function findLargestByClass(xml, cls) {
   let best = null;
@@ -398,25 +407,31 @@ async function main() {
     // ── 2. a review runs to completion, offline ──────────────────────────────
     check('offline: a review can be started', await tapText(serial, 'Start review'));
 
-    // Card 1 — cloze. Graded by the native port of the canonical engine.
+    // Card 1 — cloze. Graded by the native port of the canonical engine. Typed
+    // exactly right, the CTA auto-marks to "Correct — press Enter" — that label
+    // IS the mark — and the submit records AND advances: a correct cloze has no
+    // feedback stop, so the proof it moved on is the next card's prompt.
     await waitForText(serial, 'energy currency', 20_000);
     await typeIntoField(serial, 'ATP');
-    check('offline: the cloze card is answered and marked', await tapText(serial, 'Check'));
-    const cloze = await waitForText(serial, 'Correct', 15_000);
-    check('offline: the cloze answer is marked correct', hasText(cloze, 'Correct'), textsOnScreen(cloze).join(' | '));
-    check(
-      'offline: the mark is flagged as waiting for the server',
-      hasText(cloze, 'Saved on this device'),
-      textsOnScreen(cloze).join(' | '),
-    );
-    check('offline: moving on works', await tapText(serial, 'Next card'));
+    const clozeMark = await waitForText(serial, 'Correct — press Enter', 10_000);
+    check('offline: the cloze answer is marked correct as it is typed', hasText(clozeMark, 'Correct — press Enter'), textsOnScreen(clozeMark).join(' | '));
+    check('offline: the cloze card is submitted', await submitAnswer(serial));
+    const cardTwo = await waitForText(serial, 'mitochondrion do', 15_000);
+    check('offline: a correct cloze advances on its own', hasText(cardTwo, 'mitochondrion do'), textsOnScreen(cardTwo).join(' | '));
 
-    // Card 2 — flashcard, keyword grading.
+    // Card 2 — flashcard, keyword grading. Flashcards do not auto-mark, so the
+    // CTA reads Check, the submit opens the feedback panel, and the offline
+    // mark wears its "Saved on this device" flag there.
     await waitForText(serial, 'mitochondrion do', 20_000);
     await typeIntoField(serial, 'atp');
-    check('offline: the flashcard is answered and marked', await tapText(serial, 'Check'));
-    const flash = await waitForText(serial, 'Correct', 15_000);
+    check('offline: the flashcard is answered and marked', await submitAnswer(serial));
+    const flash = await waitForText(serial, 'Saved on this device', 15_000);
     check('offline: the flashcard answer is marked correct', hasText(flash, 'Correct'), textsOnScreen(flash).join(' | '));
+    check(
+      'offline: the flashcard mark is flagged as waiting for the server',
+      hasText(flash, 'Saved on this device'),
+      textsOnScreen(flash).join(' | '),
+    );
     check('offline: moving on works again', await tapText(serial, 'Next card'));
 
     // Card 3 — multiple choice.
