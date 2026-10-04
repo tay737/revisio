@@ -291,12 +291,50 @@ public struct Lobby: Codable, Equatable {
     }
 }
 
+/// The season the rank runs on. Mirrors the web's clock so a phone can say
+/// "Day 3 of 90" without a second round trip — the rank is meaningless without
+/// it, and the phone has nowhere else to get it.
+public struct SeasonClock: Codable, Equatable {
+    public var number: Int
+    public var label: String
+    public var rangeLabel: String
+    public var daysLeft: Int
+    public var day: Int
+    public var lengthDays: Int
+    public var percentElapsed: Int
+
+    public init(
+        number: Int = 0,
+        label: String = "",
+        rangeLabel: String = "",
+        daysLeft: Int = 0,
+        day: Int = 0,
+        lengthDays: Int = 0,
+        percentElapsed: Int = 0
+    ) {
+        self.number = number
+        self.label = label
+        self.rangeLabel = rangeLabel
+        self.daysLeft = daysLeft
+        self.day = day
+        self.lengthDays = lengthDays
+        self.percentElapsed = percentElapsed
+    }
+}
+
 public struct Ranked: Codable, Equatable {
     public var rank: Rank
     public var placement: Placement
     public var week: WeekBounds
     public var lobby: Lobby
     public var xpThisWeek: Int
+    /// Optional: an older server (or a cached payload) may not send it, and a
+    /// missing clock must degrade to a missing clock, not a decode failure that
+    /// loses the rank too.
+    public var season: SeasonClock?
+    public var seasonXp: Int?
+    /// The same engine on lifetime XP — the record, not the rank.
+    public var lifetimeRank: Rank?
 }
 
 public struct RankedMe: Codable, Equatable {
@@ -305,6 +343,8 @@ public struct RankedMe: Codable, Equatable {
     public var totalXp: Int
     public var level: Int
     public var seatedThisWeek: Bool
+    /// XP inside the current season — what `Ranked.rank` is computed from.
+    public var seasonXp: Int?
 }
 
 public struct Achievement: Codable, Equatable, Identifiable {

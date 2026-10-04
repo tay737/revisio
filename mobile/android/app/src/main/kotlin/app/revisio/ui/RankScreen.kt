@@ -77,7 +77,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                         Spacer(Modifier.width(10.dp))
                         Text(
                             if (state.online) "Loading your rank…"
-                            else "Your rank needs a connection — it is computed from your whole history.",
+                            else "Your rank needs a connection — it is computed from your XP this season.",
                             style = Type.caption.style(Muted),
                         )
                     }
@@ -137,6 +137,29 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
 
         when (view) {
             0 -> {
+                // The season clock sits above the tier meters on both platforms:
+                // the rank resets on this clock, and a phone has no other screen
+                // that would say so.
+                data.season?.let { season ->
+                    item {
+                        SurfaceCard {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(season.label, style = Type.eyebrow.style(Muted), modifier = Modifier.weight(1f))
+                                Text(
+                                    if (season.daysLeft <= 1) "Last day" else "${season.daysLeft} days left",
+                                    style = Type.fine.style(Muted),
+                                )
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Bar(percent = season.percentElapsed, height = 6)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Day ${season.day} of ${season.lengthDays} · ${season.rangeLabel}",
+                                style = Type.fine.style(Muted),
+                            )
+                        }
+                    }
+                }
                 item { SurfaceCard { TierProgress(data.rank) } }
                 item {
                     SurfaceCard {
@@ -176,7 +199,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                 }
                 item {
                     Text(
-                        "Rank comes from lifetime XP and never resets. The weekly lobby only decides where you sit inside your tier — a bad week costs you position, not progress.",
+                        "Rank comes from XP earned this season, and resets when the season does. The weekly lobby only decides where you sit inside your tier — a bad week costs you position, not progress.",
                         style = Type.label.copy(size = 12, uppercase = false).style(Muted),
                         modifier = Modifier.padding(horizontal = 4.dp),
                     )

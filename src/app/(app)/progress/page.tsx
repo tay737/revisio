@@ -114,12 +114,16 @@ export default function RankPage() {
           />
 
           <Tabs value={view} onValueChange={(next) => setView(next as View)}>
+            {/* Four tabs share one row. `px-2` on the narrowest screens is not
+                cosmetic: at `px-4` the four labels need more width than a 320px
+                phone has, and "This week" wraps to two lines and breaks the
+                pill's height. `truncate` is the backstop for a longer locale. */}
             <TabsList className="h-11 w-full rounded-pill bg-secondary p-1 sm:w-auto">
               {VIEWS.map((v) => (
                 <TabsTrigger
                   key={v.id}
                   value={v.id}
-                  className="h-9 flex-1 rounded-pill px-4 text-[14px] font-semibold data-[active]:bg-card data-[active]:text-foreground sm:flex-none"
+                  className="h-9 min-w-0 flex-1 truncate rounded-pill px-2 text-[14px] font-semibold data-[active]:bg-card data-[active]:text-foreground sm:flex-none sm:px-4"
                 >
                   {v.label}
                 </TabsTrigger>

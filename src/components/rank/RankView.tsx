@@ -23,7 +23,7 @@ import {
   type Rank,
   type Tier,
 } from '@/domain/ranked';
-import { rewardLadder, seasonLine, type SeasonReward } from '@/domain/seasons';
+import { seasonLine, type SeasonReward } from '@/domain/seasons';
 
 /**
  * Rank — one view, because there is one rank.
@@ -132,7 +132,8 @@ export function RankView({ data }: { data: RankViewData }) {
       <SeasonBoard season={season.season} board={board} mine={mine} />
       <Showcase history={history} claiming={claiming} onClaim={claim} />
       <YourRecord lifetimeRank={data.lifetimeRank} totalXp={data.totalXp} />
-      <SeasonRewards rewards={rewardLadder()} />
+      {/* The ladder as the API priced it, overrides included. */}
+      <SeasonRewards rewards={season.rewards} />
     </div>
   );
 }

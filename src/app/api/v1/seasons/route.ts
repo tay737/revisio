@@ -10,6 +10,7 @@ import {
   SEASON_PLACEMENT_REVIEWS,
   elapsedSeasons,
   rewardFor,
+  rewardLadder,
   seasonAt,
   seasonWindow,
 } from '@/domain/seasons';
@@ -193,6 +194,16 @@ export const GET = route(async (req: NextRequest) => {
         percentElapsed: season.percentElapsed,
       },
       mine: { xp: seasonXp, reviews, placed, rank, position, fieldSize: board.length },
+      // The reward ladder *as this season pays it*, with the configured
+      // overrides applied. Sending it rather than letting the client call
+      // `rewardLadder()` is what stops the "what each tier pays" explainer from
+      // disagreeing with the reward stamped on a learner's showcase after an
+      // operator customises one tier.
+      rewards: rewardLadder(configs.find((c) => c.number === season.number) ?? null).map((r) => ({
+        tier: r.tier,
+        name: r.name,
+        reward: r.reward,
+      })),
       board,
       history: results.map((r) => ({
         seasonNumber: r.seasonNumber,

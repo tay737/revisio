@@ -293,6 +293,26 @@ data class Lobby(
         }
 }
 
+/**
+ * The season the rank runs on. Mirrors the web's clock so a phone can say
+ * "Day 3 of 90" without a second round trip — the rank is meaningless without
+ * it, and the phone has nowhere else to get it.
+ *
+ * Every field defaults, and the whole struct is nullable on [Ranked], so a
+ * cached payload from an older server degrades to a missing clock rather than
+ * failing the decode and losing the rank with it.
+ */
+@Serializable
+data class SeasonClock(
+    val number: Int = 0,
+    val label: String = "",
+    val rangeLabel: String = "",
+    val daysLeft: Int = 0,
+    val day: Int = 0,
+    val lengthDays: Int = 0,
+    val percentElapsed: Int = 0,
+)
+
 @Serializable
 data class Ranked(
     val rank: Rank = Rank(),
@@ -300,6 +320,10 @@ data class Ranked(
     val week: WeekBounds = WeekBounds(),
     val lobby: Lobby = Lobby(),
     val xpThisWeek: Int = 0,
+    val season: SeasonClock? = null,
+    val seasonXp: Int? = null,
+    /** The same engine on lifetime XP — the record, not the rank. */
+    val lifetimeRank: Rank? = null,
 )
 
 /** The learner's own line in the ranked payload. */
@@ -310,6 +334,8 @@ data class RankedMe(
     val totalXp: Int = 0,
     val level: Int = 0,
     val seatedThisWeek: Boolean = false,
+    /** XP inside the current season — what [Ranked.rank] is computed from. */
+    val seasonXp: Int? = null,
 )
 
 @Serializable
