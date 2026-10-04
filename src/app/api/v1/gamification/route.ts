@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { readReplica } from '@/db/replica';
 import { achievements, leagueMemberships, reviewLogs, userAchievements, users, xpEvents } from '@/db/schema';
@@ -14,6 +14,8 @@ import {
   type LobbyZone,
 } from '@/domain/ranked';
 import { mondayOf, totalXpFor } from '@/services/study';
+import { loadSeasonConfigs } from '@/services/season-config';
+import { SEASON_PLACEMENT_REVIEWS, seasonAt } from '@/domain/seasons';
 
 function startOfDay(offsetDays = 0): Date {
   const d = new Date();
@@ -39,9 +41,22 @@ export type LobbyRow = {
 /**
  * GET /gamification?scope=daily|weekly|monthly
  *
- * Returns three things: the learner's **rank** (from lifetime XP, through the
- * pure `domain/ranked` engine), their **weekly lobby** with promotion and
- * demotion bands, and the XP boards / achievements that were already here.
+ * Returns three things: the learner's **rank**, their **weekly lobby** with
+ * promotion and demotion bands, and the XP boards / achievements that were
+ * already here.
+ *
+ * ── The rank is seasonal ───────────────────────────────────────────────────
+ *
+ * The rank comes from XP earned *inside the current season*, through the same
+ * pure `domain/ranked` engine the ladder and the crest use. It used to come
+ * from lifetime XP, with a separate season ladder beside it — two
+ * implementations of one idea that could disagree. There is now one number and
+ * one engine; `/api/v1/seasons` adds the clock, the board and the record of
+ * finished seasons, which is all a season adds on top of a rank.
+ *
+ * Lifetime XP is still read and still returned: it drives the level curve,
+ * which is a progression axis rather than a competitive one, and it is what
+ * "your record" means once a season resets.
  *
  * The lobby is capped at thirty the way a league should be — a leaderboard of
  * everyone is not a lobby, it is a census, and nobody fights for tenth place in
@@ -55,6 +70,35 @@ export type LobbyRow = {
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const scope = (req.nextUrl.searchParams.get('scope') ?? 'weekly') as 'daily' | 'weekly' | 'monthly';
+
+  // ── your own rank, off the PRIMARY ───────────────────────────────────────
+  //
+  // This block is deliberately outside `readReplica`. It is the answer to
+  // "did my review count?", and it was being served from a Neon mirror that
+  // only drains on a daily cron — so a review that earned XP looked like it had
+  // not, for up to a day. Two indexed aggregates per user off the primary is a
+  // cost worth paying for a number that is the whole point of the screen.
+  const configs = await loadSeasonConfigs();
+  const season = seasonAt(configs);
+  const [[seasonXpRow], [seasonReviewsRow], totalXp] = await Promise.all([
+    db
+      .select({ xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
+      .from(xpEvents)
+      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, season.start))),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(reviewLogs)
+      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, season.start))),
+    totalXpFor(user.id),
+  ]);
+  const seasonXp = Number(seasonXpRow?.xp ?? 0);
+  const seasonReviews = Number(seasonReviewsRow?.c ?? 0);
+  const rank = rankFor(seasonXp);
+  // Placement is measured in *this season's* reviews, for the same reason the
+  // rank is measured in this season's XP: both must answer about the same
+  // window, or a learner can be "placed" by reviews from a season that has
+  // already been recorded and banked.
+  const placement = placementFor(seasonReviews, SEASON_PLACEMENT_REVIEWS);
 
   const payload = await readReplica(async (rdb) => {
     // weekly = the current league week (league_memberships); daily/monthly roll
@@ -97,15 +141,6 @@ export const GET = route(async (req: NextRequest) => {
       .where(eq(leagueMemberships.userId, user.id))
       .orderBy(desc(leagueMemberships.weekStart))
       .limit(1);
-
-    const totalXp = await totalXpFor(user.id);
-    const rank = rankFor(totalXp);
-
-    const [reviewCount] = await rdb
-      .select({ c: sql<number>`count(*)::int` })
-      .from(reviewLogs)
-      .where(eq(reviewLogs.userId, user.id));
-    const placement = placementFor(Number(reviewCount?.c ?? 0));
 
     // ── the weekly lobby ────────────────────────────────────────────────────
     // Thirty seats, ordered by the week's XP. Every member's rank label needs
@@ -172,7 +207,7 @@ export const GET = route(async (req: NextRequest) => {
       size: LOBBY_CAPACITY,
       filled: lobbySeats.length,
       band: zoneBand(LOBBY_CAPACITY),
-      zone: zoneFor(position, LOBBY_CAPACITY, Number(reviewCount?.c ?? 0)),
+      zone: zoneFor(position, LOBBY_CAPACITY, seasonReviews),
       rows: lobbySeats.map((s, i) => ({
         position: i + 1,
         userId: s.userId,
@@ -195,11 +230,29 @@ export const GET = route(async (req: NextRequest) => {
         week,
         lobby,
         xpThisWeek: myXp,
+        // Everything the strip needs to say "this resets", without a second
+        // request. `/api/v1/seasons` remains the source for the board and the
+        // finished-season record; the clock rides along here because the rank
+        // is meaningless without it.
+        season: {
+          number: season.number,
+          label: season.label,
+          rangeLabel: season.rangeLabel,
+          daysLeft: season.daysLeft,
+          day: season.day,
+          lengthDays: Math.max(1, Math.round((season.end.getTime() - season.start.getTime()) / 86_400_000)),
+          percentElapsed: season.percentElapsed,
+        },
+        seasonXp,
+        seasonReviews,
+        // The record that survives a reset: the same engine, run on lifetime XP.
+        lifetimeRank: rankFor(totalXp),
       },
       me: {
         rank: board.find((r) => r.isMe)?.rank ?? lobby.position,
         xpThisWeek: myXp,
         totalXp,
+        seasonXp,
         level: levelForXp(totalXp).level,
         seatedThisWeek: seated,
       },

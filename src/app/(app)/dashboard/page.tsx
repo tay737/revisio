@@ -150,6 +150,7 @@ export default function DashboardPage() {
             week={ranked.ranked.week}
             placement={ranked.ranked.placement}
             xpThisWeek={ranked.ranked.xpThisWeek}
+            season={ranked.ranked.season}
           />
         </BlurFade>
       )}

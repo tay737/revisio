@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { api, downloadFile } from '@/lib/api';
@@ -14,22 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Notice } from '@/components/Notice';
 import { RankStrip } from '@/components/rank/RankStrip';
 import { LobbyTable } from '@/components/rank/LobbyTable';
-import { SeasonPanel } from '@/components/rank/SeasonPanel';
+import { RankView } from '@/components/rank/RankView';
 import { SPRING, cappedDelay } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { lobbyLine } from '@/lib/profile';
-import {
-  DIVISION_LABEL,
-  DIVISION_SPAN,
-  RANK_LADDER,
-  TIER_ORDER,
-  formFor,
-  rankFor,
-  reviewsForRp,
-  tierColor,
-  tierName,
-  type Rank,
-} from '@/domain/ranked';
+import { formFor } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StrengthTab } from '@/components/insights/StrengthTab';
 
@@ -51,9 +40,17 @@ import { StrengthTab } from '@/components/insights/StrengthTab';
  *     still in placement is told that rather than shown a fake Bronze III.
  */
 
+/**
+ * Four tabs, because there is one rank.
+ *
+ * "Ladder" and "Season" were separate once, and the split was the bug: both
+ * drew the same thirty rungs through the same engine, differing only in which
+ * XP total fed it, so the app shipped two implementations of one idea and a
+ * paragraph explaining the difference. The rank is seasonal now, so the two
+ * views are one view.
+ */
 const VIEWS = [
-  { id: 'ladder', label: 'Ladder' },
-  { id: 'season', label: 'Season' },
+  { id: 'rank', label: 'Rank' },
   { id: 'lobby', label: 'This week' },
   { id: 'board', label: 'XP' },
   { id: 'strength', label: 'Strength' },
@@ -64,7 +61,7 @@ type View = (typeof VIEWS)[number]['id'];
 export default function RankPage() {
   const { me } = useMe();
   const [scope, setScope] = useState<RankedScope>('weekly');
-  const [view, setView] = useState<View>('ladder');
+  const [view, setView] = useState<View>('rank');
   const { ranked, loading } = useRanked(scope);
   const [optOut, setOptOut] = useState(false);
   const [note, setNote] = useState('');
@@ -113,6 +110,7 @@ export default function RankPage() {
             week={data.week}
             placement={data.placement}
             xpThisWeek={data.xpThisWeek}
+            season={data.season}
           />
 
           <Tabs value={view} onValueChange={(next) => setView(next as View)}>
@@ -128,14 +126,18 @@ export default function RankPage() {
               ))}
             </TabsList>
 
-            <TabsContent value="ladder" className="mt-4">
-              <LadderView rank={data.rank} placement={data.placement} form={form} />
-            </TabsContent>
-
-            {/* Ninety days, its own board, and the record of every season you
-                have finished. The ladder above never resets; this does. */}
-            <TabsContent value="season" className="mt-4">
-              <SeasonPanel />
+            {/* The clock, the ladder, the board, the seasons you have finished
+                and the record that survives them — one rank, one screen. */}
+            <TabsContent value="rank" className="mt-4">
+              <RankView
+                data={{
+                  rank: data.rank,
+                  placement: data.placement,
+                  form,
+                  lifetimeRank: data.lifetimeRank,
+                  totalXp: ranked?.me.totalXp ?? 0,
+                }}
+              />
             </TabsContent>
 
             {/* The learner's own insights — the same renderer the staff sheet
@@ -337,161 +339,6 @@ export default function RankPage() {
           </button>
         </div>
       </section>
-    </div>
-  );
-}
-
-/**
- * The ladder — every rung in the game, with your position marked.
- *
- * A rank means nothing without the rungs above it, so this view always shows the
- * whole climb: five tier bars for how much of each tier is banked, then the
- * fifteen rungs as a rail that centres itself on your rank. Rungs you have not
- * reached are drawn with the identical crest in the muted tone — same shape, no
- * colour — which is the only way to show a fifteen-rank ladder inside a
- * one-colour system.
- */
-function LadderView({
-  rank,
-  placement,
-  form,
-}: {
-  rank: Rank;
-  placement: { placing: boolean; done: number; target: number };
-  form: { form: string; label: string; detail: string } | null;
-}) {
-  const activeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    activeRef.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  }, [rank.index]);
-
-  const tiers = useMemo(() => {
-    return TIER_ORDER.map((tier) => {
-      const base = RANK_LADDER.find((r) => r.tier === tier)!.base;
-      const total = DIVISION_SPAN[tier] * 3;
-      const earned = Math.max(0, Math.min(total, rank.points - base));
-      return { tier, base, total, earned, percent: Math.round((earned / total) * 100) };
-    });
-  }, [rank.points]);
-
-  return (
-    <div className="space-y-4">
-      <section className="card">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="t-tagline">Tier progress</h2>
-          <span className="num text-[13px] text-muted-foreground">
-            <NumberTicker value={rank.points} /> RP
-          </span>
-        </div>
-
-        <div className="mt-4 flex gap-1.5">
-          {tiers.map((t) => {
-            const isCurrent = t.tier === rank.tier;
-            const cleared = rank.points >= t.base + t.total;
-            const metal = tierColor(t.tier);
-            return (
-              <div key={t.tier} className="min-w-0 flex-1">
-                <div className="meter h-2">
-                  <motion.div
-                    className="h-full rounded-pill"
-                    // Cleared and current tiers fill in their own metal; a tier
-                    // still ahead of you stays ink-less grey, so a glance at the
-                    // rail reads as "how far through have I got".
-                    style={
-                      cleared || isCurrent
-                        ? { background: metal }
-                        : { background: 'var(--border-strong)' }
-                    }
-                    initial={{ width: 0 }}
-                    animate={{ width: `${t.percent}%` }}
-                    transition={SPRING.meter}
-                  />
-                </div>
-                <p
-                  className={cn(
-                    'mt-1.5 truncate text-[10px] font-bold uppercase tracking-[0.06em]',
-                    !isCurrent && 'text-muted-foreground',
-                  )}
-                  style={isCurrent ? { color: metal } : undefined}
-                  title={cleared ? `${tierName(t.tier)} — cleared` : tierName(t.tier)}
-                >
-                  {tierName(t.tier)}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3.5">
-          <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-            <Icon name="form" size={14} />
-            Form
-            <strong className="font-semibold text-foreground">{form?.label ?? '—'}</strong>
-          </span>
-          <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">{form?.detail}</span>
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="t-tagline">The ladder</h2>
-          <span className="num text-[13px] text-muted-foreground">
-            {placement.placing
-              ? `Placement ${placement.done}/${placement.target}`
-              : `${RANK_LADDER.length} ranks`}
-          </span>
-        </div>
-
-        <div className="rail mt-4">
-          {RANK_LADDER.map((rung) => {
-            const rungRank = rankFor(rung.base);
-            const isCurrent = rung.index === rank.index;
-            const reached = rung.index <= rank.index;
-            return (
-              <div
-                key={rung.index}
-                ref={isCurrent ? activeRef : undefined}
-                className={cn(
-                  'flex w-[96px] flex-col items-center gap-1.5 rounded-lg border px-2.5 py-3.5 text-center',
-                  isCurrent ? 'border-foreground bg-secondary' : 'border-border',
-                )}
-              >
-                <RankCrest rank={rungRank} size={42} showProgress={false} muted={!reached} animate={false} />
-                <p
-                  className={cn(
-                    'text-[13px] font-semibold',
-                    reached ? 'text-foreground' : 'text-muted-foreground',
-                  )}
-                >
-                  {DIVISION_LABEL[rung.division]}
-                </p>
-                {/* The tier's metal rides the label once you have reached it —
-                    the same rule as the crest: unreached rungs are grey. */}
-                <p
-                  className={cn('text-[10px] uppercase tracking-[0.06em]')}
-                  style={reached ? { color: tierColor(rung.tier) } : undefined}
-                >
-                  {tierName(rung.tier)}
-                </p>
-                <p className="num text-[10px] text-muted-foreground">{rung.base} RP</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {!rank.isApex && (
-          <p className="mt-3.5 text-[13px] text-muted-foreground">
-            Next rung in {rank.remaining} RP · about {reviewsForRp(rank.remaining)} reviews.
-          </p>
-        )}
-      </section>
-
-      <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
-        Rank comes from lifetime XP and never resets. The <strong className="font-semibold text-foreground">season</strong>{' '}
-        tab runs the same ladder on XP earned inside a ninety-day window, and the weekly lobby only
-        decides where you sit inside your tier — a bad week costs you position, not progress.
-      </p>
     </div>
   );
 }

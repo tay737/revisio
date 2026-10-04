@@ -32,15 +32,35 @@ export type RankedResponse = {
   scope: RankedScope;
   board: BoardRow[];
   ranked: {
+    /** The seasonal rank — the one number the product is about. */
     rank: Rank;
     placement: Placement;
     week: WeekBounds;
     lobby: LobbyData;
     xpThisWeek: number;
+    /** The clock the rank runs on, so the strip can say "this resets" without a
+     *  second request. `/api/v1/seasons` owns the board and the finished-season
+     *  record. */
+    season: {
+      number: number;
+      label: string;
+      rangeLabel: string;
+      daysLeft: number;
+      day: number;
+      lengthDays: number;
+      percentElapsed: number;
+    };
+    seasonXp: number;
+    seasonReviews: number;
+    /** The same engine on lifetime XP: the record, not the rank. */
+    lifetimeRank: Rank;
   };
   me: {
     rank: number;
     xpThisWeek: number;
+    /** XP earned inside the current season — what `rank` is computed from. */
+    seasonXp: number;
+    /** XP earned ever, which drives the level curve. */
     totalXp: number;
     level: number;
     seatedThisWeek: boolean;

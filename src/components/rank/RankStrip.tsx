@@ -9,6 +9,7 @@ import { TilePanel } from '@/components/ui/tile';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { reviewsForRp, type Placement, type Rank, type WeekBounds } from '@/domain/ranked';
+import { seasonLine } from '@/domain/seasons';
 import type { LobbyData } from '@/components/rank/LobbyTable';
 
 /**
@@ -34,6 +35,7 @@ export function RankStrip({
   week,
   placement,
   xpThisWeek,
+  season,
   className,
 }: {
   rank: Rank;
@@ -41,6 +43,19 @@ export function RankStrip({
   week: WeekBounds;
   placement: Placement;
   xpThisWeek: number;
+  /**
+   * The clock the rank runs on. Optional so the dashboard, which has no reason
+   * to make a second request for it, can leave it out — but the Rank page
+   * always passes it, because a rank that silently resets with no clock on
+   * screen is how this reads as a bug rather than a season.
+   */
+  season?: {
+    label: string;
+    daysLeft: number;
+    day: number;
+    lengthDays: number;
+    percentElapsed: number;
+  };
   className?: string;
 }) {
   const placing = placement.placing;
@@ -74,15 +89,27 @@ export function RankStrip({
         </motion.div>
 
         <div className="min-w-0 flex-1">
-          <p className="t-eyebrow">Your rank</p>
-          <h2 className="t-display mt-1">{rank.label}</h2>
+          <p className="t-eyebrow">
+            {season ? `Your rank · ${season.label}` : 'Your rank'}
+          </p>
+          <h2 className="t-display mt-1">{placing ? 'Being placed' : rank.label}</h2>
 
+          {/* One sentence, and it is the same one the Rank page uses
+              (`seasonLine`) — the strip and the full view must not describe the
+              same rank differently. */}
           <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">
-            {placing
-              ? `Placement — ${placement.done} of ${placement.target} reviews before you hold a rank.`
-              : rank.isApex
-                ? 'Top of the ladder. Holding it is the hard part.'
-                : `${rank.remaining} RP to the next rung · about ${reviewsForRp(rank.remaining)} reviews.`}
+            {season
+              ? seasonLine({
+                  daysLeft: season.daysLeft,
+                  rankLabel: rank.label,
+                  placed: !placing,
+                  isLastDay: season.daysLeft <= 1,
+                })
+              : placing
+                ? `Placement — ${placement.done} of ${placement.target} reviews before you hold a rank.`
+                : rank.isApex
+                  ? 'Top of the ladder. Holding it is the hard part.'
+                  : `${rank.remaining} RP to the next rung · about ${reviewsForRp(rank.remaining)} reviews.`}
           </p>
 
           <div className="mt-3.5 flex items-center gap-3">
@@ -99,6 +126,20 @@ export function RankStrip({
               {placing ? `/${placement.target}` : ' RP'}
             </span>
           </div>
+
+          {/* The season clock. The rank resets on this meter, so it belongs
+              directly under the rank's own meter rather than on a tab
+              somewhere else. */}
+          {season && (
+            <div className="mt-2.5 flex items-center gap-3">
+              <div className="meter h-1 flex-1">
+                <div className="meter-fill" style={{ width: `${season.percentElapsed}%` }} />
+              </div>
+              <span className="num t-fine shrink-0 text-muted-foreground">
+                Day {season.day}/{season.lengthDays} · {season.daysLeft} left
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Lobby status — the weekly stake, with the clock on it. */}
