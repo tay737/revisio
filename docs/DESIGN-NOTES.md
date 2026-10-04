@@ -159,16 +159,33 @@ Platinum, Emerald, Sapphire, Diamond, Ruby, Obsidian, Legend) × three divisions
 (`RP_PER_XP = 1`, so RP is XP read through the ranked lens — not a second number
 to explain). Division bands widen as you climb (120→1,300 RP), so a new learner
 moves fast and Legend is a genuine project: **16,310 RP to the apex, about
-1,600 correct reviews.** Rank never resets.
+1,600 correct reviews.**
 
-**The season half — the same ladder, ninety days at a time.** Season RP is the
-XP earned *inside* the current window, so the ladder everyone on the season board
-is climbing starts them all on Bronze III at the same moment — the permanent
-rank rewards having played before, the seasonal one rewards playing now. Windows
-are derived from a fixed epoch (`domain/seasons.ts`), never stored; what a season
-*produced* is stored, once, in `season_results`. Ten reviews places you (same
-rule as the lifetime ladder), and the rank you hold on the last day is the
-season's final rank — shown on the showcase with the reward that tier earns.
+**Rank is seasonal.** RP is the XP earned *inside the current season*, so
+everybody on the season board starts it on Bronze III at the same moment — the
+rank rewards having played *now*, not having played before. It resets when the
+season does. What a season *produced* is stored once, in `season_results`, and
+shown on the showcase with the reward that tier earns. Ten reviews places you,
+and the rank you hold on the last day is the season's final rank.
+
+Lifetime XP still exists and is still shown, as **the record** rather than the
+rank: it drives the level curve and it is the one number that only goes up. The
+two are the same engine (`domain/ranked`) reading two windows — which is the
+whole point. An earlier version shipped a lifetime rank and a season rank as two
+implementations of one idea, on two tabs, with a paragraph explaining how they
+differed; a rank that needs an explanatory paragraph to distinguish it from its
+own other half is one too many.
+
+**Seasons are configured, not derived.** A season is a row in `seasons` —
+number, name, window, state, and optional per-tier reward overrides — editable
+from the admin panel. This replaced ninety-day arithmetic from a fixed epoch,
+which meant the only available operations on a season were none: you could not
+open one early, stretch one over a holiday, rename it, or pay something
+different. `domain/seasons.ts` remains the single pure reader of those rows, so
+the web app, the API and both phones still agree on what "now" is; the epoch
+constants survive only as the fallback for an empty table. Dates decide the live
+season, not the `state` flag — a forgotten flag cannot leave two live seasons,
+and a partial unique index makes a second one impossible at the database.
 
 **The Duolingo half — a weekly lobby.** Thirty seats, ordered by the week's XP,
 with a **promotion band** (top five) and a **demotion band** (bottom five). The

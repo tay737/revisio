@@ -151,7 +151,7 @@ Table-by-table (abridged, types in migrations):
 - `cram_jobs`: user_id, topic_ids, max_per_topic, note_density (asked up-front per brief), expiry (cram reviews bypass SRS scheduling but log to review_logs).
 - `exam_questions`: topic_id, file_path (Supabase), mark_scheme_md, difficulty, source_year, board.
 - `classes`: teacher_id, name, subject_id, join_code (6-char, rotating). `class_memberships`: class_id, user_id, joined_at. `class_assignments`: class_id, topic_ids, due_at.
-- Gamification: `xp_events` (user, amount, source enum, occurred_at — append-only ledger; totals derived), `streaks` (user, current, best, last_active_date, freezes), `achievements` + `user_achievements`, `leagues` (season + tier bronze→legend), `league_memberships` (user, league, week_start, xp_week), `season_results` (user, season_number, final_tier/division/rank_index/rp, reward_id, reward_claimed_at — one row per closed season; the season *windows* are derived from `domain/seasons.ts`, this table records only what a season produced).
+- Gamification: `xp_events` (user, amount, source enum, occurred_at — append-only ledger; totals derived), `streaks` (user, current, best, last_active_date, freezes), `achievements` + `user_achievements`, `leagues` (season + tier bronze→legend), `league_memberships` (user, league, week_start, xp_week), `seasons` (number, name, starts_at, ends_at, state draft/active/closed, rewards jsonb — the *configured* windows an operator edits; `domain/seasons.ts` reads them and `drizzle/0007_seasons.sql` seeds them to reproduce the old epoch schedule), `season_results` (user, season_number, final_tier/division/rank_index/rp, reward_id, reward_claimed_at — one row per closed season; the table records only what a season produced, not when it ran).
 - `imports`: user_id, kind (anki/csv), file_path, status (pending/parsed/failed/done), report jsonb (per-row errors).
 - `content_reviews`: publishable_id/type, reviewer_id, verdict (approved/rejected/changes_requested), note.
 - `exports`: user_id, format (pdf/xlsx/csv), scope jsonb, file_path, created_at.
@@ -760,6 +760,65 @@ mid-request. Verified against two local clusters: healthy (replica answers,
 health `healthy`), mirror stopped (read served from the primary in ~450 ms,
 health `degraded`, 30 s circuit), mirror restored (reads still served during
 the probe window) — plus `tsc --noEmit` and `next build` clean.
+
+### 22.1 Reachable is not the same as current — the rule the rank needed
+
+The failover above makes the mirror *available*, which is not the same as
+*current*, and the distinction has bitten exactly one thing so far: **the
+learner's own XP**.
+
+The drain that carries a write to Neon runs on a **daily** cron (`vercel.json`,
+`0 3 * * *`) plus a fire-and-forget `kickSync()` after each review. The kick
+cannot be relied on: Vercel freezes a serverless instance once the response
+returns, so work started after `return` is frequently never finished. The daily
+cron is not an oversight — a sub-daily cron is rejected by the Hobby plan with
+`invalid_vercel_json`, which once killed every deploy for a day.
+
+The net effect: a review that earned 10 XP wrote it correctly to the primary
+and the rank page, reading the mirror, kept showing the number from before it —
+for up to twenty-four hours. Nothing errored. Nothing was logged. It simply read
+as "XP from reviews is not being registered".
+
+**The rule, now enforced by where the queries sit:** the replica serves reads
+that tolerate staleness; *your own* numbers come off the primary.
+
+| Read | Source | Why |
+| --- | --- | --- |
+| Boards, leaderboards, showcase, lesson text | `readReplica` | Someone else's numbers being a few minutes old is invisible and the reads are heavy |
+| Your own XP, rank, placement, season totals | `db` (primary) | The one number whose staleness the user can *see* is the one that must not be stale |
+| Identity, auth, the review write path | `db` (primary) | Already the rule — a stale users row must never resurrect a session |
+
+Both routes that answer "did my review count?" — `/api/v1/gamification` and
+`/api/v1/seasons` — now compute the caller's own aggregates **before** entering
+their `readReplica` block, and override their own board row with the
+authoritative figure so the board cannot show a stale "You" either. Two indexed
+aggregates per request is a cheap price for a number that is the entire point of
+the screen.
+
+`npm run verify:seasons` prints the primary/replica gap on every run, so a
+regression here is visible before it reaches a learner.
+
+### 22.2 Seasons are configured rows, and the module stays pure
+
+A season used to be `SEASON_EPOCH_MS + n × 90 days` — pure arithmetic, which
+meant the available operations on a season were none. `seasons` is now a table
+(number, name, window, state, reward overrides), edited from the admin panel and
+read through `domain/seasons.ts`, which stays pure and becomes the single reader
+of those rows. The epoch constants remain as the fallback for an empty table,
+and `drizzle/0007_seasons.sql` seeds the table to reproduce the old windows
+*exactly* so that migrating could not move anyone's rank.
+
+Two invariants are enforced in the database rather than in the application,
+because an operator editing dates is exactly the situation where application-
+level politeness fails:
+
+- `seasons_single_active` — a partial unique index. Two live seasons would give
+  every XP aggregate two candidate windows.
+- `CHECK` on `state` and on `ends_at > starts_at`.
+
+And the ordering that keeps a forgotten `state` flag harmless: **the dates
+decide which season is live**, with the flag only as a fallback. A season whose
+window has passed is closed by arithmetic whatever the flag says.
 
 ## 23. As built (v1.6, 2026-09-26) — profiles, settings, and the privacy boundary
 

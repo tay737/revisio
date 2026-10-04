@@ -62,6 +62,29 @@ struct RankView: View {
 
                     switch view {
                     case .ladder:
+                        // The season clock sits above the tier meters on both
+                        // platforms: the rank resets on this clock, and a phone
+                        // has no other screen that would say so.
+                        if let season = payload.ranked.season {
+                            SurfaceCard {
+                                HStack(alignment: .bottom, spacing: 0) {
+                                    Text(season.label)
+                                        .font(Type.eyebrow.font)
+                                        .foregroundStyle(colors.mutedForeground)
+                                    Spacer(minLength: 0)
+                                    Text(season.daysLeft <= 1 ? "Last day" : "\(season.daysLeft) days left")
+                                        .font(Type.fine.font)
+                                        .foregroundStyle(colors.mutedForeground)
+                                }
+                                Spacer().frame(height: 10)
+                                Bar(percent: season.percentElapsed, height: 6)
+                                Spacer().frame(height: 8)
+                                Text("Day \(season.day) of \(season.lengthDays) · \(season.rangeLabel)")
+                                    .font(Type.fine.font)
+                                    .foregroundStyle(colors.mutedForeground)
+                            }
+                        }
+
                         TierProgressCard(rank: payload.ranked.rank)
 
                         SurfaceCard {
@@ -110,7 +133,7 @@ struct RankView: View {
                                 .foregroundStyle(colors.mutedForeground)
                         }
 
-                        Text("Rank comes from lifetime XP and never resets. The weekly lobby only decides where you sit inside your tier — a bad week costs you position, not progress.")
+                        Text("Rank comes from XP earned this season, and resets when the season does. The weekly lobby only decides where you sit inside your tier — a bad week costs you position, not progress.")
                             .font(.system(size: 12))
                             .foregroundStyle(colors.mutedForeground)
                             .fixedSize(horizontal: false, vertical: true)
@@ -257,7 +280,7 @@ struct RankView: View {
                             Text(
                                 model.online
                                     ? "Loading your rank…"
-                                    : "Your rank needs a connection — it is computed from your whole history."
+                                    : "Your rank needs a connection — it is computed from your XP this season."
                             )
                             .font(Type.caption.font)
                             .foregroundStyle(colors.mutedForeground)

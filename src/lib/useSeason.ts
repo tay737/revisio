@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import { api } from '@/lib/api';
 import type { Rank } from '@/domain/ranked';
 import type { SeasonReward } from '@/domain/seasons';
+import type { Tier } from '@/domain/ranked';
 
 /**
  * The one owner of the season payload, declared here rather than in the panel
@@ -48,6 +49,8 @@ export type SeasonResponse = {
     position: number;
     fieldSize: number;
   };
+  /** What each tier pays *this* season, with any configured overrides applied. */
+  rewards: { tier: Tier; name: string; reward: SeasonReward }[];
   board: SeasonBoardRow[];
   history: SeasonRow[];
 };
