@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.revisio.RevisioViewModel
+import app.revisio.StaffStudentRef
 import app.revisio.UiState
 import app.revisio.engine.AdminClass
 import app.revisio.engine.AdminUser
@@ -46,6 +47,13 @@ import kotlinx.serialization.json.put
 @Composable
 fun AdminScreen(state: UiState, viewModel: RevisioViewModel) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        // The progress sheet replaces the console while it is open — a developer
+        // may open any account, and the sheet is the one screen that reads it whole.
+        if (state.studentProgressFor != null) {
+            StudentProgressView(state, viewModel)
+            return@Column
+        }
+
         Spacer(Modifier.height(12.dp))
         ScreenTitle("Admin", eyebrow = "Developer")
         Spacer(Modifier.height(4.dp))
@@ -399,6 +407,17 @@ private fun AdminUserRow(
                     tone = PillTone.Ghost,
                 )
             }
+
+            // The progress sheet, opened from the expanded row: the roster tap
+            // the teacher screen uses, one level down, because this row's first
+            // tap already belongs to expanding it.
+            Spacer(Modifier.height(10.dp))
+            PillButton(
+                text = "Progress",
+                onClick = { viewModel.openStudentProgress(StaffStudentRef(user.id, user.name)) },
+                tone = PillTone.Ghost,
+                icon = RevisioIcons.expand,
+            )
 
             Spacer(Modifier.height(10.dp))
             Text("Role", style = Type.micro.style(Muted))

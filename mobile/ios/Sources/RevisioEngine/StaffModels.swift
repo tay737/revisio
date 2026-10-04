@@ -128,6 +128,124 @@ public struct MyTopicsPayload: Codable, Equatable {
     public var topics: [MyTopic]
 }
 
+// ── teaching: one learner's progress (the staff progress sheet) ─────────────
+//
+// The web's `GET /teacher/student` payload, mirrored field for field. The sheet
+// answers the three questions a teacher brings to the data: are they working,
+// what is struggling, and what have they answered.
+
+/// One rung of the twelve-level ladder with the number of cards sitting on it.
+public struct SrsLevelCount: Codable, Equatable {
+    public var level: Int
+    public var count: Int
+}
+
+/// The overview strip: reviews, accuracy, streak, and what is due right now.
+public struct StudentOverview: Codable, Equatable {
+    public var totalReviews: Int
+    public var totalCards: Int
+    public var correctPct: Int?
+    public var monthCorrectPct: Int?
+    public var monthReviews: Int
+    public var xp: Int
+    public var streak: Int
+    public var bestStreak: Int
+    public var dueCount: Int
+}
+
+/// One card the learner has touched, with the rung the server graded it onto.
+public struct StudentCardStrength: Codable, Equatable {
+    public var cardId: String
+    public var kind: String
+    public var prompt: String?
+    public var topicId: String
+    public var topicName: String
+    public var subjectName: String
+    public var stage: String
+    public var srsLevel: Int
+    public var srsLabel: String
+    public var dueAt: String?
+    public var lapses: Int
+    public var reps: Int
+    public var lastReviewedAt: String?
+}
+
+/// A topic the learner is missing answers in, most-missed first.
+public struct StrugglingTopic: Codable, Equatable, Identifiable {
+    public var topicId: String
+    public var topicName: String
+    public var subjectName: String
+    public var misses: Int
+    public var lastMissedAt: String?
+
+    public var id: String { topicId }
+}
+
+/// Per-topic roll-up: how much is mastered and where the lapses pile up.
+public struct TopicHealth: Codable, Equatable, Identifiable {
+    public var topicId: String
+    public var topicName: String
+    public var subjectName: String
+    public var states: Int
+    public var mastered: Int
+    public var lapses: Int
+    public var masteryPct: Int
+    public var missCount: Int
+
+    public var id: String { topicId }
+}
+
+/// One of the last twenty answers, exactly as it was graded.
+public struct RecentAnswer: Codable, Equatable, Identifiable {
+    public var id: String
+    public var cardId: String
+    public var mode: String
+    public var rating: String
+    public var correct: Bool?
+    public var userAnswer: String?
+    public var prompt: String?
+    public var cardKind: String
+    public var topicName: String
+    public var subjectName: String
+    public var xpAwarded: Int
+    public var durationMs: Int
+    public var reviewedAt: String?
+}
+
+/// A card with the soonest due date — "coming up next".
+public struct UpcomingCard: Codable, Equatable, Identifiable {
+    public var cardId: String
+    public var prompt: String?
+    public var cardKind: String
+    public var topicName: String
+    public var srsLevel: Int
+    public var srsLabel: String
+    public var dueAt: String
+
+    public var id: String { cardId }
+}
+
+/// The learner the sheet is about.
+public struct StudentProgressStudent: Codable, Equatable {
+    public var id: String
+    public var name: String
+    public var email: String
+    public var createdAt: String?
+}
+
+/// `GET /teacher/student` — one learner, read as a whole. Staff only.
+public struct StudentProgress: Codable, Equatable {
+    public var student: StudentProgressStudent
+    public var overview: StudentOverview
+    public var srsLevels: [SrsLevelCount]
+    public var distribution: [StudentCardStrength]
+    public var struggling: [StrugglingTopic]
+    public var topicHealth: [TopicHealth]
+    public var recent: [RecentAnswer]
+    public var upcoming: [UpcomingCard]
+    public var subjects: [SubjectRef]
+}
+
 // ── admin: users, approvals, flags, badges, classes ─────────────────────────
 
 public struct AdminUser: Codable, Equatable, Identifiable {

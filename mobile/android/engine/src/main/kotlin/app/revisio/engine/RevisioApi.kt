@@ -645,6 +645,18 @@ class RevisioApi(
         send(request("/api/v1/teacher", token = token)) { json.decodeFromString(TeacherPayload.serializer(), it) }
     }
 
+    /**
+     * `GET /teacher/student?userId=…` — one learner's progress, for the staff
+     * sheet. A teacher may open anyone in their own classes; a developer may
+     * open anyone. The userId is a server-generated id, so it interpolates
+     * into the query verbatim, exactly as `profile(handle)` does.
+     */
+    suspend fun studentProgress(token: String, userId: String): StudentProgress = withContext(Dispatchers.IO) {
+        send(request("/api/v1/teacher/student?userId=$userId", token = token)) {
+            json.decodeFromString(StudentProgress.serializer(), it)
+        }
+    }
+
     /** `GET /content?mine=1` — the topics this account may edit, with counts. */
     suspend fun myTopics(token: String): MyTopicsPayload = withContext(Dispatchers.IO) {
         send(request("/api/v1/content?mine=1", token = token)) { json.decodeFromString(MyTopicsPayload.serializer(), it) }

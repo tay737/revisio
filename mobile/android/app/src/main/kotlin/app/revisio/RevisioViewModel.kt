@@ -29,6 +29,7 @@ import app.revisio.engine.MyTopic
 import app.revisio.engine.MyTopicsPayload
 import app.revisio.engine.Note
 import app.revisio.engine.PaperDoc
+import app.revisio.engine.StudentProgress
 import app.revisio.engine.TeacherPayload
 import app.revisio.engine.UpdateKind
 import app.revisio.engine.UpdateStatus
@@ -248,7 +249,20 @@ data class UiState(
     val staffBusy: Boolean = false,
     val staffNote: String? = null,
     val staffError: String? = null,
+    // ── the per-student progress sheet ───────────────────────────────────
+    /** Whose progress is open — opened from a roster or a users row. */
+    val studentProgressFor: StaffStudentRef? = null,
+    val studentProgress: StudentProgress? = null,
+    val studentProgressBusy: Boolean = false,
+    val studentProgressError: String? = null,
 )
+
+/**
+ * The student a staff member is looking at — the roster and the admin users
+ * table both open the progress sheet by id and display name, and neither
+ * needs more than that.
+ */
+data class StaffStudentRef(val userId: String, val name: String)
 
 data class HomeState(
     val totalXp: Int,
@@ -1299,6 +1313,37 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearStaffNote() = _state.update { it.copy(staffNote = null, staffError = null) }
+
+    // ── the per-student progress sheet ──────────────────────────────────────
+
+    /**
+     * Open one learner's progress, the web's `StudentProgressPanel`.
+     *
+     * The sheet is its own read, not a slice of the console: the roster's
+     * weekly numbers cannot answer "what are they actually answering?", and
+     * this payload can. Loading, error and empty each state themselves, since
+     * a teacher who taps a silent student deserves to know whether the silence
+     * is theirs or the network's.
+     */
+    fun openStudentProgress(student: StaffStudentRef) {
+        _state.update {
+            it.copy(
+                studentProgressFor = student,
+                studentProgress = null,
+                studentProgressBusy = true,
+                studentProgressError = null,
+            )
+        }
+        withToken(
+            block = { api.studentProgress(it, student.userId) },
+            onResult = { data -> _state.update { it.copy(studentProgress = data, studentProgressBusy = false) } },
+            onFailure = { note -> _state.update { it.copy(studentProgressBusy = false, studentProgressError = note) } },
+        )
+    }
+
+    fun closeStudentProgress() = _state.update {
+        it.copy(studentProgressFor = null, studentProgress = null, studentProgressError = null)
+    }
 
     // ── a public profile ────────────────────────────────────────────────────
 

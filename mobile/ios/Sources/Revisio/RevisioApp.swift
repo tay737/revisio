@@ -150,6 +150,14 @@ struct Feedback {
     var provisional: Bool
 }
 
+/// The student a staff member is looking at — the roster and the admin users
+/// table both open the progress sheet by id and display name, and neither
+/// needs more than that.
+struct StaffStudentRef: Equatable {
+    let userId: String
+    let name: String
+}
+
 /// The app's single state owner, mirroring the Android view model.
 ///
 /// It decides one thing on the user's behalf: whether an answer goes to the
@@ -275,6 +283,12 @@ final class AppModel: ObservableObject {
     @Published var staffBusy = false
     @Published var staffNote: String?
     @Published var staffError: String?
+    // ── the per-student progress sheet ──────────────────────────────────
+    /// Whose progress is open — opened from a roster or a users row.
+    @Published var studentProgressFor: StaffStudentRef?
+    @Published var studentProgress: StudentProgress?
+    @Published var studentProgressBusy = false
+    @Published var studentProgressError: String?
     // exam fidelity
     /// A stored board paper opened verbatim.
     @Published var paperDoc: PaperDoc?
@@ -989,6 +1003,38 @@ final class AppModel: ObservableObject {
     func clearStaffNote() {
         staffNote = nil
         staffError = nil
+    }
+
+    // ── the per-student progress sheet ────────────────────────────────────
+
+    /// Open one learner's progress, the web's `StudentProgressPanel`.
+    ///
+    /// The sheet is its own read, not a slice of the console: the roster's
+    /// weekly numbers cannot answer "what are they actually answering?", and
+    /// this payload can. Loading, error and empty each state themselves, since
+    /// a teacher who taps a silent student deserves to know whether the silence
+    /// is theirs or the network's.
+    func openStudentProgress(_ student: StaffStudentRef) {
+        studentProgressFor = student
+        studentProgress = nil
+        studentProgressBusy = true
+        studentProgressError = nil
+        withToken(
+            { try await self.api.studentProgress(token: $0, userId: student.userId) },
+            onFailure: { note in
+                self.studentProgressBusy = false
+                self.studentProgressError = note
+            }
+        ) { data in
+            self.studentProgress = data
+            self.studentProgressBusy = false
+        }
+    }
+
+    func closeStudentProgress() {
+        studentProgressFor = nil
+        studentProgress = nil
+        studentProgressError = nil
     }
 
     /// The banner's wash, saved through the same `/me` door as the avatar's.
