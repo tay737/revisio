@@ -181,6 +181,7 @@ export const POST = route(async (req: NextRequest) => {
     note?: string | null;
     rewards?: Record<string, { name: string; detail: string; icon: string }> | null;
     seasonState?: 'draft' | 'active' | 'closed';
+    grandfatherRp?: boolean;
   };
 
   const audit = async (action: string, target: string, meta?: Record<string, unknown>) => {
@@ -490,6 +491,9 @@ export const POST = route(async (req: NextRequest) => {
         endsAt,
         note: body.note ?? null,
         rewards: body.rewards ?? null,
+        // Only written when the panel sends it, so a caller that has not heard
+        // about the flag cannot silently clear it on season 1.
+        ...(typeof body.grandfatherRp === 'boolean' ? { grandfatherRp: body.grandfatherRp } : {}),
         updatedAt: new Date(),
       };
       await db

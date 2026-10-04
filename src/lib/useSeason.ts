@@ -40,6 +40,7 @@ export type SeasonResponse = {
     day: number;
     lengthDays: number;
     percentElapsed: number;
+    grandfathered: boolean;
   };
   mine: {
     xp: number;

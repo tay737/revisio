@@ -40,6 +40,7 @@ export const GET = route(async (req: NextRequest) => {
       startsAt: r.startsAt.toISOString(),
       endsAt: r.endsAt.toISOString(),
       state: r.state,
+      grandfatherRp: r.grandfatherRp,
       note: r.note,
       rewards: r.rewards,
       results: byNumber.get(r.number) ?? 0,

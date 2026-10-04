@@ -426,6 +426,17 @@ export const seasons = pgTable('seasons', {
   /** Exclusive — the first instant of the next season. */
   endsAt: timestamp('ends_at', { mode: 'date' }).notNull(),
   state: text('state', { enum: ['draft', 'active', 'closed'] }).notNull().default('draft'),
+  /**
+   * Whether XP earned *before* this season opened still counts toward it.
+   *
+   * Season 1 is grandfathered: it opens on the first day anybody played, so
+   * every learner's whole history is inside its window and their seasonal rank
+   * is the rank they have actually earned. Without the flag, editing season 1's
+   * start date — a natural thing for an operator to do — would silently strip a
+   * year of everyone's progress. Later seasons leave it off, which is what
+   * makes a reset a reset.
+   */
+  grandfatherRp: boolean('grandfather_rp').notNull().default(false),
   /** Per-tier reward overrides, `{ "gold": { name, detail, icon } }`. Empty means
    *  the built-in `SEASON_REWARDS` ladder. Sparse on purpose: an operator who
    *  renames one reward should not have to restate the other nine. */

@@ -40,6 +40,7 @@ type SeasonRow = {
   startsAt: string;
   endsAt: string;
   state: 'draft' | 'active' | 'closed';
+  grandfatherRp: boolean;
   note: string | null;
   rewards: Record<string, { name: string; detail: string; icon: string }> | null;
   /** Learners with a recorded result — blocks a delete. */
@@ -53,6 +54,7 @@ type Draft = {
   endsAt: string;
   note: string;
   state: 'draft' | 'active' | 'closed';
+  grandfatherRp: boolean;
   rewards: Record<string, { name: string; detail: string; icon: string }>;
 };
 
@@ -72,6 +74,7 @@ function toDraft(row: SeasonRow): Draft {
     endsAt: toLocalInput(row.endsAt),
     note: row.note ?? '',
     state: row.state,
+    grandfatherRp: row.grandfatherRp,
     // Seed the editor from the built-in ladder so an untouched reward is
     // visibly the shipped one; only genuinely-overridden tiers are sent.
     rewards: Object.fromEntries(
@@ -91,6 +94,9 @@ function proposeNext(latest: SeasonRow | undefined): Draft {
     endsAt: toLocalInput(end),
     note: '',
     state: 'draft',
+    // A new season must NOT grandfather: that is what makes it a season rather
+    // than a continuation of the one before.
+    grandfatherRp: false,
     rewards: Object.fromEntries(rewardLadder().map((r) => [r.tier, { ...r.reward }])),
   };
 }
@@ -144,6 +150,7 @@ export function SeasonManager() {
         note: draft.note.trim() || null,
         rewards: Object.keys(rewards).length > 0 ? rewards : null,
         seasonState: draft.state,
+        grandfatherRp: draft.grandfatherRp,
       });
       setMessage(`Season ${draft.number} saved. It is live for everyone on the next request.`);
       setEditing(null);
@@ -259,6 +266,14 @@ export function SeasonManager() {
                   >
                     {row.state}
                   </span>
+                  {row.grandfatherRp && (
+                    <span
+                      className="badge badge-quiet"
+                      title="XP earned before this season opened still counts toward it"
+                    >
+                      Counts all past XP
+                    </span>
+                  )}
                   {overrides > 0 && (
                     <span className="badge badge-quiet" title="This season overrides the default rewards">
                       {overrides} reward{overrides === 1 ? '' : 's'} custom
@@ -441,6 +456,27 @@ function SeasonEditor({
           </p>
         </div>
       </div>
+
+      {/* The one switch on this panel that can change somebody's rank, so it
+          says plainly what it does. Season 1 has it on: everyone keeps the RP
+          they have actually earned. Turning it on for a later season would
+          mean the reset never happens. */}
+      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-border px-3.5 py-3">
+        <input
+          type="checkbox"
+          checked={d.grandfatherRp}
+          onChange={(e) => setD({ ...d, grandfatherRp: e.target.checked })}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-foreground"
+        />
+        <span className="min-w-0">
+          <span className="t-caption-s block">Count XP earned before this season</span>
+          <span className="t-fine mt-0.5 block text-muted-foreground">
+            On, a learner&apos;s rank for this season is everything they have ever earned, so editing the
+            start date cannot take their progress away. Off, XP only counts from the start date onward —
+            which is what makes a new season a reset. Right for season 1; wrong for every season after it.
+          </span>
+        </span>
+      </label>
 
       <div className="mt-4 border-t border-border pt-4">
         <button

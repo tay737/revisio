@@ -74,6 +74,15 @@ export type SeasonConfig = {
   /** Exclusive — the first instant of the next season. */
   endsAt: Date;
   state: SeasonState;
+  /**
+   * Whether XP earned before this season opened still counts toward it.
+   *
+   * Season 1 carries it, so a learner's seasonal rank is the rank they have
+   * actually earned rather than a fresh Bronze III they did not earn. A later
+   * season must not carry it — that is the entire difference between a season
+   * and a continuation.
+   */
+  grandfatherRp?: boolean;
   /** Sparse per-tier reward overrides; empty/absent means the built-in ladder. */
   rewards?: Record<string, { name: string; detail: string; icon: string }> | null;
 };
@@ -101,6 +110,8 @@ export type Season = {
   /** "Mon 29 Sep – Mon 28 Dec". */
   rangeLabel: string;
   state: SeasonState;
+  /** Carried through from the config row; see `SeasonConfig.grandfatherRp`. */
+  grandfatherRp: boolean;
 };
 
 // ── formatting, shared by every derived label ───────────────────────────────
@@ -142,6 +153,7 @@ function derive(config: SeasonConfig, now: Date): Season {
     label: labelFor(config),
     rangeLabel: rangeLabel(config.startsAt, config.endsAt),
     state: config.state,
+    grandfatherRp: config.grandfatherRp ?? false,
   };
 }
 
@@ -157,7 +169,15 @@ function fallbackConfigs(): SeasonConfig[] {
   for (let number = 1; number <= 24; number += 1) {
     const start = new Date(SEASON_EPOCH_MS + (number - 1) * SEASON_LENGTH_DAYS * DAY_MS);
     const end = new Date(start.getTime() + SEASON_LENGTH_DAYS * DAY_MS);
-    configs.push({ number, name: null, startsAt: start, endsAt: end, state: 'closed' });
+    configs.push({
+      number,
+      name: null,
+      startsAt: start,
+      endsAt: end,
+      state: 'closed',
+      // Only the first season grandfathers, exactly as the seeded table does.
+      grandfatherRp: number === 1,
+    });
   }
   return configs;
 }
@@ -181,12 +201,16 @@ export function seasonConfigs(rows: unknown[] | null | undefined): SeasonConfig[
     const endsAt = toDate(row.endsAt ?? row.ends_at);
     if (!Number.isInteger(number) || number < 1 || !startsAt || !endsAt || endsAt <= startsAt) continue;
     const state = row.state === 'active' || row.state === 'closed' || row.state === 'draft' ? row.state : 'draft';
+    // Accept both spellings: Drizzle hands over `grandfatherRp`, the phones and
+    // any JSON payload hand over `grandfather_rp`.
+    const grandfather = row.grandfatherRp ?? row.grandfather_rp;
     configs.push({
       number,
       name: typeof row.name === 'string' ? row.name : null,
       startsAt,
       endsAt,
       state,
+      grandfatherRp: grandfather === true || grandfather === 'true',
       rewards: (row.rewards as SeasonConfig['rewards']) ?? null,
     });
   }

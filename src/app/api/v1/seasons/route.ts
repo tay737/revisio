@@ -53,15 +53,25 @@ export const GET = route(async (req: NextRequest) => {
   const season = seasonAt(configs, now);
 
   // ── your own season, from the authoritative primary ──────────────────────
+  //
+  // `grandfather_rp` decides the lower bound of the window. Season 1 carries it,
+  // so the window opens at the beginning of time for XP purposes and a
+  // learner's seasonal rank is the rank they have actually earned rather than a
+  // fresh Bronze III handed to them on their first day. A later season leaves it
+  // off, and the reset is real.
+  //
+  // The flag only ever *lowers* the bound. It never invents XP: a learner with
+  // no history still has none, which is why this cannot be used to gift a rank.
+  const since = season.grandfatherRp ? new Date(0) : season.start;
   const [[mine], [mineReviews]] = await Promise.all([
     db
       .select({ xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
       .from(xpEvents)
-      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, season.start))),
+      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, since))),
     db
       .select({ c: sql<number>`count(*)::int` })
       .from(reviewLogs)
-      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, season.start))),
+      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, since))),
   ]);
 
   const seasonXp = Number(mine?.xp ?? 0);
@@ -82,7 +92,7 @@ export const GET = route(async (req: NextRequest) => {
       })
       .from(xpEvents)
       .innerJoin(users, eq(xpEvents.userId, users.id))
-      .where(gte(xpEvents.occurredAt, season.start))
+      .where(gte(xpEvents.occurredAt, since))
       .groupBy(xpEvents.userId, users.name, users.leaderboardOptOut)
       .orderBy(desc(sql`coalesce(sum(${xpEvents.amount}), 0)`))
       .limit(30);
@@ -111,7 +121,7 @@ export const GET = route(async (req: NextRequest) => {
     const [ahead] = await rdb
       .select({ c: sql<number>`count(*)::int` })
       .from(
-        sql`(select user_id, sum(amount) as s from xp_events where occurred_at >= ${season.start} group by user_id) season_totals`,
+        sql`(select user_id, sum(amount) as s from xp_events where occurred_at >= ${since} group by user_id) season_totals`,
       )
       .where(sql`season_totals.s > ${seasonXp}`);
     const position = meRow?.position ?? Number(ahead?.c ?? 0) + 1;
@@ -131,6 +141,9 @@ export const GET = route(async (req: NextRequest) => {
         missing.map(async (number) => {
           const { start, end } = seasonWindow(number, configs);
           const config = configs.find((c) => c.number === number) ?? null;
+          // Same lower-bound rule as the live season, so a grandfathered season
+          // records the rank its learners actually finished on.
+          const from = config?.grandfatherRp ? new Date(0) : start;
           // Two aggregates, not a join: `xp_events.ref_id` points at the *card*
           // a review graded, not at the review, so there is no row to join on
           // and faking one would silently drop every exam and maths award.
@@ -139,11 +152,11 @@ export const GET = route(async (req: NextRequest) => {
           const [agg] = await db
             .select({ xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
             .from(xpEvents)
-            .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, start), lt(xpEvents.occurredAt, end)));
+            .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, from), lt(xpEvents.occurredAt, end)));
           const [reviewsIn] = await db
             .select({ c: sql<number>`count(*)::int` })
             .from(reviewLogs)
-            .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, start), lt(reviewLogs.reviewedAt, end)));
+            .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, from), lt(reviewLogs.reviewedAt, end)));
           const seasonReviews = Number(reviewsIn?.c ?? 0);
           // An unplaced season has no final rank to show and no reward to pay,
           // so it writes nothing — the same honest empty state as placement.
@@ -192,6 +205,7 @@ export const GET = route(async (req: NextRequest) => {
         day: season.day,
         lengthDays,
         percentElapsed: season.percentElapsed,
+        grandfathered: season.grandfatherRp,
       },
       mine: { xp: seasonXp, reviews, placed, rank, position, fieldSize: board.length },
       // The reward ladder *as this season pays it*, with the configured
