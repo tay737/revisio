@@ -11,6 +11,7 @@ import { WordRotate } from '@/components/ui/word-rotate';
 import { TilePanel } from '@/components/ui/tile';
 import { Companion } from '@/components/companion';
 import { RankStrip } from '@/components/rank/RankStrip';
+import { StrengthCard } from '@/components/insights/StrengthCard';
 import { companionFor, greetingFor, openers } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 
@@ -134,6 +135,11 @@ export default function DashboardPage() {
         />
         <Stat icon="xp" label="Total XP" value={gam.totalXp} />
       </div>
+
+      {/* ── 2½. Strength: how strong the queue actually is ─────────────── */}
+      <BlurFade>
+        <StrengthCard levels={me.srs.levels} avgLevel={me.srs.avgLevel} totalCards={me.srs.totalCards} />
+      </BlurFade>
 
       {/* ── 3. Rank: the second dark band ────────────────────────────────── */}
       {ranked && (

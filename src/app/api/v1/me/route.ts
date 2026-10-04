@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { readReplica } from '@/db/replica';
-import { users, streaks, userSubjects, subjects, userAchievements, achievements, type ProfileVisibility } from '@/db/schema';
+import { users, streaks, userSubjects, subjects, userAchievements, achievements, cardUserStates, type ProfileVisibility } from '@/db/schema';
 import { ok, requireUser, route, ApiError } from '@/services/api';
 import { levelForXp } from '@/domain/gamification';
+import { srsLevelCaseSql } from '@/domain/srs';
 import { totalXpFor } from '@/services/study';
 import { todayStats } from '@/services/stats';
 import { validateUsername, DEFAULT_VISIBILITY } from '@/services/profile';
@@ -27,7 +28,7 @@ export const GET = route(async (req: NextRequest) => {
     const [rowRes] = await Promise.all([
       db.select().from(users).where(eq(users.id, user.id)).limit(1),
     ]);
-    const [subsRes, xpRes, achRes, statsRes] = await Promise.all([
+    const [subsRes, xpRes, achRes, statsRes, srsRes] = await Promise.all([
       rdb
         .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
         .from(userSubjects)
@@ -40,6 +41,14 @@ export const GET = route(async (req: NextRequest) => {
         .innerJoin(achievements, eq(userAchievements.achievementId, achievements.id))
         .where(eq(userAchievements.userId, user.id)),
       todayStats(user.id),
+      // The learner's own strength distribution, bucketed by the same CASE the
+      // insights service derives in JS — generated from SRS_LADDER so the two
+      // can never drift. The dashboard's strength card renders straight from it.
+      rdb
+        .select({ level: sql<number>`${sql.raw(srsLevelCaseSql())}`, n: sql<number>`count(*)::int` })
+        .from(cardUserStates)
+        .where(eq(cardUserStates.userId, user.id))
+        .groupBy(sql.raw(srsLevelCaseSql())),
     ]);
 
     const [row] = rowRes;
@@ -49,6 +58,12 @@ export const GET = route(async (req: NextRequest) => {
     const { level, intoLevel, forNext } = levelForXp(totalXp);
     const stats = statsRes;
     const today = { due: stats.dueCount + stats.newCount, reviewed: stats.reviewsToday, correct: stats.correctToday };
+
+    // The 12 rungs, zero-filled; the average comes off the same counts so the
+    // headline and the bars cannot disagree.
+    const srsLevels = Array.from({ length: 12 }, (_, i) => srsRes.find((r) => r.level === i + 1)?.n ?? 0);
+    const srsTotal = srsLevels.reduce((a, b) => a + b, 0);
+    const avgSrsLevel = srsTotal > 0 ? Math.round((srsLevels.reduce((a, c, i) => a + c * (i + 1), 0) / srsTotal) * 10) / 10 : null;
 
     return {
       id: row.id,
@@ -71,6 +86,7 @@ export const GET = route(async (req: NextRequest) => {
       subjects: subsRes,
       gamification: { totalXp, level, intoLevel, forNext, streak: streakRow?.current ?? 0, bestStreak: streakRow?.best ?? 0 },
       today,
+      srs: { levels: srsLevels, avgLevel: avgSrsLevel, totalCards: srsTotal },
       achievements: achRes,
     };
   });
