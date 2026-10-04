@@ -121,6 +121,125 @@ data class MyTopic(
 @Serializable
 data class MyTopicsPayload(val topics: List<MyTopic> = emptyList())
 
+// ── teaching: one learner's progress (the staff progress sheet) ─────────────
+//
+// The web's `GET /teacher/student` payload, mirrored field for field and
+// defaulted like everything else so an older server still decodes. The sheet
+// answers the three questions a teacher brings to the data: are they working,
+// what is struggling, and what have they answered.
+
+/** One rung of the twelve-level ladder with the number of cards sitting on it. */
+@Serializable
+data class SrsLevelCount(val level: Int = 1, val count: Int = 0)
+
+/** The overview strip: reviews, accuracy, streak, and what is due right now. */
+@Serializable
+data class StudentOverview(
+    val totalReviews: Int = 0,
+    val totalCards: Int = 0,
+    val correctPct: Int? = null,
+    val monthCorrectPct: Int? = null,
+    val monthReviews: Int = 0,
+    val xp: Int = 0,
+    val streak: Int = 0,
+    val bestStreak: Int = 0,
+    val dueCount: Int = 0,
+)
+
+/** One card the learner has touched, with the rung the server graded it onto. */
+@Serializable
+data class StudentCardStrength(
+    val cardId: String = "",
+    val kind: String = "",
+    val prompt: String? = null,
+    val topicId: String = "",
+    val topicName: String = "",
+    val subjectName: String = "",
+    val stage: String = "",
+    val srsLevel: Int = 1,
+    val srsLabel: String = "",
+    val dueAt: String? = null,
+    val lapses: Int = 0,
+    val reps: Int = 0,
+    val lastReviewedAt: String? = null,
+)
+
+/** A topic the learner is missing answers in, most-missed first. */
+@Serializable
+data class StrugglingTopic(
+    val topicId: String = "",
+    val topicName: String = "",
+    val subjectName: String = "",
+    val misses: Int = 0,
+    val lastMissedAt: String? = null,
+)
+
+/** Per-topic roll-up: how much is mastered and where the lapses pile up. */
+@Serializable
+data class TopicHealth(
+    val topicId: String = "",
+    val topicName: String = "",
+    val subjectName: String = "",
+    val states: Int = 0,
+    val mastered: Int = 0,
+    val lapses: Int = 0,
+    val masteryPct: Int = 0,
+    val missCount: Int = 0,
+)
+
+/** One of the last twenty answers, exactly as it was graded. */
+@Serializable
+data class RecentAnswer(
+    val id: String = "",
+    val cardId: String = "",
+    val mode: String = "",
+    val rating: String = "",
+    val correct: Boolean? = null,
+    val userAnswer: String? = null,
+    val prompt: String? = null,
+    val cardKind: String = "",
+    val topicName: String = "",
+    val subjectName: String = "",
+    val xpAwarded: Int = 0,
+    val durationMs: Int = 0,
+    val reviewedAt: String? = null,
+)
+
+/** A card with the soonest due date — "coming up next". */
+@Serializable
+data class UpcomingCard(
+    val cardId: String = "",
+    val prompt: String? = null,
+    val cardKind: String = "",
+    val topicName: String = "",
+    val srsLevel: Int = 1,
+    val srsLabel: String = "",
+    val dueAt: String = "",
+)
+
+/** The learner the sheet is about. */
+@Serializable
+data class StudentProgressStudent(
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val createdAt: String? = null,
+)
+
+/** `GET /teacher/student` — one learner, read as a whole. Staff only. */
+@Serializable
+data class StudentProgress(
+    val student: StudentProgressStudent = StudentProgressStudent(),
+    val overview: StudentOverview = StudentOverview(),
+    val srsLevels: List<SrsLevelCount> = emptyList(),
+    val distribution: List<StudentCardStrength> = emptyList(),
+    val struggling: List<StrugglingTopic> = emptyList(),
+    val topicHealth: List<TopicHealth> = emptyList(),
+    val recent: List<RecentAnswer> = emptyList(),
+    val upcoming: List<UpcomingCard> = emptyList(),
+    val subjects: List<SubjectRef> = emptyList(),
+)
+
 // ── admin: users, approvals, flags, badges, classes ─────────────────────────
 
 @Serializable

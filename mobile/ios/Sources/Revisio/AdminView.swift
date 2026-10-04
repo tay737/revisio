@@ -390,6 +390,14 @@ private struct AdminUserRow: View {
                     }
                 }
 
+                // The progress sheet, opened from the expanded row: the roster tap
+                // the teacher screen uses, one level down, because this row's first
+                // tap already belongs to expanding it.
+                Spacer().frame(height: 10)
+                PillButton(text: "Progress", tone: .ghost, icon: "expand") {
+                    model.openStudentProgress(StaffStudentRef(userId: user.id, name: user.name))
+                }
+
                 Spacer().frame(height: 10)
                 Text("Role")
                     .font(Type.micro.font)

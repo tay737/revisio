@@ -569,6 +569,14 @@ public final class RevisioApi: ReviewApi {
         try await send("/api/v1/teacher", token: token, as: TeacherPayload.self).0
     }
 
+    /// `GET /teacher/student?userId=…` — one learner's progress, for the staff
+    /// sheet. A teacher may open anyone in their own classes; a developer may
+    /// open anyone. The userId is a server-generated id, so it interpolates
+    /// into the query verbatim, exactly as `profile(handle)` does.
+    public func studentProgress(token: String, userId: String) async throws -> StudentProgress {
+        try await send("/api/v1/teacher/student?userId=\(userId)", token: token, as: StudentProgress.self).0
+    }
+
     /// `GET /content?mine=1` — the topics this account may edit, with counts.
     public func myTopics(token: String) async throws -> MyTopicsPayload {
         try await send("/api/v1/content?mine=1", token: token, as: MyTopicsPayload.self).0
