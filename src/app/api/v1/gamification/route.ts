@@ -80,15 +80,20 @@ export const GET = route(async (req: NextRequest) => {
   // cost worth paying for a number that is the whole point of the screen.
   const configs = await loadSeasonConfigs();
   const season = seasonAt(configs);
+  // Season 1 is grandfathered, so its window opens at the beginning of time for
+  // XP purposes and the seasonal rank is the rank actually earned. See the
+  // matching note in `api/v1/seasons`; the two must agree or the strip and the
+  // Rank page would show different ranks for the same person.
+  const since = season.grandfatherRp ? new Date(0) : season.start;
   const [[seasonXpRow], [seasonReviewsRow], totalXp] = await Promise.all([
     db
       .select({ xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
       .from(xpEvents)
-      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, season.start))),
+      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, since))),
     db
       .select({ c: sql<number>`count(*)::int` })
       .from(reviewLogs)
-      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, season.start))),
+      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, since))),
     totalXpFor(user.id),
   ]);
   const seasonXp = Number(seasonXpRow?.xp ?? 0);
@@ -242,6 +247,7 @@ export const GET = route(async (req: NextRequest) => {
           day: season.day,
           lengthDays: Math.max(1, Math.round((season.end.getTime() - season.start.getTime()) / 86_400_000)),
           percentElapsed: season.percentElapsed,
+          grandfathered: season.grandfatherRp,
         },
         seasonXp,
         seasonReviews,

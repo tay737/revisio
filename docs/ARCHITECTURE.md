@@ -820,6 +820,28 @@ And the ordering that keeps a forgotten `state` flag harmless: **the dates
 decide which season is live**, with the flag only as a fallback. A season whose
 window has passed is closed by arithmetic whatever the flag says.
 
+`drizzle/0008_season_one.sql` then corrected the seed itself, which had been
+more confident than the evidence: it created sixteen windows from the old epoch,
+three of which closed before the product had a single learner, so the app opened
+on "Season 4". Worse, `GET /api/v1/seasons` backfills closed seasons on read, so
+it correctly derived — and permanently recorded — a Gold I result for a learner
+from reviews that had all happened inside the season actually running.
+
+Two rules came out of that, and both are now checked:
+
+- **A season's window must open no later than the first XP event**, or XP is
+  silently excluded from the season that was supposed to count it. `seasons`
+  carries `grandfather_rp` so this is enforced by the season's own definition
+  rather than by the dates happening to line up; season 1 sets it, later seasons
+  must not. `npm run verify:seasons` asserts, for every learner, that a
+  grandfathered season's total equals their lifetime total.
+- **A `season_results` row whose season no longer exists is not a record, it is a
+  leftover.** The backfill writes into a table that outlives the windows it was
+  derived from, so deleting a season has to sweep its results. Note the ordering
+  inside the migration: the sweep runs *after* the delete, because
+  `NOT EXISTS (… FROM seasons)` is order-dependent — sweeping first leaves the
+  row, because the season it refers to is still there.
+
 ## 23. As built (v1.6, 2026-09-26) — profiles, settings, and the privacy boundary
 
 ### 23.1 One module owns what a profile shows

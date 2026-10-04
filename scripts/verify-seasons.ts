@@ -122,6 +122,44 @@ for (const label of ['primary + replica'] as const) {
   }
 }
 
+// ── the grandfathering check ────────────────────────────────────────────────
+//
+// Season 1 is grandfathered: everyone's whole history is inside its window, so
+// the seasonal rank is the rank actually earned. This is a real invariant, not a
+// coincidence — the seed once opened the window months after the first XP event,
+// which quietly meant two thirds of the platform's XP counted for nothing, and
+// the symptom was a rank that looked like it had been rolled back.
+const everyone = await db
+  .select({
+    name: users.name,
+    lifetime: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int`,
+    inWindow: sql<number>`coalesce(sum(case when ${xpEvents.occurredAt} >= ${season.start} then ${xpEvents.amount} else 0 end), 0)::int`,
+  })
+  .from(xpEvents)
+  .innerJoin(users, eq(xpEvents.userId, users.id))
+  .groupBy(users.name)
+  .orderBy(desc(sql`coalesce(sum(${xpEvents.amount}), 0)`));
+
+if (season.grandfatherRp) {
+  const short = everyone.filter((u) => Number(u.lifetime) !== Number(u.inWindow));
+  console.log(
+    `\ngrandfathering: season ${season.number} counts all prior XP — ` +
+      (short.length === 0
+        ? `verified for all ${everyone.length} learners with XP`
+        : `MISMATCH for ${short.map((u) => `${u.name} (${u.lifetime} lifetime vs ${u.inWindow} in window)`).join(', ')}`),
+  );
+  if (short.length > 0) process.exitCode = 1;
+} else {
+  console.log(`\ngrandfathering: season ${season.number} starts clean at ${season.start.toISOString().slice(0, 10)}`);
+}
+
+console.log(
+  everyone
+    .slice(0, 6)
+    .map((u) => `  ${u.name.padEnd(16)} ${Number(u.lifetime).toLocaleString()} XP → ${rankFor(Number(u.lifetime)).label}`)
+    .join('\n'),
+);
+
 // ── the lag check ───────────────────────────────────────────────────────────
 // A gap here is *expected* right after a review and must not be what the screen
 // shows, so this prints it rather than failing: the route reads `primaryOwn`.

@@ -49,6 +49,9 @@ export type RankedResponse = {
       day: number;
       lengthDays: number;
       percentElapsed: number;
+      /** Season 1: XP from before the window still counts, so this season's rank
+       *  is the rank actually earned rather than a fresh Bronze III. */
+      grandfathered: boolean;
     };
     seasonXp: number;
     seasonReviews: number;

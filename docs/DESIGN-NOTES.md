@@ -164,7 +164,15 @@ moves fast and Legend is a genuine project: **16,310 RP to the apex, about
 **Rank is seasonal.** RP is the XP earned *inside the current season*, so
 everybody on the season board starts it on Bronze III at the same moment — the
 rank rewards having played *now*, not having played before. It resets when the
-season does. What a season *produced* is stored once, in `season_results`, and
+season does.
+
+**Season 1 is grandfathered.** It counts every learner's whole history, so the
+seasonal rank is the rank they have actually earned rather than a Bronze III
+handed to them for turning up. Every later season starts clean — that is the
+whole difference between a season and a continuation. This is a property of the
+season (`grandfather_rp`), not of its dates: the window opens on the first day
+anybody played, but the flag is what guarantees it, so an operator tidying a
+start date cannot quietly roll everybody's rank back. What a season *produced* is stored once, in `season_results`, and
 shown on the showcase with the reward that tier earns. Ten reviews places you,
 and the rank you hold on the last day is the season's final rank.
 
