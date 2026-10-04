@@ -190,6 +190,21 @@ export function srsInfoForState(state: { stage: string; intervalDays: number }):
   return srsLevelInfo(srsLevelFor(state));
 }
 
+/**
+ * The same mapping as `srsLevelFor`, emitted as a raw SQL CASE over the
+ * `card_user_states` columns, generated from the ladder so the SQL aggregate and
+ * the JS function can never drift. Columns are unqualified: use it only in
+ * single-table queries on card_user_states (GROUP BY and SELECT both want the
+ * identical expression, so build it once and pass it twice).
+ */
+export function srsLevelCaseSql(): string {
+  const timed = SRS_LADDER
+    .filter((rung): rung is SrsLevel & { hours: number } => rung.hours !== null)
+    .sort((a, b) => b.hours - a.hours);
+  const whens = timed.map((rung) => `when interval_days >= ${rung.hours} / 24.0 then ${rung.level}`).join(' ');
+  return `case when stage in ('new','learning') then 1 when interval_days > ${LAST_TIMED_DAYS} then 12 ${whens} else 1 end`;
+}
+
 // ── registry ────────────────────────────────────────────────────────────────
 // Dev-added algorithms register here. Each gets tunable params stored in the
 // srs_algorithm_config feature flag payload.

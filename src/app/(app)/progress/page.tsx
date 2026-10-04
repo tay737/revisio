@@ -29,6 +29,7 @@ import {
   type Rank,
 } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
+import { StrengthTab } from '@/components/insights/StrengthTab';
 
 /**
  * Rank — the competitive hub.
@@ -52,6 +53,7 @@ const VIEWS = [
   { id: 'ladder', label: 'Ladder' },
   { id: 'lobby', label: 'This week' },
   { id: 'board', label: 'XP' },
+  { id: 'strength', label: 'Strength' },
 ] as const;
 
 type View = (typeof VIEWS)[number]['id'];
@@ -125,6 +127,12 @@ export default function RankPage() {
 
             <TabsContent value="ladder" className="mt-4">
               <LadderView rank={data.rank} placement={data.placement} form={form} />
+            </TabsContent>
+
+            {/* The learner's own insights — the same renderer the staff sheet
+                uses, pointed at yourself. Fetches only when this tab is open. */}
+            <TabsContent value="strength" className="mt-4">
+              <StrengthTab />
             </TabsContent>
 
             <TabsContent value="lobby" className="mt-4">
