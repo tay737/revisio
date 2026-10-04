@@ -4,8 +4,8 @@ import XCTest
 /// The phone's rank and copy are only allowed to exist if they agree with the web.
 ///
 /// Two things on this client are not decided by a payload and so had to be carried:
-/// the **ladder** (the screen draws all fifteen rungs, and the ones nobody has
-/// reached are not facts about anybody) and the **sentences** (a phone that
+/// the **ladder** (the screen draws every rung, and the ones nobody has reached
+/// are not facts about anybody) and the **sentences** (a phone that
 /// invented its own words for "Good morning" would drift the moment the copy
 /// changed). They are ports of `src/domain/ranked.ts` and `src/lib/profile.ts`.
 ///
@@ -54,9 +54,14 @@ final class CopyConformanceTests: XCTestCase {
     func testTheLadderIsTheWebsLadder() throws {
         let ladder = try object(try root()["ladder"])
         let rungs = try XCTUnwrap(ladder["rungs"] as? [[String: Any]])
-        XCTAssertEqual(rungs.count, 15)
+        // The rung count comes from the vectors rather than a literal here: the
+        // web ladder grew from fifteen rungs to thirty when the tiers were
+        // widened, and a hardcoded count would only ever report that as a
+        // failure instead of following the ladder this test exists to police.
+        XCTAssertEqual(rungs.count, int(ladder["rungCount"]))
         XCTAssertEqual(RankLadder.rungs.count, rungs.count)
         XCTAssertEqual(RankLadder.topOfLadder, int(ladder["topOfLadder"]))
+        XCTAssertEqual(RankLadder.tierOrder.count, (ladder["tiers"] as? [String])?.count ?? 0)
 
         for (index, rung) in rungs.enumerated() {
             let mine = RankLadder.rungs[index]

@@ -3,26 +3,26 @@
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { SPRING, transition } from '@/lib/motion';
-import { crestFor, type Rank } from '@/domain/ranked';
+import { crestFor, tierColor, type Rank } from '@/domain/ranked';
 
 /**
  * The rank crest.
  *
- * Rank is the loudest thing on the Progress page, and the design system allows
- * exactly one accent colour — so the tier cannot be carried by hue the way a
- * conventional badge would carry it (gold, silver, bronze, diamond…). It is
- * carried by **geometry** instead, which is the honest way to do a ranked badge
- * under a one-accent rule:
+ * Rank is the loudest thing on the Progress page, so the crest carries the tier
+ * twice over. **Hue** is the metal — bronze through rose-Legend, from
+ * `--tier-*`, and it is the reason a thirty-rung ladder reads as a ladder
+ * rather than as a strip of identical shields. **Geometry** is the belt-and-
+ * braces half, and it is not a fallback:
  *
  *   • chevrons in the shield — 1 at Bronze, 5 at Legend. Military rank stripes.
  *   • division dots beneath them — III is one dot, I is three.
- *   • dial ticks around the ring — 6 at Bronze, 18 at Legend.
- *   • the ring itself fills with division progress in Action Blue.
+ *   • dial ticks around the ring — 6 at Bronze, 24 at Legend.
+ *   • the ring itself fills with division progress in the tier's own metal.
  *
- * Colour therefore does one job only: *this crest is yours* (accent marks) or
- * *this crest is a rung you have not reached* (muted marks). The two states are
- * legible side by side on the ladder, which a hue-coded badge could never do
- * without importing seven accents.
+ * Geometry alone is enough to place the tier on the rail, in greyscale and for
+ * a colour-blind reader; the metal is what makes it feel like a prize. Rungs the
+ * learner has not reached drop to `muted`, so "yours" and "not yet" stay
+ * legible side by side on a rail of thirty.
  */
 export function RankCrest({
   rank,
@@ -41,7 +41,11 @@ export function RankCrest({
   animate?: boolean;
 }) {
   const spec = crestFor(rank);
-  const markTone = muted ? 'text-muted-foreground/45' : 'text-primary';
+  // The metal, unless this is a rung nobody has reached yet — in which case the
+  // whole crest drops to muted marks, which is the one colour job left to the
+  // plain text token.
+  const markStyle = muted ? undefined : { color: tierColor(rank.tier) };
+  const markTone = muted ? 'text-muted-foreground/45' : '';
 
   // Dial arc maths. r=45.5 with a 3px stroke sits inside a 100-unit box.
   const R = 45.5;
@@ -61,8 +65,13 @@ export function RankCrest({
       role="img"
       aria-label={`Rank ${rank.label}`}
     >
-      {/* Dial ticks — the mechanism. Longer with every tier. */}
-      <g className={cn(muted ? 'text-muted-foreground/30' : 'text-border')}>
+      {/* Dial ticks — the mechanism. Longer with every tier, and washed in the
+          metal at low opacity so the dial belongs to the same badge as the
+          shield rather than sitting behind it in grey. */}
+      <g
+        className={muted ? 'text-muted-foreground/30' : undefined}
+        style={muted ? undefined : { color: tierColor(rank.tier), opacity: 0.32 }}
+      >
         {Array.from({ length: spec.segments }).map((_, i) => {
           const angle = (i / spec.segments) * Math.PI * 2 - Math.PI / 2;
           const x1 = 50 + Math.cos(angle) * 40;
@@ -101,6 +110,7 @@ export function RankCrest({
               strokeWidth={3}
               strokeLinecap="round"
               className={markTone}
+              style={markStyle}
               strokeDasharray={CIRC}
               initial={animate ? { strokeDashoffset: CIRC } : false}
               animate={{ strokeDashoffset: CIRC * (1 - progress / 100) }}
@@ -118,8 +128,8 @@ export function RankCrest({
         strokeLinejoin="round"
       />
 
-      {/* Chevrons — the tier count. */}
-      <g className={markTone}>
+      {/* Chevrons — the tier band. */}
+      <g className={markTone} style={markStyle}>
         {Array.from({ length: spec.ridges }).map((_, i) => {
           const y = ridgeTop + i * ridgeGap;
           return (
@@ -141,7 +151,7 @@ export function RankCrest({
       </g>
 
       {/* Division pips. */}
-      <g className={markTone}>
+      <g className={markTone} style={markStyle}>
         {Array.from({ length: spec.pips }).map((_, i) => {
           const spread = 5;
           const x = 50 + (i - (spec.pips - 1) / 2) * spread;

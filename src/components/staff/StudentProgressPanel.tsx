@@ -42,7 +42,11 @@ export function StudentProgressPanel({
 
   return (
     <Sheet open onOpenChange={(next) => !next && onClose()}>
-      <SheetContent side="bottom" className="mx-auto w-full max-w-[720px] overflow-y-auto">
+      <SheetContent
+        side="bottom"
+        showCloseButton={false}
+        className="mx-auto w-full max-w-[720px] overflow-y-auto"
+      >
         <SheetTitle className="sr-only">Progress for {name}</SheetTitle>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -57,6 +61,9 @@ export function StudentProgressPanel({
               </p>
             )}
           </div>
+          {/* The sheet's own close control is switched off above: this labelled
+              button *is* the affordance, and shipping both put two of them side
+              by side in the top-right corner. */}
           <button type="button" className="btn btn-ghost shrink-0 gap-1.5" onClick={onClose}>
             <Icon name="close" size={14} />
             Close

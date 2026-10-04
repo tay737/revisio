@@ -387,7 +387,7 @@ Against `1.0.0-alpha.4`:
 | A handle the server would refuse is refused on the phone first | `make-account.mjs` reads `USERNAME_RE` and `RESERVED_USERNAMES` out of `src/lib/username.ts`, the module the server's own profile check imports |
 | Settings is one page in five sections on both phones | `SettingsScreen` / `SettingsView` mirror `app/(app)/settings/page.tsx`: Profile, Privacy, Account, Security, Preferences — each confirming in its own notice |
 | The restyled screens still work with no network | `verify:native` — the same offline run, driven against the new UI, all destinations included |
-| The ladder and the copy are the web's, not a paraphrase | `native:rank` + `vectors:copy`: `make-rank.mjs` reads the fifteen rungs out of `src/domain/ranked.ts` into `RankLadder.kt`/`.swift`, and both engines' `CopyConformanceTest`/`CopyConformanceTests` reproduce `mobile/shared/copy-vectors.json` exactly |
+| The ladder and the copy are the web's, not a paraphrase | `native:rank` + `vectors:copy`: `make-rank.mjs` reads every rung out of `src/domain/ranked.ts` into `RankLadder.kt`/`.swift`, and both engines' `CopyConformanceTest`/`CopyConformanceTests` reproduce `mobile/shared/copy-vectors.json` exactly |
 | The dashboard and the rank page agree about where you stand | one `RankStrip`/`RankStripBand`, read from one payload, drawn on both screens |
 | The SwiftUI surface compiles for iOS, not just macOS | `native:ios:build` — the whole surface built for `arm64-apple-ios-simulator` against the iOS SDK, no simulator required |
 | iOS produces an installable artefact | the `ios` job archives `Revisio.xcodeproj` and attaches `Revisio-<version>-ios-unsigned.ipa` |

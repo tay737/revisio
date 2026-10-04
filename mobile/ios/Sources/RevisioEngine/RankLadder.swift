@@ -5,7 +5,7 @@ import Foundation
 /// The ladder, read out of the web's `domain/ranked.ts`.
 ///
 /// The server decides a learner's rank; this exists because the ladder screen
-/// draws all 15 rungs, and the ones nobody has reached are not
+/// draws all 30 rungs, and the ones nobody has reached are not
 /// facts about anybody. Everything here is a constant of the game, so it can be
 /// generated once and checked in.
 public enum RankLadder {
@@ -23,14 +23,19 @@ public enum RankLadder {
     public static let zoneBandMin = 1
     public static let zoneBandMax = 5
 
-    public static let tierOrder = ["bronze", "silver", "gold", "diamond", "legend"]
+    public static let tierOrder = ["bronze", "silver", "gold", "platinum", "emerald", "sapphire", "diamond", "ruby", "obsidian", "legend"]
 
     public static let divisionSpan: [String: Int] = [
         "bronze": 120,
-        "silver": 200,
-        "gold": 320,
-        "diamond": 500,
-        "legend": 750,
+        "silver": 180,
+        "gold": 250,
+        "platinum": 340,
+        "emerald": 450,
+        "sapphire": 580,
+        "diamond": 720,
+        "ruby": 880,
+        "obsidian": 1050,
+        "legend": 1300,
     ]
 
     public static let divisionLabel: [Int: String] = [
@@ -55,18 +60,33 @@ public enum RankLadder {
         Rung(tier: "bronze", division: 3, index: 0, base: 0, span: 120),
         Rung(tier: "bronze", division: 2, index: 1, base: 120, span: 120),
         Rung(tier: "bronze", division: 1, index: 2, base: 240, span: 120),
-        Rung(tier: "silver", division: 3, index: 3, base: 360, span: 200),
-        Rung(tier: "silver", division: 2, index: 4, base: 560, span: 200),
-        Rung(tier: "silver", division: 1, index: 5, base: 760, span: 200),
-        Rung(tier: "gold", division: 3, index: 6, base: 960, span: 320),
-        Rung(tier: "gold", division: 2, index: 7, base: 1280, span: 320),
-        Rung(tier: "gold", division: 1, index: 8, base: 1600, span: 320),
-        Rung(tier: "diamond", division: 3, index: 9, base: 1920, span: 500),
-        Rung(tier: "diamond", division: 2, index: 10, base: 2420, span: 500),
-        Rung(tier: "diamond", division: 1, index: 11, base: 2920, span: 500),
-        Rung(tier: "legend", division: 3, index: 12, base: 3420, span: 750),
-        Rung(tier: "legend", division: 2, index: 13, base: 4170, span: 750),
-        Rung(tier: "legend", division: 1, index: 14, base: 4920, span: 750),
+        Rung(tier: "silver", division: 3, index: 3, base: 360, span: 180),
+        Rung(tier: "silver", division: 2, index: 4, base: 540, span: 180),
+        Rung(tier: "silver", division: 1, index: 5, base: 720, span: 180),
+        Rung(tier: "gold", division: 3, index: 6, base: 900, span: 250),
+        Rung(tier: "gold", division: 2, index: 7, base: 1150, span: 250),
+        Rung(tier: "gold", division: 1, index: 8, base: 1400, span: 250),
+        Rung(tier: "platinum", division: 3, index: 9, base: 1650, span: 340),
+        Rung(tier: "platinum", division: 2, index: 10, base: 1990, span: 340),
+        Rung(tier: "platinum", division: 1, index: 11, base: 2330, span: 340),
+        Rung(tier: "emerald", division: 3, index: 12, base: 2670, span: 450),
+        Rung(tier: "emerald", division: 2, index: 13, base: 3120, span: 450),
+        Rung(tier: "emerald", division: 1, index: 14, base: 3570, span: 450),
+        Rung(tier: "sapphire", division: 3, index: 15, base: 4020, span: 580),
+        Rung(tier: "sapphire", division: 2, index: 16, base: 4600, span: 580),
+        Rung(tier: "sapphire", division: 1, index: 17, base: 5180, span: 580),
+        Rung(tier: "diamond", division: 3, index: 18, base: 5760, span: 720),
+        Rung(tier: "diamond", division: 2, index: 19, base: 6480, span: 720),
+        Rung(tier: "diamond", division: 1, index: 20, base: 7200, span: 720),
+        Rung(tier: "ruby", division: 3, index: 21, base: 7920, span: 880),
+        Rung(tier: "ruby", division: 2, index: 22, base: 8800, span: 880),
+        Rung(tier: "ruby", division: 1, index: 23, base: 9680, span: 880),
+        Rung(tier: "obsidian", division: 3, index: 24, base: 10560, span: 1050),
+        Rung(tier: "obsidian", division: 2, index: 25, base: 11610, span: 1050),
+        Rung(tier: "obsidian", division: 1, index: 26, base: 12660, span: 1050),
+        Rung(tier: "legend", division: 3, index: 27, base: 13710, span: 1300),
+        Rung(tier: "legend", division: 2, index: 28, base: 15010, span: 1300),
+        Rung(tier: "legend", division: 1, index: 29, base: 16310, span: 1300),
     ]
 
     /// Total RP needed to clear the whole ladder.

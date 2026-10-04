@@ -153,12 +153,22 @@ semantic key (`review`, `streak`, `zoneUp`), so swapping a glyph is one line.
 The brief was "gamification that feels like ranked in a competitive FPS,
 and Duolingo's leagues". The two halves are separate on purpose:
 
-**The FPS half — a persistent rank.** Five tiers (Bronze, Silver, Gold,
-Diamond, Legend) × three divisions = **fifteen rungs**, Bronze III → Legend I.
-Rank points come from lifetime XP (`RP_PER_XP = 1`, so RP is XP read through the
-ranked lens — not a second number to explain). Division bands widen as you climb
-(120/200/320/500/750 RP), so a new learner moves fast and Legend is a genuine
-project: **5,670 RP to the apex, about 500 correct reviews.** Rank never resets.
+**The FPS half — a persistent rank.** Ten tiers (Bronze, Silver, Gold,
+Platinum, Emerald, Sapphire, Diamond, Ruby, Obsidian, Legend) × three divisions =
+**thirty rungs**, Bronze III → Legend I. Rank points come from lifetime XP
+(`RP_PER_XP = 1`, so RP is XP read through the ranked lens — not a second number
+to explain). Division bands widen as you climb (120→1,300 RP), so a new learner
+moves fast and Legend is a genuine project: **16,310 RP to the apex, about
+1,600 correct reviews.** Rank never resets.
+
+**The season half — the same ladder, ninety days at a time.** Season RP is the
+XP earned *inside* the current window, so the ladder everyone on the season board
+is climbing starts them all on Bronze III at the same moment — the permanent
+rank rewards having played before, the seasonal one rewards playing now. Windows
+are derived from a fixed epoch (`domain/seasons.ts`), never stored; what a season
+*produced* is stored, once, in `season_results`. Ten reviews places you (same
+rule as the lifetime ladder), and the rank you hold on the last day is the
+season's final rank — shown on the showcase with the reward that tier earns.
 
 **The Duolingo half — a weekly lobby.** Thirty seats, ordered by the week's XP,
 with a **promotion band** (top five) and a **demotion band** (bottom five). The
@@ -170,22 +180,26 @@ Two decisions worth keeping:
 - **New accounts are unranked, not Bronze III.** `PLACEMENT_REVIEWS = 10`.
   Handing a first-time learner a bronze medal is worse than telling them they
   are still being placed.
-- **Rank is coded by geometry, not hue.** A metallic gold/silver/bronze crest
-  would import four accents into a one-accent system. So the crest carries the
-  tier in its *shape*: chevrons stacked in the shield (1 at Bronze → 5 at
-  Legend), division pips beneath them (III = one, I = three), and dial ticks
-  around the ring (6 → 18). Colour does one job: this crest is yours (accent) or
-  it is a rung you have not reached (muted). Both read side by side on the
-  ladder, which a hue-coded badge could never do.
+- **Rank is coded by geometry *and* hue, and each does a different job.** Thirty
+  rungs drawn as thirty identical shields is not a ladder, so each tier owns a
+  metal (`--tier-bronze` … `--tier-legend`), re-picked for the dark ground
+  because a crest is drawn on both the white canvas and the near-black rank
+  band. The exception is scoped as tightly as it can be: those ten tokens are
+  read by the crest, the tier meters and the tier chips, and nothing else.
+  Geometry is *not* replaced by it — chevrons (1 at Bronze/Silver → 5 at
+  Obsidian/Legend), division pips (III = one, I = three) and dial ticks (6 → 24)
+  still carry the tier alone, so the rail is legible in greyscale, at 34px, and
+  for a reader who cannot separate two of the metals. Unreached rungs drop to
+  muted marks regardless of their metal.
 
 `domain/ranked.ts` is the single owner of every number and every threshold, and
-it is pure — the API, the crest, the ladder, the lobby table and the
-post-session report all call the same functions, so they cannot disagree.
+it is pure — the API, the crest, the ladder, the lobby table, the season board
+and the post-session report all call the same functions, so they cannot disagree.
 `weekBounds()` mirrors `services/study.mondayOf` so the client's countdown and
 the database's `week_start` are the same week.
 
-Surface: `/progress` is the hub (Ladder / This week / XP board, one view at a
-time), and the dashboard carries a near-black `RankStrip` with the crest, the
+Surface: `/progress` is the hub (Ladder / Season / This week / XP board, one view
+at a time), and the dashboard carries a near-black `RankStrip` with the crest, the
 next rung named, and the lobby standing. A session ends on a `SessionReport`
 that says "Promoted to Silver II" out loud, and refreshes the `/me` and
 `/gamification` SWR keys so the shell and the dashboard move in the same moment

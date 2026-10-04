@@ -401,6 +401,44 @@ export const leagueMemberships = pgTable('league_memberships', {
   pk: uniqueIndex('league_memberships_pk').on(t.userId, t.weekStart),
 }));
 
+/**
+ * What a learner finished a season on.
+ *
+ * One row per (user, season), written once when the season closes and never
+ * rewritten except to stamp `reward_claimed_at`. It exists because the
+ * showcase is a *record*, not a calculation: a final rank is the one moment the
+ * product wants to show off, and recomputing it from an XP ledger that keeps
+ * taking entries would mean the crest on the wall moves under them.
+ *
+ * The season windows themselves are derived (`domain/seasons.ts`) — this table
+ * records what happened, not when.
+ */
+export const seasonResults = pgTable('season_results', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  seasonNumber: integer('season_number').notNull(),
+  /** The tier held at the final whistle — the reward is keyed on this.
+   *  Plain text rather than an enum: the ladder grew from five tiers to ten and
+   *  an eleventh should be a one-line change in `domain/ranked.ts`, not an
+   *  ALTER TYPE. */
+  finalTier: text('final_tier').notNull(),
+  finalDivision: integer('final_division').notNull(),
+  /** Zero-based rung on the ladder, so a season board can be ordered without a re-read. */
+  finalRankIndex: integer('final_rank_index').notNull(),
+  /** Season RP earned inside the window. */
+  finalRp: integer('final_rp').notNull().default(0),
+  /** Reviews inside the window — the placement gate. */
+  reviews: integer('reviews').notNull().default(0),
+  /** `SEASON_REWARDS[tier].id`; empty when the season was not placed. */
+  rewardId: text('reward_id').notNull().default(''),
+  /** When the learner took the reward. Null until they do. */
+  rewardClaimedAt: timestamp('reward_claimed_at', { mode: 'date' }),
+  endedAt: timestamp('ended_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  pk: uniqueIndex('season_results_pk').on(t.userId, t.seasonNumber),
+  seasonIdx: index('season_results_season_idx').on(t.seasonNumber, t.finalRankIndex),
+}));
+
+
 // ── Classes (teacher tooling) ───────────────────────────────────────────────
 
 export const classes = pgTable('classes', {

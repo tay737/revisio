@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Notice } from '@/components/Notice';
 import { RankStrip } from '@/components/rank/RankStrip';
 import { LobbyTable } from '@/components/rank/LobbyTable';
+import { SeasonPanel } from '@/components/rank/SeasonPanel';
 import { SPRING, cappedDelay } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { lobbyLine } from '@/lib/profile';
@@ -25,6 +26,7 @@ import {
   formFor,
   rankFor,
   reviewsForRp,
+  tierColor,
   tierName,
   type Rank,
 } from '@/domain/ranked';
@@ -51,6 +53,7 @@ import { StrengthTab } from '@/components/insights/StrengthTab';
 
 const VIEWS = [
   { id: 'ladder', label: 'Ladder' },
+  { id: 'season', label: 'Season' },
   { id: 'lobby', label: 'This week' },
   { id: 'board', label: 'XP' },
   { id: 'strength', label: 'Strength' },
@@ -127,6 +130,12 @@ export default function RankPage() {
 
             <TabsContent value="ladder" className="mt-4">
               <LadderView rank={data.rank} placement={data.placement} form={form} />
+            </TabsContent>
+
+            {/* Ninety days, its own board, and the record of every season you
+                have finished. The ladder above never resets; this does. */}
+            <TabsContent value="season" className="mt-4">
+              <SeasonPanel />
             </TabsContent>
 
             {/* The learner's own insights — the same renderer the staff sheet
@@ -380,11 +389,20 @@ function LadderView({
           {tiers.map((t) => {
             const isCurrent = t.tier === rank.tier;
             const cleared = rank.points >= t.base + t.total;
+            const metal = tierColor(t.tier);
             return (
               <div key={t.tier} className="min-w-0 flex-1">
                 <div className="meter h-2">
                   <motion.div
-                    className={cn('h-full rounded-pill', cleared || isCurrent ? 'meter-fill' : 'bg-border-strong')}
+                    className="h-full rounded-pill"
+                    // Cleared and current tiers fill in their own metal; a tier
+                    // still ahead of you stays ink-less grey, so a glance at the
+                    // rail reads as "how far through have I got".
+                    style={
+                      cleared || isCurrent
+                        ? { background: metal }
+                        : { background: 'var(--border-strong)' }
+                    }
                     initial={{ width: 0 }}
                     animate={{ width: `${t.percent}%` }}
                     transition={SPRING.meter}
@@ -393,8 +411,10 @@ function LadderView({
                 <p
                   className={cn(
                     'mt-1.5 truncate text-[10px] font-bold uppercase tracking-[0.06em]',
-                    isCurrent ? 'text-foreground' : 'text-muted-foreground',
+                    !isCurrent && 'text-muted-foreground',
                   )}
+                  style={isCurrent ? { color: metal } : undefined}
+                  title={cleared ? `${tierName(t.tier)} — cleared` : tierName(t.tier)}
                 >
                   {tierName(t.tier)}
                 </p>
@@ -446,7 +466,12 @@ function LadderView({
                 >
                   {DIVISION_LABEL[rung.division]}
                 </p>
-                <p className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                {/* The tier's metal rides the label once you have reached it —
+                    the same rule as the crest: unreached rungs are grey. */}
+                <p
+                  className={cn('text-[10px] uppercase tracking-[0.06em]')}
+                  style={reached ? { color: tierColor(rung.tier) } : undefined}
+                >
                   {tierName(rung.tier)}
                 </p>
                 <p className="num text-[10px] text-muted-foreground">{rung.base} RP</p>
@@ -463,8 +488,9 @@ function LadderView({
       </section>
 
       <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
-        Rank comes from lifetime XP and never resets. The weekly lobby only decides where you sit inside
-        your tier — a bad week costs you position, not progress.
+        Rank comes from lifetime XP and never resets. The <strong className="font-semibold text-foreground">season</strong>{' '}
+        tab runs the same ladder on XP earned inside a ninety-day window, and the weekly lobby only
+        decides where you sit inside your tier — a bad week costs you position, not progress.
       </p>
     </div>
   );

@@ -151,7 +151,7 @@ Table-by-table (abridged, types in migrations):
 - `cram_jobs`: user_id, topic_ids, max_per_topic, note_density (asked up-front per brief), expiry (cram reviews bypass SRS scheduling but log to review_logs).
 - `exam_questions`: topic_id, file_path (Supabase), mark_scheme_md, difficulty, source_year, board.
 - `classes`: teacher_id, name, subject_id, join_code (6-char, rotating). `class_memberships`: class_id, user_id, joined_at. `class_assignments`: class_id, topic_ids, due_at.
-- Gamification: `xp_events` (user, amount, source enum, occurred_at — append-only ledger; totals derived), `streaks` (user, current, best, last_active_date, freezes), `achievements` + `user_achievements`, `leagues` (season + tier bronze→legend), `league_memberships` (user, league, week_start, xp_week).
+- Gamification: `xp_events` (user, amount, source enum, occurred_at — append-only ledger; totals derived), `streaks` (user, current, best, last_active_date, freezes), `achievements` + `user_achievements`, `leagues` (season + tier bronze→legend), `league_memberships` (user, league, week_start, xp_week), `season_results` (user, season_number, final_tier/division/rank_index/rp, reward_id, reward_claimed_at — one row per closed season; the season *windows* are derived from `domain/seasons.ts`, this table records only what a season produced).
 - `imports`: user_id, kind (anki/csv), file_path, status (pending/parsed/failed/done), report jsonb (per-row errors).
 - `content_reviews`: publishable_id/type, reviewer_id, verdict (approved/rejected/changes_requested), note.
 - `exports`: user_id, format (pdf/xlsx/csv), scope jsonb, file_path, created_at.
@@ -428,7 +428,7 @@ running dev server by reading the real DOM and its computed styles rather than
 by screenshots alone:
 
 - `/progress` — rank, placement (`0 of 10`), week bounds, lobby (`1 of 30`,
-  promotion tick), all fifteen ladder rungs at their real RP thresholds,
+  promotion tick), all thirty ladder rungs at their real RP thresholds,
   achievements and transcript.
 - `/dashboard` — dark hero, stats, rank panel, subjects, lifetime panel, action
   tiles; the companion's first-run card renders for a brand-new account.

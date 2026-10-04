@@ -9,7 +9,7 @@ import kotlin.math.roundToInt
  * The ladder, read out of the web's `domain/ranked.ts`.
  *
  * The server decides a learner's rank; this exists because the ladder screen
- * draws all 15 rungs, and the ones nobody has reached are not
+ * draws all 30 rungs, and the ones nobody has reached are not
  * facts about anybody. Everything here is a constant of the game, so it can be
  * generated once and checked in.
  */
@@ -28,14 +28,19 @@ object RankLadder {
     const val ZONE_BAND_MIN = 1
     const val ZONE_BAND_MAX = 5
 
-    val TIER_ORDER: List<String> = listOf("bronze", "silver", "gold", "diamond", "legend")
+    val TIER_ORDER: List<String> = listOf("bronze", "silver", "gold", "platinum", "emerald", "sapphire", "diamond", "ruby", "obsidian", "legend")
 
     val DIVISION_SPAN: Map<String, Int> = mapOf(
         "bronze" to 120,
-        "silver" to 200,
-        "gold" to 320,
-        "diamond" to 500,
-        "legend" to 750,
+        "silver" to 180,
+        "gold" to 250,
+        "platinum" to 340,
+        "emerald" to 450,
+        "sapphire" to 580,
+        "diamond" to 720,
+        "ruby" to 880,
+        "obsidian" to 1050,
+        "legend" to 1300,
     )
 
     val DIVISION_LABEL: Map<Int, String> = mapOf(
@@ -60,18 +65,33 @@ object RankLadder {
     Rung("bronze", 3, 0, 0, 120),
     Rung("bronze", 2, 1, 120, 120),
     Rung("bronze", 1, 2, 240, 120),
-    Rung("silver", 3, 3, 360, 200),
-    Rung("silver", 2, 4, 560, 200),
-    Rung("silver", 1, 5, 760, 200),
-    Rung("gold", 3, 6, 960, 320),
-    Rung("gold", 2, 7, 1280, 320),
-    Rung("gold", 1, 8, 1600, 320),
-    Rung("diamond", 3, 9, 1920, 500),
-    Rung("diamond", 2, 10, 2420, 500),
-    Rung("diamond", 1, 11, 2920, 500),
-    Rung("legend", 3, 12, 3420, 750),
-    Rung("legend", 2, 13, 4170, 750),
-    Rung("legend", 1, 14, 4920, 750),
+    Rung("silver", 3, 3, 360, 180),
+    Rung("silver", 2, 4, 540, 180),
+    Rung("silver", 1, 5, 720, 180),
+    Rung("gold", 3, 6, 900, 250),
+    Rung("gold", 2, 7, 1150, 250),
+    Rung("gold", 1, 8, 1400, 250),
+    Rung("platinum", 3, 9, 1650, 340),
+    Rung("platinum", 2, 10, 1990, 340),
+    Rung("platinum", 1, 11, 2330, 340),
+    Rung("emerald", 3, 12, 2670, 450),
+    Rung("emerald", 2, 13, 3120, 450),
+    Rung("emerald", 1, 14, 3570, 450),
+    Rung("sapphire", 3, 15, 4020, 580),
+    Rung("sapphire", 2, 16, 4600, 580),
+    Rung("sapphire", 1, 17, 5180, 580),
+    Rung("diamond", 3, 18, 5760, 720),
+    Rung("diamond", 2, 19, 6480, 720),
+    Rung("diamond", 1, 20, 7200, 720),
+    Rung("ruby", 3, 21, 7920, 880),
+    Rung("ruby", 2, 22, 8800, 880),
+    Rung("ruby", 1, 23, 9680, 880),
+    Rung("obsidian", 3, 24, 10560, 1050),
+    Rung("obsidian", 2, 25, 11610, 1050),
+    Rung("obsidian", 1, 26, 12660, 1050),
+    Rung("legend", 3, 27, 13710, 1300),
+    Rung("legend", 2, 28, 15010, 1300),
+    Rung("legend", 1, 29, 16310, 1300),
     )
 
     /** Total RP needed to clear the whole ladder. */
