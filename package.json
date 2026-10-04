@@ -20,6 +20,8 @@
     "verify:offline": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-offline.ts",
     "verify:native": "node scripts/native/android-smoke.mjs",
     "verify:native:api": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/native/verify-native-api.ts",
+    "verify:seasons": "tsx scripts/verify-seasons.ts",
+    "verify:season-write": "tsx scripts/verify-season-write.ts",
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",
     "native:android:apk": "cd mobile/android && ./gradlew :app:assembleDebug",

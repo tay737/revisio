@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.revisio.engine.Rank
+import app.revisio.engine.RankLadder
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
@@ -810,18 +811,16 @@ private fun Color.compositeOver(base: Color): Color {
 
 // ── the rank crest ──────────────────────────────────────────────────────────
 //
-// Rank is the loudest thing on the ladder and the system allows exactly one
-// accent colour, so the tier is carried by **geometry** rather than by hue:
-// chevrons in the shield (1 at Bronze, 5 at Legend), division pips beneath them,
-// dial ticks around the ring, and the ring itself filling with progress. Colour
-// does one job only — this crest is yours, or this is a rung you have not
-// reached. That is what lets a ladder of them read side by side.
+// Rank is the loudest thing on the ladder, so the tier is carried twice: by
+// **geometry** — chevrons in the shield (1 at Bronze/Silver, 5 at
+// Obsidian/Legend), division pips beneath them, dial ticks around the ring — and
+// by hue on the web. The geometry is what keeps a thirty-rung rail legible at
+// this size, so it has to track the real tier count rather than a copy of it.
 
 /** `crestFor` from `src/domain/ranked.ts`, so the count has one owner. */
 private fun crestSpec(tier: String, division: Int): Triple<Int, Int, Int> {
-    val order = listOf("bronze", "silver", "gold", "diamond", "legend")
-    val index = order.indexOf(tier).coerceAtLeast(0)
-    return Triple(1 + index, 6 + index * 3, 4 - division)
+    val index = RankLadder.TIER_ORDER.indexOf(tier).coerceAtLeast(0)
+    return Triple(1 + index / 2, 6 + index * 2, 4 - division)
 }
 
 @Composable

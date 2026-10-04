@@ -256,7 +256,13 @@ export default function ReviewClient() {
     };
   }, [refreshMe, refreshRanked]);
 
-  const card = queue?.[idx] ?? null;
+  // `ended` collapses the active card to null, which is what makes the report the
+  // destination for *both* ways out of a session — running the queue dry, and
+  // pressing "End session". Testing `!card` on its own (which is what this did)
+  // left `ended` setting a flag, firing the refresh effects, and then rendering
+  // the very same card: the button looked broken because nothing on screen ever
+  // changed.
+  const card = ended ? null : queue?.[idx] ?? null;
   const progress = useMemo(
     () => (queue && queue.length > 0 ? Math.round((done / queue.length) * 100) : 0),
     [done, queue],
@@ -384,8 +390,9 @@ export default function ReviewClient() {
 
   // The session has ended — every card answered, or the learner chose "End
   // session" early. Either way the summary is the destination: XP is already
-  // banked per answer, so stopping now forfeits nothing earned.
-  const finished = queue !== null && queue.length > 0 && (!card || ended);
+  // banked per answer, so stopping now forfeits nothing earned. `card` already
+  // folds `ended` in (above), so `!card` is the whole test.
+  const finished = queue !== null && queue.length > 0 && !card;
   const change =
     finished && startXp !== null && latestXp !== null ? rankChange(startXp, latestXp) : null;
 
@@ -484,6 +491,10 @@ export default function ReviewClient() {
     );
   }
 
+  // The report is the destination for *both* ways out of a session: running the
+  // queue dry (`idx` past the end) and pressing "End session" (`card` collapsed
+  // to null above). One test covers both because the two cases are now the same
+  // case.
   if (!card) {
     return (
       <div className="relative mx-auto max-w-xl">

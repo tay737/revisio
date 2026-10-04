@@ -10,23 +10,33 @@
       "bronze",
       "silver",
       "gold",
+      "platinum",
+      "emerald",
+      "sapphire",
       "diamond",
+      "ruby",
+      "obsidian",
       "legend"
     ],
     "divisionSpan": {
       "bronze": 120,
-      "silver": 200,
-      "gold": 320,
-      "diamond": 500,
-      "legend": 750
+      "silver": 180,
+      "gold": 250,
+      "platinum": 340,
+      "emerald": 450,
+      "sapphire": 580,
+      "diamond": 720,
+      "ruby": 880,
+      "obsidian": 1050,
+      "legend": 1300
     },
     "divisionLabel": {
       "1": "I",
       "2": "II",
       "3": "III"
     },
-    "rungCount": 15,
-    "topOfLadder": 4920,
+    "rungCount": 30,
+    "topOfLadder": 16310,
     "rungs": [
       {
         "tier": "bronze",
@@ -54,84 +64,189 @@
         "division": 3,
         "index": 3,
         "base": 360,
-        "span": 200
+        "span": 180
       },
       {
         "tier": "silver",
         "division": 2,
         "index": 4,
-        "base": 560,
-        "span": 200
+        "base": 540,
+        "span": 180
       },
       {
         "tier": "silver",
         "division": 1,
         "index": 5,
-        "base": 760,
-        "span": 200
+        "base": 720,
+        "span": 180
       },
       {
         "tier": "gold",
         "division": 3,
         "index": 6,
-        "base": 960,
-        "span": 320
+        "base": 900,
+        "span": 250
       },
       {
         "tier": "gold",
         "division": 2,
         "index": 7,
-        "base": 1280,
-        "span": 320
+        "base": 1150,
+        "span": 250
       },
       {
         "tier": "gold",
         "division": 1,
         "index": 8,
-        "base": 1600,
-        "span": 320
+        "base": 1400,
+        "span": 250
       },
       {
-        "tier": "diamond",
+        "tier": "platinum",
         "division": 3,
         "index": 9,
-        "base": 1920,
-        "span": 500
+        "base": 1650,
+        "span": 340
+      },
+      {
+        "tier": "platinum",
+        "division": 2,
+        "index": 10,
+        "base": 1990,
+        "span": 340
+      },
+      {
+        "tier": "platinum",
+        "division": 1,
+        "index": 11,
+        "base": 2330,
+        "span": 340
+      },
+      {
+        "tier": "emerald",
+        "division": 3,
+        "index": 12,
+        "base": 2670,
+        "span": 450
+      },
+      {
+        "tier": "emerald",
+        "division": 2,
+        "index": 13,
+        "base": 3120,
+        "span": 450
+      },
+      {
+        "tier": "emerald",
+        "division": 1,
+        "index": 14,
+        "base": 3570,
+        "span": 450
+      },
+      {
+        "tier": "sapphire",
+        "division": 3,
+        "index": 15,
+        "base": 4020,
+        "span": 580
+      },
+      {
+        "tier": "sapphire",
+        "division": 2,
+        "index": 16,
+        "base": 4600,
+        "span": 580
+      },
+      {
+        "tier": "sapphire",
+        "division": 1,
+        "index": 17,
+        "base": 5180,
+        "span": 580
+      },
+      {
+        "tier": "diamond",
+        "division": 3,
+        "index": 18,
+        "base": 5760,
+        "span": 720
       },
       {
         "tier": "diamond",
         "division": 2,
-        "index": 10,
-        "base": 2420,
-        "span": 500
+        "index": 19,
+        "base": 6480,
+        "span": 720
       },
       {
         "tier": "diamond",
         "division": 1,
-        "index": 11,
-        "base": 2920,
-        "span": 500
+        "index": 20,
+        "base": 7200,
+        "span": 720
+      },
+      {
+        "tier": "ruby",
+        "division": 3,
+        "index": 21,
+        "base": 7920,
+        "span": 880
+      },
+      {
+        "tier": "ruby",
+        "division": 2,
+        "index": 22,
+        "base": 8800,
+        "span": 880
+      },
+      {
+        "tier": "ruby",
+        "division": 1,
+        "index": 23,
+        "base": 9680,
+        "span": 880
+      },
+      {
+        "tier": "obsidian",
+        "division": 3,
+        "index": 24,
+        "base": 10560,
+        "span": 1050
+      },
+      {
+        "tier": "obsidian",
+        "division": 2,
+        "index": 25,
+        "base": 11610,
+        "span": 1050
+      },
+      {
+        "tier": "obsidian",
+        "division": 1,
+        "index": 26,
+        "base": 12660,
+        "span": 1050
       },
       {
         "tier": "legend",
         "division": 3,
-        "index": 12,
-        "base": 3420,
-        "span": 750
+        "index": 27,
+        "base": 13710,
+        "span": 1300
       },
       {
         "tier": "legend",
         "division": 2,
-        "index": 13,
-        "base": 4170,
-        "span": 750
+        "index": 28,
+        "base": 15010,
+        "span": 1300
       },
       {
         "tier": "legend",
         "division": 1,
-        "index": 14,
-        "base": 4920,
-        "span": 750
+        "index": 29,
+        "base": 16310,
+        "span": 1300
       }
     ],
     "tierNames": [
@@ -148,8 +263,28 @@
         "expected": "Gold"
       },
       {
+        "tier": "platinum",
+        "expected": "Platinum"
+      },
+      {
+        "tier": "emerald",
+        "expected": "Emerald"
+      },
+      {
+        "tier": "sapphire",
+        "expected": "Sapphire"
+      },
+      {
         "tier": "diamond",
         "expected": "Diamond"
+      },
+      {
+        "tier": "ruby",
+        "expected": "Ruby"
+      },
+      {
+        "tier": "obsidian",
+        "expected": "Obsidian"
       },
       {
         "tier": "legend",
@@ -280,9 +415,9 @@
         "short": "SIL III",
         "points": 360,
         "intoDivision": 0,
-        "forDivision": 200,
+        "forDivision": 180,
         "percent": 0,
-        "remaining": 200,
+        "remaining": 180,
         "isApex": false
       }
     },
@@ -295,10 +430,10 @@
         "label": "Silver II",
         "short": "SIL II",
         "points": 599,
-        "intoDivision": 39,
-        "forDivision": 200,
-        "percent": 20,
-        "remaining": 161,
+        "intoDivision": 59,
+        "forDivision": 180,
+        "percent": 33,
+        "remaining": 121,
         "isApex": false
       }
     },
@@ -311,26 +446,26 @@
         "label": "Silver II",
         "short": "SIL II",
         "points": 600,
-        "intoDivision": 40,
-        "forDivision": 200,
-        "percent": 20,
-        "remaining": 160,
+        "intoDivision": 60,
+        "forDivision": 180,
+        "percent": 33,
+        "remaining": 120,
         "isApex": false
       }
     },
     {
       "xp": 959,
       "expected": {
-        "tier": "silver",
-        "division": 1,
-        "index": 5,
-        "label": "Silver I",
-        "short": "SIL I",
+        "tier": "gold",
+        "division": 3,
+        "index": 6,
+        "label": "Gold III",
+        "short": "GOL III",
         "points": 959,
-        "intoDivision": 199,
-        "forDivision": 200,
-        "percent": 100,
-        "remaining": 1,
+        "intoDivision": 59,
+        "forDivision": 250,
+        "percent": 24,
+        "remaining": 191,
         "isApex": false
       }
     },
@@ -343,10 +478,10 @@
         "label": "Gold III",
         "short": "GOL III",
         "points": 960,
-        "intoDivision": 0,
-        "forDivision": 320,
-        "percent": 0,
-        "remaining": 320,
+        "intoDivision": 60,
+        "forDivision": 250,
+        "percent": 24,
+        "remaining": 190,
         "isApex": false
       }
     },
@@ -354,15 +489,15 @@
       "xp": 1559,
       "expected": {
         "tier": "gold",
-        "division": 2,
-        "index": 7,
-        "label": "Gold II",
-        "short": "GOL II",
+        "division": 1,
+        "index": 8,
+        "label": "Gold I",
+        "short": "GOL I",
         "points": 1559,
-        "intoDivision": 279,
-        "forDivision": 320,
-        "percent": 87,
-        "remaining": 41,
+        "intoDivision": 159,
+        "forDivision": 250,
+        "percent": 64,
+        "remaining": 91,
         "isApex": false
       }
     },
@@ -370,63 +505,63 @@
       "xp": 1560,
       "expected": {
         "tier": "gold",
-        "division": 2,
-        "index": 7,
-        "label": "Gold II",
-        "short": "GOL II",
+        "division": 1,
+        "index": 8,
+        "label": "Gold I",
+        "short": "GOL I",
         "points": 1560,
-        "intoDivision": 280,
-        "forDivision": 320,
-        "percent": 88,
-        "remaining": 40,
+        "intoDivision": 160,
+        "forDivision": 250,
+        "percent": 64,
+        "remaining": 90,
         "isApex": false
       }
     },
     {
       "xp": 2309,
       "expected": {
-        "tier": "diamond",
-        "division": 3,
-        "index": 9,
-        "label": "Diamond III",
-        "short": "DIA III",
+        "tier": "platinum",
+        "division": 2,
+        "index": 10,
+        "label": "Platinum II",
+        "short": "PLA II",
         "points": 2309,
-        "intoDivision": 389,
-        "forDivision": 500,
-        "percent": 78,
-        "remaining": 111,
+        "intoDivision": 319,
+        "forDivision": 340,
+        "percent": 94,
+        "remaining": 21,
         "isApex": false
       }
     },
     {
-      "xp": 4920,
+      "xp": 16310,
       "expected": {
         "tier": "legend",
         "division": 1,
-        "index": 14,
+        "index": 29,
         "label": "Legend I",
         "short": "LEG I",
-        "points": 4920,
+        "points": 16310,
         "intoDivision": 0,
-        "forDivision": 750,
+        "forDivision": 1300,
         "percent": 0,
-        "remaining": 750,
+        "remaining": 1300,
         "isApex": true
       }
     },
     {
-      "xp": 5420,
+      "xp": 16810,
       "expected": {
         "tier": "legend",
         "division": 1,
-        "index": 14,
+        "index": 29,
         "label": "Legend I",
         "short": "LEG I",
-        "points": 5420,
+        "points": 16810,
         "intoDivision": 500,
-        "forDivision": 750,
-        "percent": 67,
-        "remaining": 250,
+        "forDivision": 1300,
+        "percent": 38,
+        "remaining": 800,
         "isApex": true
       }
     },
@@ -435,12 +570,12 @@
       "expected": {
         "tier": "legend",
         "division": 1,
-        "index": 14,
+        "index": 29,
         "label": "Legend I",
         "short": "LEG I",
         "points": 999999,
-        "intoDivision": 995079,
-        "forDivision": 750,
+        "intoDivision": 983689,
+        "forDivision": 1300,
         "percent": 100,
         "remaining": 0,
         "isApex": true

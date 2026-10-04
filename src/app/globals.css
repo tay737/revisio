@@ -74,6 +74,30 @@
   --gold: #ffc800; /* bee        — trophies, promotions, achievements */
   --info: #1cb0f6; /* macaw      — notes and reference material */
 
+  /* ── The ten metals ─────────────────────────────────────────────────────
+     A deliberate, tightly scoped exception to the one-accent chrome: the rank
+     ladder needs thirty rungs to feel like a ladder, and thirty identical
+     black shields do not. Each tier owns a metal, and these tokens are read by
+     exactly three places — the rank crest, the tier meters on the Rank page and
+     the tier chips in the ladder rail. Nothing else in the app may use them, so
+     a screen with a crest on it gets louder and a screen without one does not.
+
+     Values are chosen for the *white* canvas (the crest's default ground) and
+     re-picked below for the dark ground, because a metal tuned on one is mud on
+     the other: platinum is near-white with a cool cast so it reads as brighter
+     than silver rather than as a different grey, and Legend is rose rather than
+     a second gold so the summit is unmistakable at 34px. */
+  --tier-bronze: #a9682f;
+  --tier-silver: #8b95a3;
+  --tier-gold: #c7931f;
+  --tier-platinum: #cdd6e0;
+  --tier-emerald: #0f9a63;
+  --tier-sapphire: #2f5fd0;
+  --tier-diamond: #0fa9c8;
+  --tier-ruby: #d0354e;
+  --tier-obsidian: #6d5bd0;
+  --tier-legend: #d94f96;
+
   /* ── The polarity band ──────────────────────────────────────────────────
      Mid-page full-bleed black. In light mode this is Uber's most recognisable
      device; in dark mode it lifts a step off the black page instead of
@@ -132,6 +156,19 @@
   --gold: #ffd23f;
   --info: #1cb0f6;
 
+  /* The same ten metals on black: every hue steps *up* in lightness and drops
+     in saturation, the way the dark ground already treats the game colours. */
+  --tier-bronze: #d9905a;
+  --tier-silver: #b7c1cd;
+  --tier-gold: #ffc800;
+  --tier-platinum: #e8eff7;
+  --tier-emerald: #35d295;
+  --tier-sapphire: #7aa2ff;
+  --tier-diamond: #3fd6ef;
+  --tier-ruby: #ff6d80;
+  --tier-obsidian: #a294ff;
+  --tier-legend: #ff8ec4;
+
   --band: #141414;
   --band-foreground: #ffffff;
   --band-card: #1f1f1f;
@@ -179,6 +216,20 @@
   --lip: #c9c9c9;
   --lip-soft: #2a2a2a;
   --scrim: rgb(0 0 0 / 0.6);
+
+  /* The crest is drawn on this band too (RankStrip, the session report), and
+     a near-black ground needs the dark set of metals — otherwise the crest
+     disappears into the panel it is the headline of. */
+  --tier-bronze: #d9905a;
+  --tier-silver: #b7c1cd;
+  --tier-gold: #ffc800;
+  --tier-platinum: #e8eff7;
+  --tier-emerald: #35d295;
+  --tier-sapphire: #7aa2ff;
+  --tier-diamond: #3fd6ef;
+  --tier-ruby: #ff6d80;
+  --tier-obsidian: #a294ff;
+  --tier-legend: #ff8ec4;
 }
 
 /* ── Theme mapping ───────────────────────────────────────────────────────────

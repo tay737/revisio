@@ -15,8 +15,8 @@ import org.junit.Test
  * The phone's rank and copy are only allowed to exist if they agree with the web.
  *
  * Two things on this client are not decided by a payload and so had to be carried:
- * the **ladder** (the screen draws all fifteen rungs, and the ones nobody has
- * reached are not facts about anybody) and the **sentences** (a phone that
+ * the **ladder** (the screen draws every rung, and the ones nobody has reached
+ * are not facts about anybody) and the **sentences** (a phone that
  * invented its own words for "Good morning" would drift the moment the copy
  * changed). They are ports of `src/domain/ranked.ts` and `src/lib/profile.ts`.
  *
@@ -58,12 +58,17 @@ class CopyConformanceTest {
     fun theLadderIsTheWebsLadder() {
         val ladder = root["ladder"]!!.jsonObject
         val rungs = ladder["rungs"]!!.jsonArray.map { it.jsonObject }
-        assertEquals("the wiki's ladder is fifteen rungs", 15, rungs.size)
+        // The rung count comes from the vectors rather than a literal in this
+        // file: the web ladder grew from fifteen rungs to thirty when the tiers
+        // were widened, and a hardcoded count here would only ever report that
+        // as a failure instead of following the ladder it exists to police.
+        assertEquals("the web's rung count", ladder["rungCount"]!!.int(), rungs.size)
         assertEquals(
             "the ladder's top must match",
             ladder["topOfLadder"]!!.int(),
             RankLadder.TOP_OF_LADDER,
         )
+        assertEquals("every tier must be carried", ladder["tiers"]!!.jsonArray.size, RankLadder.TIER_ORDER.size)
         rungs.forEachIndexed { index, rung ->
             val mine = RankLadder.rungs[index]
             case("rung $index") {
