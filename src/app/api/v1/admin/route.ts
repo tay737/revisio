@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { achievements, approvalRequests, cards, classMemberships, classes, featureFlags, lessons, profileBadges, subjects, userAchievements, userProfileBadges, users } from '@/db/schema';
 import { revokeAllRefreshTokens } from '@/services/auth';
@@ -7,8 +7,9 @@ import { ApiError, ok, requireUser, route } from '@/services/api';
 import { isDeveloper } from '@/services/roles';
 import { listSchedulers } from '@/domain/srs';
 import { auditLog } from '@/db/schema';
-import { topics } from '@/db/schema';
+import { seasons, seasonResults, topics } from '@/db/schema';
 import { makeSlug, setTopicVisibility } from '@/services/content-ops';
+import { invalidateSeasonCache } from '@/services/season-config';
 import type { Visibility } from '@/services/visibility';
 
 /** GET /admin — approvals, flags, algorithms, users, pending topics (developers only) */
@@ -151,7 +152,8 @@ export const POST = route(async (req: NextRequest) => {
       | 'grant_badge' | 'revoke_badge'
       | 'grant_achievement'
       | 'rename_class' | 'delete_class' | 'set_class_teacher' | 'set_class_subject'
-      | 'add_class_member' | 'remove_class_member';
+      | 'add_class_member' | 'remove_class_member'
+      | 'upsert_season' | 'set_season_state' | 'delete_season';
     approvalId?: string;
     flagKey?: string;
     enabled?: boolean;
@@ -172,6 +174,13 @@ export const POST = route(async (req: NextRequest) => {
     achievementId?: string;
     classId?: string;
     teacherId?: string;
+    seasonNumber?: number;
+    seasonName?: string | null;
+    startsAt?: string;
+    endsAt?: string;
+    note?: string | null;
+    rewards?: Record<string, { name: string; detail: string; icon: string }> | null;
+    seasonState?: 'draft' | 'active' | 'closed';
   };
 
   const audit = async (action: string, target: string, meta?: Record<string, unknown>) => {
@@ -445,7 +454,120 @@ export const POST = route(async (req: NextRequest) => {
       await audit('grant_achievement', ach.id, { user: body.userId });
       return ok({ ok: true });
     }
+    // ── seasons ──────────────────────────────────────────────────────────
+    // The windows that decide everybody's rank. Handled here rather than
+    // through a feature flag because a flag is a boolean and these are dates:
+    // an operator has to be able to stretch a season over a holiday, name it,
+    // or open the next one early.
+    case 'upsert_season': {
+      const number = Number(body.seasonNumber);
+      if (!Number.isInteger(number) || number < 1) {
+        throw new ApiError(400, 'bad_request', 'Which season? Send its number.');
+      }
+      const startsAt = parseUtc(body.startsAt, 'startsAt');
+      const endsAt = parseUtc(body.endsAt, 'endsAt');
+      if (endsAt <= startsAt) {
+        throw new ApiError(400, 'bad_request', 'A season has to end after it starts.');
+      }
+      // A window that overlaps another season would leave two rows whose XP
+      // aggregates both claim the same days, and `seasonAt` would have to pick
+      // a winner. Refuse rather than resolve silently.
+      const clash = await db
+        .select({ number: seasons.number })
+        .from(seasons)
+        .where(and(sql`${seasons.number} <> ${number}`, sql`${seasons.startsAt} < ${endsAt}`, sql`${seasons.endsAt} > ${startsAt}`));
+      if (clash.length > 0) {
+        throw new ApiError(
+          409,
+          'conflict',
+          `Those dates overlap season ${clash.map((c) => c.number).join(', ')}.`,
+        );
+      }
+
+      const values = {
+        name: body.seasonName ?? null,
+        startsAt,
+        endsAt,
+        note: body.note ?? null,
+        rewards: body.rewards ?? null,
+        updatedAt: new Date(),
+      };
+      await db
+        .insert(seasons)
+        .values({ number, ...values, state: body.seasonState ?? 'draft' })
+        .onConflictDoUpdate({ target: seasons.number, set: { ...values, ...(body.seasonState ? { state: body.seasonState } : {}) } });
+      invalidateSeasonCache();
+      await audit('upsert_season', String(number), {
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        name: body.seasonName ?? null,
+      });
+      return ok({ ok: true, seasonNumber: number });
+    }
+    case 'set_season_state': {
+      const number = Number(body.seasonNumber);
+      const state = body.seasonState;
+      if (!Number.isInteger(number) || number < 1 || !state) {
+        throw new ApiError(400, 'bad_request', 'seasonNumber and seasonState required');
+      }
+      // The partial unique index `seasons_single_active` enforces one live
+      // season in the database. Clearing it here first turns what would be an
+      // opaque 23505 into a deliberate close-then-open.
+      if (state === 'active') {
+        await db.update(seasons).set({ state: 'closed' }).where(and(eq(seasons.state, 'active'), sql`${seasons.number} <> ${number}`));
+      }
+      const [updated] = await db
+        .update(seasons)
+        .set({ state, updatedAt: new Date() })
+        .where(eq(seasons.number, number))
+        .returning({ number: seasons.number });
+      if (!updated) throw new ApiError(404, 'not_found', 'No such season.');
+      invalidateSeasonCache();
+      await audit('set_season_state', String(number), { state });
+      return ok({ ok: true });
+    }
+    case 'delete_season': {
+      const number = Number(body.seasonNumber);
+      if (!Number.isInteger(number) || number < 1) {
+        throw new ApiError(400, 'bad_request', 'seasonNumber required');
+      }
+      const [row] = await db.select().from(seasons).where(eq(seasons.number, number)).limit(1);
+      if (!row) return ok({ ok: true, alreadyGone: true });
+      // A season learners have finished in is a record they can be shown; a
+      // SELECT COUNT is cheaper and clearer than letting the FK decide.
+      const [used] = await db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(seasonResults)
+        .where(eq(seasonResults.seasonNumber, number));
+      if (Number(used?.c ?? 0) > 0) {
+        throw new ApiError(
+          409,
+          'conflict',
+          `${used?.c} learner(s) have a recorded result for season ${number}. Close it instead of deleting it.`,
+        );
+      }
+      await db.delete(seasons).where(eq(seasons.number, number));
+      invalidateSeasonCache();
+      await audit('delete_season', String(number));
+      return ok({ ok: true });
+    }
+
     default:
       throw new ApiError(400, 'bad_request', 'Unknown action.');
   }
 });
+
+/**
+ * A `datetime-local` value from the admin panel, as a UTC instant.
+ *
+ * The panel sends `2026-10-02T00:00` — no zone — and the product defines a
+ * season in UTC, so the missing zone is filled in as UTC rather than read as
+ * the operator's browser offset. Getting this wrong would silently shift every
+ * learner's season XP by however far the developer was from Greenwich.
+ */
+function parseUtc(value: string | undefined, field: string): Date {
+  if (!value) throw new ApiError(400, 'bad_request', `${field} required`);
+  const d = new Date(/[Zz]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value}Z`);
+  if (Number.isNaN(d.getTime())) throw new ApiError(400, 'bad_request', `${field} is not a date`);
+  return d;
+}

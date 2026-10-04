@@ -78,6 +78,7 @@ const REPLICATED_TABLES = [
   'streaks',
   'user_achievements',
   'league_memberships',
+  'seasons',
   'season_results',
   'class_memberships',
   'imports',

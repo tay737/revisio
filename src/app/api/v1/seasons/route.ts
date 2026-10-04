@@ -4,9 +4,9 @@ import { db } from '@/db/client';
 import { readReplica } from '@/db/replica';
 import { reviewLogs, seasonResults, users, xpEvents } from '@/db/schema';
 import { ok, requireUser, route, ApiError } from '@/services/api';
+import { loadSeasonConfigs } from '@/services/season-config';
 import { rankFor, type Rank } from '@/domain/ranked';
 import {
-  SEASON_LENGTH_DAYS,
   SEASON_PLACEMENT_REVIEWS,
   elapsedSeasons,
   rewardFor,
@@ -17,48 +17,58 @@ import {
 /**
  * GET /api/v1/seasons
  *
- * The seasonal half of the ranked system. Three things, in the order the screen
- * wants them:
+ * The seasonal rank. Since the ladder *is* seasonal now (see `domain/ranked`),
+ * this is not a parallel system — it is the same pure rank engine reading a
+ * different window, and it carries the two things a season adds: the clock, and
+ * the record of the seasons you have already finished.
  *
- *   1. **The season clock** — which ninety-day window we are in and how much of
- *      it is gone. Derived from `domain/seasons`, never stored.
- *   2. **The season board** — who is ahead *this* season, on XP earned inside
- *      the window, with every row's rank worked out by the same pure engine
- *      that draws the lifetime ladder. This is the half that makes it feel
- *      competitive: everyone on that board started this season on Bronze, so
- *      the person above you was reachable.
- *   3. **The showcase** — every closed season you have a result for, its final
- *      crest, and the reward that tier earns.
+ *   1. **The season clock** — which configured window we are in and how much of
+ *      it is gone. Read from the `seasons` table via `domain/seasons`.
+ *   2. **Your season** — XP earned inside the window, read from the PRIMARY.
+ *   3. **The season board** — who is ahead this season.
+ *   4. **The showcase** — every closed season you have a result for.
+ *
+ * ── Why your own numbers come off the primary ──────────────────────────────
+ *
+ * The board and the showcase tolerate a seconds-old mirror; your own XP does
+ * not. A review that earns XP writes to the primary, and the drain that carries
+ * it to Neon runs on a *daily* cron — so reading your own total off the replica
+ * made XP appear not to register for up to a day, which is the exact bug this
+ * endpoint used to have. Aggregating one user's rows on the primary is a single
+ * indexed scan; the board stays on the replica because it *should* tolerate lag.
  *
  * **Backfill, honestly.** A closed season's result is derived from the XP earned
  * inside its window and written to `season_results` the first time anybody looks
- * at it. So the record arrives without a cron, at worst a season late, and is
- * written once — the upsert never overwrites a row whose reward is already
- * claimed.
+ * at it — read off the primary for the same reason. So the record arrives without
+ * a cron, at worst a season late, and is written once: the upsert never
+ * overwrites a row whose reward is already claimed.
  *
  * PATCH /api/v1/seasons { seasonNumber } — claim a reward on a closed season.
  */
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const now = new Date();
-  const season = seasonAt(now);
+  const configs = await loadSeasonConfigs();
+  const season = seasonAt(configs, now);
 
-  const payload = await readReplica(async (rdb) => {
-    // ── this season's own numbers ──────────────────────────────────────────
-    const [mine] = await rdb
+  // ── your own season, from the authoritative primary ──────────────────────
+  const [[mine], [mineReviews]] = await Promise.all([
+    db
       .select({ xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
       .from(xpEvents)
-      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, season.start)));
-    const [mineReviews] = await rdb
+      .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, season.start))),
+    db
       .select({ c: sql<number>`count(*)::int` })
       .from(reviewLogs)
-      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, season.start)));
+      .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, season.start))),
+  ]);
 
-    const seasonXp = Number(mine?.xp ?? 0);
-    const reviews = Number(mineReviews?.c ?? 0);
-    const placed = reviews >= SEASON_PLACEMENT_REVIEWS;
-    const rank: Rank = rankFor(seasonXp);
+  const seasonXp = Number(mine?.xp ?? 0);
+  const reviews = Number(mineReviews?.c ?? 0);
+  const placed = reviews >= SEASON_PLACEMENT_REVIEWS;
+  const rank: Rank = rankFor(seasonXp);
 
+  const payload = await readReplica(async (rdb) => {
     // ── the season board ───────────────────────────────────────────────────
     // One grouped query over the window. Thirty seats is a leaderboard; a list
     // of everybody is a census, and nobody fights for two hundredth place.
@@ -87,6 +97,14 @@ export const GET = route(async (req: NextRequest) => {
         rank: rankFor(Number(r.xp)),
       }));
 
+    // Your own row is authoritative even if the board is stale, so the "You"
+    // row on a board that has not caught up yet still shows your real XP.
+    const meRow = board.find((b) => b.isMe);
+    if (meRow) {
+      meRow.xp = seasonXp;
+      meRow.rank = rank;
+    }
+
     // Position for a learner outside the top thirty. Counting the rows above
     // you beats reading "214th" off a list that stops at thirty.
     const [ahead] = await rdb
@@ -95,7 +113,7 @@ export const GET = route(async (req: NextRequest) => {
         sql`(select user_id, sum(amount) as s from xp_events where occurred_at >= ${season.start} group by user_id) season_totals`,
       )
       .where(sql`season_totals.s > ${seasonXp}`);
-    const position = board.find((b) => b.isMe)?.position ?? Number(ahead?.c ?? 0) + 1;
+    const position = meRow?.position ?? Number(ahead?.c ?? 0) + 1;
 
     // ── the showcase ───────────────────────────────────────────────────────
     let results = await rdb
@@ -105,20 +123,23 @@ export const GET = route(async (req: NextRequest) => {
       .orderBy(desc(seasonResults.seasonNumber));
 
     const known = new Set(results.map((r) => r.seasonNumber));
-    const missing = elapsedSeasons(now).filter((n) => !known.has(n));
+    const missing = elapsedSeasons(configs, now).filter((n) => !known.has(n));
 
     if (missing.length > 0) {
       await Promise.all(
         missing.map(async (number) => {
-          const { start, end } = seasonWindow(number);
+          const { start, end } = seasonWindow(number, configs);
+          const config = configs.find((c) => c.number === number) ?? null;
           // Two aggregates, not a join: `xp_events.ref_id` points at the *card*
           // a review graded, not at the review, so there is no row to join on
           // and faking one would silently drop every exam and maths award.
-          const [agg] = await rdb
+          // Both off the PRIMARY — a final rank computed from a lagging mirror
+          // would be written down permanently, which is worse than being late.
+          const [agg] = await db
             .select({ xp: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
             .from(xpEvents)
             .where(and(eq(xpEvents.userId, user.id), gte(xpEvents.occurredAt, start), lt(xpEvents.occurredAt, end)));
-          const [reviewsIn] = await rdb
+          const [reviewsIn] = await db
             .select({ c: sql<number>`count(*)::int` })
             .from(reviewLogs)
             .where(and(eq(reviewLogs.userId, user.id), gte(reviewLogs.reviewedAt, start), lt(reviewLogs.reviewedAt, end)));
@@ -137,7 +158,7 @@ export const GET = route(async (req: NextRequest) => {
               finalRankIndex: final.index,
               finalRp: final.points,
               reviews: seasonReviews,
-              rewardId: rewardFor(final.tier).id,
+              rewardId: rewardFor(final.tier, config).id,
               endedAt: end,
             })
             .onConflictDoNothing();
@@ -146,22 +167,29 @@ export const GET = route(async (req: NextRequest) => {
 
       // Re-read rather than trusting the in-memory rows: another tab, or an
       // earlier request, may have written the same seasons a moment ago.
-      results = await rdb
+      results = await db
         .select()
         .from(seasonResults)
         .where(eq(seasonResults.userId, user.id))
         .orderBy(desc(seasonResults.seasonNumber));
     }
 
+    const lengthDays = Math.max(
+      1,
+      Math.round((season.end.getTime() - season.start.getTime()) / 86_400_000),
+    );
+
     return {
       season: {
         number: season.number,
         label: season.label,
+        name: season.name,
+        state: season.state,
         rangeLabel: season.rangeLabel,
         startIso: season.startIso,
         daysLeft: season.daysLeft,
         day: season.day,
-        lengthDays: SEASON_LENGTH_DAYS,
+        lengthDays,
         percentElapsed: season.percentElapsed,
       },
       mine: { xp: seasonXp, reviews, placed, rank, position, fieldSize: board.length },
@@ -170,7 +198,7 @@ export const GET = route(async (req: NextRequest) => {
         seasonNumber: r.seasonNumber,
         rank: rankFor(r.finalRp),
         reviews: r.reviews,
-        reward: rewardFor(r.finalTier as Rank['tier']),
+        reward: rewardFor(r.finalTier as Rank['tier'], configs.find((c) => c.number === r.seasonNumber) ?? null),
         rewardClaimedAt: r.rewardClaimedAt ? r.rewardClaimedAt.toISOString() : null,
         endedAt: r.endedAt.toISOString(),
       })),

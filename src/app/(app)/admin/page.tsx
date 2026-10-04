@@ -9,6 +9,7 @@ import { Notice } from '@/components/Notice';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { ContentManager } from './ContentManager';
+import { SeasonManager } from './SeasonManager';
 import { ClozeMarking } from '../library/ClozeMarking';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StudentProgressPanel } from '@/components/staff/StudentProgressPanel';
@@ -270,6 +271,21 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* ── Seasons ──────────────────────────────────────────────────────── */}
+      <section className="card">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="t-strong">Seasons</h2>
+          <span className="chip">rank resets here</span>
+        </div>
+        <p className="t-caption mt-1 text-muted-foreground">
+          The windows every learner&apos;s rank is measured inside. Open the next one, stretch this one over
+          a holiday, rename it, or pay a different reward — the rank follows whatever these say.
+        </p>
+        <div className="mt-5">
+          <SeasonManager />
+        </div>
       </section>
 
       {/* ── Subjects ─────────────────────────────────────────────────────── */}

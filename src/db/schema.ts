@@ -402,6 +402,42 @@ export const leagueMemberships = pgTable('league_memberships', {
 }));
 
 /**
+ * A configured season.
+ *
+ * This table replaced the `SEASON_EPOCH_MS` arithmetic in `domain/seasons.ts`.
+ * The epoch derived every boundary from two constants, which meant nobody could
+ * open a season early, stretch one over a holiday, name it, or pay a different
+ * reward — all of which are ordinary things an operator needs to do. The dates
+ * are now rows, editable from the admin panel, and `domain/seasons.ts` became
+ * the single pure reader of them so the web app, the API and both phones still
+ * agree on what "now" means.
+ *
+ * `state` is the operator's intent; the dates are the truth. A row marked
+ * `active` whose window has passed is closed by arithmetic regardless, so a
+ * forgotten flag can never leave the app with two live seasons.
+ */
+export const seasons = pgTable('seasons', {
+  /** 1-based; the primary key, and what `season_results.season_number` refers to. */
+  number: integer('number').primaryKey(),
+  /** Display name. Null means "Season N" — the generated default. */
+  name: text('name'),
+  /** Inclusive, 00:00 UTC. */
+  startsAt: timestamp('starts_at', { mode: 'date' }).notNull(),
+  /** Exclusive — the first instant of the next season. */
+  endsAt: timestamp('ends_at', { mode: 'date' }).notNull(),
+  state: text('state', { enum: ['draft', 'active', 'closed'] }).notNull().default('draft'),
+  /** Per-tier reward overrides, `{ "gold": { name, detail, icon } }`. Empty means
+   *  the built-in `SEASON_REWARDS` ladder. Sparse on purpose: an operator who
+   *  renames one reward should not have to restate the other nine. */
+  rewards: jsonb('rewards').$type<Record<string, { name: string; detail: string; icon: string }>>(),
+  /** Free-text note for the operator, shown in the admin panel only. */
+  note: text('note'),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  windowIdx: index('seasons_window_idx').on(t.startsAt, t.endsAt),
+}));
+
+/**
  * What a learner finished a season on.
  *
  * One row per (user, season), written once when the season closes and never
@@ -410,8 +446,8 @@ export const leagueMemberships = pgTable('league_memberships', {
  * product wants to show off, and recomputing it from an XP ledger that keeps
  * taking entries would mean the crest on the wall moves under them.
  *
- * The season windows themselves are derived (`domain/seasons.ts`) — this table
- * records what happened, not when.
+ * The season windows come from the `seasons` table above; this table records
+ * what happened, not when.
  */
 export const seasonResults = pgTable('season_results', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
