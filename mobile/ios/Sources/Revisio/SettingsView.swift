@@ -13,6 +13,7 @@ private let visibilityRows: [(key: String, label: String, hint: String)] = [
     ("name", "Full name", "Your real name, as registered."),
     ("nickname", "Display name", "The name your profile leads with."),
     ("bio", "About me", "Your short introduction."),
+    ("pronouns", "Pronouns", "The words you want to be referred to by."),
     ("subjects", "Subjects", "What you are studying."),
     ("stats", "XP and rank", "Your level, XP, streak and review count."),
     ("achievements", "Achievements", "The badges you have earned."),
@@ -46,6 +47,7 @@ struct SettingsView: View {
     @State private var username = ""
     @State private var nickname = ""
     @State private var bio = ""
+    @State private var pronouns = ""
     @State private var emoji: String?
     @State private var color = "ink"
 
@@ -278,6 +280,7 @@ struct SettingsView: View {
             || nickname != (me.nickname ?? "")
             || username != (me.username ?? "")
             || bio != (me.bio ?? "")
+            || pronouns != (me.pronouns ?? "")
             || emoji != me.avatarEmoji
             || color != me.avatarColor
 
@@ -366,6 +369,42 @@ struct SettingsView: View {
                     hint: "A line or two, up to 240 characters.",
                     lines: 3
                 )
+                Spacer().frame(height: 14)
+                // Pronouns are a free-text field with a shortlist attached, not a
+                // list of fixed choices. The chips sit above the field (which
+                // brings its own label, so the word appears once) and tapping the
+                // selected one clears it — a shortlist you can only add to would
+                // make "ask me" impossible to choose.
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 92), spacing: 6)],
+                    alignment: .leading,
+                    spacing: 6
+                ) {
+                    ForEach(pronounSuggestions, id: \.self) { option in
+                        ChipPill(text: option, active: pronouns.trimmedLower == option) {
+                            pronouns = pronouns.trimmedLower == option ? "" : option
+                        }
+                    }
+                }
+                Spacer().frame(height: 8)
+                SettingsField(
+                    label: "Pronouns",
+                    placeholder: "Optional — anything you want to be called by",
+                    value: Binding(get: { pronouns }, set: { pronouns = String($0.prefix(pronounMax)) })
+                )
+                Spacer().frame(height: 4)
+                // The two answers this field can give: what it will be called,
+                // and whether anyone but the owner will see it. The second is a
+                // switch in Privacy below, so it is stated here rather than left
+                // to be discovered on a shared link.
+                Text(
+                    me.profileVisibility.pronouns
+                        ? "Shown on your public profile beside your name."
+                        : "Private for now — visitors will not see it. Switch Pronouns on under Privacy below."
+                )
+                .font(Type.fine.font)
+                .foregroundStyle(colors.mutedForeground)
+                .fixedSize(horizontal: false, vertical: true)
 
                 Spacer().frame(height: 18)
                 HStack(spacing: 12) {
@@ -378,7 +417,7 @@ struct SettingsView: View {
                         enabled: dirty && problem == nil && !model.savingProfile,
                         large: true
                     ) {
-                        model.saveProfile(name: name, username: username, nickname: nickname, bio: bio, emoji: emoji ?? "", color: color)
+                        model.saveProfile(name: name, username: username, nickname: nickname, bio: bio, pronouns: pronouns, emoji: emoji ?? "", color: color)
                     }
                     if dirty, problem == nil {
                         Text("Unsaved changes")
@@ -610,6 +649,7 @@ struct SettingsView: View {
         username = me.username ?? ""
         nickname = me.nickname ?? ""
         bio = me.bio ?? ""
+        pronouns = me.pronouns ?? ""
         emoji = me.avatarEmoji
         color = me.avatarColor
     }
@@ -617,13 +657,21 @@ struct SettingsView: View {
 
 // ── the pieces a settings list is built from ────────────────────────────────
 
-/// `Visibility` has six named flags; the row list addresses them by key.
+/// The typed value as the shortlist spells it, so a chip is active whether the
+/// learner tapped it or typed it. Case is folded here *only* for the chip
+/// comparison — what gets stored is what they typed, untouched.
+private extension String {
+    var trimmedLower: String { trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+}
+
+/// `Visibility` has seven named flags; the row list addresses them by key.
 private extension RevisioEngine.Visibility {
     func flag(_ key: String) -> Bool {
         switch key {
         case "name": return name
         case "nickname": return nickname
         case "bio": return bio
+        case "pronouns": return pronouns
         case "subjects": return subjects
         case "stats": return stats
         default: return achievements
@@ -632,12 +680,13 @@ private extension RevisioEngine.Visibility {
 
     func withFlag(_ key: String, _ value: Bool) -> RevisioEngine.Visibility {
         switch key {
-        case "name": return RevisioEngine.Visibility(name: value, nickname: nickname, bio: bio, subjects: subjects, stats: stats, achievements: achievements)
-        case "nickname": return RevisioEngine.Visibility(name: name, nickname: value, bio: bio, subjects: subjects, stats: stats, achievements: achievements)
-        case "bio": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: value, subjects: subjects, stats: stats, achievements: achievements)
-        case "subjects": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, subjects: value, stats: stats, achievements: achievements)
-        case "stats": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, subjects: subjects, stats: value, achievements: achievements)
-        default: return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, subjects: subjects, stats: stats, achievements: value)
+        case "name": return RevisioEngine.Visibility(name: value, nickname: nickname, bio: bio, pronouns: pronouns, subjects: subjects, stats: stats, achievements: achievements)
+        case "nickname": return RevisioEngine.Visibility(name: name, nickname: value, bio: bio, pronouns: pronouns, subjects: subjects, stats: stats, achievements: achievements)
+        case "bio": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: value, pronouns: pronouns, subjects: subjects, stats: stats, achievements: achievements)
+        case "pronouns": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, pronouns: value, subjects: subjects, stats: stats, achievements: achievements)
+        case "subjects": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, pronouns: pronouns, subjects: value, stats: stats, achievements: achievements)
+        case "stats": return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, pronouns: pronouns, subjects: subjects, stats: value, achievements: achievements)
+        default: return RevisioEngine.Visibility(name: name, nickname: nickname, bio: bio, pronouns: pronouns, subjects: subjects, stats: stats, achievements: value)
         }
     }
 }

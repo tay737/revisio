@@ -108,6 +108,12 @@ export default async function ProfilePage({
             <ProfileBadgeChip key={b.id} label={b.label} icon={b.icon} color={b.color} />
           ))}
           {profile.username ? <span className="t-caption text-muted-foreground">@{profile.username}</span> : null}
+          {/* Pronouns ride the identity row, next to the handle: that is where
+              someone scanning for a name is already looking, and a hidden field
+              simply leaves a blank rather than a lock. */}
+          {profile.pronouns ? (
+            <span className="t-caption text-muted-foreground">· {profile.pronouns}</span>
+          ) : null}
           {profile.visibility.name && profile.name && profile.name !== display ? (
             <span className="t-caption text-muted-foreground">· {profile.name}</span>
           ) : null}

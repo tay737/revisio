@@ -43,6 +43,8 @@ import app.revisio.UiState
 import app.revisio.engine.MeDetail
 import app.revisio.engine.Visibility
 import app.revisio.engine.usernameProblem
+import app.revisio.engine.PRONOUN_MAX
+import app.revisio.engine.PRONOUN_SUGGESTIONS
 
 /**
  * Settings — one page, five questions, exactly as `src/app/(app)/settings/page.tsx`
@@ -81,6 +83,7 @@ private val VISIBILITY_ROWS = listOf(
     Triple("name", "Full name", "Your real name, as registered."),
     Triple("nickname", "Display name", "The name your profile leads with."),
     Triple("bio", "About me", "Your short introduction."),
+    Triple("pronouns", "Pronouns", "The words you want to be referred to by."),
     Triple("subjects", "Subjects", "What you are studying."),
     Triple("stats", "XP and rank", "Your level, XP, streak and review count."),
     Triple("achievements", "Achievements", "The badges you have earned."),
@@ -219,6 +222,7 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
     var nickname by remember(me.nickname) { mutableStateOf(me.nickname.orEmpty()) }
     var username by remember(me.username) { mutableStateOf(me.username.orEmpty()) }
     var bio by remember(me.bio) { mutableStateOf(me.bio.orEmpty()) }
+    var pronouns by remember(me.pronouns) { mutableStateOf(me.pronouns.orEmpty()) }
     var emoji by remember(me.avatarEmoji) { mutableStateOf(me.avatarEmoji) }
     var color by remember(me.avatarColor) { mutableStateOf(me.avatarColor) }
 
@@ -230,6 +234,7 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
         nickname != (me.nickname ?: "") ||
         username != (me.username ?: "") ||
         bio != (me.bio ?: "") ||
+        pronouns != (me.pronouns ?: "") ||
         emoji != me.avatarEmoji ||
         color != me.avatarColor
 
@@ -325,11 +330,43 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
             imeAction = ImeAction.Default,
         )
 
+        Spacer(Modifier.height(14.dp))
+        // Pronouns are a free-text field with a shortlist attached, not a list of
+        // fixed choices: the chips are a shortcut and the box takes anything.
+        // Tapping the selected chip clears it, so "ask me" can be chosen and
+        // un-chosen without a keyboard.
+        PRONOUN_SUGGESTIONS.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { option ->
+                    ChipPill(
+                        text = option,
+                        active = pronouns.trim().lowercase() == option,
+                        onClick = {
+                            pronouns = if (pronouns.trim().lowercase() == option) "" else option
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+        SettingsField(
+            label = "Pronouns",
+            value = pronouns,
+            onChange = { if (it.length <= PRONOUN_MAX) pronouns = it },
+            placeholder = "Optional — anything you want to be called by",
+            hint = if (me.profileVisibility.pronouns) {
+                "Shown on your public profile beside your name."
+            } else {
+                "Private for now — visitors will not see it. Switch Pronouns on under Privacy below."
+            },
+            imeAction = ImeAction.Default,
+        )
+
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PillButton(
                 text = if (state.savingProfile) "Saving…" else "Save profile",
-                onClick = { viewModel.saveProfile(name, username, nickname, bio, emoji.orEmpty(), color) },
+                onClick = { viewModel.saveProfile(name, username, nickname, bio, pronouns, emoji.orEmpty(), color) },
                 icon = RevisioIcons.checked,
                 // The web disables Save until something actually changed *and*
                 // the handle is legal, then says why — it never offers a button
@@ -469,6 +506,7 @@ private fun Visibility.flag(key: String): Boolean = when (key) {
     "name" -> name
     "nickname" -> nickname
     "bio" -> bio
+    "pronouns" -> pronouns
     "subjects" -> subjects
     "stats" -> stats
     else -> achievements
@@ -478,6 +516,7 @@ private fun Visibility.withFlag(key: String, value: Boolean): Visibility = when 
     "name" -> copy(name = value)
     "nickname" -> copy(nickname = value)
     "bio" -> copy(bio = value)
+    "pronouns" -> copy(pronouns = value)
     "subjects" -> copy(subjects = value)
     "stats" -> copy(stats = value)
     else -> copy(achievements = value)

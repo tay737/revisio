@@ -124,6 +124,14 @@ fun ProfileScreen(state: UiState, viewModel: RevisioViewModel) {
                         profile.username?.let { handle ->
                             Text("@$handle", style = Type.fine.style(Muted))
                         }
+                        // Pronouns sit beside the handle, where the web puts
+                        // them. The server sends null when the owner keeps them
+                        // private, so a hidden field leaves no trace — there is
+                        // no lock, because a lock tells a visitor that
+                        // something is being withheld.
+                        profile.pronouns?.takeIf { it.isNotBlank() }?.let { theirs ->
+                            Text("· $theirs", style = Type.fine.style(Muted))
+                        }
                     }
                     // Staff-granted badge chips, exactly as the web renders them
                     // beside the role. Colour resolves from the same four tokens.

@@ -12,6 +12,7 @@ import { rankFor } from '@/domain/ranked';
 import { ApiError, type SessionUser } from '@/services/api';
 import { totalXpFor } from '@/services/study';
 import { RESERVED_USERNAMES, USERNAME_RE } from '@/lib/username';
+import { normalisePronouns } from '@/lib/pronouns';
 
 // ── The profile boundary ────────────────────────────────────────────────────
 // One module decides what a profile shows and to whom. The page and the API
@@ -23,6 +24,7 @@ export const DEFAULT_VISIBILITY: ProfileVisibility = {
   name: true,
   nickname: true,
   bio: true,
+  pronouns: true,
   subjects: true,
   stats: true,
   achievements: true,
@@ -47,6 +49,8 @@ export type ProfileRecord = {
   name: string | null;
   nickname: string | null;
   bio: string | null;
+  /** `null` for a visitor when the owner keeps pronouns private — same shape, never a value. */
+  pronouns: string | null;
   avatarEmoji: string | null;
   avatarColor: string;
   avatarUrl: string | null;
@@ -126,6 +130,7 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
       name: vis.name || owner ? row.name : null,
       nickname: vis.nickname || owner ? row.nickname ?? null : null,
       bio: vis.bio || owner ? row.bio ?? null : null,
+      pronouns: vis.pronouns || owner ? normalisePronouns(row.pronouns) : null,
       avatarEmoji: row.avatarEmoji ?? null,
       avatarColor: row.avatarColor,
       avatarUrl: row.avatarUrl ?? null,

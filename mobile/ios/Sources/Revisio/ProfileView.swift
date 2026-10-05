@@ -101,6 +101,16 @@ struct ProfileView: View {
                                 .font(Type.fine.font)
                                 .foregroundStyle(colors.mutedForeground)
                         }
+                        // Pronouns sit beside the handle, where the web puts
+                        // them. The server sends `nil` when the owner keeps them
+                        // private, so a hidden field leaves no trace — there is
+                        // no lock, because a lock tells a visitor that something
+                        // is being withheld.
+                        if let pronouns = profile.pronouns, !pronouns.isEmpty {
+                            Text("· \(pronouns)")
+                                .font(Type.fine.font)
+                                .foregroundStyle(colors.mutedForeground)
+                        }
                     }
                     // Staff-granted badge chips, exactly as the web renders them
                     // beside the role. Colour resolves from the same four tokens.

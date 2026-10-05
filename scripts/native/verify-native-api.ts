@@ -95,8 +95,8 @@ async function main() {
     JSON.stringify(me.body).slice(0, 300),
   );
   check(
-    '/me visibility carries all six switches',
-    ['name', 'nickname', 'bio', 'subjects', 'stats', 'achievements'].every(
+    '/me visibility carries all seven switches',
+    ['name', 'nickname', 'bio', 'pronouns', 'subjects', 'stats', 'achievements'].every(
       (key) => typeof me.body?.profileVisibility?.[key] === 'boolean',
     ),
     me.body?.profileVisibility,
@@ -286,6 +286,7 @@ async function main() {
     check(
       'a public profile is shaped the way the client reads it, private fields as null',
       present(profile.body, 'visibility') &&
+        present(profile.body, 'pronouns') &&
         present(profile.body, 'gamification') &&
         present(profile.body, 'reviewCount') &&
         arr(profile.body, 'subjects') &&
@@ -293,8 +294,8 @@ async function main() {
       Object.keys(profile.body ?? {}),
     );
     check(
-      'a public profile carries all six visibility switches',
-      ['name', 'nickname', 'bio', 'subjects', 'stats', 'achievements'].every(
+      'a public profile carries all seven visibility switches',
+      ['name', 'nickname', 'bio', 'pronouns', 'subjects', 'stats', 'achievements'].every(
         (key) => typeof profile.body?.visibility?.[key] === 'boolean',
       ),
       profile.body?.visibility,
