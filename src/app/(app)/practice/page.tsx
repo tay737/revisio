@@ -242,7 +242,7 @@ export default function PracticePage() {
               {result && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} transition={SPRING.soft} className="overflow-hidden">
                   <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.correct ? 'bg-good-soft' : 'bg-destructive/10'}`}>
-                    <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.correct ? 'text-good-pressed' : 'text-destructive'}`}>
+                    <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
                       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-white ${result.correct ? 'bg-good' : 'bg-destructive'}`}>
                         <Icon name={result.correct ? 'correct' : 'close'} size={16} strokeWidth={3} />
                       </span>

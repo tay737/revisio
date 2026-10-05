@@ -102,6 +102,19 @@ export const TIER_ORDER: Tier[] = [
  * Returned as a `var()` string rather than a class name on purpose: the tier is
  * data, so the colour has to travel as data.
  */
+const TIER_INK_VAR: Record<Tier, string> = {
+  bronze: 'var(--tier-bronze)',
+  silver: 'var(--tier-silver)',
+  gold: 'var(--tier-gold)',
+  platinum: 'var(--tier-platinum)',
+  emerald: 'var(--tier-emerald)',
+  sapphire: 'var(--tier-sapphire)',
+  diamond: 'var(--tier-diamond)',
+  ruby: 'var(--tier-ruby)',
+  obsidian: 'var(--tier-obsidian)',
+  legend: 'var(--tier-legend)',
+};
+
 const TIER_COLOR_VAR: Record<Tier, string> = {
   bronze: 'var(--tier-bronze)',
   silver: 'var(--tier-silver)',
@@ -118,6 +131,19 @@ const TIER_COLOR_VAR: Record<Tier, string> = {
 /** The tier's metal, ready to hand to `style={{ color }}`. */
 export function tierColor(tier: Tier): string {
   return TIER_COLOR_VAR[tier] ?? TIER_COLOR_VAR.bronze;
+}
+
+/**
+ * The tier's metal *as text* — fills and text-legible inks are different pairs.
+ *
+ * The metals are tuned to read as metal at crest size, and the lightest of them
+ * (bronze, platinum, silver, gold) sat under 4.5:1 as 10–12px labels on white
+ * (axe, the ladder rail and the board). Where the metal says a *word*, use this
+ * variant; where it fills a crest or a meter, keep `tierColor`. Same hue, same
+ * token file, two jobs.
+ */
+export function tierInk(tier: Tier): string {
+  return TIER_INK_VAR[tier] ?? TIER_INK_VAR.bronze;
 }
 
 export type LadderRung = {

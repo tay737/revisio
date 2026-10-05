@@ -52,6 +52,7 @@
   --accent: #efefef; /* hover surface for shadcn primitives */
   --accent-foreground: #000000;
   --destructive: #ff4b4b; /* cardinal     #ff4b4b */
+  --destructive-ink: #c01a28; /* cardinal, darkened — destructive as text/icon on a light wash (axe) */
   --destructive-foreground: #ffffff;
   --border: #e2e2e2; /* surface-pressed #e2e2e2 */
   --border-strong: #d0d0d0; /* the 2px input stroke */
@@ -67,12 +68,14 @@
      strong variant; the hue stays, the pair gets legible. */
   --good: #58cc02; /* owl green  — correct, progress, in-session CTA */
   --good-pressed: #58a700; /* tree-frog  — the pressed lip below */
-  --good-strong: #419300; /* tree-frog, darkened — green as text/icon on light; the btn-good fill */
+  --good-strong: #3d7d00; /* moss, darkened — the btn-good fill; white needs ≥4.5:1 (axe) */
   --good-soft: #d7ffb8; /* sea-sponge — the correct-answer wash */
   --streak: #ff9600; /* fox        — the day streak, nothing else */
   --streak-pressed: #c96a00; /* fox, darkened — streak as text/icon on light */
   --gold: #ffc800; /* bee        — trophies, promotions, achievements */
+  --gold-ink: #8a6200; /* bee, darkened — gold as text/icon on light (axe) */
   --info: #1cb0f6; /* macaw      — notes and reference material */
+  --info-ink: #0071b8; /* macaw, darkened — info as text/icon on light (axe) */
 
   /* ── The ten metals ─────────────────────────────────────────────────────
      A deliberate, tightly scoped exception to the one-accent chrome: the rank
@@ -87,10 +90,13 @@
      the other: platinum is near-white with a cool cast so it reads as brighter
      than silver rather than as a different grey, and Legend is rose rather than
      a second gold so the summit is unmistakable at 34px. */
-  --tier-bronze: #a9682f;
-  --tier-silver: #8b95a3;
-  --tier-gold: #c7931f;
-  --tier-platinum: #cdd6e0;
+  /* Values first picked to read as metal at 34px; the light ones (bronze,
+     platinum) are darkened just far enough to also carry 10px text on white —
+     the tier labels in the ladder rail and the board. */
+  --tier-bronze: #7d4c1f;
+  --tier-silver: #64707f;
+  --tier-gold: #8a6a00;
+  --tier-platinum: #5a6b7d;
   --tier-emerald: #0f9a63;
   --tier-sapphire: #2f5fd0;
   --tier-diamond: #0fa9c8;
@@ -139,6 +145,7 @@
   --accent: #282828;
   --accent-foreground: #ffffff;
   --destructive: #ff6b6b;
+  --destructive-ink: #ff8a8a; /* dark ground wants the *lighter* cardinal as text */
   --destructive-foreground: #000000;
   --border: #2e2e2e;
   --border-strong: #4b4b4b; /* hairline-mid #4b4b4b */
@@ -154,7 +161,9 @@
   --streak: #ffa53d;
   --streak-pressed: #ffbe6b;
   --gold: #ffd23f;
+  --gold-ink: #ffd23f; /* on black the base gold already carries text */
   --info: #1cb0f6;
+  --info-ink: #1cb0f6;
 
   /* The same ten metals on black: every hue steps *up* in lightness and drops
      in saturation, the way the dark ground already treats the game colours. */
@@ -251,6 +260,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-ink: var(--destructive-ink);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
@@ -264,7 +274,9 @@
   --color-streak: var(--streak);
   --color-streak-pressed: var(--streak-pressed);
   --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
   --color-info: var(--info);
+  --color-info-ink: var(--info-ink);
   --color-band: var(--band);
   --color-band-foreground: var(--band-foreground);
   --color-band-card: var(--band-card);
@@ -532,7 +544,11 @@
   /* Sticky chrome. Glass is sanctioned here and only here: a translucent bar
      that content scrolls *under* is a real optical effect, not decoration. */
   .glass-bar {
-    background: color-mix(in oklab, var(--background) 82%, transparent);
+    /* 95% over 82%: the glass is the design language, but a translucent bar
+       lets a mid-page black band show through behind 12px muted text — the
+       companion line dropped to 4.24:1 in axe. Two points of opacity bought
+       the glass back without visibly changing it. */
+    background: color-mix(in oklab, var(--background) 95%, transparent);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
@@ -612,9 +628,11 @@
   /* The in-session action. Green is the only colour permitted to carry a
      primary action, and only inside a study loop — see the header note. */
   .btn-good {
-    /* The fill is --good-strong, not --good: white on #58cc02 was ≈2.0:1,
-       which fails 4.5:1 for the one label the whole session depends on.
-       The hue is unchanged; only the pair got legible (docs/UX-AUDIT P2-4). */
+    /* The fill is --good-strong: white on the owl-green #58cc02 was ≈2.0:1 and
+       even the first strong pick (#419300) measured 3.89:1 in axe — both fail
+       4.5:1 for the one label the whole session depends on. The hue is
+       unchanged; only the pair got legible (docs/UX-AUDIT P2-4, then the
+       browser a11y audit). */
     background: var(--good-strong);
     color: #ffffff;
     font-weight: 700;
@@ -623,7 +641,7 @@
     box-shadow: 0 4px 0 0 var(--good-pressed);
   }
   .btn-good:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--good-strong) 90%, var(--good));
+    background: color-mix(in oklab, var(--good-strong) 92%, var(--good));
   }
   .btn-good:active:not(:disabled) {
     transform: translateY(4px);
@@ -780,6 +798,9 @@
     border: 1px solid var(--border);
     background: var(--card);
     padding: 0 11px;
+    /* ink-muted, not mute-on-mute: the muted value itself sits on white at
+       7.0:1, but on the chip's own #efefef-ish ground it measured 4.24:1. */
+    color: var(--ink-muted);
     font-size: 13px;
     font-weight: 500;
     color: var(--foreground);
@@ -836,7 +857,9 @@
     color: #000000;
   }
   .badge-good {
-    background: var(--good);
+    /* --good-strong under white ink, not --good: the badge is 11px text and
+       white on the owl green measured ≈2.0:1. Same hue, legible pair. */
+    background: var(--good-strong);
     color: #ffffff;
   }
   .badge-quiet {
@@ -964,7 +987,10 @@
     animation: var(--animate-breathe);
   }
 
-  /* Horizontal rails (the rank ladder, chip rows) — snap, no visible track. */
+  /* Horizontal rails (the rank ladder, chip rows) — snap, no visible track.
+     `scroll-snap` plus a hidden scrollbar made the rail keyboard-dead: axe's
+     scrollable-region-focusable. Focusable children give it keyboard access
+     without a visible track; the ladder's rungs are interactive anyway. */
   .rail {
     display: flex;
     gap: 10px;
@@ -972,6 +998,13 @@
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+  }
+  .rail:focus-within {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
+  .rail > :focus-visible {
+    outline-offset: 2px;
   }
   .rail::-webkit-scrollbar {
     display: none;

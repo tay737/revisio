@@ -211,11 +211,11 @@ export default function LibraryPage() {
                       <span className="t-caption mt-0.5 flex flex-wrap items-center gap-x-2 text-muted-foreground">
                         <span>{t.subjectName ?? 'No subject'}</span>
                         <span>·</span>
-                        <span className={t.cardCount === 0 ? 'text-destructive' : undefined}>
+                        <span className={t.cardCount === 0 ? 'text-destructive-ink' : undefined}>
                           {t.cardCount} {t.cardCount === 1 ? 'question' : 'questions'}
                         </span>
                         <span>·</span>
-                        <span className={t.lessonCount === 0 ? 'text-destructive' : undefined}>
+                        <span className={t.lessonCount === 0 ? 'text-destructive-ink' : undefined}>
                           {t.lessonCount} note {t.lessonCount === 1 ? 'set' : 'sets'}
                         </span>
                       </span>

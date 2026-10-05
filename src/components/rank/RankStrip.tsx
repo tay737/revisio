@@ -158,9 +158,9 @@ export function RankStrip({
                 size={13}
                 className={
                   lobby.zone === 'promotion'
-                    ? 'text-good'
+                    ? 'text-good-strong'
                     : lobby.zone === 'demotion'
-                      ? 'text-destructive'
+                      ? 'text-destructive-ink'
                       : 'text-muted-foreground'
                 }
               />

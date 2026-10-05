@@ -35,7 +35,11 @@
     "verify:native:ios": "node scripts/native/check-ios-target.mjs",
     "native:ios:test": "cd mobile/ios && swift test",
     "native:ios:build": "cd mobile/ios && swift build --build-path .build/ios-sim --triple arm64-apple-ios17.0-simulator --sdk \"$(xcrun --sdk iphonesimulator --show-sdk-path)\"",
-    "verify:season-config": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-season-config.ts"
+    "verify:season-config": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-season-config.ts",
+    "e2e:smoke": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/smoke.ts",
+    "e2e:headed": "E2E_HEADED=1 npm run e2e:smoke",
+    "e2e:restore": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/restore.ts",
+    "e2e:a11y": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/a11y.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
@@ -89,7 +93,9 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.3",
     "@types/uuid": "^10.0.0",
+    "axe-core": "4.13.0",
     "drizzle-kit": "^0.31.4",
+    "playwright-core": "^1.63.0",
     "postcss": "^8.4.39",
     "sharp": "^0.35.4",
     "tailwindcss": "^4.3.3",

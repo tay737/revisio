@@ -95,6 +95,10 @@ export default function RankPage() {
 
   return (
     <div className="space-y-4">
+      {/* The screen's own h1: the black RankStrip band is the page's visual
+          header, but axe (and a screen reader's heading list) need one heading
+          that says where you are — same pattern as the auth screens. */}
+      <h1 className="sr-only">Rank</h1>
       <Notice tone="note" show={!!note}>
         {note}
       </Notice>

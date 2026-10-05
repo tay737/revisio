@@ -1064,3 +1064,82 @@ playtest of `GET/PATCH /api/v1/me` and `GET /api/v1/profile/:handle` against the
 production build, which left the account exactly as it found it. `tsc` clean;
 `next build` clean; `swift build` + `swift test` 15/15; `xcodebuild Revisio-iOS`
 succeeded; Gradle `:engine:test :app:compileDebugKotlin` clean.
+
+## 27. As built (v1.9, 2026-10-05) — a browser harness, and the bug it found on day one
+
+### 27.1 What the harness is for
+
+Everything before this proved things about *code*: `tsc`, a build, an API
+contract check. None of it could see what a learner sees — which is why the
+responsive pass and the merged Rank tab shipped on the strength of a typecheck
+and were never once clicked. `scripts/e2e/` is the answer to that, and its shape
+follows from three rules:
+
+- **`playwright-core`, and a browser we find rather than download.** A full
+  `playwright` install drags ~150 MB of browser along on every fresh clone, for
+  a tool that only runs when someone is debugging production. So
+  `findChromium()` resolves an explicit `E2E_CHROME`, then the Playwright cache
+  (globbed, because the version directory changes every release), then a system
+  Chrome — and when there is none, it prints the two commands that fix it instead
+  of failing with "executable doesn't exist".
+- **Findings are collected from the page, not from the checks.** Every uncaught
+  error, console error, non-5xx 4xx, 5xx and failed request is a finding, and a
+  run with findings fails. A browser test that only asserts what it expected to
+  find will happily pass on a page that threw behind the assertion. Two
+  exceptions are named and justified in the ignore list: browser-injected
+  resources, and an aborted `?_rsc=` prefetch. A 401 on `/api/v1/*` is *not* on
+  that list — it is the documented refresh-and-retry dance, so it is excluded by
+  rule instead, and every other 4xx is still a finding.
+- **A check must never pass because the thing before it broke.** "The visitor
+  does not see the pronouns" is trivially true when the pronouns were never
+  saved, which is exactly what the first production run showed: three green
+  checks that meant nothing. Downstream checks of a write now `skip` with a
+  reason, and skipped is counted separately so a broken run cannot look greener
+  than it is.
+
+Two helpers earn their keep: `settleText`/`waitForText` wait for the sentence
+being asserted (a companion strip is rendered above every screen, so "the page
+has text" is true long before the content mounts), and `noHorizontalOverflow`
+asks `scrollWidth > clientWidth` at 390px and 320px — the only honest way to ask
+"does this fit", and the check that would have caught the 320px work on the day it
+shipped.
+
+### 27.2 The bug it found, in one run
+
+The first production run failed on `500 PATCH /api/v1/me` — from the settings
+form, whose save has been broken for every learner since the palette refactor.
+`/api/v1/me` imported `AVATAR_COLORS`/`BANNER_COLORS` from
+`components/ui/avatar`, which is `'use client'` and re-exports the constants for
+the form's convenience. So `AVATAR_COLORS.includes(…)` on the server was a call
+into a client-module proxy: *"Attempted to call includes() from the server"*, and
+a 500. The palettes have a server-importable home in `lib/colors` precisely so
+this cannot happen, and the import now goes there.
+
+It survived every check that existed because every one of them PATCHed a *single
+field*. The form sends the whole profile; the browser sends what the form sends.
+Lesson recorded in AGENTS.md: a hand-written API check chooses its own payload,
+and a payload you chose cannot tell you what the UI sends.
+
+### 27.3 What it will write to production, and how that is undone
+
+The harness signs in as a dedicated throwaway (`e2e-probe@revisio.probe`),
+created straight in the database because registration mails a verification link
+nothing here can click and login refuses an unverified account. `assertProbeEmail`
+refuses any address that does not look like a probe, so a mistyped `E2E_EMAIL`
+cannot send a run into a real learner's settings.
+
+Every field it may touch is snapshotted before the first click and restored in a
+`finally` — and because a `finally` does not run when a machine is killed, the
+snapshot is *also* written to `artifacts/e2e/<run>/restore.json` before any
+mutation happens, with `npm run e2e:restore` to apply it. A run that dies
+mid-click leaves a receipt, not a mess. The suite never submits a review, answers
+a card, or changes a password.
+
+### 27.4 Verification
+
+`npm run e2e:smoke` against production: **26 passed, 0 failed, 0 skipped, 0
+findings** in 43s — landing, sign-in through the real form, dashboard (no
+overflow at 390 or 320), the review queue's own words, the four merged tabs, then
+the pronoun chip → save → visitor-sees-it → hide → visitor-does-not → show-again
+cycle, each verified from a second browser context that was never signed in.
+Screenshots and `summary.json` land in `artifacts/e2e/<run>/` (gitignored).

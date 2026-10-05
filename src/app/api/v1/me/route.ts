@@ -10,7 +10,14 @@ import { totalXpFor } from '@/services/study';
 import { todayStats } from '@/services/stats';
 import { validateUsername, DEFAULT_VISIBILITY } from '@/services/profile';
 import { normalisePronouns, pronounsProblem } from '@/lib/pronouns';
-import { BANNER_COLORS } from '@/components/ui/avatar';
+// The palettes come from `lib/colors`, not from the avatar *component*. The
+// component is `'use client'` and re-exports the same constants for the form's
+// convenience, so importing them from there in a route handler makes
+// `AVATAR_COLORS.includes(…)` a call into a client-module proxy — which throws
+// "Attempted to call includes() from the server" and turns every profile save
+// into a 500. The palettes have a server-importable home precisely so this
+// cannot happen; use it.
+import { AVATAR_COLORS, BANNER_COLORS } from '@/lib/colors';
 
 // The GET is all reads, so when Neon is configured most of the payload comes
 // from the replica — but the identity row comes from the PRIMARY: a save that
@@ -95,8 +102,6 @@ export const GET = route(async (req: NextRequest) => {
 
   return ok(payload, payload ? undefined : { status: 404 });
 });
-
-const AVATAR_COLORS = ['ink', 'moss', 'bee', 'dawn', 'sky'] as const;
 
 /** PATCH /me — identity, profile and preference writes, one door. */
 export const PATCH = route(async (req: NextRequest) => {

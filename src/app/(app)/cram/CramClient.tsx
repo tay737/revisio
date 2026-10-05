@@ -308,7 +308,7 @@ export default function CramClient() {
 
               {result && (
                 <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.verdict.correct ? 'bg-good/10' : 'bg-destructive/10'}`}>
-                  <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.verdict.correct ? 'text-good' : 'text-destructive'}`}>
+                  <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.verdict.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
                     <Icon name={result.verdict.correct ? 'reviewed' : 'close'} size={18} />
                     {result.verdict.correct ? 'Correct' : 'Not quite'}
                     {result.xpAwarded > 0 && <span className="t-caption ml-auto font-normal text-muted-foreground">+{result.xpAwarded} XP</span>}

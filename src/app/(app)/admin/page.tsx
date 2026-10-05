@@ -101,7 +101,7 @@ export default function AdminPage() {
   if (me?.role !== 'developer') {
     return (
       <div className="card p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
           <Icon name="private" size={22} />
         </span>
         <h1 className="t-tagline mt-4">Developers only</h1>
@@ -716,7 +716,7 @@ export default function AdminPage() {
                   <td className="py-3 pr-3">
                     <span
                       className={`chip ${
-                        u.status === 'active' ? 'chip-active' : u.status === 'suspended' ? 'border-destructive/50 text-destructive' : ''
+                        u.status === 'active' ? 'chip-active' : u.status === 'suspended' ? 'border-destructive/50 text-destructive-ink' : ''
                       }`}
                     >
                       {u.status === 'pending' && !u.emailVerifiedAt ? 'unverified' : u.status}
@@ -726,7 +726,7 @@ export default function AdminPage() {
                     <Icon
                       name={u.totpEnabled ? 'secure' : 'close'}
                       size={16}
-                      className={u.totpEnabled ? 'text-good' : 'text-muted-foreground'}
+                      className={u.totpEnabled ? 'text-good-strong' : 'text-muted-foreground'}
                     />
                   </td>
                   <td className="py-3 text-right">
@@ -956,7 +956,7 @@ function Stat({ label, value, note, alarm }: { label: string; value: number; not
   return (
     <div className="card p-4">
       <span className="t-caption text-muted-foreground">{label}</span>
-      <div className={`t-display-sm num mt-1 ${alarm ? 'text-destructive' : ''}`}>{value}</div>
+      <div className={`t-display-sm num mt-1 ${alarm ? 'text-destructive-ink' : ''}`}>{value}</div>
       {note && <span className="t-fine mt-0.5 block text-muted-foreground">{note}</span>}
     </div>
   );

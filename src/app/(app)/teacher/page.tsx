@@ -96,7 +96,7 @@ export default function TeacherPage() {
   if (!me || me.role === 'student') {
     return (
       <div className="card p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
           <Icon name="private" size={22} />
         </span>
         <h1 className="t-tagline mt-4">Teachers only</h1>
@@ -209,7 +209,7 @@ export default function TeacherPage() {
                 </code>
                 <button
                   type="button"
-                  className={`btn btn-sm gap-1.5 ${copiedId === c.id ? 'btn-subtle text-good-pressed' : 'btn-secondary'}`}
+                  className={`btn btn-sm gap-1.5 ${copiedId === c.id ? 'btn-subtle text-good-strong' : 'btn-secondary'}`}
                   onClick={() => copyCode(c.id, c.joinCode)}
                   aria-label={`Copy join code ${c.joinCode}`}
                 >
@@ -217,7 +217,7 @@ export default function TeacherPage() {
                   {copiedId === c.id ? 'Copied' : 'Copy'}
                 </button>
                 {copyFailed && copiedId !== c.id && (
-                  <span className="t-fine text-destructive">Copy blocked — select the code and copy it by hand.</span>
+                  <span className="t-fine text-destructive-ink">Copy blocked — select the code and copy it by hand.</span>
                 )}
                 <button
                   type="button"
@@ -440,9 +440,9 @@ export default function TeacherPage() {
                       </span>
                     </div>
                     <div className="num mt-0.5 text-[12px] text-muted-foreground">
-                      <span className={(t.cardCount ?? 0) === 0 ? 'text-destructive' : undefined}>{t.cardCount ?? 0} questions</span>
+                      <span className={(t.cardCount ?? 0) === 0 ? 'text-destructive-ink' : undefined}>{t.cardCount ?? 0} questions</span>
                       <span className="mx-1.5">·</span>
-                      <span className={(t.lessonCount ?? 0) === 0 ? 'text-destructive' : undefined}>{t.lessonCount ?? 0} note {(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}</span>
+                      <span className={(t.lessonCount ?? 0) === 0 ? 'text-destructive-ink' : undefined}>{t.lessonCount ?? 0} note {(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}</span>
                     </div>
                   </div>
                   <button

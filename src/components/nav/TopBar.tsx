@@ -78,7 +78,7 @@ export function TopBar({
             <Icon
               name="review"
               size={14}
-              className={due > 0 ? 'text-good' : 'text-muted-foreground'}
+              className={due > 0 ? 'text-good-strong' : 'text-muted-foreground'}
             />
             {due}
           </Link>
@@ -98,7 +98,7 @@ export function TopBar({
             <Icon
               name="review"
               size={14}
-              className={due > 0 ? 'text-good' : 'text-muted-foreground'}
+              className={due > 0 ? 'text-good-strong' : 'text-muted-foreground'}
             />
             {due}
             <span className="text-muted-foreground">due</span>

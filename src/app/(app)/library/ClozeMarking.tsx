@@ -245,7 +245,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
                 <Icon
                   name={p.relation === 'exact' ? 'correct' : 'close'}
                   size={13}
-                  className={p.relation === 'exact' ? 'text-good' : p.relation === 'wrong' ? 'text-muted-foreground' : 'text-gold'}
+                  className={p.relation === 'exact' ? 'text-good-strong' : p.relation === 'wrong' ? 'text-muted-foreground' : 'text-gold-ink'}
                 />
                 <span className="font-mono">“{p.attempt}”</span>
                 <span className="ml-auto text-muted-foreground">{p.relation === 'exact' ? 'correct' : p.relation === 'wrong' ? 'wrong' : `wrong · ${p.relation} warning`}</span>
