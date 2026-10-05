@@ -29,3 +29,7 @@ dist/
 .omp/mcp.json
 .agents/mcp.json
 .env*
+
+# browser-test evidence: screenshots and reports, regenerated every run
+artifacts/
+.browsers/

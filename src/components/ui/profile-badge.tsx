@@ -10,8 +10,8 @@ import { Icon, type IconName } from '@/components/ui/icons';
 const TREATMENTS = {
   gold: 'border-gold/40 bg-gold/20 text-foreground',
   primary: 'border-primary/30 bg-primary/10 text-primary',
-  good: 'border-good/40 bg-good-soft text-good-pressed',
-  rose: 'border-destructive/40 bg-destructive/15 text-destructive',
+  good: 'border-good/40 bg-good-soft text-good-strong',
+  rose: 'border-destructive/40 bg-destructive/15 text-destructive-ink',
 } as const;
 
 export type BadgeColor = keyof typeof TREATMENTS;

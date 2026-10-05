@@ -39,7 +39,7 @@ export function InlineConfirm({
     return (
       <button
         type="button"
-        className="btn btn-ghost gap-1.5 text-destructive"
+        className="btn btn-ghost gap-1.5 text-destructive-ink"
         onClick={() => setOpen(true)}
         aria-expanded={open}
       >
@@ -55,7 +55,7 @@ export function InlineConfirm({
       aria-label={title}
       className="w-full max-w-md rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
     >
-      <p className="t-caption-s text-destructive">{title}</p>
+      <p className="t-caption-s text-destructive-ink">{title}</p>
       {message && <p className="t-caption mt-0.5 text-muted-foreground">{message}</p>}
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         <button

@@ -443,7 +443,7 @@ export default function ReviewClient() {
     if (session) {
       return (
         <div className="card mx-auto max-w-md p-7 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-pressed">
+          <span className={`mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-strong`}>
             <Icon name={allMet ? 'reviewed' : 'notes'} size={22} />
           </span>
           <h1 className="t-display-sm mt-4">
@@ -472,7 +472,7 @@ export default function ReviewClient() {
     }
     return (
       <div className="card mx-auto max-w-md p-7 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-pressed">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-strong">
           <Icon name="reviewed" size={22} />
         </span>
         <h1 className="t-display-sm mt-4">Nothing due</h1>
@@ -694,7 +694,7 @@ export default function ReviewClient() {
                 {card.kind === 'cloze' ? (
                   <input
                     type="text"
-                    className={`input ${autoMark ? 'border-good text-good-pressed' : ''}`}
+                    className={`input ${autoMark ? 'border-good text-good-strong' : ''}`}
                     placeholder="Type the missing word"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -758,7 +758,7 @@ export default function ReviewClient() {
 
             {error && (
               <p
-                className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-[13px] text-destructive"
+                className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-[13px] text-destructive-ink"
                 role="alert"
               >
                 {error}
@@ -814,7 +814,7 @@ function FirstExposureReport({
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <span className="chip num">
-          <Icon name="xp" size={14} className="text-gold" />+{sessionXp} XP
+          <Icon name="xp" size={14} className="text-gold-ink" />+{sessionXp} XP
         </span>
         <span className="chip num">
           <Icon name="reviewed" size={14} className="text-good" />
@@ -902,7 +902,7 @@ function SessionReport({
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <span className="chip num">
-          <Icon name="xp" size={14} className="text-gold" />+{sessionXp} XP
+          <Icon name="xp" size={14} className="text-gold-ink" />+{sessionXp} XP
         </span>
         <span className="chip num">
           <Icon name="reviewed" size={14} className="text-good" />
@@ -946,8 +946,8 @@ function ClozePrompt({ text, answer, revealed }: { text: string; answer: string 
           !revealed
             ? 'border-border-strong text-muted-foreground'
             : answer
-              ? 'border-good text-good-pressed'
-              : 'border-destructive text-destructive'
+              ? 'border-good text-good-strong'
+              : 'border-destructive-ink text-destructive-ink'
         }`}
       >
         {answer ?? '\u00A0'.repeat(8)}
@@ -976,7 +976,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
     >
       <div
         className={`flex items-center gap-2.5 text-[17px] font-bold ${
-          good ? 'text-good-pressed' : 'text-destructive'
+          good ? 'text-good-strong' : 'text-destructive-ink'
         }`}
       >
         <span
@@ -988,7 +988,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
         </span>
         {good ? (softened ? 'Correct — with a nudge' : 'Correct') : 'Not quite'}
         {result.xpAwarded > 0 && (
-          <span className="num ml-auto text-[13px] font-semibold text-good-pressed">
+          <span className="num ml-auto text-[13px] font-semibold text-good-strong">
             +{result.xpAwarded} XP
           </span>
         )}
@@ -1001,10 +1001,10 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
         <p className="num mt-2 text-[13px] font-semibold text-muted-foreground" aria-live="polite">
           Strength: {result.srsLabel} · level {result.srsLevel} of 12
           {card.srsLevel != null && result.srsLevel > card.srsLevel && (
-            <span className="ml-1.5 text-good-pressed">↑ level up</span>
+            <span className="ml-1.5 text-good-strong">↑ level up</span>
           )}
           {card.srsLevel != null && result.srsLevel < card.srsLevel && (
-            <span className="ml-1.5 text-destructive">↓ dropped from {card.srsLabel}</span>
+            <span className="ml-1.5 text-destructive-ink">↓ dropped from {card.srsLabel}</span>
           )}
         </p>
       )}
@@ -1025,7 +1025,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
       )}
       {verdict.missedPhrases && verdict.missedPhrases.length > 0 && (
         <p className="mt-1 text-[13px] text-foreground">
-          <span className="font-bold text-destructive">Missing: </span>
+          <span className="font-bold text-destructive-ink">Missing: </span>
           {verdict.missedPhrases.join(', ')}
         </p>
       )}
@@ -1052,7 +1052,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
           transition={SPRING.soft}
           className="mt-2.5 flex items-center gap-2 rounded-md bg-card/70 px-3 py-2"
         >
-          <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold" />
+          <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold-ink" />
           <span className="text-[13px] font-semibold">{a.name} unlocked</span>
         </motion.div>
       ))}

@@ -66,10 +66,12 @@ export type StudentProgress = {
 };
 
 const TIER_BAND: Record<SrsTier, string> = {
-  beginner: 'bg-destructive/15 text-destructive',
+  // Ink variants on the soft washes: the 12px numerals need 4.5:1 against the
+  // tint they sit on, which the base state colours missed (axe, light mode).
+  beginner: 'bg-destructive/15 text-destructive-ink',
   adept: 'bg-gold/25 text-foreground',
   seasoned: 'bg-primary/15 text-primary',
-  mastered: 'bg-good-soft text-good-pressed',
+  mastered: 'bg-good-soft text-good-strong',
 };
 
 function tierOf(level: number): SrsTier {
@@ -165,7 +167,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
               {data.struggling.map((s) => (
                 <li key={s.topicId}>
                   <div className="inset flex items-center gap-3 px-3 py-2.5">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-destructive/10 text-destructive">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
                       <Icon name="due" size={14} />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -174,7 +176,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                         {s.subjectName} · last miss {when(s.lastMissedAt)}
                       </div>
                     </div>
-                    <span className="chip border-destructive/40 text-destructive num shrink-0">
+                    <span className="chip border-destructive/40 text-destructive-ink num shrink-0">
                       {s.misses} miss{s.misses === 1 ? '' : 'es'}
                     </span>
                   </div>
@@ -202,7 +204,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                   <span
                     className={cn(
                       'grid h-6 w-6 shrink-0 place-items-center rounded-full',
-                      r.correct === null ? 'bg-secondary text-muted-foreground' : r.correct ? 'bg-good-soft text-good-pressed' : 'bg-destructive/10 text-destructive',
+                      r.correct === null ? 'bg-secondary text-muted-foreground' : r.correct ? 'bg-good-soft text-good-strong' : 'bg-destructive/10 text-destructive-ink',
                     )}
                   >
                     <Icon name={r.correct === null ? 'clock' : r.correct ? 'correct' : 'close'} size={13} />
@@ -251,7 +253,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                   <div className="truncate text-[13px] font-medium">{c.prompt ?? '(no text)'}</div>
                   <div className="t-fine truncate text-muted-foreground">
                     {c.topicName} · {c.srsLabel}
-                    {c.lapses > 0 && <span className="text-destructive"> · {c.lapses} lapse{c.lapses === 1 ? '' : 's'}</span>}
+                    {c.lapses > 0 && <span className="text-destructive-ink"> · {c.lapses} lapse{c.lapses === 1 ? '' : 's'}</span>}
                   </div>
                 </div>
                 <span className="t-fine num shrink-0 text-muted-foreground">
@@ -281,7 +283,7 @@ function OverviewStat({ label, value, note, alarm }: { label: string; value: str
   return (
     <div className={cn('inset px-3 py-2.5', alarm && 'border-destructive/40')}>
       <div className="t-eyebrow">{label}</div>
-      <div className={cn('num mt-0.5 text-[20px] font-bold leading-none', alarm && 'text-destructive')}>{value}</div>
+      <div className={cn('num mt-0.5 text-[20px] font-bold leading-none', alarm && 'text-destructive-ink')}>{value}</div>
       {note && <div className="t-fine mt-1 text-muted-foreground">{note}</div>}
     </div>
   );
@@ -300,7 +302,7 @@ function TopicHealthTable({ topics }: { topics: StudentProgress['topicHealth'] }
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-[13px] font-medium">{t.topicName}</span>
                 <span className="num shrink-0 text-[12px] text-muted-foreground">
-                  {t.masteryPct}% mastered{t.missCount > 0 && <span className="text-destructive"> · {t.missCount} miss{t.missCount === 1 ? '' : 'es'}</span>}
+                  {t.masteryPct}% mastered{t.missCount > 0 && <span className="text-destructive-ink"> · {t.missCount} miss{t.missCount === 1 ? '' : 'es'}</span>}
                 </span>
               </div>
               <span className="meter mt-1 block h-1.5">

@@ -211,7 +211,7 @@ export function ImportDeck({
           <Icon name="upload" size={16} />
           {busy ? 'Importing…' : 'Import'}
         </Button>
-        {report && <span className="t-caption text-good-pressed">{report}</span>}
+        {report && <span className="t-caption text-good-strong">{report}</span>}
       </div>
 
       <Notice tone="bad" show={Boolean(error)}>

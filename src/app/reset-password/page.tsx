@@ -94,12 +94,12 @@ function ResetPasswordInner() {
                   placeholder="Same again"
                 />
                 {mismatch && (
-                  <p className="t-fine mt-1 text-destructive">The two don&apos;t match yet.</p>
+                  <p className="t-fine mt-1 text-destructive-ink">The two don&apos;t match yet.</p>
                 )}
               </div>
 
               {error && (
-                <p className="rounded-md bg-destructive/10 px-3 py-2.5 text-[14px] text-destructive" role="alert">
+                <p className="rounded-md bg-destructive/10 px-3 py-2.5 text-[14px] text-destructive-ink" role="alert">
                   {error}
                 </p>
               )}

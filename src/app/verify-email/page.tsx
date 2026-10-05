@@ -85,7 +85,7 @@ function VerifyEmailInner() {
         <div className="card p-7 text-center">
           {state.kind === 'done' ? (
             <>
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good/10 text-good">
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good/10 text-good-strong">
                 <Icon name="reviewed" size={22} />
               </span>
               <h1 className="t-tagline mt-4">Email verified</h1>
@@ -98,7 +98,7 @@ function VerifyEmailInner() {
             </>
           ) : (
             <>
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
                 <Icon name="due" size={22} />
               </span>
               <h1 className="t-tagline mt-4">That link didn’t work</h1>

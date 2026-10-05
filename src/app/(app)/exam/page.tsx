@@ -581,7 +581,7 @@ function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number
     <div className={`card border-l-2 ${d.correct ? 'border-l-good' : 'border-l-bad'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="t-caption text-muted-foreground">{label}</span>
-        <span className={`t-caption-s tabular-nums ${d.correct ? 'text-good' : 'text-destructive'}`}>
+        <span className={`t-caption-s tabular-nums ${d.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
           {d.awarded}/{total}
         </span>
       </div>

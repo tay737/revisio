@@ -155,7 +155,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
                   aria-pressed={p.keep}
                   aria-label={p.keep ? 'Discard this proposal' : 'Keep this proposal'}
                   onClick={() => patch(i, { keep: !p.keep })}
-                  className={`btn btn-ghost btn-sm shrink-0 ${p.keep ? 'text-good' : ''}`}
+                  className={`btn btn-ghost btn-sm shrink-0 ${p.keep ? 'text-good-strong' : ''}`}
                 >
                   <Icon name={p.keep ? 'correct' : 'close'} size={15} />
                   {p.keep ? 'Keeping' : 'Discarded'}

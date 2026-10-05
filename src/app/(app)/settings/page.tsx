@@ -442,7 +442,7 @@ function SettingsBody({
               aria-invalid={!!pronounProblem}
               aria-describedby="set-pronouns-hint"
             />
-            <p id="set-pronouns-hint" className={pronounProblem ? 't-fine mt-1 text-destructive' : 't-fine mt-1 text-muted-foreground'}>
+            <p id="set-pronouns-hint" className={pronounProblem ? 't-fine mt-1 text-destructive-ink' : 't-fine mt-1 text-muted-foreground'}>
               {pronounProblem ??
                 (vis.pronouns
                   ? 'Shown on your public profile beside your name.'
@@ -624,7 +624,7 @@ function Field({ label, htmlFor, hint, bad, children }: { label: string; htmlFor
     <div>
       <label htmlFor={htmlFor} className="label">{label}</label>
       {children}
-      {hint && <p id={`${htmlFor}-hint`} className={bad ? 't-fine mt-1 text-destructive' : 't-fine mt-1 text-muted-foreground'}>{hint}</p>}
+      {hint && <p id={`${htmlFor}-hint`} className={bad ? 't-fine mt-1 text-destructive-ink' : 't-fine mt-1 text-muted-foreground'}>{hint}</p>}
     </div>
   );
 }

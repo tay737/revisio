@@ -21,9 +21,9 @@ export type { AvatarColor, BannerColor };
  */
 const SURFACE: Record<AvatarColor, string> = {
   ink: 'bg-foreground text-background',
-  moss: 'bg-good-soft text-good-pressed',
+  moss: 'bg-good-soft text-good-strong',
   bee: 'bg-gold/30 text-foreground',
-  dawn: 'bg-destructive/15 text-destructive',
+  dawn: 'bg-destructive/15 text-destructive-ink',
   sky: 'bg-primary/15 text-primary',
 };
 

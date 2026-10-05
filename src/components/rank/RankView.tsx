@@ -19,6 +19,7 @@ import {
   rankFor,
   reviewsForRp,
   tierColor,
+  tierInk,
   tierName,
   type Rank,
   type Tier,
@@ -335,7 +336,10 @@ function TheLadder({
         </span>
       </div>
 
-      <div className="rail mt-4">
+      {/* Keyboard access for the hidden-scrollbar rail (axe
+          scrollable-region-focusable): a focusable rail scrolls with the
+          keyboard, and the effect below keeps the current rung in view. */}
+      <div className="rail mt-4" tabIndex={0} role="group" aria-label="The rank ladder, thirty rungs">
         {RANK_LADDER.map((rung) => {
           const rungRank = rankFor(rung.base);
           const isCurrent = rung.index === rank.index;
@@ -357,7 +361,7 @@ function TheLadder({
                   the same rule as the crest: unreached rungs are grey. */}
               <p
                 className="text-[10px] uppercase tracking-[0.06em]"
-                style={reached ? { color: tierColor(rung.tier) } : undefined}
+                style={reached ? { color: tierInk(rung.tier) } : undefined}
               >
                 {tierName(rung.tier)}
               </p>
@@ -429,7 +433,7 @@ function SeasonBoard({
               <RankCrest rank={row.rank} size={30} showProgress={false} animate={false} />
               <span className="min-w-0 flex-1">
                 <span className={cn('block truncate text-[15px]', row.isMe && 'font-bold')}>{row.name}</span>
-                <span className="block truncate text-[12px]" style={{ color: tierColor(row.rank.tier) }}>
+                <span className="block truncate text-[12px]" style={{ color: tierInk(row.rank.tier) }}>
                   {row.rank.label}
                 </span>
               </span>
@@ -495,7 +499,7 @@ function Showcase({
               <RankCrest rank={row.rank} size={56} showProgress={false} animate={false} />
               <div className="min-w-0 flex-1">
                 <p className="t-eyebrow">Season {row.seasonNumber}</p>
-                <p className="t-strong mt-0.5" style={{ color: tierColor(row.rank.tier) }}>
+                <p className="t-strong mt-0.5" style={{ color: tierInk(row.rank.tier) }}>
                   {row.rank.label}
                 </p>
                 <p className="t-fine mt-0.5 text-muted-foreground">
@@ -504,7 +508,7 @@ function Showcase({
               </div>
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-[14px] font-semibold">
-                  <Icon name={row.reward.icon} size={14} className="text-gold" />
+                  <Icon name={row.reward.icon} size={14} className="text-gold-ink" />
                   {row.reward.name}
                 </p>
                 <p className="t-fine mt-0.5 text-muted-foreground">{row.reward.detail}</p>
@@ -551,7 +555,7 @@ function YourRecord({ lifetimeRank, totalXp }: { lifetimeRank: Rank; totalXp: nu
         <RankCrest rank={lifetimeRank} size={48} showProgress={false} animate={false} />
         <div className="min-w-0 flex-1">
           <p className="t-caption-s">Peak standing</p>
-          <p className="t-strong mt-0.5" style={{ color: tierColor(lifetimeRank.tier) }}>
+          <p className="t-strong mt-0.5" style={{ color: tierInk(lifetimeRank.tier) }}>
             {lifetimeRank.label}
           </p>
         </div>

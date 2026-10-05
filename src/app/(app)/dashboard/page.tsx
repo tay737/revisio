@@ -74,7 +74,7 @@ export default function DashboardPage() {
   if (error || !me || !started) {
     return (
       <div className="card text-center">
-        <Icon name="due" size={20} className="mx-auto text-destructive" />
+        <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
         <p className="t-strong mt-2">We couldn’t load your dashboard.</p>
         <p className="t-caption mt-1 text-muted-foreground">Check your connection and try again.</p>
       </div>
@@ -240,7 +240,7 @@ function Stat({
   tone?: 'good' | 'streak';
 }) {
   const tint =
-    tone === 'good' ? 'text-good-pressed' : tone === 'streak' ? 'text-streak-pressed' : 'text-muted-foreground';
+    tone === 'good' ? 'text-good-strong' : tone === 'streak' ? 'text-streak-pressed' : 'text-muted-foreground';
 
   return (
     <div className="card p-4">

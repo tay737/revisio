@@ -36,8 +36,8 @@ export function Notice({
   const visible = show ?? Boolean(children);
   const icon: IconName = tone === 'good' ? 'reviewed' : tone === 'bad' ? 'due' : 'xp';
   const styles = {
-    good: 'bg-good-soft text-good-pressed',
-    bad: 'bg-destructive/10 text-destructive',
+    good: 'bg-good-soft text-good-strong',
+    bad: 'bg-destructive/10 text-destructive-ink',
     note: 'bg-secondary text-foreground',
   } as const;
 

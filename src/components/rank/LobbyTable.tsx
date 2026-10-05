@@ -119,7 +119,7 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
                 <Icon
                   name="zoneDown"
                   size={14}
-                  className="shrink-0 text-destructive"
+                  className="shrink-0 text-destructive-ink"
                   aria-label="Demotion band"
                 />
               )}

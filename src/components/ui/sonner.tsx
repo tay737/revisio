@@ -37,8 +37,8 @@ export function Toaster(props: ToasterProps) {
       icons={{
         success: <CircleCheck className="size-5 text-good" />,
         info: <Info className="size-5 text-muted-foreground" />,
-        warning: <TriangleAlert className="size-5 text-streak" />,
-        error: <OctagonX className="size-5 text-destructive" />,
+        warning: <TriangleAlert className="size-5 text-streak-pressed" />,
+        error: <OctagonX className="size-5 text-destructive-ink" />,
         loading: <Loader2 className="size-5 animate-spin" />,
       }}
       toastOptions={{

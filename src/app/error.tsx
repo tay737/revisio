@@ -32,7 +32,7 @@ export default function ErrorPage({
     <main className="grid min-h-screen place-items-center bg-background px-5 py-14">
       <div className="w-full max-w-md">
         <div className="card p-7 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
             <Icon name="due" size={22} />
           </span>
           <h1 className="t-tagline mt-4">Something went wrong on our side</h1>
