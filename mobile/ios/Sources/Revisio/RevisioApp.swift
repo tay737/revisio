@@ -1177,7 +1177,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func saveProfile(name: String, username: String, nickname: String, bio: String, emoji: String, color: String) {
+    func saveProfile(name: String, username: String, nickname: String, bio: String, pronouns: String, emoji: String, color: String) {
         if let problem = usernameProblem(username) {
             settingsError = problem
             settingsNote = nil
@@ -1188,6 +1188,7 @@ final class AppModel: ObservableObject {
             nickname: nickname.trimmed.isEmpty ? nil : nickname.trimmed,
             username: username.trimmed.isEmpty ? nil : username.trimmed.lowercased(),
             bio: bio.trimmed.isEmpty ? nil : bio.trimmed,
+            pronouns: pronouns.trimmed.isEmpty ? nil : pronouns.trimmed,
             avatarEmoji: emoji.trimmed.isEmpty ? nil : emoji.trimmed,
             avatarColor: color
         )

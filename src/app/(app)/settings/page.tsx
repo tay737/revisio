@@ -15,6 +15,7 @@ import { RoleBadge } from '@/components/ui/role-badge';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Security2FA } from '@/app/(app)/settings/Security2FA';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
+import { PRONOUN_MAX, PRONOUN_SUGGESTIONS, pronounsProblem } from '@/lib/pronouns';
 
 /**
  * Settings — one page, five questions:
@@ -29,10 +30,11 @@ import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
  * answers for a save in Privacy. Copy stays short: the label is the sentence.
  */
 
-const VISIBILITY_ROWS: { key: 'name' | 'nickname' | 'bio' | 'subjects' | 'stats' | 'achievements'; label: string; hint: string }[] = [
+const VISIBILITY_ROWS: { key: 'name' | 'nickname' | 'bio' | 'pronouns' | 'subjects' | 'stats' | 'achievements'; label: string; hint: string }[] = [
   { key: 'name', label: 'Full name', hint: 'Your real name, as registered.' },
   { key: 'nickname', label: 'Display name', hint: 'The name your profile leads with.' },
   { key: 'bio', label: 'About me', hint: 'Your short introduction.' },
+  { key: 'pronouns', label: 'Pronouns', hint: 'The words you want to be referred to by.' },
   { key: 'subjects', label: 'Subjects', hint: 'What you are studying.' },
   { key: 'stats', label: 'XP and rank', hint: 'Your level, XP, streak and review count.' },
   { key: 'achievements', label: 'Achievements', hint: 'The badges you have earned.' },
@@ -70,6 +72,7 @@ function SettingsBody({
   const [nickname, setNickname] = useState(me.nickname ?? '');
   const [username, setUsername] = useState(me.username ?? '');
   const [bio, setBio] = useState(me.bio ?? '');
+  const [pronouns, setPronouns] = useState(me.pronouns ?? '');
   const [avatarEmoji, setAvatarEmoji] = useState<string | null>(me.avatarEmoji);
   const [avatarColor, setAvatarColor] = useState(me.avatarColor);
   const [avatarUrl, setAvatarUrl] = useState(me.avatarUrl);
@@ -159,6 +162,7 @@ function SettingsBody({
         nickname: nickname.trim() || null,
         username: username.trim() ? username.trim().toLowerCase() : null,
         bio: bio.trim() || null,
+        pronouns: pronouns.trim() || null,
         avatarEmoji,
         avatarColor,
         bannerColor,
@@ -232,6 +236,7 @@ function SettingsBody({
     nickname !== (me.nickname ?? '') ||
     username !== (me.username ?? '') ||
     bio !== (me.bio ?? '') ||
+    pronouns !== (me.pronouns ?? '') ||
     avatarEmoji !== me.avatarEmoji ||
     avatarColor !== me.avatarColor ||
     bannerColor !== (me.bannerColor ?? 'dusk');
@@ -241,6 +246,7 @@ function SettingsBody({
   const usernameOk =
     !username.trim() || (USERNAME_RE.test(username.trim().toLowerCase()) && !RESERVED_USERNAMES.has(username.trim().toLowerCase()));
   const usernameChanged = username.trim().toLowerCase() !== (me.username ?? '');
+  const pronounProblem = pronounsProblem(pronouns);
 
   return (
     <div className="space-y-6">
@@ -408,13 +414,48 @@ function SettingsBody({
           <Field label="About me" htmlFor="set-bio" hint="A line or two, up to 240 characters.">
             <textarea id="set-bio" className="input min-h-[72px]" value={bio} onChange={(e) => setBio(e.target.value)} maxLength={240} placeholder="Optional" />
           </Field>
+          {/* Pronouns get their own full-width row rather than a third cell: the
+              chips are the point, and a two-column grid would squeeze six of them
+              into half the card. */}
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="set-pronouns">Pronouns</label>
+            <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Pronoun suggestions">
+              {PRONOUN_SUGGESTIONS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`chip ${pronouns.trim().toLowerCase() === p ? 'chip-active' : ''}`}
+                  aria-pressed={pronouns.trim().toLowerCase() === p}
+                  onClick={() => setPronouns(pronouns.trim().toLowerCase() === p ? '' : p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <input
+              id="set-pronouns"
+              className="input mt-2"
+              value={pronouns}
+              onChange={(e) => setPronouns(e.target.value)}
+              maxLength={PRONOUN_MAX}
+              placeholder="Optional — anything you want to be called by"
+              aria-invalid={!!pronounProblem}
+              aria-describedby="set-pronouns-hint"
+            />
+            <p id="set-pronouns-hint" className={pronounProblem ? 't-fine mt-1 text-destructive' : 't-fine mt-1 text-muted-foreground'}>
+              {pronounProblem ??
+                (vis.pronouns
+                  ? 'Shown on your public profile beside your name.'
+                  : 'Private for now — visitors will not see it. Switch Pronouns on under Privacy below.')}
+            </p>
+          </div>
         </div>
 
         <div className="mt-5 flex items-center gap-3">
           <button
             type="button"
             className="btn btn-primary"
-            disabled={!profileDirty || !usernameOk || savingProfile}
+            disabled={!profileDirty || !usernameOk || !!pronounProblem || savingProfile}
             onClick={saveProfile}
           >
             <Icon name="checked" size={15} />

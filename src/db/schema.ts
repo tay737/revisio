@@ -22,6 +22,8 @@ export const users = pgTable('users', {
   username: text('username'),
   nickname: text('nickname'),
   bio: text('bio'),
+  /** Free text, e.g. 'she/her'. Never inferred, never auto-filled — see lib/pronouns.ts. */
+  pronouns: text('pronouns'),
   avatarEmoji: text('avatar_emoji'),
   avatarColor: text('avatar_color').notNull().default('ink'),
   /** Uploaded avatar / banner — keys in the media bucket, served via /api/v1/assets. */
@@ -35,7 +37,7 @@ export const users = pgTable('users', {
   profileVisibility: jsonb('profile_visibility')
     .$type<ProfileVisibility>()
     .notNull()
-    .default(sql`'{"name":true,"nickname":true,"bio":true,"subjects":true,"stats":true,"achievements":true}'::jsonb`),
+    .default(sql`'{"name":true,"nickname":true,"bio":true,"pronouns":true,"subjects":true,"stats":true,"achievements":true}'::jsonb`),
   totpSecret: text('totp_secret'),
   totpEnabled: boolean('totp_enabled').notNull().default(false),
   recoveryCodes: jsonb('recovery_codes').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
@@ -55,6 +57,7 @@ export type ProfileVisibility = {
   name: boolean;
   nickname: boolean;
   bio: boolean;
+  pronouns: boolean;
   subjects: boolean;
   stats: boolean;
   achievements: boolean;

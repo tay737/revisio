@@ -370,12 +370,13 @@ data class GamificationPayload(
 
 // ── the account ─────────────────────────────────────────────────────────────
 
-/** The six per-field switches from `services/profile.ts`. */
+/** The seven per-field switches from `services/profile.ts`. */
 @Serializable
 data class Visibility(
     val name: Boolean = true,
     val nickname: Boolean = true,
     val bio: Boolean = true,
+    val pronouns: Boolean = true,
     val subjects: Boolean = true,
     val stats: Boolean = true,
     val achievements: Boolean = true,
@@ -405,6 +406,8 @@ data class MeDetail(
     val username: String? = null,
     val nickname: String? = null,
     val bio: String? = null,
+    /** What the owner wants to be called by. Null until they choose. */
+    val pronouns: String? = null,
     val avatarEmoji: String? = null,
     val avatarColor: String = "ink",
     /** Set once a picture has been uploaded; it replaces the emoji. */
@@ -608,6 +611,7 @@ data class MePatch(
     val nickname: String? = null,
     val username: String? = null,
     val bio: String? = null,
+    val pronouns: String? = null,
     val avatarEmoji: String? = null,
     val avatarColor: String? = null,
     val bannerColor: String? = null,
@@ -642,6 +646,11 @@ data class PublicProfile(
     val name: String? = null,
     val nickname: String? = null,
     val bio: String? = null,
+    /**
+     * Null for a visitor when the owner keeps them private — the same shape as a
+     * profile with no pronouns, so a hidden field is not a legible fact.
+     */
+    val pronouns: String? = null,
     val avatarEmoji: String? = null,
     val avatarColor: String = "ink",
     val role: String = "student",

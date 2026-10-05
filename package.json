@@ -21,6 +21,7 @@
     "verify:native": "node scripts/native/android-smoke.mjs",
     "verify:native:api": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/native/verify-native-api.ts",
     "verify:seasons": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-seasons.ts",
+    "verify:pronouns": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-pronouns.ts",
     "verify:season-write": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-season-write.ts",
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",

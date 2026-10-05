@@ -29,6 +29,7 @@ export type ProfileVisibility = {
   name: boolean;
   nickname: boolean;
   bio: boolean;
+  pronouns: boolean;
   subjects: boolean;
   stats: boolean;
   achievements: boolean;
@@ -41,6 +42,7 @@ export type Me = {
   username: string | null;
   nickname: string | null;
   bio: string | null;
+  pronouns: string | null;
   avatarEmoji: string | null;
   avatarColor: string;
   avatarUrl: string | null;

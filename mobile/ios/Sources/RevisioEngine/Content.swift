@@ -376,30 +376,33 @@ public struct GamificationPayload: Codable, Equatable {
 
 // ── the account ─────────────────────────────────────────────────────────────
 
-/// The six per-field switches from `services/profile.ts`.
+/// The seven per-field switches from `services/profile.ts`.
 public struct Visibility: Codable, Equatable, Sendable {
     public var name: Bool
     public var nickname: Bool
     public var bio: Bool
+    public var pronouns: Bool
     public var subjects: Bool
     public var stats: Bool
     public var achievements: Bool
 
     /// Public so a client can send one switch; the memberwise init is internal.
     public init(
-        name: Bool, nickname: Bool, bio: Bool,
+        name: Bool, nickname: Bool, bio: Bool, pronouns: Bool,
         subjects: Bool, stats: Bool, achievements: Bool
     ) {
         self.name = name
         self.nickname = nickname
         self.bio = bio
+        self.pronouns = pronouns
         self.subjects = subjects
         self.stats = stats
         self.achievements = achievements
     }
 
     public static let all = Visibility(
-        name: true, nickname: true, bio: true, subjects: true, stats: true, achievements: true
+        name: true, nickname: true, bio: true, pronouns: true,
+        subjects: true, stats: true, achievements: true
     )
 }
 
@@ -428,6 +431,9 @@ public struct MeDetail: Codable, Equatable {
     public var username: String?
     public var nickname: String?
     public var bio: String?
+    /// What the owner wants to be called by. Null until they choose; the server
+    /// normalises it, so this is exactly what will be stored.
+    public var pronouns: String?
     public var avatarEmoji: String?
     public var avatarColor: String
     /// Set once a picture has been uploaded; it replaces the emoji.
@@ -643,6 +649,7 @@ public struct MePatch: Encodable {
     public var nickname: String?
     public var username: String?
     public var bio: String?
+    public var pronouns: String?
     public var avatarEmoji: String?
     public var avatarColor: String?
     public var bannerColor: String?
@@ -655,6 +662,7 @@ public struct MePatch: Encodable {
         nickname: String? = nil,
         username: String? = nil,
         bio: String? = nil,
+        pronouns: String? = nil,
         avatarEmoji: String? = nil,
         avatarColor: String? = nil,
         bannerColor: String? = nil,
@@ -666,6 +674,7 @@ public struct MePatch: Encodable {
         self.nickname = nickname
         self.username = username
         self.bio = bio
+        self.pronouns = pronouns
         self.avatarEmoji = avatarEmoji
         self.avatarColor = avatarColor
         self.bannerColor = bannerColor
@@ -692,6 +701,9 @@ public struct PublicProfile: Codable, Equatable {
     public var name: String?
     public var nickname: String?
     public var bio: String?
+    /// Null for a visitor when the owner keeps them private — the same shape as a
+    /// profile with no pronouns, so a client cannot tell the two apart by looking.
+    public var pronouns: String?
     public var avatarEmoji: String?
     public var avatarColor: String
     public var role: String

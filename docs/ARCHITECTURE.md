@@ -1006,3 +1006,61 @@ production build on real Postgres. Three incorrect production cloze prompts in
 the T-level cyber security subject were fixed in place (one card moved to the
 topic it actually tests, two re-blanked to unambiguous terms with their
 accepted answers kept in step).
+
+## 26. As built (v1.9, 2026-10-05) — pronouns, and the seventh switch
+
+### 26.1 Free text, because a list would have been a list of the people we thought of
+
+`users.pronouns` is one nullable `text` column. Not an enum, not a lookup
+table: a closed list would need a migration and a deploy every time someone
+needed a set the product had not heard of, which is exactly the failure this
+field exists to avoid. Settings offers six chips as a shortcut
+(`lib/pronouns.ts` → `PRONOUN_SUGGESTIONS`) above a box that takes anything, and
+tapping the selected chip clears it — a shortlist you can only add to would make
+"ask me" impossible to choose.
+
+`lib/pronouns.ts` is client-safe and owns the cap, the normalisation (whitespace
+collapsed, **case preserved** — "Ze/Zir" is how the person wrote it, and
+lowercasing someone's own words about themselves is not ours to do) and the
+character check. The settings form greys out Save with it; `PATCH /api/v1/me`
+imports the same functions, so the two cannot disagree about what is legal. The
+`users_pronouns_len` CHECK is the server's third copy, and refuses whitespace-only
+strings so `" "` can never be stored as if it meant something.
+
+`make-account.mjs` now emits the shortlist and the cap into `AccountRules.kt`
+and `AccountRules.swift` alongside the username rules, so a phone cannot offer a
+different set of chips than the website — the same reason the pattern and the
+reserved list are generated.
+
+### 26.2 A seventh switch, and an absent key that still means the default
+
+Pronouns ride the existing per-field `profile_visibility` map under its own
+`pronouns` key, filtered in `getPublicProfile` like every other field: hidden
+returns `null` (shape without value), the owner always sees it, and the profile
+page shows nothing at all when it is hidden — no lock icon, because a lock tells
+a visitor that something is being withheld.
+
+Migration `0009_pronouns.sql` deliberately does **not** backfill
+`profile_visibility`. An absent key has always meant `DEFAULT_VISIBILITY`, and
+that merge runs on every read, so existing accounts are public-by-default for
+pronouns with no data touched. A backfill would have been a second, divergent
+copy of the default to keep in step forever. `verify:pronouns` asserts exactly
+this, because "absent key means hidden" is the plausible wrong reading and would
+silently hide every current learner's pronouns.
+
+The column was added to the **Neon mirror by hand as well**: `sync`'s upsert only
+writes columns the *target* has, so a mirror without `pronouns` would drop the
+field from every replicated row without an error.
+
+### 26.3 Verification for this pass
+
+`scripts/verify-pronouns.ts` (live, 20 checks): the rules (case preserved,
+whitespace collapsed, markup and over-long values refused, a pasted newline
+folded rather than rejected); the boundary through the real
+`getPublicProfile` — visitor sees it, visitor gets `null` when hidden, owner
+sees it either way, the switch can go back on, an absent key means public; and
+the database's own half (both CHECK refusals). Plus a 12-check authenticated HTTP
+playtest of `GET/PATCH /api/v1/me` and `GET /api/v1/profile/:handle` against the
+production build, which left the account exactly as it found it. `tsc` clean;
+`next build` clean; `swift build` + `swift test` 15/15; `xcodebuild Revisio-iOS`
+succeeded; Gradle `:engine:test :app:compileDebugKotlin` clean.

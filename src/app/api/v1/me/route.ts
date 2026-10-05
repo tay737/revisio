@@ -9,6 +9,7 @@ import { srsLevelCaseSql } from '@/domain/srs';
 import { totalXpFor } from '@/services/study';
 import { todayStats } from '@/services/stats';
 import { validateUsername, DEFAULT_VISIBILITY } from '@/services/profile';
+import { normalisePronouns, pronounsProblem } from '@/lib/pronouns';
 import { BANNER_COLORS } from '@/components/ui/avatar';
 
 // The GET is all reads, so when Neon is configured most of the payload comes
@@ -72,6 +73,7 @@ export const GET = route(async (req: NextRequest) => {
       username: row.username,
       nickname: row.nickname,
       bio: row.bio,
+      pronouns: normalisePronouns(row.pronouns),
       avatarEmoji: row.avatarEmoji,
       avatarColor: row.avatarColor,
       avatarUrl: row.avatarUrl,
@@ -104,6 +106,7 @@ export const PATCH = route(async (req: NextRequest) => {
     nickname?: string;
     username?: string;
     bio?: string;
+    pronouns?: string | null;
     avatarEmoji?: string | null;
     avatarColor?: string;
     bannerColor?: string;
@@ -116,6 +119,14 @@ export const PATCH = route(async (req: NextRequest) => {
   if (typeof body.name === 'string' && body.name.trim()) update.name = body.name.trim().slice(0, 80);
   if (body.nickname !== undefined) update.nickname = body.nickname === null || !body.nickname.trim() ? null : body.nickname.trim().slice(0, 40);
   if (body.bio !== undefined) update.bio = body.bio === null || !body.bio.trim() ? null : body.bio.trim().slice(0, 240);
+  if (body.pronouns !== undefined) {
+    // The settings form greys out its own Save using the same predicate, so this
+    // only refuses what a stale client sent: an over-long string or punctuation
+    // nobody meant as part of a pronoun.
+    const problem = pronounsProblem(body.pronouns ?? '');
+    if (problem) throw new ApiError(400, 'bad_pronouns', problem);
+    update.pronouns = normalisePronouns(body.pronouns);
+  }
   if (body.username !== undefined) update.username = body.username === null || !body.username.trim() ? null : validateUsername(body.username);
   if (body.avatarEmoji !== undefined) update.avatarEmoji = body.avatarEmoji === null || !body.avatarEmoji ? null : [...body.avatarEmoji][0]!.slice(0, 4);
   if (body.avatarColor !== undefined) {

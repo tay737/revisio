@@ -746,7 +746,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    fun saveProfile(name: String, username: String, nickname: String, bio: String, emoji: String, color: String) {
+    fun saveProfile(name: String, username: String, nickname: String, bio: String, pronouns: String, emoji: String, color: String) {
         usernameProblem(username)?.let { problem ->
             _state.update { it.copy(settingsError = problem, settingsNote = null) }
             return
@@ -756,6 +756,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             username = username.trim().lowercase().ifBlank { null },
             nickname = nickname.trim().ifBlank { null },
             bio = bio.trim().ifBlank { null },
+            pronouns = pronouns.trim().ifBlank { null },
             avatarEmoji = emoji.trim().ifBlank { null },
             avatarColor = color,
         )
