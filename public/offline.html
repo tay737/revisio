@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>You’re offline — Revisio</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: Canvas; color: CanvasText; }
+      main { width: min(28rem, calc(100% - 2rem)); }
+      h1 { font-size: clamp(2rem, 8vw, 3rem); line-height: 1.1; }
+      p { line-height: 1.6; }
+      a, button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; margin: .4rem .5rem .4rem 0; padding: 0 1rem; border: 1px solid currentColor; border-radius: 999px; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+      a:focus-visible, button:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>Revisio</p>
+      <h1>You’re offline</h1>
+      <p>Connect to the internet and try again. If you were already reviewing, your saved answers stay on this device and can sync when you reconnect.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+      <a href="/">Go to Revisio</a>
+    </main>
+  </body>
+</html>

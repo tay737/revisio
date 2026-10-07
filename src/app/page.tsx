@@ -46,6 +46,10 @@ const COMPANION_LINES = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+
       {/* ── Nav bar: canvas, hairline, pill CTAs ───────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-5 sm:px-8">
@@ -77,7 +81,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1}>
         {/* ── Hero: canvas, headline left, product render right ───────────── */}
         <TileBand tone="light" className="!py-10 md:!py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
