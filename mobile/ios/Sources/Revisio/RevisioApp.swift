@@ -174,6 +174,7 @@ final class AppModel: ObservableObject {
     @Published var moreOpen = false
     @Published var home: Home?
     @Published var pending = 0
+    @Published var startingReview = false
     @Published var message: String?
 
     // the review loop, in whichever mode it was started
@@ -1375,12 +1376,18 @@ final class AppModel: ObservableObject {
 
     /// Today's queue: the session the app carries offline, keys and all.
     func startTodayReview() {
-        Task {
+        guard !startingReview else { return }
+        startingReview = true
+        message = nil
+        Task { @MainActor in
+            defer { startingReview = false }
             if online, let token = await ensureToken(), let fresh = try? await api.fetchPack(token: token) {
                 store.savePack(fresh)
             }
             guard let pack = store.cachedPack(), !pack.cards.isEmpty else {
-                message = "No cards saved on this device yet. Connect once to download today's session."
+                message = online
+                    ? "We couldn't download today's session. Check your connection and try again."
+                    : "You're offline and no session is saved on this device. Connect once to download today's session."
                 return
             }
             begin(
@@ -1894,6 +1901,8 @@ private struct TabSlot: View {
             .padding(.top, 14)
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(label == "Review" && due > 0 ? "Review, \(due) due" : label)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
 

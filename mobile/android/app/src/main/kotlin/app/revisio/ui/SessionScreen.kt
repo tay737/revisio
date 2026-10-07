@@ -318,6 +318,7 @@ private fun McqInput(card: QuizCard, selection: String?, locked: Boolean, onSele
                 text = option.text,
                 state = state,
                 enabled = !locked,
+                isSelected = chosen,
                 onClick = { onSelect(option.id) },
             )
         }

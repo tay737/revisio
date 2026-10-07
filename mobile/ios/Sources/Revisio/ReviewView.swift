@@ -30,7 +30,7 @@ struct ReviewView: View {
                 Spacer().frame(height: 20)
                 queueCard
 
-                if due == 0 {
+                if model.home != nil && due == 0 {
                     Spacer().frame(height: 20)
                     SurfaceCard {
                         Text("Keep it moving")
@@ -60,12 +60,24 @@ struct ReviewView: View {
 
     private var due: Int { model.home?.due ?? 0 }
 
+    private var queueTitle: String {
+        guard model.home != nil else { return "Loading today's queue…" }
+        return due == 0 ? "Nothing is due" : "\(due) card\(due == 1 ? "" : "s") waiting"
+    }
+
     private var offline: Bool { (model.home?.fromCache ?? false) || !model.online }
 
+    private var dealt: Int {
+        min(offline ? (model.home?.packCards ?? 0) : due, 20)
+    }
+
     private var estimate: String {
+        guard model.home != nil else { return "Checking your saved session." }
         if due == 0 { return "The scheduler has nothing for you right now. Cram, or read ahead." }
-        if due <= 5 { return "About a minute of work." }
-        return "About \((due * 12) / 60) minutes of work."
+        if offline && dealt == 0 { return "No session is saved for offline study. Connect once to download today's cards." }
+        if dealt <= 5 { return "About a minute of work." }
+        let capNote = due > dealt ? " · up to 20 cards per session" : ""
+        return "About \((dealt * 12) / 60) minutes of work\(capNote)."
     }
 
     private var queueCard: some View {
@@ -73,7 +85,7 @@ struct ReviewView: View {
             HStack(spacing: 16) {
                 BoxedGlyph(icon: "review")
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(due == 0 ? "Nothing is due" : "\(due) card\(due == 1 ? "" : "s") waiting")
+                    Text(queueTitle)
                         .font(Type.strong.font)
                         .foregroundStyle(colors.foreground)
                     Text(estimate)
@@ -90,7 +102,9 @@ struct ReviewView: View {
                 Spacer().frame(height: 14)
                 HStack(spacing: 8) {
                     Icon("clock", size: 13, color: colors.streak)
-                    Text("Offline: the session saved on this device is what will be dealt.")
+                    Text((model.home?.packCards ?? 0) > 0
+                        ? "Offline: the session saved on this device is what will be dealt."
+                        : "No session is saved on this device. Connect once to download today's cards.")
                         .font(Type.fine.font)
                         .foregroundStyle(colors.streak)
                         .fixedSize(horizontal: false, vertical: true)
@@ -99,10 +113,10 @@ struct ReviewView: View {
 
             Spacer().frame(height: 18)
             PillButton(
-                text: model.pending > 0 ? "Start review · \(model.pending) saved" : "Start review",
+                text: model.startingReview ? "Loading today's session…" : (model.pending > 0 ? "Start review · \(model.pending) saved" : "Start review"),
                 tone: .good,
                 icon: "start",
-                enabled: !model.busy,
+                enabled: model.home != nil && !model.busy && !model.startingReview && (!offline || dealt > 0),
                 large: true
             ) {
                 model.startTodayReview()

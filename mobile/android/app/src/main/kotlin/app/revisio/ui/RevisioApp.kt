@@ -58,6 +58,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -453,6 +456,10 @@ private fun TabSlot(
         modifier = modifier
             .fillMaxSize()
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .semantics {
+                selected = active
+                contentDescription = if (label == "Review" && due > 0) "$label, $due due" else label
+            }
             .padding(top = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),

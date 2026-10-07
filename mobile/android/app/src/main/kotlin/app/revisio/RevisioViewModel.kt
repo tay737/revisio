@@ -134,6 +134,7 @@ data class UiState(
     val moreOpen: Boolean = false,
     val home: HomeState? = null,
     val pending: Int = 0,
+    val startingReview: Boolean = false,
     val message: String? = null,
     // the review loop, in whichever mode it was started
     /**
@@ -1379,20 +1380,29 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Today's queue: the session the app carries offline, keys and all. */
     fun startTodayReview() {
+        if (_state.value.startingReview) return
+        _state.update { it.copy(startingReview = true, message = null) }
         viewModelScope.launch {
-            if (_state.value.online) {
-                ensureToken()?.let { token ->
-                    runCatching { api.fetchPack(token) }.getOrNull()?.let { store.savePack(it) }
+            try {
+                if (_state.value.online) {
+                    ensureToken()?.let { token ->
+                        runCatching { api.fetchPack(token) }.getOrNull()?.let { store.savePack(it) }
+                    }
                 }
-            }
-            val pack = store.cachedPack()
-            if (pack == null || pack.cards.isEmpty()) {
-                _state.update {
-                    it.copy(message = "No cards saved on this device yet. Connect once to download today's session.")
+                val pack = store.cachedPack()
+                if (pack == null || pack.cards.isEmpty()) {
+                    val message = if (_state.value.online) {
+                        "We couldn't download today's session. Check your connection and try again."
+                    } else {
+                        "You're offline and no session is saved on this device. Connect once to download today's session."
+                    }
+                    _state.update { it.copy(message = message) }
+                    return@launch
                 }
-                return@launch
+                begin(pack.cards.map { it.toQuizCard() }, StudyMode.DAILY, emptyList(), "Today", null, 0, 0)
+            } finally {
+                _state.update { it.copy(startingReview = false) }
             }
-            begin(pack.cards.map { it.toQuizCard() }, StudyMode.DAILY, emptyList(), "Today", null, 0, 0)
         }
     }
 

@@ -145,14 +145,23 @@ struct TodayView: View {
 
             VStack(spacing: 10) {
                 PillButton(
-                    text: home.due > 0 ? "Start review" : "Get ahead",
+                    text: reviewButtonTitle(home),
                     tone: .good,
                     icon: home.due > 0 ? "review" : "learn",
-                    trailing: home.due > 0 ? "\(home.due)" : nil,
-                    enabled: home.packCards > 0,
+                    trailing: home.due > 0 && home.packCards > 0 ? "\(home.due)" : nil,
+                    enabled: !model.startingReview && (!(home.due > 0 && home.packCards == 0) || model.online),
                     large: true
                 ) {
                     if home.due > 0 { model.startTodayReview() } else { model.go(.learn) }
+                }
+                if home.due > 0 && home.packCards == 0 && !model.startingReview {
+                    Text(model.online
+                        ? "Today's cards are not on this device yet. Tap to download them."
+                        : "No session is saved for offline study. Connect once to download today's cards.")
+                        .font(Type.fine.font)
+                        .foregroundStyle(colors.mutedForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 PillButton(text: "Cram instead", tone: .secondary, icon: "cram", large: true) {
                     model.go(.cram)
@@ -266,6 +275,13 @@ struct TodayView: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+
+    private func reviewButtonTitle(_ home: Home) -> String {
+        if model.startingReview { return "Loading today's session…" }
+        if home.due == 0 { return "Get ahead" }
+        if home.packCards == 0 { return model.online ? "Download today's session" : "Connect to download" }
+        return "Start review"
     }
 
     private var hourNow: Int {

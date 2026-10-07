@@ -183,7 +183,8 @@ struct SessionView: View {
                     OptionRow(
                         text: option.text,
                         state: optionState(card, option),
-                        enabled: model.feedback == nil
+                        enabled: model.feedback == nil,
+                        isSelected: model.selection == option.id
                     ) {
                         model.setSelection(option.id)
                     }
