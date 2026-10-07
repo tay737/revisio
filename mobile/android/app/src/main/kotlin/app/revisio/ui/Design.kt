@@ -663,7 +663,7 @@ fun Badge(text: String, tone: BadgeTone = BadgeTone.Quiet, icon: ImageVector? = 
         BadgeTone.Quiet -> Card2
     }
     val ink = when (tone) {
-        BadgeTone.Gold -> Color.Black
+        BadgeTone.Gold, BadgeTone.Streak -> Color.Black
         BadgeTone.Quiet -> Muted
         else -> Color.White
     }
@@ -738,6 +738,7 @@ fun OptionRow(
     text: String,
     state: OptionState = OptionState.Idle,
     enabled: Boolean = true,
+    isSelected: Boolean = state == OptionState.Selected || state == OptionState.Wrong,
     onClick: () -> Unit = {},
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -788,7 +789,7 @@ fun OptionRow(
                 .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
                 // Selection is a *state*, not a style: the chosen row says so
                 // to TalkBack the way the web's `aria-pressed` does.
-                .semantics { selected = state == OptionState.Selected }
+                .semantics { selected = isSelected }
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),

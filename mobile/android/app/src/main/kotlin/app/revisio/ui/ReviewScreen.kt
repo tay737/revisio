@@ -54,7 +54,7 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
     // The estimate promises what the session will actually deal: the pack is
     // capped at twenty, so "about 40 minutes" when due is 200 would be a lie —
     // when offline the session deals the cached pack, not the queue.
-    val dealt = if (offline) minOf(home?.packCards ?: 0, 20).coerceAtLeast(0) else due
+    val dealt = if (offline) minOf(home?.packCards ?: 0, 20).coerceAtLeast(0) else minOf(due, 20)
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
         Spacer(Modifier.height(12.dp))
@@ -72,15 +72,21 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
                 Spacer(Modifier.size(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        if (due == 0) "Nothing is due" else "$due card${if (due == 1) "" else "s"} waiting",
+                        when {
+                            home == null -> "Loading today's queue…"
+                            due == 0 -> "Nothing is due"
+                            else -> "$due card${if (due == 1) "" else "s"} waiting"
+                        },
                         style = Type.strong.style(Ink),
                     )
                     Text(
                         when {
+                            home == null -> "Checking your saved session."
                             due == 0 -> "The scheduler has nothing for you right now. Cram, or read ahead."
+                            home.packCards == 0 && offline -> "No session is saved for offline study. Connect once to download today's cards."
+                            home.packCards == 0 -> "Today's session will download when you start."
                             dealt <= 5 -> "About a minute of work."
-                            dealt <= 20 -> "About ${(dealt * 12) / 60} minutes of work."
-                            else -> "A longer session — about ${(dealt * 12) / 60} minutes."
+                            else -> "About ${(dealt * 12) / 60} minutes of work${if (due > dealt) " · up to 20 cards per session" else ""}."
                         },
                         style = Type.fine.style(Muted),
                     )
@@ -95,7 +101,11 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
                     Icon(RevisioIcons.clock, size = 13, tint = Warn)
                     Spacer(Modifier.size(8.dp))
                     Text(
-                        "Offline: the session saved on this device is what will be dealt.",
+                        if ((home?.packCards ?: 0) > 0) {
+                            "Offline: the session saved on this device is what will be dealt."
+                        } else {
+                            "No session is saved on this device. Connect once to download today's cards."
+                        },
                         style = Type.fine.style(Warn),
                     )
                 }
@@ -103,11 +113,15 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
 
             Spacer(Modifier.height(18.dp))
             PillButton(
-                text = if (state.pending > 0) "Start review · ${state.pending} saved" else "Start review",
+                text = when {
+                    state.startingReview -> "Loading today's session…"
+                    state.pending > 0 -> "Start review · ${state.pending} saved"
+                    else -> "Start review"
+                },
                 onClick = viewModel::startTodayReview,
                 tone = PillTone.Good,
                 icon = RevisioIcons.start,
-                enabled = !state.busy,
+                enabled = home != null && !state.busy && !state.startingReview && (!offline || dealt > 0),
                 large = true,
             )
             Spacer(Modifier.height(8.dp))
@@ -117,7 +131,7 @@ fun ReviewScreen(state: UiState, viewModel: RevisioViewModel) {
             )
         }
 
-        if (due == 0) {
+        if (home != null && due == 0) {
             Spacer(Modifier.height(20.dp))
             SurfaceCard(modifier = Modifier.entrance(index = 1)) {
                 Text("Keep it moving", style = Type.strong.style(Ink))

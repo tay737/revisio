@@ -26,18 +26,23 @@ into the app, so it exists before, during and after any network call.
 
 ## What the clients do
 
-Both clients implement the learner surface itself, not a subset of it. Nothing
-here is a WebView, and no screen is fetched at runtime — the five destinations
-are compiled in, so losing the network can never blank one.
+Both clients render their native surfaces; nothing here is a WebView, and no
+screen is fetched at runtime. The shell has four primary tabs (Today, Review,
+Learn, Rank) plus a More sheet for the remaining destinations. All destinations
+are compiled in; staff-only routes are role-gated, not web-only.
 
 | Surface | Native screen | Needs a server? |
 |---|---|---|
-| The daily loop | `TodayScreen` / `TodayView` | table · no — works from the stored session |
+| Today — dashboard and queue | `TodayScreen` / `TodayView` | table · no — cached session and progress |
+| Review — daily queue | `ReviewScreen` / `ReviewView` | table · no — stored session; fetches a pack when online |
 | Marking a card (cloze, flashcard, MCQ) | `SessionScreen` / `SessionView` | table · no — graded by the port, queued |
-| Cram | `CramScreen` / `CramView` | list yes, session no |
 | Learn — subjects, topics, notes | `LearnScreen` / `LearnView` | yes for the catalogue; notes render offline once read |
+| Cram | `CramScreen` / `CramView` | yes to deal a session |
 | Rank — rank, weekly lobby, placement | `RankScreen` / `RankView` | yes (computed from full history) |
+| Exam / maths practice | `ExamScreen` / `ExamView`; `PracticeScreen` / `PracticeView` | yes |
+| Library — join classes and browse content | `LibraryScreen` / `LibraryView` | yes |
 | Settings — profile, privacy, email, security, prefs | `SettingsScreen` / `SettingsView` | yes |
+| Teaching / admin (role-gated) | `TeachingScreen` / `TeachingView`; `AdminScreen` / `AdminView` | yes |
 | Sign in / sign out, session persistence | `AuthScreen` / `AuthView` | first sign-in only |
 
 The content, session and rank payloads are the ones the web already returns, so
@@ -72,8 +77,11 @@ mobile/ios/
 ```
 mobile/ios/Sources/Revisio/    one file per destination
   RevisioApp.swift   the shell, the tabs and the state owner
-  TodayView.swift    SessionView.swift   CramView.swift
-  LearnView.swift    RankView.swift      YouView.swift
+  TodayView.swift    ReviewView.swift    SessionView.swift
+  LearnView.swift    RankView.swift      CramView.swift
+  ExamView.swift     PracticeView.swift  LibraryView.swift
+  SettingsView.swift TeachingView.swift  AdminView.swift
+  ProfileView.swift
   Common.swift       the shared pieces (panel, stat, notes, avatar)
   Design.swift       the design system those screens are written against
   Theme.swift        GENERATED from src/app/globals.css
@@ -380,7 +388,7 @@ Against `1.0.0-alpha.4`:
 | Swift grading port ≡ TypeScript engine | `swift test` — 19/19 vectors |
 | The APK opens its own UI offline | `verify:native` on an emulator with the network disabled |
 | A full review completes offline and queues | `verify:native` — cloze, flashcard, MCQ, then the outbox |
-| Every destination is compiled in, not fetched | `verify:native` — Learn, Cram, Rank and You each open offline and say what they are missing instead of failing |
+| The core destinations are compiled in, not fetched | `verify:native` — Today, Learn, Cram, Rank and Settings open offline and state what they need |
 | The native models match what the server sends | `verify:native:api` — every learner route, against a running server, field by field |
 | Offline is never reported as being signed out | `verify:native` — the account banner reads "You're offline" while the network is off |
 | The phones wear the web's design, not a lookalike | `make-theme.mjs` / `make-icons.mjs` read `globals.css` and the lucide registry; a token or icon change is a regeneration, not a hand copy |
@@ -418,13 +426,11 @@ Against `1.0.0-alpha.4`:
   exactly as the web's settings page does, but enrolling or disabling it is not
   ported — the web links back to `/settings` for that today, which is a hole
   worth closing on both sides at once.
-- **Feature coverage.** The learner surface is native on both platforms — the
-  loop, cram, learn and notes, rank, library, practice, exam, profile and
-  settings. Still web-only: the **teacher console** and the **admin console**
-  (`app/(app)/teacher`, `app/(app)/admin`), plus the authoring tools on
-  `/library` (compose, import, generate cloze, maths sets). A teacher signing in
-  on a phone reaches the shell and is told plainly that the console is not
-  ported, rather than being shown a broken screen.
+- **Feature coverage.** Learner and staff reading/management surfaces are
+  native on both platforms: Today, Review, Learn, Cram, Rank, Exam, Practice,
+  Library, Settings, Teaching and Admin. Teacher/admin authoring and publishing
+  workflows remain web-only, as do the advanced Library authoring tools
+  (compose, import, generate cloze, maths sets).
 - **The transcript export is web-only.** `/progress` offers the full history as
   CSV or JSON through `GET /api/v1/exports`; the phones do not yet fetch and
   share the file.

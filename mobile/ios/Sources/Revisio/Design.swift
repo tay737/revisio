@@ -449,7 +449,7 @@ struct Badge: View {
         case .quiet: colors.secondary
         }
         let ink: Color = switch tone {
-        case .gold: .black
+        case .gold, .streak: .black
         case .quiet: colors.mutedForeground
         default: .white
         }
@@ -653,6 +653,7 @@ struct OptionRow: View {
     let text: String
     var state: OptionState = .idle
     var enabled: Bool = true
+    var isSelected: Bool = false
     let action: () -> Void
 
     private var border: Color {
@@ -695,6 +696,7 @@ struct OptionRow: View {
                 }
         }
         .buttonStyle(LipButtonStyle(lip: Metrics.pillOffset, lipColor: colors.lipSoft))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .disabled(!enabled)
     }
 }

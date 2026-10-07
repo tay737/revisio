@@ -348,6 +348,7 @@ private fun ExamQuestionBlock(label: String, question: ExamQuestion, answer: Str
                         text = "$letter. ${option.text}",
                         state = if (answer == option.id) OptionState.Selected else OptionState.Idle,
                         enabled = true,
+                        isSelected = answer == option.id,
                         onClick = { onChange(option.id) },
                     )
                 }

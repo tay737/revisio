@@ -110,8 +110,10 @@ fun TodayScreen(state: UiState, viewModel: RevisioViewModel) {
             val packMissing = home.due > 0 && home.packCards == 0
             PillButton(
                 text = when {
-                    home.due > 0 && home.packCards > 0 -> "Start review"
-                    packMissing -> "Downloading today's session…"
+                    state.startingReview -> "Loading today's session…"
+                    home.due > 0 && packMissing && state.online -> "Download today's session"
+                    home.due > 0 && packMissing -> "Connect to download"
+                    home.due > 0 -> "Start review"
                     else -> "Get ahead"
                 },
                 onClick = {
@@ -119,10 +121,19 @@ fun TodayScreen(state: UiState, viewModel: RevisioViewModel) {
                 },
                 tone = PillTone.Good,
                 icon = if (home.due > 0) RevisioIcons.review else RevisioIcons.learn,
-                trailing = if (home.due > 0) "${home.due}" else null,
+                trailing = if (home.due > 0 && home.packCards > 0) "${home.due}" else null,
+                enabled = !state.startingReview && (!packMissing || state.online),
                 large = true,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (home.due > 0 && packMissing && !state.startingReview) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (state.online) "Today's cards are not on this device yet. Tap to download them."
+                    else "No session is saved for offline study. Connect once to download today's cards.",
+                    style = Type.fine.style(revisioColors.mutedForeground),
+                )
+            }
             Spacer(Modifier.height(10.dp))
             PillButton(
                 text = "Cram instead",

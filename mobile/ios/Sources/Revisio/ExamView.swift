@@ -236,7 +236,8 @@ struct ExamView: View {
                         OptionRow(
                             text: "\(letter). \(option.text)",
                             state: answer == option.id ? .selected : .idle,
-                            enabled: true
+                            enabled: true,
+                            isSelected: answer == option.id
                         ) {
                             model.setExamAnswer(question.id, option.id)
                         }
