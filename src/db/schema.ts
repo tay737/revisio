@@ -163,6 +163,8 @@ export const cards = pgTable('cards', {
   explanationMd: text('explanation_md').notNull().default(''),
   visibility: text('visibility', { enum: ['public', 'pending_review', 'private'] }).notNull().default('public'),
   ownerId: text('owner_id'),
+  /** Whether this card was generated from topic notes rather than authored or transcribed from a mark scheme. */
+  generated: boolean('generated').notNull().default(false),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   topicIdx: index('cards_topic_idx').on(t.topicId),

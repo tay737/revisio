@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { cards, cardAnswers, lessons, subjects, topics } from '@/db/schema';
+import { auditLog, cards, cardAnswers, lessons, subjects, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { canManageContent, isDeveloper } from '@/services/roles';
 import { answersForCards, makeSlug, setTopicVisibility, topicContentCounts } from '@/services/content-ops';
 import { reachesUser, topicReaches, type Visibility } from '@/services/visibility';
 import { generateClozeProposals } from '@/domain/cloze-gen';
+import { generateQuizCardsFromNotes, type GeneratedCard } from '@/domain/quiz-gen-from-notes';
 
 type CardInput = {
   kind: 'cloze' | 'flashcard' | 'mcq';
@@ -232,7 +233,10 @@ export const GET = route(async (req: NextRequest) => {
 export const PATCH = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const body = (await req.json()) as {
-    action?: 'generate_cloze' | 'insert_cloze';
+    action?: 'generate_cloze' | 'insert_cloze' | 'generate_from_notes';
+    maxCloze?: number;
+    maxFlashcards?: number;
+    maxMcq?: number;
     proposals?: { answer: string; textWithBlank: string; lessonTitle?: string }[];
     count?: number;
     topicId?: string;
@@ -256,6 +260,9 @@ export const PATCH = route(async (req: NextRequest) => {
     minPoints?: number;
   };
   const staff = canManageContent(user);
+  const audit = async (action: string, target: string, meta?: Record<string, unknown>) => {
+    await db.insert(auditLog).values({ id: crypto.randomUUID(), actorId: user.id, action, target, meta });
+  };
 
   const assertCanEditTopic = async (topicId: string) => {
     const [t] = await db.select().from(topics).where(eq(topics.id, topicId)).limit(1);
@@ -272,9 +279,11 @@ export const PATCH = route(async (req: NextRequest) => {
   if (body.action === 'generate_cloze') {
     if (!body.topicId) throw new ApiError(400, 'bad_request', 'topicId required.');
     await assertCanEditTopic(body.topicId);
-    const [topicLessons, existingCloze] = await Promise.all([
-      db.select({ title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd }).from(lessons).where(eq(lessons.topicId, body.topicId)),
+    const [topicLessons, existingCloze, existingFlashcard, existingMcq] = await Promise.all([
+      db.select({ title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd, specRefs: lessons.specRefs }).from(lessons).where(eq(lessons.topicId, body.topicId)),
       db.select({ textWithBlank: cards.textWithBlank }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'cloze'))),
+      db.select({ prompt: cards.prompt, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'flashcard'))),
+      db.select({ question: cards.question, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'mcq'))),
     ]);
     const proposals = generateClozeProposals(
       topicLessons.map((l) => ({ title: l.title, detailedMd: l.detailedMd, summaryMd: l.summaryMd })),
@@ -309,6 +318,52 @@ export const PATCH = route(async (req: NextRequest) => {
       inserted += 1;
     }
     return ok({ inserted });
+  }
+
+  // ── generate quiz cards from topic notes ──
+  if (body.action === 'generate_from_notes') {
+    if (!body.topicId) throw new ApiError(400, 'bad_request', 'topicId required.');
+    const topic = await assertCanEditTopic(body.topicId);
+    const topicLessons = await db.select({ title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd, specRefs: lessons.specRefs }).from(lessons).where(eq(lessons.topicId, body.topicId));
+    const existingCloze = await db.select({ textWithBlank: cards.textWithBlank, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'cloze')));
+    const existingFlashcard = await db.select({ prompt: cards.prompt, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'flashcard')));
+    const existingMcq = await db.select({ question: cards.question, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'mcq')));
+    const incoming = generateQuizCardsFromNotes(
+      topicLessons.map((l) => ({ title: l.title, detailedMd: l.detailedMd, summaryMd: l.summaryMd, specRefs: l.specRefs ?? '' })),
+      { cloze: existingCloze.map((c) => c.textWithBlank ?? ''), flashcard: existingFlashcard.map((c) => c.prompt ?? ''), mcq: existingMcq.map((c) => c.question ?? '') },
+      { maxCloze: Math.min(Math.max(1, body.maxCloze ?? 12), 24), maxFlashcards: Math.min(Math.max(0, body.maxFlashcards ?? 6), 12), maxMcq: Math.min(Math.max(0, body.maxMcq ?? 6), 12) },
+    );
+    if (incoming.length === 0) throw new ApiError(400, 'bad_request', 'No generateable quiz cards found in the topic notes. Add prose the generator can blank or cue from, then try again.');
+
+    let inserted = 0;
+    for (const card of incoming) {
+      const cardId = crypto.randomUUID();
+      if (card.kind === 'cloze') {
+        await db.insert(cards).values({
+          id: cardId, topicId: topic.id, kind: 'cloze', textWithBlank: card.textWithBlank ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+        });
+        await db.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId, text: card.answer ?? '', isPrimary: true });
+      } else if (card.kind === 'flashcard') {
+        await db.insert(cards).values({
+          id: cardId, topicId: topic.id, kind: 'flashcard', prompt: card.prompt ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+        });
+        await db.insert(cardAnswers).values({
+          id: crypto.randomUUID(), cardId, text: card.answer ?? '', isPrimary: true,
+          keywords: [{ required: true, phrase: card.answer ?? '', synonyms: [] }],
+          minPoints: 1,
+        });
+      } else {
+        const correctId = `o${card.options?.indexOf(card.correctOptionText ?? '') ?? 0}`;
+        await db.insert(cards).values({
+          id: cardId, topicId: topic.id, kind: 'mcq', question: card.question ?? '',
+          options: (card.options ?? []).map((text, i) => ({ id: `o${i}`, text })), correctOptionId: correctId,
+          explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+        });
+      }
+      inserted += 1;
+    }
+    await audit('generate_from_notes', topic.id, { inserted, topicName: topic.name });
+    return ok({ inserted, topicId: topic.id });
   }
 
   // ── topic rename / description / visibility ──

@@ -32,6 +32,7 @@ type AdminData = {
   userBadges: { userId: string; badgeId: string }[];
   userAchievements: { userId: string; achievementId: string }[];
   pendingTopics: { id: string; name: string; ownerId: string | null; createdAt: string }[];
+  coveredTopics: { id: string; name: string; cardCount: number; lessonCount: number; hasNotes: number }[];
   audit: { id: string; action: string; target: string; createdAt: string }[];
   contentStats: {
     topics: number;
@@ -272,6 +273,63 @@ export default function AdminPage() {
           </div>
         )}
       </section>
+
+      {/* ── Covered this week ──────────────────────────────────────────────── */}
+      {data?.coveredTopics.length ? (
+        <section className="card">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="t-strong">Covered this week</h2>
+            <span className={`chip ${data?.coveredTopics.length > 0 ? 'chip-active' : ''}`}>
+              {data?.coveredTopics.filter((c) => c.cardCount === 0).length} without questions
+            </span>
+          </div>
+          <p className="t-caption mt-1 text-muted-foreground">
+            Topics that were covered in class this week (notes exist) but still need studyable questions. Pick one and generate a first batch of cloze, flashcards and multiple-choice from its notes.
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {data?.coveredTopics
+              .filter((c) => c.cardCount === 0)
+              .map((c) => (
+                <div key={c.id} className="inset flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="t-strong">{c.name}</span>
+                    <span className="t-fine ml-2 text-muted-foreground">
+                      {c.lessonCount} {c.lessonCount === 1 ? 'note' : 'notes'} · no {c.cardCount === 0 ? 'questions' : 'enough questions'} yet
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm gap-1.5"
+                    onClick={() =>
+                      void act(
+                        { action: 'generate_from_notes', topicId: c.id, maxCloze: 12, maxFlashcards: 6, maxMcq: 6 },
+                        `Generated questions for ${c.name}.`,
+                      ).then(() => {
+                        // refresh data so the new card counts are visible
+                        load();
+                      })
+                    }
+                  >
+                    <Icon name="xp" size={13} />
+                    Generate questions
+                  </button>
+                </div>
+              ))}
+            {data?.coveredTopics.filter((c) => c.cardCount === 0).length === 0 && (
+              <p className="t-caption text-muted-foreground">Every covered topic already has questions.</p>
+            )}
+          </div>
+        </section>
+      ) : (
+        <section className="card">
+          <h2 className="t-strong">Covered this week</h2>
+          <p className="t-caption mt-1 text-muted-foreground">
+            Topics covered in class this week that still need questions are listed here once the approval queue builds up.
+          </p>
+          <p className="t-caption mt-3 text-muted-foreground">Nothing yet.</p>
+        </section>
+      )}
 
       {/* ── Seasons ──────────────────────────────────────────────────────── */}
       <section className="card">

@@ -18,7 +18,7 @@ export const GET = route(async (req: NextRequest) => {
   if (!isDeveloper(user)) throw new ApiError(403, 'forbidden', 'Developers only.');
   void user;
 
-  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, subjectList, badgeRows, manualAchievements, userBadgeRows, userAchievementRows, classRows, classMemberRows] = await Promise.all([
+  const [approvals, flags, allUsers, pendingTopics, audits, topicCount, publicTopicCount, lessonCount, cardCount, publicCardCount, emptyTopicCount, coveredTopicsList, subjectList, badgeRows, manualAchievements, userBadgeRows, userAchievementRows, classRows, classMemberRows] = await Promise.all([
     db
       .select({
         id: approvalRequests.id,
@@ -45,10 +45,6 @@ export const GET = route(async (req: NextRequest) => {
       .limit(200),
     db.select().from(topics).where(eq(topics.visibility, 'pending_review')).limit(100),
     db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(50),
-    // The shape of the library, so "0 public questions" is stated at the top of
-    // the page instead of being discovered by a student. That exact reading is
-    // what this deployment was hiding: a subject page listing three topics and
-    // not one answerable card anywhere in it.
     db.select({ n: sql<number>`count(*)::int` }).from(topics),
     db.select({ n: sql<number>`count(*)::int` }).from(topics).where(eq(topics.visibility, 'public')),
     db.select({ n: sql<number>`count(*)::int` }).from(lessons),
@@ -58,6 +54,16 @@ export const GET = route(async (req: NextRequest) => {
       .select({ n: sql<number>`count(*)::int` })
       .from(topics)
       .where(sql`not exists (select 1 from ${cards} c where c.topic_id = ${topics.id})`),
+    db
+      .select({
+        id: topics.id,
+        name: topics.name,
+        cardCount: sql<number>`(select count(*)::int from ${cards} c where c.topic_id = ${topics.id} and c.visibility = 'public')`,
+        lessonCount: sql<number>`(select count(*)::int from ${lessons} l where l.topic_id = ${topics.id})`,
+        hasNotes: sql<number>`coalesce(nullif(trim((select max(coalesce(l.detailed_md, '') || trim(l.summary_md)) from ${lessons} l where l.topic_id = ${topics.id})), ''), '')::int`,
+      })
+      .from(topics)
+      .where(and(eq(topics.visibility, 'pending_review'), sql`(select count(*)::int from ${lessons} l where l.topic_id = ${topics.id} and (coalesce(trim(l.detailed_md), '') || coalesce(trim(l.summaryMd), '')) <> '') > 0`)),
     db.select({ id: subjects.id, name: subjects.name, slug: subjects.slug, mathsEnabled: subjects.mathsEnabled }).from(subjects).orderBy(subjects.name),
     // Badges with a grant count, so the panel shows which are in use.
     db
@@ -120,6 +126,7 @@ export const GET = route(async (req: NextRequest) => {
       publicCards: publicCardCount[0]?.n ?? 0,
       emptyTopics: emptyTopicCount[0]?.n ?? 0,
     },
+    coveredTopics: coveredTopicsList ?? [],
     subjects: subjectList,
     badges: badgeRows,
     manualAchievements,
