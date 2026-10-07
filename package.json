@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit",
+    "verify:pwa": "node scripts/verify-pwa.mjs",
     "db:reset": "rm -f data/app.db && tsx scripts/seed.ts",
     "db:seed": "tsx scripts/seed.ts",
     "neon:bootstrap": "tsx scripts/neon-sync.ts bootstrap",

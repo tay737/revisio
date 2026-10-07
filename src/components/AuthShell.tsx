@@ -26,7 +26,10 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
       <div className="band tile-dark px-5 pt-safe">
         <div className="mx-auto flex w-full max-w-md items-center justify-between pt-5">
           <Link href="/" className="flex items-center gap-2.5">
@@ -40,11 +43,11 @@ export function AuthShell({
 
         <div className="mx-auto w-full max-w-md pb-16 pt-10">
           <p className="t-eyebrow">Spaced repetition</p>
-          <h2 className="t-display mt-2 max-w-xs">Ten minutes a day.</h2>
+          <p className="t-display mt-2 max-w-xs">Ten minutes a day.</p>
         </div>
       </div>
 
-      <div className="mx-auto -mt-8 w-full max-w-md flex-1 px-5 pb-12">
+      <main id="main" tabIndex={-1} className="mx-auto -mt-8 w-full max-w-md flex-1 px-5 pb-12 outline-none">
         <BlurFade delay={0.06}>{children}</BlurFade>
 
         {footer && (
@@ -52,7 +55,7 @@ export function AuthShell({
             <p>{footer}</p>
           </div>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
