@@ -66,7 +66,11 @@ async function request<T>(path: string, init: RequestInit & { retry?: boolean } 
   }
   const res = await fetch(path, { ...init, headers });
 
-  if (res.status === 401 && !init.retry) {
+  // The refresh dance only makes sense for requests that carried a token —
+  // resources that are public (login, register, forgot-password) return 401
+  // for their own reasons (bad password, unverified account) and must not
+  // suicide the in-memory token because of it.
+  if (res.status === 401 && !init.retry && accessToken) {
     const outcome = await tryRefresh();
     if (outcome === 'ok') return request<T>(path, { ...init, retry: true });
     if (outcome === 'rejected') {
