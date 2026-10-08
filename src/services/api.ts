@@ -8,12 +8,30 @@ export type { SessionUser };
 
 export const REFRESH_COOKIE = 'srs_refresh';
 
+// The PWA work (public/sw.js) stopped the *service worker* from retaining
+// private responses, but the browser's HTTP cache is a second retention layer
+// the worker cannot reach: API responses were going out as
+// `cache-control: public, max-age=0, must-revalidate`, which permits the bytes
+// of an authenticated payload to sit in the disk cache and outlive the session
+// — the exact shared-device leak the SW change was written to close. Every
+// `/api/v1` document is dynamic and caller-specific, so the honest header is
+// `private, no-store`: no storage, no revalidation dance, nothing to purge on
+// logout. Static assets are unaffected (the assets proxy sets its own
+// immutable caching, and Next serves `public/` files itself).
+const PRIVATE_JSON_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
+
+function privateJson(init?: ResponseInit): ResponseInit {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Cache-Control')) headers.set('Cache-Control', PRIVATE_JSON_HEADERS['Cache-Control']);
+  return { ...init, headers };
+}
+
 export function ok<T>(data: T, init?: ResponseInit) {
-  return NextResponse.json(data, init);
+  return NextResponse.json(data, privateJson(init));
 }
 
 export function fail(status: number, code: string, message: string, details?: unknown) {
-  return NextResponse.json({ error: { code, message, details } }, { status });
+  return NextResponse.json({ error: { code, message, details } }, privateJson({ status }));
 }
 
 /** Extract bearer token from Authorization header. */
