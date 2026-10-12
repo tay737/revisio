@@ -6,10 +6,12 @@ import { createHash, randomBytes } from 'crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { users, refreshTokens, emailTokens } from '@/db/schema';
+import { learnerMeetsAgeConsent } from '@/lib/age';
 
 export type Role = 'student' | 'teacher' | 'developer';
 export type SessionUser = { id: string; email: string; name: string; role: Role; status: string };
 
+export { AGE_OF_CONSENT, isUnderAge } from '@/lib/age';
 // The dev fallback is a boot choice, not a runtime default: if production ever
 // starts without AUTH_SECRET, tokens would be signed with a key anyone can
 // read in this repository — every account forgeable. So the module refuses to
@@ -49,7 +51,11 @@ export async function verifyAccessToken(token: string): Promise<SessionUser | nu
     const { payload } = await jwtVerify(token, secret);
     if (!payload.sub) return null;
     const [row] = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1);
-    if (!row || row.status === 'suspended') return null;
+    if (!row || row.status === 'suspended' || row.status === 'deleted') return null;
+    // A learner under the consent age may hold an account only while a parent or
+    // guardian has recorded `ageConsent`. Invalid legacy DOB data also fails
+    // closed rather than being interpreted as an adult date.
+    if (row.role === 'student' && !learnerMeetsAgeConsent(row.dateOfBirth, row.ageConsent)) return null;
     // Pending users may only reach approval-related endpoints; gate here.
     return { id: row.id, email: row.email, name: row.name, role: row.role, status: row.status };
   } catch {
@@ -112,7 +118,7 @@ function newRefreshToken() {
  * dead session — an old token that turns up later is the one case worth
  * refusing, because it means a copy exists.
  */
-export async function consumeRefreshToken(raw: string): Promise<{ userId: string; nextRaw: string } | null> {
+export async function consumeRefreshToken(raw: string) {
   const hash = sha256(raw);
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -123,12 +129,21 @@ export async function consumeRefreshToken(raw: string): Promise<{ userId: string
     if (!row) return null;
     if (row.revokedAt && Date.now() - row.revokedAt.getTime() > REUSE_GRACE_MS) return null;
 
+    // Validate the account before issuing a replacement. A rejected refresh
+    // must not consume the only usable credential and strand a valid account.
+    const [user] = await tx.select().from(users).where(eq(users.id, row.userId)).limit(1);
+    if (!user) return null;
+    if (user.status === 'suspended' || user.status === 'deleted') return { rejection: 'unavailable' as const };
+    if (user.role === 'student' && !learnerMeetsAgeConsent(user.dateOfBirth, user.ageConsent)) {
+      return { rejection: 'age_consent_required' as const };
+    }
+
     const next = newRefreshToken();
     await tx.insert(refreshTokens).values({ ...next.row, userId: row.userId });
     if (!row.revokedAt) {
       await tx.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, row.id));
     }
-    return { userId: row.userId, nextRaw: next.raw };
+    return { user, nextRaw: next.raw };
   });
 }
 

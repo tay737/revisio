@@ -29,6 +29,7 @@ import { emptyQueueLine, sessionSummary } from '@/lib/profile';
 import { rankChange, reviewsForRp, type Rank } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
+import { useReviewSession } from '@/components/ReviewSessionContext';
 
 type QueueCard = {
   id: string;
@@ -107,6 +108,7 @@ export default function ReviewClient() {
   // and lets the session report know the rank it started from.
   const { me, refresh: refreshMe } = useMe();
   const { refresh: refreshRanked } = useRanked('weekly');
+  const { setActive: setReviewActive } = useReviewSession();
   // `?topic=` turns the same loop into first exposure. The card surface, the
   // grading and the report are identical; what changes is *which* cards are
   // chosen and that the notes are on screen while you answer.
@@ -228,8 +230,9 @@ export default function ReviewClient() {
     setSelected(null);
     setNotesOpen(false);
     setAutoMark(false);
+    setReviewActive(false);
     startRef.current = Date.now();
-  }, [topicId, rememberPack]);
+  }, [topicId, rememberPack, setReviewActive]);
 
   useEffect(() => {
     load();
@@ -393,6 +396,12 @@ export default function ReviewClient() {
   // banked per answer, so stopping now forfeits nothing earned. `card` already
   // folds `ended` in (above), so `!card` is the whole test.
   const finished = queue !== null && queue.length > 0 && !card;
+
+  useEffect(() => {
+    setReviewActive(!!card && !finished);
+    return () => setReviewActive(false);
+  }, [card, finished, setReviewActive]);
+
   const change =
     finished && startXp !== null && latestXp !== null ? rankChange(startXp, latestXp) : null;
 

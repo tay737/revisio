@@ -8,6 +8,7 @@ const listeners = new Map();
 const cacheStore = new Map();
 const fetchLog = [];
 const deleted = [];
+const activationRequests = [];
 let networkOffline = false;
 
 function cacheFor(name) {
@@ -54,7 +55,7 @@ const context = {
   self: {
     location: { origin: 'https://app.test' },
     addEventListener: (type, callback) => listeners.set(type, callback),
-    skipWaiting: async () => {},
+    skipWaiting: async () => { activationRequests.push('skipWaiting'); },
     clients: { claim: async () => {} },
   },
   caches: {
@@ -88,6 +89,14 @@ async function dispatch(type, event) {
 }
 
 await dispatch('install', {});
+assert.equal(activationRequests.length, 0, 'install leaves the worker waiting for a user-authorized activation');
+const messageEvent = { data: { type: 'SKIP_WAITING' } };
+await dispatch('message', messageEvent);
+assert.deepEqual(activationRequests, ['skipWaiting'], 'only an explicit SKIP_WAITING message activates the worker');
+const ignoredMessage = { data: { type: 'UNRELATED' } };
+await dispatch('message', ignoredMessage);
+assert.deepEqual(activationRequests, ['skipWaiting'], 'unrelated messages do not activate the worker');
+
 cacheStore.set('revisio-old', new Map());
 cacheStore.set('unrelated-cache', new Map());
 await dispatch('activate', {});
@@ -141,4 +150,4 @@ assert.equal((await cachedAsset).status, 200, 'cached asset response is returned
 const post = await fetchEvent('https://app.test/anything', { method: 'POST' });
 assert.equal(post, null, 'non-GET requests bypass the cache');
 
-console.log('PWA service-worker contracts passed (cache privacy, offline navigation, static assets, activation cleanup).');
+console.log('PWA service-worker contracts passed (cache privacy, offline navigation, static assets, explicit activation, activation cleanup).');

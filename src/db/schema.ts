@@ -11,8 +11,10 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   passwordHash: text('password_hash').notNull(),
   role: text('role', { enum: ['student', 'teacher', 'developer'] }).notNull().default('student'),
-  status: text('status', { enum: ['pending', 'active', 'suspended'] }).notNull().default('pending'),
+  status: text('status', { enum: ['pending', 'active', 'suspended', 'deleted'] }).notNull().default('pending'),
   emailVerifiedAt: timestamp('email_verified_at', { mode: 'date' }),
+  consent: jsonb('consent').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  consentUpdatedAt: timestamp('consentUpdatedAt', { mode: 'date' }).notNull().defaultNow(),
   // ── public profile (v1.5) ─────────────────────────────────────────────────
   // username is the profile address (/u/<username>) and is optional until the
   // learner picks one; id remains the fallback handle so nobody is forced
@@ -42,6 +44,14 @@ export const users = pgTable('users', {
   totpEnabled: boolean('totp_enabled').notNull().default(false),
   recoveryCodes: jsonb('recovery_codes').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   leaderboardOptOut: boolean('leaderboard_opt_out').notNull().default(false),
+  // Age consent (UK GDPR + Age Appropriate Design Code). `age_consent` gates
+  // whether a learner under 13 (or 16 in the UK) may hold an account at all:
+  // a guardian must record that they consented, and that flag is what the
+  // registration flow checks before the row becomes usable. `date_of_birth` is
+  // the evidence the consent is based on; it is stored separately from the
+  // account fields the child owns and is cleared when the account is.
+  ageConsent: boolean('age_consent').notNull().default(false),
+  dateOfBirth: text('date_of_birth'),
   prefs: jsonb('prefs')
     .$type<{ noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean }>()
     .notNull()

@@ -8,6 +8,7 @@ import { api, setToken, ApiClientError } from '@/lib/api';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { SPRING } from '@/lib/motion';
 import { Notice } from '@/components/Notice';
+import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
 
 type LoginResponse = {
   accessToken?: string;
@@ -34,6 +35,9 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [guardianConsent, setGuardianConsent] = useState(false);
+  const underConsentAge = isUnderAge(dateOfBirth);
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [classCode, setClassCode] = useState('');
@@ -60,6 +64,16 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
     setInfo('');
     setBusy(true);
     try {
+      if (mode === 'register' && !staff && role === 'student') {
+        if (!isValidDateOfBirth(dateOfBirth)) {
+          setError('Enter a valid date of birth that is not in the future.');
+          return;
+        }
+        if (underConsentAge && !guardianConsent) {
+          setError('A parent or guardian must confirm consent before continuing.');
+          return;
+        }
+      }
       if (mode === 'login') {
         const data = await api.post<LoginResponse>('/api/v1/auth/login', {
           email,
@@ -79,9 +93,12 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           password,
           name,
           requestedRole: staff ? 'developer' : role,
+          role: staff ? undefined : role,
           note: staff ? note : undefined,
           subjectIds: role === 'student' && !staff ? subjectIds : undefined,
           classCode: classCode || undefined,
+          dateOfBirth: role === 'student' && !staff ? dateOfBirth : undefined,
+          ageConsent: role === 'student' && !staff && underConsentAge ? guardianConsent : undefined,
         });
         if (data.pendingApproval) {
           setInfo('Account created. A developer reviews staff accounts before the first sign-in — you will get an email once it is approved.');
@@ -143,7 +160,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         {mode === 'register' && !staff && (
-          <Field icon="person" label="Full name" htmlFor="name">
+          <Field icon="person" label={role === 'teacher' ? 'Your name' : 'Full name'} htmlFor="name">
             <input
               id="name"
               className="input pl-11"
@@ -215,6 +232,39 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
 
             {role === 'student' && (
               <>
+                <Field icon="person" label="Learner’s date of birth" htmlFor="dateOfBirth">
+                  <input
+                    id="dateOfBirth"
+                    type="date"
+                    className="input pl-11"
+                    value={dateOfBirth}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(event) => {
+                      setDateOfBirth(event.target.value);
+                      setGuardianConsent(false);
+                    }}
+                    required
+                    autoComplete="bday"
+                    aria-describedby="age-consent-hint"
+                  />
+                </Field>
+                {underConsentAge && (
+                  <label className="flex min-h-11 items-start gap-3 rounded-lg border border-border p-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-5 w-5 shrink-0"
+                      checked={guardianConsent}
+                      onChange={(event) => setGuardianConsent(event.target.checked)}
+                      required
+                    />
+                    <span className="t-caption">I am the parent or legal guardian creating this learner’s account, and I consent to Revisio processing their information to provide the service. I can withdraw this consent by contacting support.</span>
+                  </label>
+                )}
+                <p id="age-consent-hint" className="t-fine text-muted-foreground">
+                  {underConsentAge
+                    ? 'A parent or legal guardian must complete this registration.'
+                    : 'We use this only to check whether guardian consent is required; it is not stored for learners aged 13 or older.'}
+                </p>
                 {subjects.length > 0 && (
                   <div>
                     <span className="label">Subjects</span>

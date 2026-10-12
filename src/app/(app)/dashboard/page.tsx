@@ -7,7 +7,6 @@ import { useRanked } from '@/lib/useRanked';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { NumberTicker } from '@/components/ui/number-ticker';
-import { WordRotate } from '@/components/ui/word-rotate';
 import { TilePanel } from '@/components/ui/tile';
 import { Companion } from '@/components/companion';
 import { RankStrip } from '@/components/rank/RankStrip';
@@ -91,7 +90,7 @@ export default function DashboardPage() {
         <p className="t-eyebrow">{greetingFor(me.name)}</p>
 
         <div className="-my-1 mt-1">
-          <WordRotate words={openers(started)} duration={4600} className="t-display" />
+          <h1 className="t-display">{openers(started)[0]}</h1>
         </div>
 
         <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">

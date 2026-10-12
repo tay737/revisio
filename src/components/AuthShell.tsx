@@ -30,7 +30,9 @@ export function AuthShell({
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <div className="band tile-dark px-5 pt-safe">
+      {/* A header landmark: otherwise the wordmark and strapline sit outside
+          every region and axe reports the whole band as unlandmarked content. */}
+      <header className="band tile-dark px-5 pt-safe">
         <div className="mx-auto flex w-full max-w-md items-center justify-between pt-5">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
@@ -45,7 +47,7 @@ export function AuthShell({
           <p className="t-eyebrow">Spaced repetition</p>
           <p className="t-display mt-2 max-w-xs">Ten minutes a day.</p>
         </div>
-      </div>
+      </header>
 
       <main id="main" tabIndex={-1} className="mx-auto -mt-8 w-full max-w-md flex-1 px-5 pb-12 outline-none">
         <BlurFade delay={0.06}>{children}</BlurFade>

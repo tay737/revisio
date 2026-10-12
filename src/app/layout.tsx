@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google';
 import PwaRegister from '@/components/PwaRegister';
 import { MotionProvider } from '@/components/ui/motion/motion-provider';
 import { Toaster } from '@/components/ui/sonner';
+import { CookieConsentBanner } from '@/components/cookie-banner';
+import { ReviewSessionProvider } from '@/components/ReviewSessionContext';
 import { themeScript } from '@/lib/theme';
 import './globals.css';
 
@@ -53,11 +55,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
       </head>
       <body className="min-h-screen">
-        <MotionProvider>
-          {children}
-          <Toaster />
-        </MotionProvider>
-        <PwaRegister />
+        <ReviewSessionProvider>
+          <MotionProvider>
+            {children}
+            <Toaster />
+          </MotionProvider>
+          <PwaRegister />
+          <CookieConsentBanner />
+        </ReviewSessionProvider>
       </body>
     </html>
   );
