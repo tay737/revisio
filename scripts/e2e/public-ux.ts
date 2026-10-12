@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, type BrowserContext, type Page } from 'playwright-core';
+import { chromium, type BrowserContext, type Locator, type Page } from 'playwright-core';
 import { findChromium, NO_BROWSER_HELP } from './lib/browser';
 
 const require_ = createRequire(import.meta.url);
@@ -53,6 +53,52 @@ const report: {
 function check(condition: unknown, message: string): asserts condition {
   assert.ok(condition, message);
   report.checks.push(message);
+}
+
+/**
+ * `locator.count()` does not wait. A checkbox or field that a React state change
+ * has not rendered yet reads as absent, and one that a re-render is about to
+ * remove reads as present — so a bare count after `fill()` or `click()` is a
+ * race that passes or fails on timing (it failed against the deployed build
+ * while passing locally). These two helpers give the DOM a bounded window to
+ * reach the expected count and then report what is actually there, so the
+ * assertion still fails on a real regression.
+ */
+async function presentEventually(locator: Locator, expected = 1, timeout = 8_000): Promise<number> {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const count = await locator.count();
+    if (count === expected || Date.now() > deadline) return count;
+    await locator.page().waitForTimeout(100);
+  }
+}
+
+async function absentEventually(locator: Locator, timeout = 2_000): Promise<boolean> {
+  return (await presentEventually(locator, 0, timeout)) === 0;
+}
+
+/**
+ * Wait until React owns the control the suite is about to type into.
+ *
+ * `waitFor()` resolves on the server-rendered node, which exists before the
+ * client bundle has hydrated. A value typed into a controlled input in that
+ * window is discarded when the first client render enforces its `value` prop
+ * (the subjects fetch resolves straight after hydration and triggers exactly
+ * that render), so the form never sees the date of birth: measured against the
+ * deployed build, the guardian step appeared in 1 of 6 attempts without this
+ * wait and 6 of 6 with it. React stamps its internals onto the nodes it
+ * manages, so that key is a direct signal that typing will be heard.
+ */
+async function waitForHydration(page: Page, selector: string) {
+  await page.waitForFunction(
+    (sel) => {
+      const element = document.querySelector(sel);
+      return !!element
+        && Object.keys(element).some((key) => key.startsWith('__reactFiber$') || key.startsWith('__reactProps$'));
+    },
+    selector,
+    { timeout: 15_000 },
+  );
 }
 
 async function watchPage(page: Page) {
@@ -185,7 +231,7 @@ try {
   check(saved?.consent?.choices?.analytics === false && saved.consent.choices.essential === true, 'reject-all keeps optional purposes off and essential on');
   await consentPage.reload({ waitUntil: 'domcontentloaded' });
   await settle(consentPage);
-  check(await consentPage.getByRole('region', { name: 'Cookie consent' }).count() === 0, 'reject-all remains dismissed after reload');
+  check(await absentEventually(consentPage.getByRole('region', { name: 'Cookie consent' })), 'reject-all remains dismissed after reload');
 
   // Partial choice is a completed decision and survives public navigation.
   await consentPage.evaluate(() => localStorage.removeItem('revisio.cookie-consent'));
@@ -196,7 +242,7 @@ try {
   await consentPage.goto(new URL('/terms', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await consentPage.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await settle(consentPage);
-  check(await consentPage.getByRole('region', { name: 'Cookie consent' }).count() === 0, 'a partial choice stays dismissed across public navigation');
+  check(await absentEventually(consentPage.getByRole('region', { name: 'Cookie consent' })), 'a partial choice stays dismissed across public navigation');
   const partial = await consentPage.evaluate(() => JSON.parse(localStorage.getItem('revisio.cookie-consent') ?? 'null')) as {
     consent?: { choices?: { analytics?: boolean; marketing?: boolean } };
   } | null;
@@ -221,7 +267,7 @@ try {
   await storageAlert.getByText(/blocked storage.*visit only/i).waitFor({ state: 'visible', timeout: 5_000 });
   check(await storageAlert.innerText().then((text) => /visit only/i.test(text)), 'blocked storage truthfully reports that the choice is not saved');
   await blockedPanel.getByRole('button', { name: 'Continue for now' }).click();
-  check(await blockedPage.getByRole('region', { name: 'Cookie consent' }).count() === 0, 'storage failure does not trap the visitor');
+  check(await absentEventually(blockedPage.getByRole('region', { name: 'Cookie consent' })), 'storage failure does not trap the visitor');
   await blockedStorageContext.close();
 
   // Registration DOB/guardian fields are shown only for learner accounts.
@@ -230,16 +276,20 @@ try {
   await watchPage(registerPage);
   await registerPage.goto(new URL('/register', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await registerPage.getByLabel('Learner’s date of birth').waitFor();
+  // The banner mounts from the client bundle, so it has to be waited for before
+  // it is dismissed — a bare `count()` reads "no banner" on an unhydrated page
+  // and the panel then covers the registration controls the checks click.
   const registrationConsent = consentRegionOf(registerPage);
-  if (await registrationConsent.count()) {
+  if (await presentEventually(registrationConsent, 1, 5_000) === 1) {
     await registrationConsent.getByRole('button', { name: 'Reject all' }).click();
     await registrationConsent.waitFor({ state: 'detached' });
   }
   check(await registerPage.getByLabel('Learner’s date of birth').getAttribute('required') !== null, 'learner registration requires a date of birth');
+  await waitForHydration(registerPage, '#dateOfBirth');
   await registerPage.getByLabel('Learner’s date of birth').fill('2015-01-01');
-  check(await registerPage.getByRole('checkbox', { name: /I am the parent or legal guardian/i }).count() === 1, 'under-13 registration presents guardian attestation');
+  check(await presentEventually(registerPage.getByRole('checkbox', { name: /I am the parent or legal guardian/i })) === 1, 'under-13 registration presents guardian attestation');
   await registerPage.getByRole('button', { name: 'Teacher' }).click();
-  check(await registerPage.getByLabel('Learner’s date of birth').count() === 0, 'teacher registration does not collect a learner date of birth');
+  check(await absentEventually(registerPage.getByLabel('Learner’s date of birth')), 'teacher registration does not collect a learner date of birth');
   await registerContext.close();
 
   // Public, auth, legal and not-found routes: expected status, semantics, runtime.
