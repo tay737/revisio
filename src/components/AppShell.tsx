@@ -10,6 +10,7 @@ import { Sidebar } from '@/components/nav/Sidebar';
 import { TopBar } from '@/components/nav/TopBar';
 import { BottomNav } from '@/components/nav/BottomNav';
 import { AccountSheet } from '@/components/nav/AccountSheet';
+import { useMotionPreference } from '@/components/ui/motion/motion-provider';
 import PageSkeleton from '@/components/PageSkeleton';
 import {
   isActivePath,
@@ -41,6 +42,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [accountOpen, setAccountOpen] = useState(false);
+  const { setAccountReducedMotion } = useMotionPreference();
+
+  useEffect(() => {
+    setAccountReducedMotion(me?.prefs?.reducedMotion === true);
+  }, [me?.id, me?.prefs?.reducedMotion, setAccountReducedMotion]);
 
   useEffect(() => {
     if (error) router.replace('/login');

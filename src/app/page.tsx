@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { BlurFade } from '@/components/ui/blur-fade';
-import { WordRotate } from '@/components/ui/word-rotate';
 import { TileBand } from '@/components/ui/tile';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { Icon, type IconName } from '@/components/ui/icons';
@@ -37,11 +36,7 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
 ];
 
 /** Sample companion lines — the real voice, from `lib/profile`. */
-const COMPANION_LINES = [
-  'Nothing is due — you are ahead.',
-  'Twelve cards waiting, and nothing in there you have not seen before.',
-  'You had nine days going. Nothing is lost.',
-];
+const COMPANION_LINE = 'Nothing is due — you are ahead.';
 
 export default function LandingPage() {
   return (
@@ -207,7 +202,7 @@ export default function LandingPage() {
             <div className="card flex items-start gap-4 p-5">
               <RankCrest rank={rankFor(1600)} size={44} showProgress={false} animate={false} />
               <div className="min-w-0">
-                <WordRotate words={COMPANION_LINES} duration={5000} className="text-[17px] font-medium leading-snug" />
+                <p className="text-[17px] font-medium leading-snug">{COMPANION_LINE}</p>
                 <p className="mt-2 text-[13px] text-muted-foreground">— on a Tuesday, mid-streak</p>
               </div>
             </div>
@@ -224,6 +219,10 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Link href="/privacy" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Privacy</Link>
+              <Link href="/terms" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Terms</Link>
+              <Link href="/cookie-policy" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Cookies</Link>
+              <Link href="/accessibility" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Accessibility</Link>
               <Link href="/register" className="btn btn-primary">
                 Start free
               </Link>

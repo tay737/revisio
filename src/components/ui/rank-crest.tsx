@@ -50,7 +50,7 @@ export function RankCrest({
   // Dial arc maths. r=45.5 with a 3px stroke sits inside a 100-unit box.
   const R = 45.5;
   const CIRC = 2 * Math.PI * R;
-  const progress = Math.max(0, Math.min(100, rank.percent ?? 0));
+  const progress = Math.round(Math.max(0, Math.min(100, rank.percent ?? 0)) * 100) / 100;
 
   // Chevron stack, centred in the shield's wide upper body.
   const ridgeGap = 7.5;

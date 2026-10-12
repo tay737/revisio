@@ -35,7 +35,17 @@ export type ProfileVisibility = {
   achievements: boolean;
 };
 
-export type Me = {
+export interface ConsentState {
+  version: number;
+  updatedAt: string;
+  choices: Record<string, boolean>;
+  summary: string | null;
+  hasNonEssential: boolean;
+  isMinimal: boolean;
+}
+
+export interface Me {
+  consent?: { choices: Record<string, boolean>; updatedAt: string; version: number } | null;
   id: string;
   email: string;
   name: string;

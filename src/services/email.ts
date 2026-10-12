@@ -1,5 +1,42 @@
 import 'server-only';
 import { Resend } from 'resend';
+import { issueUnsubscribeToken } from '@/services/unsubscribe';
+
+// ── Unsubscribe infrastructure ───────────────────────────────────────────────
+//
+// `unsubscribeUrl` mints a signed, account-bound link and `unsubscribeHeaders`
+// wraps it in the headers a mailbox needs: `List-Unsubscribe` carries the URL,
+// `List-Unsubscribe-Post: List-Unsubscribe=One-Click` tells the client it may
+// POST that URL straight from its own button, and `Unsubscribe-Link` is the
+// plain-URL fallback for clients that read neither. The link is a real
+// capability — the token inside it is what authenticates the request, because a
+// mail client has no session.
+//
+// **No sender here calls these yet, and that is correct.** Everything this
+// module currently sends — verification, password reset, email change — is an
+// essential service message the account cannot work without, so offering a way
+// to stop it would be a lie and a footgun. The helpers exist so the first
+// marketing or non-essential notification sender attaches the headers *with*
+// the token rather than inventing a bare URL, and `scripts/verify-unsubscribe.ts`
+// holds the token contract in the meantime.
+
+function unsubscribeUrl(userId: string): string | null {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret?.trim()) return null;
+  const token = issueUnsubscribeToken(userId, secret);
+  return `${appUrl()}/api/v1/settings/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
+/** Headers for a non-essential message, or `{}` when no secret is configured. */
+export function unsubscribeHeaders(userId: string): Record<string, string> {
+  const url = unsubscribeUrl(userId);
+  if (!url) return {};
+  return {
+    'List-Unsubscribe': `<${url}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    'Unsubscribe-Link': `<${url}>`,
+  };
+}
 
 // Email delivery. Uses Resend when RESEND_API_KEY is set; otherwise logs the
 // link to the server console (local dev / self-host without SMTP).

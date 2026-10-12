@@ -202,8 +202,8 @@ async function rotationChecks(userId: string) {
   try {
     const first = track(await issueRefreshToken(userId));
     const rotated = await consumeRefreshToken(first);
-    assert('a live token exchanges for a replacement', Boolean(rotated?.nextRaw));
-    if (!rotated) return;
+    assert('a live token exchanges for a replacement', Boolean(rotated && !('rejection' in rotated) && rotated.nextRaw));
+    if (!rotated || 'rejection' in rotated) return;
     track(rotated.nextRaw);
 
     const [spent] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, sha256(first))).limit(1);
@@ -213,8 +213,8 @@ async function rotationChecks(userId: string) {
     // that was revoked a moment ago. Refusing it signs that tab out for no
     // reason, which is the reported symptom.
     const raced = await consumeRefreshToken(first);
-    assert('a just-revoked token still exchanges', Boolean(raced?.nextRaw), 'a replayed token inside the window must not log anyone out');
-    if (raced) track(raced.nextRaw);
+    assert('a just-revoked token still exchanges', Boolean(raced && !('rejection' in raced) && raced.nextRaw), 'a replayed token inside the window must not log anyone out');
+    if (raced && !('rejection' in raced)) track(raced.nextRaw);
 
     // Outside the window it must still be refused, or a stolen copy would work
     // forever.

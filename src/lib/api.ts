@@ -111,7 +111,7 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined }),
   upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
   raw: (path: string) => request<Blob>(path),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  del: <T>(path: string, headers?: HeadersInit) => request<T>(path, { method: 'DELETE', headers }),
 };
 
 /** Force a download of an authenticated endpoint (transcript exports). */

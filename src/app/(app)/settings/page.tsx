@@ -14,8 +14,11 @@ import { Avatar, ProfileBanner, AVATAR_COLORS, AVATAR_EMOJI, BANNER_COLORS, BANN
 import { RoleBadge } from '@/components/ui/role-badge';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Security2FA } from '@/app/(app)/settings/Security2FA';
+import { ConsentSection } from '@/app/(app)/settings/ConsentSection';
+import { DataDeletionControl } from '@/app/(app)/settings/DataDeletionControl';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 import { PRONOUN_MAX, PRONOUN_SUGGESTIONS, pronounsProblem } from '@/lib/pronouns';
+import { useMotionPreference } from '@/components/ui/motion/motion-provider';
 
 /**
  * Settings — one page, five questions:
@@ -66,6 +69,11 @@ function SettingsBody({
 }) {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const { setAccountReducedMotion } = useMotionPreference();
+
+  useEffect(() => {
+    setAccountReducedMotion(me.prefs?.reducedMotion === true);
+  }, [me.id, me.prefs?.reducedMotion, setAccountReducedMotion]);
 
   // ── Profile ─────────────────────────────────────────────────────────────
   const [name, setName] = useState(me.name);
@@ -224,6 +232,7 @@ function SettingsBody({
   const savePrefs = async (patch: Record<string, unknown>) => {
     try {
       await api.patch('/api/v1/me', { prefs: patch });
+      if (typeof patch.reducedMotion === 'boolean') setAccountReducedMotion(patch.reducedMotion);
       setNote('Saved.');
       void refresh();
     } catch (e) {
@@ -569,6 +578,10 @@ function SettingsBody({
           <p className="t-fine mt-2 text-muted-foreground">Changing your password signs out every other device.</p>
         </div>
       </section>
+
+      {/* ── How we use your data ─────────────────────────────────────────── */}
+      <ConsentSection />
+      <DataDeletionControl />
 
       {/* ── Preferences ───────────────────────────────────────────────────── */}
       <section className="card p-5">

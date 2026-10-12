@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { users, approvalRequests, userSubjects } from '@/db/schema';
 import { hashPassword, issueEmailToken } from '@/services/auth';
+import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
 import { sendVerificationEmail } from '@/services/email';
 import { ApiError, ok, route } from '@/services/api';
 import { takeRateLimitAttempt, clientIp } from '@/services/rate-limit';
@@ -14,17 +15,34 @@ export const POST = route(async (req: NextRequest) => {
   await takeRateLimitAttempt('registerIp', clientIp(req));
   const body = await req.json().catch(() => null);
   if (!body) throw new ApiError(400, 'bad_request', 'Invalid JSON body.');
-  const { email, password, name, role, note, subjectIds, classCode } = body as {
-    email?: string; password?: string; name?: string; role?: 'student' | 'teacher' | 'developer'; note?: string;
-    subjectIds?: string[]; classCode?: string;
+  const { email, password, name, role, requestedRole: requestedRoleInput, note, ageConsent, dateOfBirth, subjectIds, classCode } = body as {
+    email?: string; password?: string; name?: string; role?: 'student' | 'teacher' | 'developer';
+    requestedRole?: 'student' | 'teacher' | 'developer'; note?: string;
+    ageConsent?: boolean; dateOfBirth?: string; subjectIds?: string[]; classCode?: string;
   };
   if (!email || !password || !name) throw new ApiError(400, 'bad_request', 'Email, password and name are required.');
   if (password.length < 8) throw new ApiError(400, 'weak_password', 'Password must be at least 8 characters.');
-  if (role && role !== 'student' && role !== 'teacher' && role !== 'developer') {
+  const registrationRole = role ?? requestedRoleInput;
+  if (registrationRole && registrationRole !== 'student' && registrationRole !== 'teacher' && registrationRole !== 'developer') {
     throw new ApiError(400, 'bad_request', 'Invalid role.');
   }
-  // developer self-registration is never allowed — only teacher via staff portal
-  const requestedRole = role === 'teacher' ? 'teacher' : 'student';
+  // All learner registrations need an honest DOB so the server, not the
+  // browser, can decide whether guardian consent is required.
+  const learnerRegistration = !registrationRole || registrationRole === 'student';
+  if (learnerRegistration && !isValidDateOfBirth(dateOfBirth)) {
+    throw new ApiError(400, 'invalid_date_of_birth', 'Enter a valid date of birth that is not in the future.');
+  }
+  const underAge = learnerRegistration && isUnderAge(dateOfBirth ?? null);
+  if (underAge && ageConsent !== true) {
+    throw new ApiError(403, 'age_consent_required', 'A parent or guardian must confirm consent before a learner under 13 can register.');
+  }
+
+  // Staff role requests remain pending approval; learner age consent only
+  // applies to self-registration as a student. The staff form sends
+  // `requestedRole` while the ordinary form sends `role`.
+  const requestedRole = registrationRole === 'teacher' || registrationRole === 'developer'
+    ? registrationRole
+    : 'student';
 
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email.toLowerCase())).limit(1);
   if (existing) throw new ApiError(409, 'email_taken', 'An account with this email already exists.');
@@ -36,14 +54,24 @@ export const POST = route(async (req: NextRequest) => {
       email: email.toLowerCase(),
       name,
       passwordHash: await hashPassword(password),
-      role: requestedRole === 'teacher' ? 'student' : 'student', // role upgrades after approval
+      role: 'student', // role upgrades after approval
       status: 'pending',
+      // `ageConsent` is a record of a *guardian's* consent, so it is true only
+      // when one was actually required and recorded — never as a stand-in for
+      // "the age requirement was satisfied". Writing `true` for a learner of 13
+      // or over asserted a parent's consent that was never given, which is a
+      // fabricated entry in the very record a data-subject request reads back.
+      // Nothing depends on the flag there: `dateOfBirth` is deliberately not
+      // retained above 13 (the form says so), and an absent DOB already means
+      // "no age gate applies" to `learnerMeetsAgeConsent`.
+      ageConsent: underAge,
+      dateOfBirth: underAge ? dateOfBirth ?? null : null,
     })
     .returning();
 
-  if (requestedRole === 'teacher') {
+  if (requestedRole === 'teacher' || requestedRole === 'developer') {
     await db.insert(approvalRequests).values({
-      id: crypto.randomUUID(), userId: user.id, roleRequested: 'teacher', note: note ?? '',
+      id: crypto.randomUUID(), userId: user.id, roleRequested: requestedRole, note: note ?? '',
     });
   }
 
