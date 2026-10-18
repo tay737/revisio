@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import { motion } from 'motion/react';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -14,18 +15,23 @@ export function WordReveal({ text, className, delay = 0 }: { text: string; class
     <span className={className}>
       <span className="sr-only">{text}</span>
       <span aria-hidden="true">
+        {/* The space sits between the word wrappers, not inside them: trailing
+            whitespace inside an inline-block is collapsed away, which fused the
+            words into "learnitonce". */}
         {words.map((word, i) => (
-          <span key={`${word}-${i}`} className="inline-block overflow-hidden pb-[0.08em] align-top">
-            <motion.span
-              className="inline-block"
-              initial={{ opacity: 0, y: '0.6em', filter: 'blur(10px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{ duration: 0.9, ease: EASE, delay: delay + i * 0.09 }}
-            >
-              {word}
-            </motion.span>
+          <Fragment key={`${word}-${i}`}>
+            <span className="inline-block overflow-hidden pb-[0.08em] align-top">
+              <motion.span
+                className="inline-block"
+                initial={{ opacity: 0, y: '0.6em', filter: 'blur(10px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                transition={{ duration: 0.9, ease: EASE, delay: delay + i * 0.09 }}
+              >
+                {word}
+              </motion.span>
+            </span>
             {i < words.length - 1 ? ' ' : null}
-          </span>
+          </Fragment>
         ))}
       </span>
     </span>

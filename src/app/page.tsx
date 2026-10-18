@@ -14,7 +14,7 @@ import { ShimmerButton } from '@/components/ui/shimmer-button';
 import { MagicCard } from '@/components/ui/magic-card';
 import { ReviewDemo } from '@/components/landing/review-demo';
 import { ForgettingCurve } from '@/components/landing/forgetting-curve';
-import { TiltCard } from '@/components/landing/tilt-card';
+import { GlareHover } from '@/components/ui/glare-hover';
 import { WordReveal } from '@/components/landing/word-reveal';
 import { rankFor } from '@/domain/ranked';
 
@@ -131,10 +131,10 @@ export default function LandingPage() {
               </div>
 
               <BlurFade delay={0.12}>
-                <TiltCard className="relative rounded-xl">
+                <GlareHover width="100%" height="auto" background="transparent" color="#ffffff" opacity={0.22} className="relative cursor-default rounded-xl">
                   <BorderBeam size={120} duration={7} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" borderWidth={2} />
                   <ReviewDemo />
-                </TiltCard>
+                </GlareHover>
               </BlurFade>
             </div>
           </TileBand>

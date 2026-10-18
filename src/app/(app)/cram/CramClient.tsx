@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -300,9 +301,9 @@ export default function CramClient() {
                     autoFocus
                     aria-label="Your answer"
                   />
-                  <button type="submit" className="btn btn-primary mt-3 w-full" disabled={!input.trim() || busy}>
+                  <Button type="submit" className="mt-3 w-full" disabled={!input.trim() || busy}>
                     {busy ? 'Marking…' : 'Check answer'}
-                  </button>
+                  </Button>
                 </form>
               )}
 
