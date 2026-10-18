@@ -7,6 +7,7 @@ import { useRanked } from '@/lib/useRanked';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { NumberTicker } from '@/components/ui/number-ticker';
+import { BorderBeam } from '@/components/ui/border-beam';
 import { TilePanel } from '@/components/ui/tile';
 import { Companion } from '@/components/companion';
 import { RankStrip } from '@/components/rank/RankStrip';
@@ -86,7 +87,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       {/* ── 1. The hero: greeting, one line, one green button ─────────────── */}
-      <TilePanel tone="dark" className="p-5 sm:p-7">
+      <TilePanel tone="dark" className="relative overflow-hidden p-5 sm:p-7">
+        {today.due > 0 && (
+          <BorderBeam size={160} duration={9} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" />
+        )}
         <p className="t-eyebrow">{greetingFor(me.name)}</p>
 
         <div className="-my-1 mt-1">

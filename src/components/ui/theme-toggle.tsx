@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { Moon, Sun } from 'lucide-react';
-import { applyTheme, flipTheme, paintTheme, resolveTheme, type Theme } from '@/lib/theme';
-import { SPRING } from '@/lib/motion';
+import { applyTheme, paintTheme, resolveTheme, type Theme } from '@/lib/theme';
+import { AnimatedThemeToggler } from '@/components/ui/animated-theme-toggler';
 import { cn } from '@/lib/utils';
 
 /**
@@ -25,37 +23,23 @@ export function ThemeToggle({ className }: { className?: string }) {
     setTheme(current);
   }, []);
 
-  const toggle = () => {
-    const next = flipTheme(theme ?? resolveTheme());
-    applyTheme(next);
-    setTheme(next);
-  };
-
   const label = theme === 'dark' ? 'Switch to light appearance' : 'Switch to dark appearance';
-  const Glyph = theme === 'dark' ? Sun : Moon;
 
+  // Controlled: the library animates the reveal, `lib/theme` still owns the
+  // stored choice (its own localStorage write would fork the key).
   return (
-    <button
-      type="button"
-      onClick={toggle}
+    <AnimatedThemeToggler
+      theme={theme ?? 'light'}
+      onThemeChange={(next) => {
+        applyTheme(next);
+        setTheme(next);
+      }}
       aria-label={label}
       title={label}
       className={cn(
-        'grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur transition-colors duration-150 hover:text-foreground active:scale-95',
+        'grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur transition-colors duration-150 hover:text-foreground active:scale-95 [&>svg]:size-[18px] [&>svg]:stroke-[1.75]',
         className,
       )}
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={theme ?? 'pending'}
-          initial={{ opacity: 0, rotate: -45, scale: 0.7 }}
-          animate={{ opacity: 1, rotate: 0, scale: 1 }}
-          exit={{ opacity: 0, rotate: 45, scale: 0.7 }}
-          transition={SPRING.press}
-        >
-          <Glyph size={18} strokeWidth={1.75} aria-hidden />
-        </motion.span>
-      </AnimatePresence>
-    </button>
+    />
   );
 }

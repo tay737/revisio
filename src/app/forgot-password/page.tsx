@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { AuthShell } from '@/components/AuthShell';
+import { Button } from '@/components/ui/button';
 
 type Phase =
   | { kind: 'form' }
@@ -91,9 +92,9 @@ export default function ForgotPasswordPage() {
                 </p>
               )}
 
-              <button type="submit" className="btn btn-primary w-full" disabled={busy}>
+              <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? 'Sending…' : 'Send reset link'}
-              </button>
+              </Button>
             </form>
 
             <p className="t-caption mt-5 text-muted-foreground">

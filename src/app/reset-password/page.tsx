@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, setToken } from '@/lib/api';
 import { AuthShell } from '@/components/AuthShell';
+import { Button } from '@/components/ui/button';
 
 type LoginResponse = { accessToken?: string };
 
@@ -104,9 +105,9 @@ function ResetPasswordInner() {
                 </p>
               )}
 
-              <button type="submit" className="btn btn-primary w-full" disabled={!usable || busy}>
+              <Button type="submit" className="w-full" disabled={!usable || busy}>
                 {busy ? 'Saving…' : 'Save and sign in'}
-              </button>
+              </Button>
             </form>
 
             <p className="t-caption mt-5 text-muted-foreground">

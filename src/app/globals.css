@@ -1126,6 +1126,32 @@
   }
 }
 
+/* Primary button press ripple (components/ui/ripple-button.tsx). */
+@keyframes btn-ripple {
+  from {
+    transform: scale(0);
+    opacity: 1;
+  }
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Theme toggle reveal (components/ui/animated-theme-toggler.tsx). The clip-path
+   is animated from JS; these rules only stop the default cross-fade competing. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-group(root) {
+  animation-duration: var(--magicui-theme-toggle-vt-duration, 400ms);
+}
+html[data-magicui-theme-vt='active'] ::view-transition-new(root) {
+  clip-path: var(--magicui-theme-vt-clip-from);
+}
+
 @keyframes spin-around {
   0% {
     transform: translateZ(0) rotate(0);

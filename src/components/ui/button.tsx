@@ -3,6 +3,7 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+import { RippleLayer, useRipples } from '@/components/ui/ripple-button';
 
 /**
  * The button.
@@ -48,14 +49,27 @@ function Button({
   className,
   variant = 'primary',
   size = 'default',
+  onClick,
+  children,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // Only the primary action gets the press ripple: it is the one the user is
+  // meant to feel land. Secondary and utility buttons stay quiet.
+  const rippled = variant === 'primary';
+  const { ripples, add } = useRipples();
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={(event) => {
+        if (rippled) add(event);
+        onClick?.(event);
+      }}
       {...props}
-    />
+    >
+      {children}
+      {rippled && <RippleLayer ripples={ripples} />}
+    </ButtonPrimitive>
   );
 }
 

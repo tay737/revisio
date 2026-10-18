@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
 import { ShimmerButton } from '@/components/ui/shimmer-button';
 import { MagicCard } from '@/components/ui/magic-card';
 import { Notice } from '@/components/Notice';
@@ -486,10 +487,10 @@ export default function RegisterWizard() {
                     <span className="text-sm font-medium">{busy ? 'Just a moment…' : 'Create account'}</span>
                   </ShimmerButton>
                 ) : (
-                  <button type="submit" className="btn btn-primary flex-1 gap-2 active:scale-[0.98] transition-transform">
+                  <Button type="submit" className="flex-1 gap-2 active:scale-[0.98] transition-transform">
                     Continue
                     <Icon name="next" size={16} />
-                  </button>
+                  </Button>
                 )}
               </div>
             </motion.div>

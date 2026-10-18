@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { BlurFade } from '@/components/ui/blur-fade';
+import { AnimatedGridPattern } from '@/components/ui/animated-grid-pattern';
 
 /**
  * One shell for all four auth pages (login, register, staff login, staff
@@ -32,8 +33,17 @@ export function AuthShell({
       </a>
       {/* A header landmark: otherwise the wordmark and strapline sit outside
           every region and axe reports the whole band as unlandmarked content. */}
-      <header className="band tile-dark px-5 pt-safe">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between pt-5">
+      <header className="band tile-dark relative overflow-hidden px-5 pt-safe">
+        {/* The library's drifting grid, masked to the top-right so the wordmark
+            stays clean. Decorative only, so it is hidden from assistive tech. */}
+        <AnimatedGridPattern
+          numSquares={22}
+          maxOpacity={0.08}
+          duration={6}
+          aria-hidden
+          className="fill-foreground stroke-foreground/[0.07] mask-[radial-gradient(640px_circle_at_top_right,white,transparent)]"
+        />
+        <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-5">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
               R
@@ -43,7 +53,7 @@ export function AuthShell({
           <ThemeToggle />
         </div>
 
-        <div className="mx-auto w-full max-w-md pb-16 pt-10">
+        <div className="relative mx-auto w-full max-w-md pb-16 pt-10">
           <p className="t-eyebrow">Spaced repetition</p>
           <p className="t-display mt-2 max-w-xs">Ten minutes a day.</p>
         </div>

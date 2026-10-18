@@ -8,6 +8,8 @@ import { api, setToken, ApiClientError } from '@/lib/api';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { SPRING } from '@/lib/motion';
 import { Notice } from '@/components/Notice';
+import { ShimmerButton } from '@/components/ui/shimmer-button';
+import { MagicCard } from '@/components/ui/magic-card';
 
 type LoginResponse = {
   accessToken?: string;
@@ -109,7 +111,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
       : 'Developer accounts are approved before activation.';
 
   return (
-    <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
+    <MagicCard className="rounded-2xl p-0">
+      <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
       <h1 className="t-tagline">{title}</h1>
       <p className="t-caption mt-1.5 text-muted-foreground">{subtitle}</p>
 
@@ -206,9 +209,11 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           </button>
         )}
 
-        <button type="submit" className="btn btn-primary w-full" disabled={busy}>
-          {busy ? 'Just a moment…' : mode === 'login' ? (mfaStage ? 'Verify and sign in' : 'Sign in') : 'Create account'}
-        </button>
+        <ShimmerButton type="submit" disabled={busy} className="w-full">
+          <span className="text-sm font-medium">
+            {busy ? 'Just a moment…' : mode === 'login' ? (mfaStage ? 'Verify and sign in' : 'Sign in') : 'Create account'}
+          </span>
+        </ShimmerButton>
       </form>
 
       <p className="t-caption mt-5 text-center text-muted-foreground">
@@ -238,7 +243,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           </Link>
         </p>
       )}
-    </div>
+      </div>
+    </MagicCard>
   );
 }
 

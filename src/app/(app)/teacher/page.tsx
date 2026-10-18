@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { BlurFade } from '@/components/ui/blur-fade';
@@ -312,9 +313,9 @@ export default function TeacherPage() {
                   aria-label="Student email"
                   required
                 />
-                <button type="submit" className="btn btn-primary btn-sm shrink-0">
+                <Button type="submit" size="sm" className="shrink-0">
                   Add to class
-                </button>
+                </Button>
               </form>
             )}
 
