@@ -30,6 +30,10 @@ export const metadata: Metadata = {
   description: 'Spaced repetition, a daily queue and a rank worth defending.',
   manifest: '/manifest.webmanifest',
   applicationName: 'Revisio',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icon-192.png', sizes: '192x192' }],
+  },
 };
 
 export const viewport: Viewport = {

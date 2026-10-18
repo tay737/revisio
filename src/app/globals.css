@@ -305,6 +305,8 @@
   --animate-breathe: breathe 1.4s ease-in-out infinite;
   --animate-dot: dot-pulse 1.1s ease-in-out infinite;
   --animate-sheen: crest-sweep 1.6s ease-in-out;
+  --animate-shiny-text: shiny-text 8s infinite;
+  --animate-marquee: marquee 38s linear infinite;
 }
 
 @layer base {
@@ -1102,6 +1104,27 @@
   }
   to {
     transform: translateX(120%);
+  }
+}
+
+@keyframes shiny-text {
+  0%,
+  90%,
+  100% {
+    background-position: calc(-100% - var(--shiny-width)) 0;
+  }
+  30%,
+  60% {
+    background-position: calc(100% + var(--shiny-width)) 0;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
