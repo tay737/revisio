@@ -19,6 +19,7 @@ import { DataDeletionControl } from '@/app/(app)/settings/DataDeletionControl';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 import { PRONOUN_MAX, PRONOUN_SUGGESTIONS, pronounsProblem } from '@/lib/pronouns';
 import { useMotionPreference } from '@/components/ui/motion/motion-provider';
+import { Button, buttonVariants } from '@/components/ui/button';
 
 /**
  * Settings — one page, five questions:
@@ -311,7 +312,7 @@ function SettingsBody({
             <span className="t-fine ml-1 text-muted-foreground">{bannerUrl ? 'An uploaded image is covering the wash' : 'The wash shows when no image is uploaded'}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <label className="btn btn-secondary btn-sm gap-1.5 cursor-pointer">
+            <label className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'gap-1.5 cursor-pointer' })}>
               <Icon name="download" size={14} />
               {uploading === 'banner' ? 'Uploading…' : bannerUrl ? 'Replace banner' : 'Upload banner'}
               <input
@@ -327,9 +328,9 @@ function SettingsBody({
               />
             </label>
             {bannerUrl && (
-              <button type="button" className="btn btn-ghost btn-sm" disabled={uploading !== null} onClick={() => void removeImage('banner')}>
+              <Button type="button" variant="ghost" size="sm" disabled={uploading !== null} onClick={() => void removeImage('banner')}>
                 Remove
-              </button>
+              </Button>
             )}
             <span className="t-fine text-muted-foreground">PNG, JPEG or GIF · up to 5 MB · wide images crop to fit</span>
           </div>
@@ -373,7 +374,7 @@ function SettingsBody({
             ))}
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="btn btn-secondary btn-sm cursor-pointer gap-1.5">
+            <label className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'cursor-pointer gap-1.5' })}>
               <Icon name="download" size={14} />
               {uploading === 'avatar' ? 'Uploading…' : avatarUrl ? 'Replace image' : 'Upload image'}
               <input
@@ -389,9 +390,9 @@ function SettingsBody({
               />
             </label>
             {avatarUrl && (
-              <button type="button" className="btn btn-ghost btn-sm" disabled={uploading !== null} onClick={() => void removeImage('avatar')}>
+              <Button type="button" variant="ghost" size="sm" disabled={uploading !== null} onClick={() => void removeImage('avatar')}>
                 Remove image
-              </button>
+              </Button>
             )}
             <span className="t-fine text-muted-foreground">An uploaded picture replaces the emoji.</span>
           </div>
@@ -461,15 +462,15 @@ function SettingsBody({
         </div>
 
         <div className="mt-5 flex items-center gap-3">
-          <button
+          <Button
             type="button"
-            className="btn btn-primary"
+            variant="primary"
             disabled={!profileDirty || !usernameOk || !!pronounProblem || savingProfile}
             onClick={saveProfile}
           >
             <Icon name="checked" size={15} />
             {savingProfile ? 'Saving…' : 'Save profile'}
-          </button>
+          </Button>
           {profileDirty && <span className="t-caption text-muted-foreground">Unsaved changes</span>}
         </div>
       </section>
@@ -516,15 +517,15 @@ function SettingsBody({
             <input id="set-email-pw" type="password" className="input" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} autoComplete="current-password" />
           </Field>
         </div>
-        <button
+        <Button
           type="button"
-          className="btn btn-secondary mt-4"
+          variant="secondary" className="mt-4"
           disabled={!newEmail.trim() || !emailPassword}
           onClick={requestEmailChange}
         >
           <Icon name="mail" size={15} />
           Send confirmation email
-        </button>
+        </Button>
       </section>      {/* ── Security ──────────────────────────────────────────────────────── */}
       <section className="card p-5">
         <h2 className="t-strong">Security</h2>
@@ -566,15 +567,15 @@ function SettingsBody({
               <input id="set-pw-confirm" type="password" className="input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
             </Field>
           </div>
-          <button
+          <Button
             type="button"
-            className="btn btn-primary mt-4"
+            variant="primary" className="mt-4"
             disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
             onClick={changePassword}
           >
             <Icon name="secure" size={15} />
             Change password
-          </button>
+          </Button>
           <p className="t-fine mt-2 text-muted-foreground">Changing your password signs out every other device.</p>
         </div>
       </section>

@@ -12,6 +12,7 @@ import PageSkeleton from '@/components/PageSkeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { Markdown } from '@/components/Markdown';
 import { SPRING } from '@/lib/motion';
+import { buttonVariants } from '@/components/ui/button';
 
 type Lesson = { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string };
 
@@ -97,7 +98,7 @@ export default function TopicScreen() {
         </span>
         <h2 className="t-tagline mt-4">Topic not found</h2>
         <p className="t-caption mt-2 text-muted-foreground">It may be private, withdrawn, or the link is wrong.</p>
-        <Link href={subjectId ? `/learn/${subjectId}` : '/learn'} className="btn btn-primary mt-5 inline-flex">
+        <Link href={subjectId ? `/learn/${subjectId}` : '/learn'} className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
           Back
         </Link>
       </div>
@@ -141,7 +142,7 @@ export default function TopicScreen() {
             </div>
             <Link
               href={`/review?topic=${topicId}`}
-              className="btn btn-primary btn-sm self-stretch"
+              className={buttonVariants({ variant: 'primary', size: 'sm', className: 'self-stretch' })}
               aria-label={`Learn ${meta.name}`}
             >
               <Icon name="learn" size={14} />
@@ -149,7 +150,7 @@ export default function TopicScreen() {
             </Link>
             <Link
               href={`/cram?topic=${topicId}`}
-              className="btn btn-secondary btn-sm self-stretch"
+              className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'self-stretch' })}
               aria-label={`Cram ${meta.name}`}
             >
               <Icon name="cram" size={14} />

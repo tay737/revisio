@@ -14,6 +14,7 @@ import { ClozeMarking } from '../library/ClozeMarking';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StudentProgressPanel } from '@/components/staff/StudentProgressPanel';
 import { SRS_LADDER } from '@/domain/srs';
+import { Button, buttonVariants } from '@/components/ui/button';
 
 type AdminData = {
   approvals: {
@@ -195,30 +196,30 @@ export default function AdminPage() {
                   {a.note && <p className="t-caption mt-1 text-muted-foreground">{a.note}</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary btn-sm gap-1.5"
+                    variant="primary" size="sm" className="gap-1.5"
                     onClick={() => act({ action: 'approve_request', approvalId: a.id }, `${a.name} approved.`)}
                   >
                     <Icon name="checked" size={14} />
                     Approve
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn btn-danger gap-1.5"
+                    variant="danger" className="gap-1.5"
                     onClick={() => act({ action: 'reject_request', approvalId: a.id }, `${a.name} rejected.`)}
                   >
                     <Icon name="close" size={14} />
                     Reject
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn btn-ghost gap-1.5"
+                    variant="ghost" className="gap-1.5"
                     onClick={() => act({ action: 'verify_user_email', userId: a.userId }, `${a.name}'s email marked verified.`)}
                   >
                     <Icon name="mail" size={14} />
                     Verify email
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -249,24 +250,24 @@ export default function AdminPage() {
                   <span className="truncate">{t.name}</span>
                 </span>
                 <div className="flex shrink-0 gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary btn-sm gap-1.5"
+                    variant="primary" size="sm" className="gap-1.5"
                     onClick={() => act({ action: 'review_topic', topicId: t.id, approveTopic: true }, 'Published.')}
                   >
                     <Icon name="publish" size={14} />
                     Publish
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn btn-danger gap-1.5"
+                    variant="danger" className="gap-1.5"
                     onClick={() =>
                       act({ action: 'review_topic', topicId: t.id, approveTopic: false }, 'Sent back to private.')
                     }
                   >
                     <Icon name="close" size={14} />
                     Reject
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -298,9 +299,9 @@ export default function AdminPage() {
                       {c.lessonCount} {c.lessonCount === 1 ? 'note' : 'notes'} · no {c.cardCount === 0 ? 'questions' : 'enough questions'} yet
                     </span>
                   </div>
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary btn-sm gap-1.5"
+                    variant="primary" size="sm" className="gap-1.5"
                     onClick={() =>
                       void act(
                         { action: 'generate_from_notes', topicId: c.id, maxCloze: 12, maxFlashcards: 6, maxMcq: 6 },
@@ -313,7 +314,7 @@ export default function AdminPage() {
                   >
                     <Icon name="xp" size={13} />
                     Generate questions
-                  </button>
+                  </Button>
                 </div>
               ))}
             {data?.coveredTopics.filter((c) => c.cardCount === 0).length === 0 && (
@@ -361,7 +362,7 @@ export default function AdminPage() {
               <span className="t-strong min-w-0 flex-1 truncate">{s.name}</span>
               <button
                 type="button"
-                className={`btn btn-sm shrink-0 ${s.mathsEnabled ? 'btn-primary' : 'btn-ghost'}`}
+                className={buttonVariants({ variant: s.mathsEnabled ? 'primary' : 'ghost', size: 'sm', className: 'shrink-0' })}
                 onClick={() => act({ action: 'set_subject_maths', subjectId: s.id, enabled: !s.mathsEnabled }, `Maths practice ${s.mathsEnabled ? 'off' : 'on'} for ${s.name}.`)}
               >
                 <Icon name="practice" size={14} />
@@ -374,14 +375,14 @@ export default function AdminPage() {
                 placeholder="Rename to…"
                 aria-label={`New name for ${s.name}`}
               />
-              <button
+              <Button
                 type="button"
-                className="btn btn-ghost btn-sm shrink-0"
+                variant="ghost" size="sm" className="shrink-0"
                 disabled={!renameTo[s.id]?.trim()}
                 onClick={() => act({ action: 'rename_subject', subjectId: s.id, name: renameTo[s.id]!.trim() }, `${s.name} renamed.`)}
               >
                 Rename
-              </button>
+              </Button>
               <InlineConfirm
                 label="Delete"
                 icon="remove"
@@ -401,14 +402,14 @@ export default function AdminPage() {
             placeholder="New subject"
             aria-label="New subject name"
           />
-          <button
+          <Button
             type="button"
-            className="btn btn-primary shrink-0"
+            variant="primary" className="shrink-0"
             disabled={!newSubject.trim()}
             onClick={() => act({ action: 'create_subject', name: newSubject.trim() }, `${newSubject.trim()} created.`).then(() => setNewSubject(''))}
           >
             Create
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -436,9 +437,9 @@ export default function AdminPage() {
             <div key={a.name} className="inset px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-mono text-[14px] font-semibold">{a.name}</span>
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost gap-1.5"
+                  variant="ghost" className="gap-1.5"
                   onClick={() => {
                     let params: unknown;
                     try {
@@ -452,7 +453,7 @@ export default function AdminPage() {
                 >
                   <Icon name="checked" size={14} />
                   Set as default
-                </button>
+                </Button>
               </div>
               <p className="t-caption mt-1 text-muted-foreground">{a.description}</p>
               <p className="t-fine mt-1 break-all font-mono text-muted-foreground">{JSON.stringify(a.defaultParams)}</p>
@@ -515,7 +516,7 @@ export default function AdminPage() {
               </div>
               <button
                 type="button"
-                className={f.enabled ? 'btn btn-primary btn-sm shrink-0' : 'btn btn-ghost shrink-0'}
+                className={buttonVariants({ variant: f.enabled ? 'primary' : 'ghost', size: f.enabled ? 'sm' : undefined, className: 'shrink-0' })}
                 onClick={() => act({ action: 'set_flag', flagKey: f.key, enabled: !f.enabled }, `${f.key} ${f.enabled ? 'disabled' : 'enabled'}.`)}
               >
                 {f.enabled ? 'Enabled' : 'Disabled'}
@@ -581,9 +582,9 @@ export default function AdminPage() {
             <option value="good">green</option>
             <option value="rose">rose</option>
           </select>
-          <button
+          <Button
             type="button"
-            className="btn btn-secondary"
+            variant="secondary"
             disabled={!badgeLabel.trim()}
             onClick={() => {
               const slug = badgeLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `badge-${Date.now().toString(36)}`;
@@ -595,7 +596,7 @@ export default function AdminPage() {
           >
             <Icon name="add" size={14} />
             Mint badge
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -789,22 +790,22 @@ export default function AdminPage() {
                   </td>
                   <td className="py-3 text-right">
                     <div className="flex justify-end gap-1.5">
-                      <button
+                      <Button
                         type="button"
-                        className="btn btn-ghost"
+                        variant="ghost"
                         onClick={() => setProgressFor({ id: u.id, name: u.name })}
                         aria-label={`View progress for ${u.name}`}
                       >
                         Progress
-                      </button>
+                      </Button>
                       {!u.emailVerifiedAt && (
-                        <button
+                        <Button
                           type="button"
-                          className="btn btn-ghost"
+                          variant="ghost"
                           onClick={() => act({ action: 'verify_user_email', userId: u.id }, `${u.name}'s email marked verified.`)}
                         >
                           Verify email
-                        </button>
+                        </Button>
                       )}
                       <InlineConfirm
                         label="Sign out everywhere"
@@ -813,9 +814,9 @@ export default function AdminPage() {
                         confirmLabel="Sign out"
                         onConfirm={() => act({ action: 'revoke_sessions', userId: u.id }, `${u.name} signed out everywhere.`)}
                       />
-                      <button
+                      <Button
                         type="button"
-                        className="btn btn-ghost"
+                        variant="ghost"
                         onClick={() =>
                           act(
                             {
@@ -827,7 +828,7 @@ export default function AdminPage() {
                         }
                       >
                         {u.status === 'suspended' ? 'Activate' : 'Suspend'}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -864,9 +865,9 @@ export default function AdminPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost btn-sm gap-1.5"
+                      variant="ghost" size="sm" className="gap-1.5"
                       aria-expanded={classRenameTo[c.id] !== undefined}
                       onClick={() => {
                         const next = { ...classRenameTo };
@@ -877,7 +878,7 @@ export default function AdminPage() {
                     >
                       <Icon name="edit" size={13} />
                       Rename
-                    </button>
+                    </Button>
                     <InlineConfirm
                       label="Delete"
                       icon="remove"
@@ -897,9 +898,9 @@ export default function AdminPage() {
                       aria-label={`New name for ${c.name}`}
                       maxLength={80}
                     />
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-primary btn-sm shrink-0"
+                      variant="primary" size="sm" className="shrink-0"
                       disabled={!classRenameTo[c.id].trim()}
                       onClick={() =>
                         void act({ action: 'rename_class', classId: c.id, name: classRenameTo[c.id].trim() }, 'Class renamed.').then(() => {
@@ -910,7 +911,7 @@ export default function AdminPage() {
                       }
                     >
                       Save
-                    </button>
+                    </Button>
                   </div>
                 )}
 

@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { BlurFade } from '@/components/ui/blur-fade';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Button, buttonVariants } from '@/components/ui/button';
 
 type Subject = {
   id: string;
@@ -91,7 +92,7 @@ export default function LearnPage() {
           <p className="t-caption mt-2 text-muted-foreground">
             No subjects are available on this deployment. Create your own in My content, or ask a teacher to publish one.
           </p>
-          <Link href="/library" className="btn btn-primary mt-5 inline-flex">
+          <Link href="/library" className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
             Go to My content
           </Link>
         </div>
@@ -101,9 +102,9 @@ export default function LearnPage() {
         <div className="card p-6 text-center">
           <p className="t-strong">Nothing matches “{query}”</p>
           <p className="t-caption mt-1 text-muted-foreground">Try a shorter piece of the name.</p>
-          <button type="button" className="btn btn-secondary btn-sm mt-3" onClick={() => setQuery('')}>
+          <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={() => setQuery('')}>
             Clear the search
-          </button>
+          </Button>
         </div>
       )}
 
@@ -133,18 +134,18 @@ export default function LearnPage() {
                     {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
                   </span>
                   {!s.enrolled ? (
-                    <button
+                    <Button
                       type="button"
                       onClick={() => follow(s)}
                       disabled={busy === s.id}
-                      className="btn btn-secondary btn-sm"
+                      variant="secondary" size="sm"
                     >
                       {busy === s.id ? 'Adding…' : 'Follow'}
-                    </button>
+                    </Button>
                   ) : (
                     <Link
                       href={`/learn/${s.id}`}
-                      className="btn btn-primary btn-sm"
+                      className={buttonVariants({ variant: 'primary', size: 'sm' })}
                       aria-label={`Open ${s.name}`}
                     >
                       Open

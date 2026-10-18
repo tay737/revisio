@@ -12,6 +12,7 @@ import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
+import { Button } from '@/components/ui/button';
 
 type AoSplit = { ao: string; marks: number };
 type ExamQuestion = {
@@ -244,16 +245,16 @@ export default function ExamPage() {
         subtitle="Marked against the mark scheme."
         actions={
           result && (
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => {
                 setPaper(null);
                 setResult(null);
               }}
             >
               New paper
-            </button>
+            </Button>
           )
         }
       />
@@ -315,14 +316,14 @@ export default function ExamPage() {
             </p>
           </div>
 
-          <button
-            className="btn btn-primary w-full gap-2"
+          <Button
+            variant="primary" className="w-full gap-2"
             disabled={picked.size === 0 || busy || info.questionsAvailable === 0}
             onClick={buildPaper}
           >
             <Icon name="start" size={18} />
             {busy ? 'Building…' : 'Generate paper'}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -399,9 +400,9 @@ export default function ExamPage() {
             </BlurFade>
           ))}
 
-          <button className="btn btn-primary w-full" disabled={busy} onClick={submitPaper}>
+          <Button variant="primary" className="w-full" disabled={busy} onClick={submitPaper}>
             {busy ? 'Marking…' : 'Submit for marking'}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -459,16 +460,16 @@ export default function ExamPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="button"
-            className="btn btn-secondary w-full"
+            variant="secondary" className="w-full"
             onClick={() => {
               setPaper(null);
               setResult(null);
             }}
           >
             Build another paper
-          </button>
+          </Button>
         </div>
       )}
 
@@ -493,15 +494,15 @@ export default function ExamPage() {
                     {p.totalMarks != null && (
                       <span className="t-caption-s tabular-nums text-muted-foreground">{p.totalMarks} marks</span>
                     )}
-                    <button
+                    <Button
                       type="button"
                       aria-expanded={open}
-                      className="btn btn-ghost btn-sm shrink-0 gap-1.5"
+                      variant="ghost" size="sm" className="shrink-0 gap-1.5"
                       onClick={() => (open ? setOpenDoc(null) : void openPaperDoc(p))}
                     >
                       <Icon name={open ? 'collapse' : 'expand'} size={14} />
                       {open ? 'Hide' : 'Open'}
-                    </button>
+                    </Button>
                   </div>
                   {(p.series || p.paperCode || p.durationMinutes) && (
                     <p className="t-caption mt-1 text-muted-foreground">
@@ -640,10 +641,10 @@ function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number
 
       {(d.markSchemeMd || d.modelAnswerMd || d.markingNotesMd) && (
         <div className="mt-3">
-          <button type="button" aria-expanded={open} className="btn btn-ghost btn-sm gap-1.5" onClick={() => setOpen(!open)}>
+          <Button type="button" aria-expanded={open} variant="ghost" size="sm" className="gap-1.5" onClick={() => setOpen(!open)}>
             <Icon name={open ? 'collapse' : 'expand'} size={13} />
             {open ? 'Hide marking material' : 'Mark scheme & model answer'}
-          </button>
+          </Button>
           {open && (
             <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
               {d.markingNotesMd && (

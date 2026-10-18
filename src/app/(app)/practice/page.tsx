@@ -11,6 +11,7 @@ import { Markdown } from '@/components/Markdown';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Button } from '@/components/ui/button';
 
 type Concept = { id: string; name: string; category: string; description: string };
 type Subject = { id: string; name: string; mathsEnabled: boolean };
@@ -232,9 +233,9 @@ export default function PracticePage() {
                     enterKeyHint="done"
                     aria-label="Your answer"
                   />
-                  <button type="submit" className="btn btn-good btn-lg mt-3 w-full" disabled={!input.trim() || busy}>
+                  <Button type="submit" variant="good" size="lg" className="mt-3 w-full" disabled={!input.trim() || busy}>
                     {busy ? 'Marking…' : 'Check answer'}
-                  </button>
+                  </Button>
                   <p className="mt-2 text-center text-[12px] text-muted-foreground">Fractions like 3/4, or expressions like 2x+6, all mark.</p>
                 </form>
               )}
@@ -261,10 +262,10 @@ export default function PracticePage() {
                       <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Worked solution</span>
                       <Markdown text={result.solution} className="mt-1 text-[14px]" />
                     </div>
-                    <button onClick={next} className="btn btn-primary mt-4 w-full gap-2">
+                    <Button onClick={next} variant="primary" className="mt-4 w-full gap-2">
                       {idx + 1 >= paper.length ? 'See results' : 'Next'}
                       <Icon name="next" size={17} />
-                    </button>
+                    </Button>
                   </div>
                 </motion.div>
               )}
@@ -303,9 +304,9 @@ export default function PracticePage() {
             </p>
           )}
           <div className="mt-5 flex justify-center gap-2">
-            <button type="button" className="btn btn-primary" onClick={restart}>
+            <Button type="button" variant="primary" onClick={restart}>
               New session
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -465,10 +466,10 @@ export default function PracticePage() {
                 </div>
               </div>
 
-              <button className="btn btn-primary w-full gap-2" disabled={busy} onClick={start}>
+              <Button variant="primary" className="w-full gap-2" disabled={busy} onClick={start}>
                 <Icon name="start" size={18} />
                 {busy ? 'Generating…' : 'Generate questions'}
-              </button>
+              </Button>
             </>
           )}
         </div>

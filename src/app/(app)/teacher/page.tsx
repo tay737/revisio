@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { BlurFade } from '@/components/ui/blur-fade';
@@ -159,9 +159,9 @@ export default function TeacherPage() {
               </option>
             ))}
           </select>
-          <button
+          <Button
             type="button"
-            className="btn btn-primary shrink-0 gap-2"
+            variant="primary" className="shrink-0 gap-2"
             disabled={!className}
             onClick={() =>
               post(
@@ -172,7 +172,7 @@ export default function TeacherPage() {
           >
             <Icon name="add" size={17} />
             Create
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -210,7 +210,7 @@ export default function TeacherPage() {
                 </code>
                 <button
                   type="button"
-                  className={`btn btn-sm gap-1.5 ${copiedId === c.id ? 'btn-subtle text-good-strong' : 'btn-secondary'}`}
+                  className={buttonVariants({ variant: copiedId === c.id ? 'subtle' : 'secondary', size: 'sm', className: `gap-1.5 ${copiedId === c.id ? 'text-good-strong' : ''}` })}
                   onClick={() => copyCode(c.id, c.joinCode)}
                   aria-label={`Copy join code ${c.joinCode}`}
                 >
@@ -220,17 +220,17 @@ export default function TeacherPage() {
                 {copyFailed && copiedId !== c.id && (
                   <span className="t-fine text-destructive-ink">Copy blocked — select the code and copy it by hand.</span>
                 )}
-                <button
+                <Button
                   type="button"
-                  className="btn btn-ghost gap-1.5"
+                  variant="ghost" className="gap-1.5"
                   onClick={() => post({ action: 'rotate_code', classId: c.id }, 'New code generated. The old one no longer works.')}
                 >
                   <Icon name="rotate" size={14} />
                   Rotate
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="btn btn-ghost gap-1.5"
+                  variant="ghost" className="gap-1.5"
                   aria-expanded={renamingId === c.id}
                   onClick={() => {
                     if (renamingId === c.id) {
@@ -243,10 +243,10 @@ export default function TeacherPage() {
                 >
                   <Icon name="edit" size={14} />
                   Rename
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="btn btn-ghost gap-1.5"
+                  variant="ghost" className="gap-1.5"
                   aria-expanded={inviteFor === c.id}
                   onClick={() => {
                     if (inviteFor === c.id) {
@@ -259,7 +259,7 @@ export default function TeacherPage() {
                 >
                   <Icon name="add" size={14} />
                   Add student
-                </button>
+                </Button>
                 <InlineConfirm
                   label="Delete"
                   icon="remove"
@@ -279,16 +279,16 @@ export default function TeacherPage() {
                   aria-label="New class name"
                   maxLength={80}
                 />
-                <button
+                <Button
                   type="button"
-                  className="btn btn-primary btn-sm shrink-0"
+                  variant="primary" size="sm" className="shrink-0"
                   disabled={!renameDraft.trim()}
                   onClick={() =>
                     void post({ action: 'rename_class', classId: c.id, name: renameDraft.trim() }, 'Class renamed.').then(() => setRenamingId(null))
                   }
                 >
                   Save
-                </button>
+                </Button>
               </div>
             )}
 
@@ -448,7 +448,7 @@ export default function TeacherPage() {
                   </div>
                   <button
                     type="button"
-                    className={live ? 'btn btn-ghost shrink-0 gap-1.5' : 'btn btn-secondary btn-sm shrink-0 gap-1.5'}
+                    className={buttonVariants({ variant: live ? 'ghost' : 'secondary', size: live ? undefined : 'sm', className: 'shrink-0 gap-1.5' })}
                     onClick={() =>
                       post(
                         { action: 'set_topic_visibility', topicId: t.id, visibility: live ? 'private' : 'public' },
@@ -478,15 +478,15 @@ export default function TeacherPage() {
             placeholder="Chemistry"
             aria-label="Subject name"
           />
-          <button
+          <Button
             type="button"
-            className="btn btn-primary shrink-0 gap-2"
+            variant="primary" className="shrink-0 gap-2"
             disabled={!newSubject}
             onClick={() => post({ action: 'create_subject', name: newSubject }, 'Subject created.').then(() => setNewSubject(''))}
           >
             <Icon name="add" size={17} />
             Create
-          </button>
+          </Button>
         </div>
       </section>
 

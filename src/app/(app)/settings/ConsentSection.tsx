@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { applyConsentChange, blankConsent, consentFromBlob, type ConsentKey, type ConsentState } from '@/lib/consent';
 import { Notice } from '@/components/Notice';
+import { Button } from '@/components/ui/button';
 
 const PURPOSES: { key: Exclude<ConsentKey, 'essential'>; label: string; description: string }[] = [
   { key: 'preferences', label: 'Preferences', description: 'Appearance, accessibility and app behaviour.' },
@@ -97,9 +98,9 @@ export function ConsentSection() {
         ))}
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
-        <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={saving}>
+        <Button type="button" variant="primary" onClick={() => void save()} disabled={saving}>
           {saving ? 'Saving…' : 'Save choices'}
-        </button>
+        </Button>
       </div>
       <p className="t-fine mt-3 text-muted-foreground">
         Your choices are stored on your account and apply wherever you sign in.

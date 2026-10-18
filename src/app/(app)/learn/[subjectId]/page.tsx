@@ -10,6 +10,7 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { unitFromTopic, topicSortKey, type Topic } from './shared';
+import { buttonVariants } from '@/components/ui/button';
 
 /**
  * The subject screen — the stable home the old pull-out list never gave a
@@ -66,7 +67,7 @@ export default function SubjectScreen() {
         </span>
         <h2 className="t-tagline mt-4">Subject not found</h2>
         <p className="t-caption mt-2 text-muted-foreground">It may have been withdrawn, or the link is wrong.</p>
-        <Link href="/learn" className="btn btn-primary mt-5 inline-flex">
+        <Link href="/learn" className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
           Back to Learn
         </Link>
       </div>
@@ -227,7 +228,7 @@ export default function SubjectScreen() {
                 <div className="flex gap-2 sm:shrink-0">
                   <Link
                     href={`/review?topic=${t.id}`}
-                    className="btn btn-primary btn-sm flex-1 sm:flex-none"
+                    className={buttonVariants({ variant: 'primary', size: 'sm', className: 'flex-1 sm:flex-none' })}
                     aria-label={`Learn ${t.name}`}
                   >
                     <Icon name="learn" size={14} />
@@ -235,7 +236,7 @@ export default function SubjectScreen() {
                   </Link>
                   <Link
                     href={`/cram?topic=${t.id}`}
-                    className="btn btn-secondary btn-sm flex-1 sm:flex-none"
+                    className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'flex-1 sm:flex-none' })}
                     aria-label={`Cram ${t.name}`}
                   >
                     <Icon name="cram" size={14} />

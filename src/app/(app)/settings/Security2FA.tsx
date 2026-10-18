@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
+import { Button } from '@/components/ui/button';
 
 type StartResponse = { secret: string; uri: string; qrDataUrl: string };
 type ConfirmResponse = { enabled: boolean; recoveryCodes: string[] };
@@ -136,19 +137,19 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
               </code>
             ))}
           </div>
-          <button type="button" className="btn btn-secondary btn-sm mt-3 gap-1.5" onClick={copyAll}>
+          <Button type="button" variant="secondary" size="sm" className="mt-3 gap-1.5" onClick={copyAll}>
             <Icon name={copied ? 'correct' : 'notes'} size={14} />
             {copied ? 'Copied' : 'Copy all'}
-          </button>
+          </Button>
         </div>
       )}
 
       {/* ── Off: begin enrolment ─────────────────────────────────────────── */}
       {!enabled && stage === 'idle' && (
-        <button type="button" className="btn btn-primary mt-4 gap-2" onClick={beginEnrolment} disabled={busy}>
+        <Button type="button" variant="primary" className="mt-4 gap-2" onClick={beginEnrolment} disabled={busy}>
           <Icon name="secure" size={15} />
           {busy ? 'Starting…' : 'Start setup'}
-        </button>
+        </Button>
       )}
 
       {/* ── Enrolling: scan, confirm ─────────────────────────────────────── */}
@@ -173,10 +174,10 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
                 <p className="t-caption-s">Or enter the code by hand</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <code className="rounded-md bg-secondary px-2.5 py-1.5 font-mono text-[13px] font-semibold tracking-[0.06em]">{start.secret}</code>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={copySecret}>
+                  <Button type="button" variant="ghost" size="sm" onClick={copySecret}>
                     <Icon name="notes" size={14} />
                     Copy
-                  </button>
+                  </Button>
                 </div>
               </div>
             </li>
@@ -195,29 +196,29 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
                     placeholder="000000"
                     aria-label="Six-digit authenticator code"
                   />
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-primary"
+                    variant="primary"
                     disabled={code.length !== 6 || busy}
                     onClick={confirmEnrolment}
                   >
                     {busy ? 'Checking…' : 'Confirm and turn on'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </li>
           </ol>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStage('idle')}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setStage('idle')}>
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
       {/* ── On: disable path ─────────────────────────────────────────────── */}
       {enabled && stage === 'idle' && (
-        <button
+        <Button
           type="button"
-          className="btn btn-danger mt-4 gap-1.5"
+          variant="danger" className="mt-4 gap-1.5"
           onClick={() => {
             setStage('disabling');
             setCode('');
@@ -225,7 +226,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
         >
           <Icon name="private" size={14} />
           Turn off
-        </button>
+        </Button>
       )}
 
       {stage === 'disabling' && (
@@ -245,12 +246,12 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
               placeholder="000000"
               aria-label="Six-digit authenticator code"
             />
-            <button type="button" className="btn btn-danger" disabled={code.length !== 6 || busy} onClick={disableWithCode}>
+            <Button type="button" variant="danger" disabled={code.length !== 6 || busy} onClick={disableWithCode}>
               {busy ? 'Working…' : 'Turn off 2FA'}
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStage('idle')}>
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setStage('idle')}>
               Keep it on
-            </button>
+            </Button>
           </div>
         </div>
       )}
