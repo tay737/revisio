@@ -22,6 +22,8 @@ import { useRanked } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { TilePanel } from '@/components/ui/tile';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { BlurFade } from '@/components/ui/blur-fade';
 import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
@@ -469,10 +471,10 @@ export default function ReviewClient() {
             {/* Deep-link to the reading screen itself — /learn?topic= was never
                 consumed by the catalogue, so the button led to a page that
                 ignored it (docs/UX-AUDIT P3-2). */}
-            <Link href={`/learn/${session.topic.subjectId}/${session.topic.id}`} className="btn btn-secondary">
+            <Link href={`/learn/${session.topic.subjectId}/${session.topic.id}`} className={buttonVariants({ variant: 'secondary' })}>
               Read the notes
             </Link>
-            <Link href="/review" className="btn btn-primary">
+            <Link href="/review" className={buttonVariants({ variant: 'primary' })}>
               Back to reviews
             </Link>
           </div>
@@ -489,10 +491,10 @@ export default function ReviewClient() {
           {emptyQueueLine(0, me?.gamification.streak ?? 0)}
         </p>
         <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-          <Link href="/cram" className="btn btn-secondary">
+          <Link href="/cram" className={buttonVariants({ variant: 'secondary' })}>
             Cram a topic
           </Link>
-          <Link href="/learn" className="btn btn-primary">
+          <Link href="/learn" className={buttonVariants({ variant: 'primary' })}>
             Read ahead
           </Link>
         </div>
@@ -506,7 +508,7 @@ export default function ReviewClient() {
   // case.
   if (!card) {
     return (
-      <div className="relative mx-auto max-w-xl">
+      <BlurFade className="relative mx-auto max-w-xl">
         <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-10" />
         {session ? (
           <FirstExposureReport
@@ -526,7 +528,7 @@ export default function ReviewClient() {
             onAgain={load}
           />
         )}
-      </div>
+      </BlurFade>
     );
   }
 
@@ -674,13 +676,15 @@ export default function ReviewClient() {
                     {selected === o.id && <Icon name="reviewed" size={18} />}
                   </button>
                 ))}
-                <button
-                  className="btn btn-good btn-lg mt-1.5 gap-2"
+                <Button
+                  variant="good"
+                  size="lg"
+                  className="mt-1.5 gap-2"
                   disabled={!selected || busy}
                   onClick={submit}
                 >
                   {busy ? 'Marking…' : 'Check'}
-                </button>
+                </Button>
                 <p className="text-center text-[12px] text-muted-foreground">One attempt only</p>
               </div>
             )}
@@ -733,9 +737,15 @@ export default function ReviewClient() {
                     aria-label="Your answer"
                   />
                 )}
-                <button type="submit" className="btn btn-good btn-lg mt-3" disabled={!input.trim() || busy}>
+                <Button
+                  type="submit"
+                  variant="good"
+                  size="lg"
+                  className="mt-3"
+                  disabled={!input.trim() || busy}
+                >
                   {busy ? 'Marking…' : autoMark ? 'Correct — press Enter' : 'Check'}
-                </button>
+                </Button>
                 <p className="mt-2 text-center text-[12px] text-muted-foreground">
                   {card.kind === 'cloze'
                     ? autoMark
@@ -756,10 +766,10 @@ export default function ReviewClient() {
               >
                 <div ref={verdictRef}>
                   <VerdictPanel result={result} card={card} />
-                  <button onClick={next} className="btn btn-primary btn-lg mt-3 gap-2">
+                  <Button size="lg" className="mt-3 gap-2" onClick={next}>
                     Continue
                     <Icon name="next" size={17} />
-                  </button>
+                  </Button>
                   <p className="mt-2 text-center text-[12px] text-muted-foreground">Enter for next</p>
                 </div>
               </motion.div>
@@ -837,16 +847,16 @@ function FirstExposureReport({
 
       <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
         {remaining > 0 ? (
-          <button onClick={onAgain} className="btn btn-secondary gap-2">
+          <Button variant="secondary" className="gap-2" onClick={onAgain}>
             Meet {Math.min(4, remaining)} more
             <Icon name="next" size={16} />
-          </button>
+          </Button>
         ) : (
-          <Link href={`/cram?topic=${session.topic.id}`} className="btn btn-secondary">
+          <Link href={`/cram?topic=${session.topic.id}`} className={buttonVariants({ variant: 'secondary' })}>
             Practise this topic
           </Link>
         )}
-        <Link href="/review" className="btn btn-primary gap-2">
+        <Link href="/review" className={buttonVariants({ variant: 'primary', className: 'gap-2' })}>
           Back to reviews
           <Icon name="next" size={16} />
         </Link>
@@ -932,10 +942,10 @@ function SessionReport({
       )}
 
       <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-        <button onClick={onAgain} className="btn btn-ghost">
+        <Button variant="ghost" onClick={onAgain}>
           Load more
-        </button>
-        <Link href="/progress" className="btn btn-primary gap-2">
+        </Button>
+        <Link href="/progress" className={buttonVariants({ variant: 'primary', className: 'gap-2' })}>
           See the ladder
           <Icon name="next" size={16} />
         </Link>

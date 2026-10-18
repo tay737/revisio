@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
+import { Button, buttonVariants } from '@/components/ui/button';
 
 type TopicOption = { id: string; name: string; subjectName: string };
 type Proposal = { answer: string; textWithBlank: string; lessonTitle?: string; keep: boolean };
@@ -116,14 +117,14 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-secondary" disabled={!topicId || busy} onClick={generate}>
+        <Button type="button" variant="secondary" disabled={!topicId || busy} onClick={generate}>
           <Icon name="rocket" size={16} />
           {busy ? 'Reading the notes…' : 'Propose questions'}
-        </button>
+        </Button>
         {proposals && kept > 0 && (
-          <button type="button" className="btn btn-primary" disabled={inserting} onClick={insert}>
+          <Button type="button" variant="primary" disabled={inserting} onClick={insert}>
             {inserting ? 'Adding…' : `Add ${kept} ${kept === 1 ? 'question' : 'questions'}`}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -155,7 +156,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
                   aria-pressed={p.keep}
                   aria-label={p.keep ? 'Discard this proposal' : 'Keep this proposal'}
                   onClick={() => patch(i, { keep: !p.keep })}
-                  className={`btn btn-ghost btn-sm shrink-0 ${p.keep ? 'text-good-strong' : ''}`}
+                  className={buttonVariants({ variant: 'ghost', size: 'sm', className: `shrink-0 ${p.keep ? 'text-good-strong' : ''}` })}
                 >
                   <Icon name={p.keep ? 'correct' : 'close'} size={15} />
                   {p.keep ? 'Keeping' : 'Discarded'}

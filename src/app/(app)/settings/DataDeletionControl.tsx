@@ -6,6 +6,7 @@ import { api, ApiClientError, setToken } from '@/lib/api';
 import { signOut } from '@/lib/useMe';
 import { useMe } from '@/lib/useMe';
 import { Notice } from '@/components/Notice';
+import { Button } from '@/components/ui/button';
 
 type DeletionPreview = {
   confirm: true;
@@ -82,9 +83,9 @@ export function DataDeletionControl() {
         This anonymises your account and removes selected account records. It does not currently erase all historical learning or class records. You will not be able to sign in again, and the action cannot be undone.
       </p>
       {!preview ? (
-        <button type="button" className="btn btn-danger mt-4" onClick={() => void requestPreview()} disabled={busy || !me}>
+        <Button type="button" variant="danger" className="mt-4" onClick={() => void requestPreview()} disabled={busy || !me}>
           {busy ? 'Preparing…' : 'Review account deletion'}
-        </button>
+        </Button>
       ) : (
         <div className="mt-4 space-y-3" aria-labelledby="delete-account-heading">
           <Notice tone="note" show>
@@ -102,13 +103,13 @@ export function DataDeletionControl() {
             disabled={remaining === 0 || busy}
           />
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn btn-danger" onClick={() => void confirmDeletion()} disabled={!emailMatches || remaining === 0 || busy}>
+            <Button type="button" variant="danger" onClick={() => void confirmDeletion()} disabled={!emailMatches || remaining === 0 || busy}>
               {busy ? 'Deleting…' : 'Permanently delete account'}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => { setPreview(null); setTypedEmail(''); setError(''); }} disabled={busy}>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => { setPreview(null); setTypedEmail(''); setError(''); }} disabled={busy}>
               Cancel
-            </button>
-            {remaining === 0 && <button type="button" className="btn btn-secondary" onClick={() => void requestPreview()} disabled={busy}>Request a new confirmation</button>}
+            </Button>
+            {remaining === 0 && <Button type="button" variant="secondary" onClick={() => void requestPreview()} disabled={busy}>Request a new confirmation</Button>}
           </div>
         </div>
       )}

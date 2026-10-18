@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import { DEFAULT_CLOZE_POLICY, type ClozeMarkPolicy } from '@/domain/grading';
 import { gradeClozeWithPolicy } from '@/domain/grading';
+import { Button } from '@/components/ui/button';
 
 type PolicyPayload = {
   default: ClozeMarkPolicy;
@@ -256,9 +257,9 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
       )}
 
       <div className="flex items-center gap-3">
-        <button type="button" className="btn btn-primary" disabled={busy || (scopeType === 'subject' && !subjectId) || (scopeType === 'topic' && !topicId)} onClick={save}>
+        <Button type="button" variant="primary" disabled={busy || (scopeType === 'subject' && !subjectId) || (scopeType === 'topic' && !topicId)} onClick={save}>
           {busy ? 'Saving…' : 'Save marking settings'}
-        </button>
+        </Button>
         <span className="t-caption text-muted-foreground">
           {scopeType === 'global' ? 'Applies everywhere a subject or topic does not override it.' : `Overrides the wider setting for ${target ?? '—'}.`}
         </span>

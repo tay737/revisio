@@ -21,6 +21,7 @@ import { lobbyLine } from '@/lib/profile';
 import { formFor } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StrengthTab } from '@/components/insights/StrengthTab';
+import { Button } from '@/components/ui/button';
 
 /**
  * Rank — the competitive hub.
@@ -337,14 +338,14 @@ export default function RankPage() {
           Your full history — share it with a teacher, or keep it.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => exportAs('csv')} className="btn btn-secondary btn-sm gap-2">
+          <Button type="button" onClick={() => exportAs('csv')} variant="secondary" size="sm" className="gap-2">
             <Icon name="download" size={15} />
             CSV
-          </button>
-          <button type="button" onClick={() => exportAs('json')} className="btn btn-ghost gap-2">
+          </Button>
+          <Button type="button" onClick={() => exportAs('json')} variant="ghost" className="gap-2">
             <Icon name="download" size={15} />
             JSON
-          </button>
+          </Button>
         </div>
       </section>
     </div>

@@ -8,6 +8,7 @@ import { Notice } from '@/components/Notice';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { tierColor, TIER_ORDER, type Tier } from '@/domain/ranked';
 import { rewardLadder, type SeasonReward } from '@/domain/seasons';
+import { Button } from '@/components/ui/button';
 
 /**
  * Season configuration.
@@ -215,22 +216,22 @@ export function SeasonManager() {
 
       {!editing && (
         <div className="flex flex-wrap gap-2">
-          <button
+          <Button
             type="button"
-            className="btn btn-primary btn-sm gap-2"
+            variant="primary" size="sm" className="gap-2"
             onClick={() => setEditing(proposeNext(latest))}
           >
             <Icon name="add" size={15} />
             New season
-          </button>
+          </Button>
           {active && (
-            <button
+            <Button
               type="button"
-              className="btn btn-secondary btn-sm"
+              variant="secondary" size="sm"
               onClick={() => setEditing(toDraft(active))}
             >
               Edit {active.name || `season ${active.number}`}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -301,23 +302,23 @@ export function SeasonManager() {
               </div>
 
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(toDraft(row))}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(toDraft(row))}>
                   Edit
-                </button>
+                </Button>
                 {!live && row.state !== 'active' && (
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn-subtle btn-sm"
+                    variant="subtle" size="sm"
                     onClick={() => setState(row, 'active')}
                     disabled={row.results > 0 && row.number !== active?.number}
                   >
                     Make active
-                  </button>
+                  </Button>
                 )}
                 {live && (
-                  <button type="button" className="btn btn-subtle btn-sm" onClick={() => setState(row, 'closed')}>
+                  <Button type="button" variant="subtle" size="sm" onClick={() => setState(row, 'closed')}>
                     Close
-                  </button>
+                  </Button>
                 )}
                 <InlineConfirm
                   label="Delete"
@@ -371,17 +372,17 @@ function SeasonEditor({
           {d.name && <span className="font-normal text-muted-foreground"> — {d.name}</span>}
         </h3>
         <div className="flex gap-2">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn btn-primary btn-sm"
+            variant="primary" size="sm"
             disabled={busy || days <= 0}
             onClick={() => onSave(d)}
           >
             {busy ? 'Saving…' : 'Save season'}
-          </button>
+          </Button>
         </div>
       </div>
 

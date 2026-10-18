@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -176,17 +176,17 @@ export default function CramClient() {
         <p className="t-body mt-2 text-muted-foreground">{sessionSummary(score.correct, score.total)}</p>
         <p className="t-caption mt-2 text-muted-foreground">Nothing about your review schedule changed.</p>
         <div className="mt-5 flex justify-center gap-2">
-          <button
+          <Button
             type="button"
             onClick={() => {
               setSession(null);
               setPicked(new Set());
             }}
-            className="btn btn-secondary"
+            variant="secondary"
           >
             Cram something else
-          </button>
-          <Link href="/review" className="btn btn-primary">
+          </Button>
+          <Link href="/review" className={buttonVariants({ variant: 'primary' })}>
             Back to reviews
           </Link>
         </div>
@@ -279,9 +279,9 @@ export default function CramClient() {
                       {o.text}
                     </motion.button>
                   ))}
-                  <button className="btn btn-primary mt-2 w-full" disabled={!selected || busy} onClick={submit}>
+                  <Button variant="primary" className="mt-2 w-full" disabled={!selected || busy} onClick={submit}>
                     {busy ? 'Marking…' : 'Check answer'}
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -325,10 +325,10 @@ export default function CramClient() {
                       <p className="t-caption mt-0.5 text-foreground">{result.modelAnswer ?? result.primaryAnswer}</p>
                     </div>
                   )}
-                  <button onClick={next} className="btn btn-primary mt-4 w-full gap-2">
+                  <Button onClick={next} variant="primary" className="mt-4 w-full gap-2">
                     Next
                     <Icon name="next" size={17} />
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -430,10 +430,10 @@ export default function CramClient() {
           </div>
         </div>
 
-        <button className="btn btn-primary w-full gap-2" disabled={picked.size === 0 || starting} onClick={start}>
+        <Button variant="primary" className="w-full gap-2" disabled={picked.size === 0 || starting} onClick={start}>
           <Icon name="start" size={18} />
           {starting ? 'Building your session…' : 'Start cram session'}
-        </button>
+        </Button>
 
         <Notice tone="bad">{error}</Notice>
       </div>
