@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
@@ -8,7 +8,6 @@ import { api, setToken, ApiClientError } from '@/lib/api';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { SPRING } from '@/lib/motion';
 import { Notice } from '@/components/Notice';
-import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
 
 type LoginResponse = {
   accessToken?: string;
@@ -19,44 +18,26 @@ type LoginResponse = {
 };
 
 /**
- * Sign in / create account.
+ * Sign in, and staff registration. Public student/teacher sign-up is the
+ * multi-step RegisterWizard; this form stays a single screen because staff
+ * access asks for one justification, not a journey.
  *
- * Changes that matter to the person using it:
- *   • fields carry a leading glyph (the spec sanctions this on its own search
- *     input), so the form is scannable rather than a stack of grey pills;
- *   • the student/teacher choice is two labelled options with meaning, not a
- *     pair of bare buttons that require guessing;
- *   • every response — 2FA, unverified email, pending approval — lands in the
- *     same place and explains what happens next, instead of only appearing
- *     after a failed submit.
+ * Every response — 2FA, unverified email, pending approval — lands in the same
+ * place and explains what happens next, instead of only appearing after a
+ * failed submit.
  */
 export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; staff?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [guardianConsent, setGuardianConsent] = useState(false);
-  const underConsentAge = isUnderAge(dateOfBirth);
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
-  const [subjectIds, setSubjectIds] = useState<string[]>([]);
-  const [classCode, setClassCode] = useState('');
   const [note, setNote] = useState('');
   const [totp, setTotp] = useState('');
   const [mfaStage, setMfaStage] = useState(false);
-  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const [devLink, setDevLink] = useState('');
-
-  useEffect(() => {
-    fetch('/api/v1/auth/subjects-public')
-      .then((r) => (r.ok ? r.json() : { subjects: [] }))
-      .then((d) => setSubjects(d.subjects ?? []))
-      .catch(() => undefined);
-  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,16 +45,6 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
     setInfo('');
     setBusy(true);
     try {
-      if (mode === 'register' && !staff && role === 'student') {
-        if (!isValidDateOfBirth(dateOfBirth)) {
-          setError('Enter a valid date of birth that is not in the future.');
-          return;
-        }
-        if (underConsentAge && !guardianConsent) {
-          setError('A parent or guardian must confirm consent before continuing.');
-          return;
-        }
-      }
       if (mode === 'login') {
         const data = await api.post<LoginResponse>('/api/v1/auth/login', {
           email,
@@ -91,14 +62,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         const data = await api.post<LoginResponse>('/api/v1/auth/register', {
           email,
           password,
-          name,
-          requestedRole: staff ? 'developer' : role,
-          role: staff ? undefined : role,
-          note: staff ? note : undefined,
-          subjectIds: role === 'student' && !staff ? subjectIds : undefined,
-          classCode: classCode || undefined,
-          dateOfBirth: role === 'student' && !staff ? dateOfBirth : undefined,
-          ageConsent: role === 'student' && !staff && underConsentAge ? guardianConsent : undefined,
+          requestedRole: 'developer',
+          note,
         });
         if (data.pendingApproval) {
           setInfo('Account created. A developer reviews staff accounts before the first sign-in — you will get an email once it is approved.');
@@ -134,45 +99,21 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   };
 
   const title =
-    mode === 'login'
-      ? staff
-        ? 'Staff sign in'
-        : 'Welcome back'
-      : staff
-        ? 'Staff registration'
-        : 'Create your account';
+    mode === 'login' ? (staff ? 'Staff sign in' : 'Welcome back') : 'Staff registration';
 
   const subtitle =
     mode === 'login'
       ? staff
         ? 'For teachers and developers.'
         : 'Your queue is where you left it.'
-      : staff
-        ? 'Developer accounts are approved before activation.'
-        : 'Choose your subjects now — you can change them later.';
+      : 'Developer accounts are approved before activation.';
 
   return (
-    // The one card in the app that overlaps a band, so it is the one card that
-    // earns Uber's Level 2 drop: without it the overlap reads as a mistake.
     <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
       <h1 className="t-tagline">{title}</h1>
       <p className="t-caption mt-1.5 text-muted-foreground">{subtitle}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
-        {mode === 'register' && !staff && (
-          <Field icon="person" label={role === 'teacher' ? 'Your name' : 'Full name'} htmlFor="name">
-            <input
-              id="name"
-              className="input pl-11"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoComplete="name"
-              placeholder="Ada Lovelace"
-            />
-          </Field>
-        )}
-
         <Field icon="mail" label="Email" htmlFor="email">
           <input
             id="email"
@@ -200,130 +141,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           />
         </Field>
 
-        {mode === 'register' && !staff && (
-          <>
-            <fieldset className="m-0 border-0 p-0">
-              <legend className="label">I am joining as</legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {(
-                  [
-                    { value: 'student', label: 'Student', icon: 'start' as IconName, hint: 'Study my own subjects' },
-                    { value: 'teacher', label: 'Teacher', icon: 'teacher' as IconName, hint: 'Run classes and share content' },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setRole(option.value)}
-                    aria-pressed={role === option.value}
-                    className={`option flex-col items-start ${
-                      role === option.value ? 'option-selected' : 'hover:bg-border/20'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Icon name={option.icon} size={17} />
-                      <span className="font-semibold">{option.label}</span>
-                    </span>
-                    <span className="t-caption mt-1 block text-muted-foreground">{option.hint}</span>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            {role === 'student' && (
-              <>
-                <Field icon="person" label="Learner’s date of birth" htmlFor="dateOfBirth">
-                  <input
-                    id="dateOfBirth"
-                    type="date"
-                    className="input pl-11"
-                    value={dateOfBirth}
-                    max={new Date().toISOString().slice(0, 10)}
-                    onChange={(event) => {
-                      setDateOfBirth(event.target.value);
-                      setGuardianConsent(false);
-                    }}
-                    required
-                    autoComplete="bday"
-                    aria-describedby="age-consent-hint"
-                  />
-                </Field>
-                {underConsentAge && (
-                  <label className="flex min-h-11 items-start gap-3 rounded-lg border border-border p-3">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-5 w-5 shrink-0"
-                      checked={guardianConsent}
-                      onChange={(event) => setGuardianConsent(event.target.checked)}
-                      required
-                    />
-                    <span className="t-caption">I am the parent or legal guardian creating this learner’s account, and I consent to Revisio processing their information to provide the service. I can withdraw this consent by contacting support.</span>
-                  </label>
-                )}
-                <p id="age-consent-hint" className="t-fine text-muted-foreground">
-                  {underConsentAge
-                    ? 'A parent or legal guardian must complete this registration.'
-                    : 'We use this only to check whether guardian consent is required; it is not stored for learners aged 13 or older.'}
-                </p>
-                {subjects.length > 0 && (
-                  <div>
-                    <span className="label">Subjects</span>
-                    <div className="flex flex-wrap gap-2">
-                      {subjects.map((s) => {
-                        const on = subjectIds.includes(s.id);
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() =>
-                              setSubjectIds((p) => (on ? p.filter((x) => x !== s.id) : [...p, s.id]))
-                            }
-                            className={`chip transition-colors duration-150 ${on ? 'chip-active' : ''}`}
-                          >
-                            {on && <Icon name="correct" size={13} />}
-                            {s.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <Field icon="join" label="Class code (optional)" htmlFor="classCode">
-                  <input
-                    id="classCode"
-                    className="input pl-11 uppercase tracking-[0.2em]"
-                    value={classCode}
-                    onChange={(e) => setClassCode(e.target.value.toUpperCase())}
-                    maxLength={6}
-                    placeholder="B7K2QM"
-                  />
-                </Field>
-              </>
-            )}
-
-            {role === 'teacher' && (
-              <div>
-                <label className="label" htmlFor="note">
-                  Why do you need a teacher account?
-                </label>
-                <textarea
-                  id="note"
-                  className="input min-h-[80px]"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="School, role, subjects you teach…"
-                />
-                <p className="t-caption mt-1.5 text-muted-foreground">
-                  A developer reads this before activating the account.
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
-        {mode === 'register' && staff && (
+        {mode === 'register' && (
           <div>
             <label className="label" htmlFor="staff-note">
               Why do you need a staff account?
@@ -397,14 +215,14 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         {mode === 'login' ? (
           <>
             No account yet?{' '}
-            <Link href={staff ? '/staff/register' : '/register'} className="text-primary hover:underline">
-              {staff ? 'Request staff access' : 'Create one'}
+            <Link href="/staff/register" className="text-primary underline underline-offset-4 hover:text-primary/80">
+              Request staff access
             </Link>
           </>
         ) : (
           <>
             Already registered?{' '}
-            <Link href={staff ? '/staff/login' : '/login'} className="text-primary hover:underline">
+            <Link href="/staff/login" className="text-primary underline underline-offset-4 hover:text-primary/80">
               Sign in
             </Link>
           </>
@@ -429,7 +247,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
  * itself (not the whole field) so it stays centred in the pill whatever the
  * label above it does.
  */
-function Field({
+export function Field({
   icon,
   label,
   htmlFor,
@@ -454,4 +272,3 @@ function Field({
     </div>
   );
 }
-

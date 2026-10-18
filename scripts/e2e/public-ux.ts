@@ -27,7 +27,12 @@ type AxeViolation = {
   id: string;
   impact: 'minor' | 'moderate' | 'serious' | 'critical' | null;
   help: string;
-  nodes: { target: string[]; failureSummary?: string }[];
+  nodes: {
+    target: string[];
+    failureSummary?: string;
+    any: { message: string }[];
+    all: { message: string }[];
+  }[];
 };
 
 const report: {
@@ -132,19 +137,20 @@ function consentRegionOf(page: Page) {
 }
 
 /**
- * Entrance fades render text part-way transparent, which axe samples as a
- * washed-out foreground and reports as a contrast failure. Wait until the
- * heading copy is fully opaque before scanning colours.
+ * Axe must not sample an element mid-fade: a half-transparent label reads as low
+ * contrast. Wait for every finite animation to finish; infinite loops (shimmer,
+ * pulse, spin) never finish and are ignored, since they do not change ink colour.
  */
 async function waitForMotionToSettle(page: Page) {
   await page
     .waitForFunction(
       () =>
-        [document.querySelector('h1'), document.querySelector('.t-eyebrow'), document.querySelector('.t-display')]
-          .filter((el): el is Element => !!el)
-          .every((el) => getComputedStyle(el).opacity === '1'),
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+          .every((a) => a.playState !== 'running'),
       undefined,
-      { timeout: 5_000 },
+      { timeout: 8_000 },
     )
     .catch(() => undefined);
 }
@@ -270,12 +276,15 @@ try {
   check(await absentEventually(blockedPage.getByRole('region', { name: 'Cookie consent' })), 'storage failure does not trap the visitor');
   await blockedStorageContext.close();
 
-  // Registration DOB/guardian fields are shown only for learner accounts.
+  // Registration is a multi-step wizard. DOB and guardian consent live on the
+  // "About you" step, reached only after the role and account steps, and a
+  // teacher never sees them.
   const registerContext = await makeContext(browser);
   const registerPage = await registerContext.newPage();
   await watchPage(registerPage);
   await registerPage.goto(new URL('/register', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
-  await registerPage.getByLabel('Learner’s date of birth').waitFor();
+  await registerPage.getByRole('button', { name: 'Student' }).waitFor();
+  check(await absentEventually(registerPage.getByLabel('Learner’s date of birth')), 'the first wizard step collects no date of birth');
   // The banner mounts from the client bundle, so it has to be waited for before
   // it is dismissed — a bare `count()` reads "no banner" on an unhydrated page
   // and the panel then covers the registration controls the checks click.
@@ -284,16 +293,56 @@ try {
     await registrationConsent.getByRole('button', { name: 'Reject all' }).click();
     await registrationConsent.waitFor({ state: 'detached' });
   }
-  check(await registerPage.getByLabel('Learner’s date of birth').getAttribute('required') !== null, 'learner registration requires a date of birth');
+  await waitForHydration(registerPage, 'fieldset button');
+  // Each step exits with an animation that keeps its Continue/Back buttons in
+  // the DOM for a moment, so every advance waits for the outgoing step to detach
+  // before the next control is clicked.
+  await registerPage.getByRole('button', { name: 'Student' }).click();
+  await registerPage.getByRole('button', { name: 'Continue' }).click();
+  await registerPage.locator('fieldset').waitFor({ state: 'detached' });
+  await registerPage.locator('#name').waitFor();
+  await waitForHydration(registerPage, '#name');
+  await registerPage.locator('#name').fill('Wizard Probe');
+  await registerPage.locator('#email').fill('wizard-probe@revisio.probe');
+  await registerPage.locator('#password').fill('correct-horse-battery');
+  await registerPage.getByRole('button', { name: 'Continue' }).click();
+  await registerPage.locator('#name').waitFor({ state: 'detached' });
+  await registerPage.getByLabel('Learner’s date of birth').waitFor();
   await waitForHydration(registerPage, '#dateOfBirth');
   await registerPage.getByLabel('Learner’s date of birth').fill('2015-01-01');
+  check(await registerPage.getByLabel('Learner’s date of birth').getAttribute('required') !== null, 'learner registration requires a date of birth');
   check(await presentEventually(registerPage.getByRole('checkbox', { name: /I am the parent or legal guardian/i })) === 1, 'under-13 registration presents guardian attestation');
+  // Back to the role step, then choose teacher: the About-you step has no DOB.
+  await registerPage.getByRole('button', { name: 'Back' }).click();
+  await registerPage.locator('#dateOfBirth').waitFor({ state: 'detached' });
+  await registerPage.locator('#name').waitFor();
+  await registerPage.getByRole('button', { name: 'Back' }).click();
+  await registerPage.locator('#name').waitFor({ state: 'detached' });
+  await registerPage.getByRole('button', { name: 'Teacher' }).waitFor();
   await registerPage.getByRole('button', { name: 'Teacher' }).click();
+  await registerPage.getByRole('button', { name: 'Continue' }).click();
+  await registerPage.locator('fieldset').waitFor({ state: 'detached' });
+  await registerPage.locator('#name').waitFor();
+  await registerPage.getByRole('button', { name: 'Continue' }).click();
+  await registerPage.locator('#name').waitFor({ state: 'detached' });
+  await registerPage.locator('#note').waitFor();
   check(await absentEventually(registerPage.getByLabel('Learner’s date of birth')), 'teacher registration does not collect a learner date of birth');
   await registerContext.close();
 
   // Public, auth, legal and not-found routes: expected status, semantics, runtime.
   const routeContext = await makeContext(browser);
+  // A first visit shows the cookie banner as a fixed, full-width sheet over the
+  // page, and axe measures contrast through it. Record a decision here so the
+  // route scans read the page itself; the banner has its own checks above.
+  await routeContext.addInitScript(() => {
+    if (!localStorage.getItem('revisio.cookie-consent')) {
+      const now = new Date().toISOString();
+      localStorage.setItem(
+        'revisio.cookie-consent',
+        JSON.stringify({ version: 1, decidedAt: now, consent: { version: 1, updatedAt: now, choices: {} } }),
+      );
+    }
+  });
   const page = await routeContext.newPage();
   await watchPage(page);
   for (const route of routes) {
@@ -314,6 +363,9 @@ try {
     if (route.path !== '/__public_ux_missing_route__') {
       await scanAxe(page, route.path, 'light');
       await page.evaluate(() => document.documentElement.classList.add('dark'));
+      // Colours transition over ~150ms when the theme flips. Axe must sample the
+      // settled dark palette, not the in-between colours of the switch.
+      await waitForMotionToSettle(page);
       await scanAxe(page, route.path, 'dark');
       await page.evaluate(() => document.documentElement.classList.remove('dark'));
     }
@@ -385,7 +437,10 @@ try {
   const blockers = report.axe.flatMap((scan) => scan.violations
     .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
     .map((violation) => ({ path: scan.path, theme: scan.theme, violation })));
-  check(blockers.length === 0, `axe reports no serious/critical violations (${blockers.length} found)`);
+  const blockerSummary = blockers
+    .map((b) => `${b.path} [${b.theme}] ${b.violation.id}: ${b.violation.nodes.slice(0, 3).map((n) => `${n.target.join(' ')} (${n.any.concat(n.all).map((c) => c.message).join('; ') || n.failureSummary})`).join(' | ')}`)
+    .join('\n  ');
+  check(blockers.length === 0, `axe reports no serious/critical violations (${blockers.length} found)\n  ${blockerSummary}`);
 
   const reportPath = join(artifacts, 'report.json');
   writeFileSync(reportPath, JSON.stringify(report, null, 2));
