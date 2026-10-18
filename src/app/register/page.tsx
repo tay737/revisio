@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import AuthForm from '@/components/AuthForm';
+import RegisterWizard from '@/components/RegisterWizard';
 import { AuthShell } from '@/components/AuthShell';
 
 export default function RegisterPage() {
@@ -11,7 +11,7 @@ export default function RegisterPage() {
         </Link>
       }
     >
-      <AuthForm mode="register" />
+      <RegisterWizard />
     </AuthShell>
   );
 }

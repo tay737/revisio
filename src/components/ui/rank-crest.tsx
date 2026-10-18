@@ -74,10 +74,12 @@ export function RankCrest({
       >
         {Array.from({ length: spec.segments }).map((_, i) => {
           const angle = (i / spec.segments) * Math.PI * 2 - Math.PI / 2;
-          const x1 = 50 + Math.cos(angle) * 40;
-          const y1 = 50 + Math.sin(angle) * 40;
-          const x2 = 50 + Math.cos(angle) * 44;
-          const y2 = 50 + Math.sin(angle) * 44;
+          // Rounded: server (Node) and browser Math.cos/sin differ in the last
+          // float digits, which is a hydration mismatch on the SVG attributes.
+          const x1 = round3(50 + Math.cos(angle) * 40);
+          const y1 = round3(50 + Math.sin(angle) * 40);
+          const x2 = round3(50 + Math.cos(angle) * 44);
+          const y2 = round3(50 + Math.sin(angle) * 44);
           return (
             <motion.line
               key={i}
@@ -173,6 +175,8 @@ export function RankCrest({
     </svg>
   );
 }
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /**
  * The compact in-row form: a small crest with the rank's name beside it.
