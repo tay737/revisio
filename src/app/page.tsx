@@ -4,38 +4,44 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import { TileBand } from '@/components/ui/tile';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { Icon, type IconName } from '@/components/ui/icons';
+import { BorderBeam } from '@/components/ui/border-beam';
+import { AnimatedGridPattern } from '@/components/ui/animated-grid-pattern';
+import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
+import { ReviewDemo } from '@/components/landing/review-demo';
+import { ForgettingCurve } from '@/components/landing/forgetting-curve';
 import { rankFor } from '@/domain/ranked';
 
 /**
  * Landing — docs/DESIGN-UBER.md, read strictly.
  *
- * The page is the spec's own shape: a canvas nav bar, then edge-to-edge bands
- * alternating canvas → ink → canvas → canvas-soft → ink, stacked with no gap and
- * no rule, because the colour change is the divider. Exactly one shadow appears,
- * and it belongs to the product render in the hero — the same slot where Uber
- * puts its ride-request card.
+ * Edge-to-edge bands alternate canvas → ink → canvas → parchment → ink, so the
+ * colour change is the divider. The motion is decoration on top of that: a
+ * drifting grid behind the hero, a beam tracing the demo card, a shimmer on the
+ * eyebrow and a slow subject marquee. Every one of those honours
+ * `prefers-reduced-motion` (the global rule in globals.css and MotionProvider).
  *
- * Three decisions worth naming:
- *
- *   • **A product render, not a screenshot description.** The hero carries the
- *     thing the product actually is: a real review card, laid out with the real
- *     component classes, at real proportions. Detail is the only honest proof
- *     that the app is finished, and it is the Uber convention for a hero.
- *   • **Short copy.** Every feature is a title and one line. The previous pass
- *     wrote two sentences per feature and explained the algorithm to a visitor
- *     who had not yet decided to care.
- *   • **The companion is on the page**, because "it feels like a study
- *     companion" is the differentiator and it cannot be claimed in a bullet
- *     point — it has to be shown speaking.
+ * The two demos are real, not screenshots: a cloze review you can answer, and
+ * a forgetting curve you can reschedule.
  */
 
 const FEATURES: { icon: IconName; title: string; body: string }[] = [
-  { icon: 'review', title: 'A queue that builds itself', body: 'Due the day before you would forget.' },
-  { icon: 'learn', title: 'Notes behind every card', body: 'Read the topic, not just the answer.' },
+  { icon: 'notes', title: 'Notes behind every card', body: 'Read the topic, not just the answer.' },
   { icon: 'exam', title: 'Papers that mark like real ones', body: 'Per-question feedback against the scheme.' },
 ];
 
-/** Sample companion lines — the real voice, from `lib/profile`. */
+const SUBJECTS = [
+  'Biology',
+  'Chemistry',
+  'Physics',
+  'Maths',
+  'English Literature',
+  'History',
+  'Geography',
+  'Computer Science',
+  'Economics',
+  'Psychology',
+];
+
 const COMPANION_LINE = 'Nothing is due — you are ahead.';
 
 export default function LandingPage() {
@@ -45,7 +51,7 @@ export default function LandingPage() {
         Skip to content
       </a>
 
-      {/* ── Nav bar: canvas, hairline, pill CTAs ───────────────────────────── */}
+      {/* ── Nav bar ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-safe backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
@@ -56,6 +62,9 @@ export default function LandingPage() {
           </Link>
 
           <nav className="ml-6 hidden items-center gap-1 md:flex">
+            <a href="#try" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+              Try it
+            </a>
             <a href="#how" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
               How it works
             </a>
@@ -77,12 +86,18 @@ export default function LandingPage() {
       </header>
 
       <main id="main" tabIndex={-1}>
-        {/* ── Hero: canvas, headline left, product render right ───────────── */}
-        <TileBand tone="light" className="!py-10 md:!py-20">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+        {/* ── Hero: headline left, the working review card right ──────────── */}
+        <TileBand tone="light" className="relative overflow-hidden !py-10 md:!py-20">
+          <AnimatedGridPattern
+            numSquares={28}
+            maxOpacity={0.07}
+            duration={5}
+            className="fill-foreground stroke-foreground/[0.06] mask-[radial-gradient(900px_circle_at_top_right,white,transparent)]"
+          />
+          <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
             <div>
               <BlurFade>
-                <p className="t-eyebrow">Spaced repetition, properly</p>
+                <AnimatedShinyText className="t-eyebrow !mx-0 !max-w-none">Spaced repetition, properly</AnimatedShinyText>
               </BlurFade>
 
               <BlurFade delay={0.05}>
@@ -102,17 +117,103 @@ export default function LandingPage() {
                     Start free
                     <Icon name="next" size={17} />
                   </Link>
-                  <Link href="/login" className="btn btn-secondary btn-lg">
-                    I have an account
-                  </Link>
+                  <a href="#try" className="btn btn-secondary btn-lg">
+                    Try a card
+                  </a>
                 </div>
               </BlurFade>
             </div>
 
-            {/* The product render. One shadow on the page, and it is this. */}
             <BlurFade delay={0.12}>
-              <ReviewCardPreview />
+              <div className="relative rounded-xl">
+                <BorderBeam size={120} duration={7} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" borderWidth={2} />
+                <ReviewDemo />
+              </div>
             </BlurFade>
+          </div>
+        </TileBand>
+
+        {/* ── Subject marquee ───────────────────────────────────────────────── */}
+        <div className="overflow-hidden border-y border-border bg-background py-4" aria-label="Subjects you can study">
+          <div className="flex w-max animate-marquee gap-3">
+            {[...SUBJECTS, ...SUBJECTS].map((s, i) => (
+              <span
+                key={`${s}-${i}`}
+                aria-hidden={i >= SUBJECTS.length || undefined}
+                className="rounded-pill border border-border px-4 py-1.5 text-[14px] font-medium text-muted-foreground whitespace-nowrap"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Try it: the forgetting curve ─────────────────────────────────── */}
+        <TileBand tone="parchment" id="try" className="!py-12 md:!py-20">
+          <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+            <div>
+              <BlurFade>
+                <p className="t-eyebrow">Memory, on a schedule</p>
+              </BlurFade>
+              <BlurFade delay={0.05}>
+                <h2 className="t-display mt-3 max-w-md">You forget on a curve. Reviews flatten it.</h2>
+              </BlurFade>
+              <BlurFade delay={0.1}>
+                <p className="mt-4 max-w-md text-[16px] leading-relaxed text-muted-foreground">
+                  Recall falls away fast, then slower. Each good review widens the next gap, so a fact
+                  you revisited three times costs you less than one you crammed. Drag the slider and
+                  see when Revisio brings a card back.
+                </p>
+              </BlurFade>
+            </div>
+            <BlurFade delay={0.08}>
+              <ForgettingCurve />
+            </BlurFade>
+          </div>
+        </TileBand>
+
+        {/* ── How it works: bento ───────────────────────────────────────────── */}
+        <TileBand tone="light" id="how" className="!py-12 md:!py-20">
+          <BlurFade>
+            <h2 className="t-display max-w-xl">Three ways in.</h2>
+          </BlurFade>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <BlurFade className="md:row-span-2">
+              <div className="relative h-full overflow-hidden rounded-lg bg-secondary p-6 md:p-8">
+                <BorderBeam size={160} duration={9} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" />
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
+                  <Icon name="review" size={19} />
+                </span>
+                <h3 className="t-display-sm mt-5">A queue that builds itself</h3>
+                <p className="mt-2 max-w-sm text-[15px] text-muted-foreground">
+                  Due the day before you would forget. Nothing to plan, nothing to sort. Open it and the next
+                  right card is already waiting.
+                </p>
+                <div className="mt-8 grid grid-cols-7 gap-1.5" aria-hidden>
+                  {Array.from({ length: 21 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-7 rounded-sm ${
+                        i % 5 === 3 ? 'bg-foreground' : i % 3 === 0 ? 'bg-border-strong' : 'bg-card'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </BlurFade>
+
+            {FEATURES.map((f, i) => (
+              <BlurFade key={f.title} delay={0.05 + i * 0.05}>
+                <div className="h-full rounded-lg bg-secondary p-6">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
+                    <Icon name={f.icon} size={19} />
+                  </span>
+                  <h3 className="t-display-sm mt-4">{f.title}</h3>
+                  <p className="mt-1.5 text-[15px] text-muted-foreground">{f.body}</p>
+                </div>
+              </BlurFade>
+            ))}
           </div>
         </TileBand>
 
@@ -123,18 +224,18 @@ export default function LandingPage() {
               <p className="t-eyebrow">The ladder</p>
               <h2 className="t-display mt-3 max-w-md">A rank you can defend.</h2>
               <p className="mt-4 max-w-lg text-[16px] leading-relaxed text-muted-foreground">
-                Fifteen rungs, earned from everything you have ever reviewed — they never reset. Every
-                week you are seated in a league of thirty, and the top of the table moves up.
+                Thirty rungs across ten tiers, earned from everything you have ever reviewed. They never
+                reset. Each week you are seated in a lobby, and the top of the table moves up.
               </p>
 
               <dl className="mt-7 grid grid-cols-3 gap-4 border-t border-border pt-5">
                 <div>
                   <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Rungs</dt>
-                  <dd className="t-num-sm mt-1">15</dd>
+                  <dd className="t-num-sm mt-1">30</dd>
                 </div>
                 <div>
-                  <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Lobby</dt>
-                  <dd className="t-num-sm mt-1">30</dd>
+                  <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Tiers</dt>
+                  <dd className="t-num-sm mt-1">10</dd>
                 </div>
                 <div>
                   <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Resets</dt>
@@ -143,19 +244,22 @@ export default function LandingPage() {
               </dl>
             </div>
 
-            {/* The ladder itself, drawn with the same component the app uses. */}
-            <div className="flex items-end justify-between gap-2 sm:gap-4">
-              {[0, 1600, 3600, 6400].map((base, i) => {
+            <div className="grid grid-cols-5 items-end gap-1.5 sm:gap-4">
+              {[0, 400, 1500, 4000, 9000].map((base, i) => {
                 const rung = rankFor(base);
                 return (
-                  <BlurFade key={base} delay={i * 0.07} className="flex-1">
+                  <BlurFade key={base} delay={i * 0.07} className="min-w-0">
                     <div
-                      className={`flex flex-col items-center gap-2 rounded-lg border border-border px-2 py-4 ${
+                      className={`flex min-w-0 flex-col items-center gap-2 rounded-lg border border-border px-1 py-4 sm:px-2 ${
                         i === 1 ? 'bg-secondary' : ''
                       }`}
                     >
-                      <RankCrest rank={rung} size={i === 3 ? 46 : 38} showProgress={false} muted={i > 1} animate={false} />
-                      <span className={`text-[11px] font-bold uppercase tracking-[0.06em] ${i > 1 ? 'text-muted-foreground' : ''}`}>
+                      <RankCrest rank={rung} size={i === 4 ? 40 : 34} showProgress={false} muted={i > 1} animate={false} />
+                      <span
+                        className={`w-full truncate text-center text-[10px] font-bold uppercase tracking-[0.06em] sm:text-[11px] ${
+                          i > 1 ? 'text-muted-foreground' : ''
+                        }`}
+                      >
                         {rung.tier}
                       </span>
                     </div>
@@ -163,27 +267,6 @@ export default function LandingPage() {
                 );
               })}
             </div>
-          </div>
-        </TileBand>
-
-        {/* ── How it works ─────────────────────────────────────────────────── */}
-        <TileBand tone="light" id="how" className="!py-12 md:!py-20">
-          <BlurFade>
-            <h2 className="t-display max-w-xl">Three ways in.</h2>
-          </BlurFade>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {FEATURES.map((f, i) => (
-              <BlurFade key={f.title} delay={i * 0.05}>
-                <div className="h-full rounded-lg bg-secondary p-5">
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
-                    <Icon name={f.icon} size={19} />
-                  </span>
-                  <h3 className="t-display-sm mt-4">{f.title}</h3>
-                  <p className="mt-1.5 text-[15px] text-muted-foreground">{f.body}</p>
-                </div>
-              </BlurFade>
-            ))}
           </div>
         </TileBand>
 
@@ -199,17 +282,44 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="card flex items-start gap-4 p-5">
-              <RankCrest rank={rankFor(1600)} size={44} showProgress={false} animate={false} />
-              <div className="min-w-0">
-                <p className="text-[17px] font-medium leading-snug">{COMPANION_LINE}</p>
-                <p className="mt-2 text-[13px] text-muted-foreground">— on a Tuesday, mid-streak</p>
+            <BlurFade>
+              <div className="card flex items-start gap-4 p-5">
+                <RankCrest rank={rankFor(1500)} size={44} showProgress={false} animate={false} />
+                <div className="min-w-0">
+                  <p className="text-[17px] font-medium leading-snug">{COMPANION_LINE}</p>
+                  <p className="mt-2 text-[13px] text-muted-foreground">— on a Tuesday, mid-streak</p>
+                </div>
               </div>
-            </div>
+            </BlurFade>
           </div>
         </TileBand>
 
-        {/* ── Footer: the ink band ─────────────────────────────────────────── */}
+        {/* ── Closing CTA on the ink band ──────────────────────────────────── */}
+        <TileBand tone="dark" className="relative overflow-hidden !py-14 md:!py-20">
+          <AnimatedGridPattern
+            numSquares={22}
+            maxOpacity={0.12}
+            duration={6}
+            className="fill-foreground stroke-foreground/[0.08] mask-[radial-gradient(600px_circle_at_center,white,transparent)]"
+          />
+          <BlurFade className="relative mx-auto max-w-2xl text-center">
+            <h2 className="t-display">Start with one card today.</h2>
+            <p className="mx-auto mt-4 max-w-md text-[16px] text-muted-foreground">
+              Free to start. Five minutes is enough to begin the habit.
+            </p>
+            <div className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
+              <Link href="/register" className="btn btn-primary btn-lg gap-2">
+                Start free
+                <Icon name="next" size={17} />
+              </Link>
+              <Link href="/login" className="btn btn-secondary btn-lg">
+                I have an account
+              </Link>
+            </div>
+          </BlurFade>
+        </TileBand>
+
+        {/* ── Footer ───────────────────────────────────────────────────────── */}
         <TileBand tone="dark" className="!py-10 md:!py-14">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
@@ -223,9 +333,6 @@ export default function LandingPage() {
               <Link href="/terms" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Terms</Link>
               <Link href="/cookie-policy" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Cookies</Link>
               <Link href="/accessibility" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Accessibility</Link>
-              <Link href="/register" className="btn btn-primary">
-                Start free
-              </Link>
               <Link href="/login" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">
                 Log in
               </Link>
@@ -233,53 +340,6 @@ export default function LandingPage() {
           </div>
         </TileBand>
       </main>
-    </div>
-  );
-}
-
-/**
- * The hero's product render.
- *
- * It is the review screen in miniature — the kind chip, the cloze sentence with a
- * real blank, the answer field and the green check — using the same classes the
- * real card uses. Nothing here is a screenshot, so nothing here can go out of
- * date, and it is honest about what the product looks like on a phone.
- */
-function ReviewCardPreview() {
-  return (
-    <div className="mx-auto w-full max-w-md">
-      <div className="card !p-5 shadow-[var(--shadow-card)]">
-        <div className="flex items-center justify-between gap-3">
-          <span className="badge badge-quiet">
-            <Icon name="notes" size={13} />
-            Fill the blank
-          </span>
-          <span className="text-[12px] text-muted-foreground">Biology · Enzymes</span>
-        </div>
-
-        <p className="mt-4 text-[19px] font-bold leading-snug">
-          An enzyme lowers the activation energy by binding to its{' '}
-          <span className="mx-1 inline-block min-w-[5.5rem] border-b-2 border-border-strong" />
-          .
-        </p>
-
-        <div className="mt-4 flex min-h-[46px] items-center rounded-sm border-2 border-border px-3.5 text-[15px] text-muted-foreground">
-          substrate
-        </div>
-
-        <button type="button" className="btn btn-good mt-3 w-full" aria-hidden tabIndex={-1}>
-          Check
-        </button>
-
-        <div className="mt-3 flex items-center justify-between text-[12px] text-muted-foreground">
-          <span className="num">3 / 20</span>
-          <span className="badge badge-gold">+12 XP</span>
-        </div>
-      </div>
-
-      <p className="mt-3 text-center text-[12px] text-muted-foreground">
-        The daily queue, on a phone.
-      </p>
     </div>
   );
 }
