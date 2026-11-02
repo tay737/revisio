@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
@@ -40,6 +40,18 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const [busy, setBusy] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const [devLink, setDevLink] = useState('');
+  // Errors are announced by a live region *and* tied to the controls they
+  // concern, so a screen-reader user hears which field is wrong rather than a
+  // sentence floating somewhere after the form.
+  const errorId = 'auth-error';
+  const emailRef = useRef<HTMLInputElement>(null);
+  const totpRef = useRef<HTMLInputElement>(null);
+
+  // The code field mounts inside an animation; focus it deliberately once it
+  // exists instead of relying on `autoFocus` racing the entrance.
+  useEffect(() => {
+    if (mfaStage) totpRef.current?.focus();
+  }, [mfaStage]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +68,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         if (data.mfaRequired) {
           setMfaStage(true);
           setInfo('Enter the six-digit code from your authenticator app.');
+          totpRef.current?.focus();
           return;
         }
         setToken(data.accessToken ?? null);
@@ -80,7 +93,13 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
       }
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'email_unverified') setUnverifiedEmail(email);
-      else setError(err instanceof Error ? err.message : 'Something went wrong on our side. Try again in a moment.');
+      else {
+        setError(err instanceof Error ? err.message : 'Something went wrong on our side. Try again in a moment.');
+        // Put the caret where the retry belongs: the code field once the second
+        // factor is in play, otherwise the first field of the form.
+        if (mfaStage) totpRef.current?.focus();
+        else emailRef.current?.focus();
+      }
     } finally {
       setBusy(false);
     }
@@ -120,6 +139,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         <Field icon="mail" label="Email" htmlFor="email">
           <input
             id="email"
+            ref={emailRef}
             type="email"
             className="input pl-11"
             value={email}
@@ -127,6 +147,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
             required
             autoComplete="email"
             placeholder="you@school.edu"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
           />
         </Field>
 
@@ -141,6 +163,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
             minLength={8}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             placeholder={mode === 'login' ? 'Your password' : 'At least 8 characters'}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
           />
         </Field>
 
@@ -171,12 +195,15 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
               <Field icon="private" label="Two-factor code" htmlFor="totp">
                 <input
                   id="totp"
+                  ref={totpRef}
                   className="input pl-11 tracking-[0.4em]"
                   value={totp}
                   onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
                   maxLength={6}
                   inputMode="numeric"
-                  autoFocus
+                  autoComplete="one-time-code"
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? errorId : undefined}
                   placeholder="000000"
                 />
               </Field>
@@ -184,9 +211,11 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           )}
         </AnimatePresence>
 
-        <Notice tone="bad" show={!!error}>
-          {error}
-        </Notice>
+        <div id={errorId}>
+          <Notice tone="bad" show={!!error}>
+            {error}
+          </Notice>
+        </div>
 
         <Notice tone="note" show={!!info}>
           <span>{info}</span>

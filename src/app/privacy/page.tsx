@@ -1,6 +1,7 @@
 import 'server-only';
 
 import Link from 'next/link';
+import { LegalHeader } from '@/components/LegalHeader';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │  PRIVACY POLICY                                                         │
@@ -10,9 +11,7 @@ import Link from 'next/link';
 // │  Last reviewed: 1 October 2026.                                       │
 // │  This policy is written for UK GDPR and the Data Protection Act 2018, │
 // │  with the same standards applied where we process data of EEA or      │
-// │  international users. The placeholders marked [COUNSEL] are for       │
-// │  qualified legal counsel to review and complete; they are not a       │
-// │  substitute for a solicitor's advice.                                 │
+// │  international users.                                                  │
 // └─────────────────────────────────────────────────────────────────────────┘
 
 export const metadata = {
@@ -22,8 +21,7 @@ export const metadata = {
 };
 
 // The reading order here mirrors the ICO's transparency code: what you need to
-// know first, then the detail. Sections that change rarely are stable; the
-// sections that change most often ([COUNSEL] to-do lines) are clearly flagged.
+// know first, then the detail. The sections that change most often sit last.
 
 const SECTIONS = [
   {
@@ -91,7 +89,7 @@ const SECTIONS = [
           <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
             <li>Essential cookies that keep you signed in and the Service secure.</li>
             <li>Non-essential cookies for analytics and marketing — only after your consent (see the Cookie Policy).</li>
-            <li>Device and usage data collected by analytics software, kept anonymous and aggregated.</li>
+            <li>No optional analytics script is currently loaded. If we introduce one, it runs only after your consent and the data stays anonymous and aggregated.</li>
           </ul>
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
@@ -328,7 +326,7 @@ const SECTIONS = [
           control in Settings. The current control anonymises your account and
           removes selected account records; it does not currently erase all
           historical learning or class records. Contact{' '}
-          <Link href="mailto:support@revisio.pro">support@revisio.pro</Link> to
+          <Link href="mailto:tayyab@outlook.jp">tayyab@outlook.jp</Link> to
           ask about access, correction, restriction or erasure of other records.
         </p>
         <p>
@@ -497,7 +495,7 @@ const SECTIONS = [
         <p className="mt-2">
           Revisio<br />
           <span className="t-fine">Privacy team</span><br />
-          <Link href="mailto:support@revisio.pro">support@revisio.pro</Link>
+          <Link href="mailto:tayyab@outlook.jp">tayyab@outlook.jp</Link>
         </p>
         <p className="t-fine">
           If you are in the EEA, you may instead contact your local data
@@ -512,6 +510,8 @@ const SECTIONS = [
 
 export default function PrivacyPage() {
   return (
+    <>
+    <LegalHeader current="/privacy" />
     <main>
       <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
@@ -527,7 +527,7 @@ export default function PrivacyPage() {
           <Link
             key={s.id}
             href={`#${s.id}`}
-            className="chip"
+            className="chip chip-wrap"
           >
             {/* The whole heading, minus its number: stripping the first word
                 left links like “1. Who we are” with no accessible name at all. */}
@@ -549,11 +549,8 @@ export default function PrivacyPage() {
 
       <footer className="border-t border-border pt-6 text-xs text-muted-foreground">
         <p>
-          This policy was prepared for Revisio and reviewed in line with our
-          data-protection obligations. Placeholder sections marked{' '}
-          <span className="font-semibold">[COUNSEL]</span> are for qualified
-          legal counsel to review and complete. It does not constitute legal
-          advice.
+          This policy describes how Revisio handles personal data and the
+          choices you have over it. It does not constitute legal advice.
         </p>
         <p className="mt-2">
           <Link href="/terms" className="underline underline-offset-4">
@@ -571,5 +568,6 @@ export default function PrivacyPage() {
       </footer>
       </article>
     </main>
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { LegalHeader } from '@/components/LegalHeader';
 
 export const metadata: Metadata = {
   title: 'Accessibility — Revisio',
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
 
 export default function AccessibilityPage() {
   return (
+    <>
+    <LegalHeader current="/accessibility" />
     <main className="mx-auto max-w-3xl space-y-7 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Access for everyone</p>
@@ -46,7 +49,7 @@ export default function AccessibilityPage() {
         <h2 id="contact" className="t-display-sm">Tell us about a barrier</h2>
         <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
           If something makes Revisio difficult to use, email{' '}
-          <Link className="underline underline-offset-4" href="mailto:support@revisio.pro">support@revisio.pro</Link>.
+          <Link className="underline underline-offset-4" href="mailto:tayyab@outlook.jp">tayyab@outlook.jp</Link>.
           Tell us which page you were using, what you were trying to do, and what device or assistive technology you use
           if you are comfortable sharing. We will review the report and work with you on an accessible way forward.
         </p>
@@ -56,5 +59,6 @@ export default function AccessibilityPage() {
         <Link href="/privacy" className="underline underline-offset-4">Read our privacy policy</Link>
       </footer>
     </main>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useReviewSession } from '@/components/ReviewSessionContext';
 
@@ -18,8 +18,38 @@ export default function PwaRegister() {
   const [updateHidden, setUpdateHidden] = useState(false);
   const [activating, setActivating] = useState(false);
   const [installed, setInstalled] = useState(false);
+  // Registration failures used to vanish into a bare `catch`. If offline study
+  // is unavailable, say so once and offer the retry that can fix it.
+  const [registrationFailed, setRegistrationFailed] = useState(false);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const reloadAfterActivation = useRef(false);
   const isReview = (pathname === '/review' || pathname.startsWith('/review/')) && reviewActive;
+
+  /** Attach the update listeners to a registration (first install or a retry). */
+  const watchRegistration = useCallback((registration: ServiceWorkerRegistration) => {
+    registrationRef.current = registration;
+    if (registration.waiting) setWaitingWorker(registration.waiting);
+    registration.addEventListener('updatefound', () => {
+      const installing = registration.installing;
+      installing?.addEventListener('statechange', () => {
+        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+          setWaitingWorker(registration.waiting ?? installing);
+        }
+      });
+    });
+  }, []);
+
+  const registerWorker = useCallback(() => {
+    if (!('serviceWorker' in navigator)) return;
+    setRegistrationFailed(false);
+    void navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        watchRegistration(registration);
+        void registration.update().catch(() => undefined);
+      })
+      .catch(() => setRegistrationFailed(true));
+  }, [watchRegistration]);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -42,27 +72,13 @@ export default function PwaRegister() {
     window.addEventListener('appinstalled', onInstalled);
 
     if ('serviceWorker' in navigator) {
-      let registration: ServiceWorkerRegistration | undefined;
-      const detectWaiting = () => {
-        if (registration?.waiting) setWaitingWorker(registration.waiting);
-      };
+      registerWorker();
       const onControllerChange = () => {
         if (reloadAfterActivation.current) {
           reloadAfterActivation.current = false;
           window.location.reload();
         }
       };
-      void navigator.serviceWorker.register('/sw.js').then((nextRegistration) => {
-        registration = nextRegistration;
-        detectWaiting();
-        nextRegistration.addEventListener('updatefound', () => {
-          const installing = nextRegistration.installing;
-          installing?.addEventListener('statechange', () => {
-            if (installing.state === 'installed' && navigator.serviceWorker.controller) detectWaiting();
-          });
-        });
-        void nextRegistration.update().catch(() => undefined);
-      }).catch(() => undefined);
       navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
       return () => {
         window.removeEventListener('beforeinstallprompt', onBeforeInstall);
@@ -75,7 +91,7 @@ export default function PwaRegister() {
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
       window.removeEventListener('appinstalled', onInstalled);
     };
-  }, []);
+  }, [registerWorker]);
 
   useEffect(() => {
     setUpdateHidden(false);
@@ -97,13 +113,18 @@ export default function PwaRegister() {
 
   const showUpdate = !!waitingWorker && !updateHidden;
   const showInstall = !installed && (!!installPrompt || iosInstructions);
-  if (!showUpdate && !showInstall) return null;
+  const showRegistrationError = registrationFailed && !showUpdate && !showInstall;
+  if (!showUpdate && !showInstall && !showRegistrationError) return null;
 
   return (
     <aside className="fixed inset-x-0 bottom-3 z-[70] px-3 pb-safe sm:bottom-5" aria-label="App installation and updates">
       <div className="mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-float)]">
         <div className="min-w-0 flex-1">
-          {showUpdate ? (
+          {showRegistrationError ? (
+            <p className="t-caption" role="status">
+              Offline support could not start. You can keep studying online, or retry.
+            </p>
+          ) : showUpdate ? (
             <p className="t-caption" role="status">
               {isReview ? 'An update is ready. Finish this review before updating.' : 'A Revisio update is ready to install.'}
             </p>
@@ -113,7 +134,12 @@ export default function PwaRegister() {
             <p className="t-caption">Keep Revisio close at hand by adding it to your home screen.</p>
           )}
         </div>
-        {showUpdate ? (
+        {showRegistrationError ? (
+          <>
+            <button type="button" className="btn btn-primary btn-sm" onClick={registerWorker}>Retry</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRegistrationFailed(false)}>Dismiss</button>
+          </>
+        ) : showUpdate ? (
           <>
             <button type="button" className="btn btn-primary btn-sm" onClick={update} disabled={isReview || activating}>
               {activating ? 'Updating…' : 'Update now'}

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import Link from 'next/link';
+import { LegalHeader } from '@/components/LegalHeader';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │  TERMS OF SERVICE                                                     │
@@ -8,9 +9,6 @@ import Link from 'next/link';
 // │  Revisio — Learn it once                                              │
 // │                                                                         │
 // │  These terms govern your use of the Service.                          │
-// │                                                                         │
-// │  [COUNSEL]: The sections marked [COUNSEL] are for qualified legal     │
-// │  counsel to review and complete.  They are not legal advice.          │
 // │  Please check the Privacy Policy and Cookie Policy too.               │
 // └─────────────────────────────────────────────────────────────────────────┘
 
@@ -23,7 +21,7 @@ export const metadata = {
 // This page is deliberately lean: the legal backbone of running a service is
 // privacy, and that is (and must be) the Privacy Policy. These terms cover
 // account, content and conduct, so they should not compete with the privacy
-// policy for attention. The placeholders are the part counsel needs to check.
+// policy for attention.
 
 const SECTIONS = [
   {
@@ -35,10 +33,6 @@ const SECTIONS = [
           By accessing or using Revisio (&quot;the Service&quot;), you agree to
           be bound by these terms and our Privacy Policy and Cookie Policy. If
           you do not agree, do not use the Service.
-        </p>
-        <p>
-          [COUNSEL] — confirm the governing law and jurisdiction, and how
-          disputes are to be resolved, for your jurisdiction.
         </p>
       </>
     ),
@@ -152,8 +146,8 @@ const SECTIONS = [
       <>
         <p>
           If you have a question about these terms, contact us at{' '}
-          <Link href="mailto:support@revisio.pro" className="underline underline-offset-4">
-            support@revisio.pro
+          <Link href="mailto:tayyab@outlook.jp" className="underline underline-offset-4">
+            tayyab@outlook.jp
           </Link>
           .
         </p>
@@ -164,6 +158,8 @@ const SECTIONS = [
 
 export default function TermsPage() {
   return (
+    <>
+    <LegalHeader current="/terms" />
     <main>
       <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
@@ -205,5 +201,6 @@ export default function TermsPage() {
       </footer>
       </article>
     </main>
+    </>
   );
 }
