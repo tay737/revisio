@@ -60,10 +60,14 @@ export const GET = route(async (req: NextRequest) => {
         name: topics.name,
         cardCount: sql<number>`(select count(*)::int from ${cards} c where c.topic_id = ${topics.id} and c.visibility = 'public')`,
         lessonCount: sql<number>`(select count(*)::int from ${lessons} l where l.topic_id = ${topics.id})`,
-        hasNotes: sql<number>`coalesce(nullif(trim((select max(coalesce(l.detailed_md, '') || trim(l.summary_md)) from ${lessons} l where l.topic_id = ${topics.id})), ''), '')::int`,
+        // A plain count of note sets that actually have text. The previous
+        // expression cast that text to int, which threw for every covered
+        // topic — and referenced `l.summaryMd`, the JS property name, which
+        // Postgres does not have (the column is `summary_md`).
+        hasNotes: sql<number>`(select count(*)::int from ${lessons} l where l.topic_id = ${topics.id} and (coalesce(trim(l.detailed_md), '') || coalesce(trim(l.summary_md), '')) <> '')`,
       })
       .from(topics)
-      .where(and(eq(topics.visibility, 'pending_review'), sql`(select count(*)::int from ${lessons} l where l.topic_id = ${topics.id} and (coalesce(trim(l.detailed_md), '') || coalesce(trim(l.summaryMd), '')) <> '') > 0`)),
+      .where(and(eq(topics.visibility, 'pending_review'), sql`(select count(*)::int from ${lessons} l where l.topic_id = ${topics.id} and (coalesce(trim(l.detailed_md), '') || coalesce(trim(l.summary_md), '')) <> '') > 0`)),
     db.select({ id: subjects.id, name: subjects.name, slug: subjects.slug, mathsEnabled: subjects.mathsEnabled }).from(subjects).orderBy(subjects.name),
     // Badges with a grant count, so the panel shows which are in use.
     db
