@@ -360,6 +360,13 @@ try {
     check(await page.locator('html').getAttribute('lang') === 'en', `${route.path} declares the document language`);
     check(headingCount === 1, `${route.path} has exactly one h1 (found ${headingCount})`);
     check(mainCount === 1, `${route.path} has one main landmark (found ${mainCount})`);
+    // Policy pages sit outside the app shell: without their own header a reader
+    // had no link back to the Service and only the browser Back button.
+    if (['/privacy', '/terms', '/cookie-policy', '/accessibility'].includes(route.path)) {
+      const homeLink = page.getByRole('link', { name: '← Home' });
+      check(await homeLink.isVisible(), `${route.path} shows a Home link`);
+      check((await homeLink.getAttribute('href')) === '/', `${route.path} Home link points at the landing page`);
+    }
     if (route.path !== '/__public_ux_missing_route__') {
       await scanAxe(page, route.path, 'light');
       await page.evaluate(() => document.documentElement.classList.add('dark'));
@@ -430,7 +437,120 @@ try {
     return !!registration && !!registration.active;
   });
   check(workerActive, 'service worker registers and activates without a forced install/update prompt');
+
+  // Install affordance appears only for a real `beforeinstallprompt`, and
+  // disappears once the platform reports the app installed. The synthetic
+  // event is passed as source so esbuild's keepNames wrapper cannot leak a
+  // `__name` reference into the page.
+  await pwaPage.evaluate(`(() => {
+    const event = new Event('beforeinstallprompt');
+    event.prompt = function () { return Promise.resolve(); };
+    event.userChoice = Promise.resolve({ outcome: 'accepted', platform: 'web' });
+    window.dispatchEvent(event);
+    return true;
+  })()`);
+  const installButton = pwaPage.getByRole('button', { name: 'Install app' });
+  await installButton.waitFor({ timeout: 5_000 });
+  check(true, 'a beforeinstallprompt event reveals the install action');
+  await installButton.click();
+  check(await absentEventually(installButton), 'installing dismisses the install action');
+
+  // A waiting worker exposes Later and a truthful review guard; an explicit
+  // update activates it and reloads the page exactly once. The probe worker is
+  // served at the same scope, which the browser treats as an update and parks
+  // in `waiting` while the real worker still controls the page.
+  await pwaContext.route('**/sw-probe.js', (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/javascript',
+    body: "self.addEventListener('install', function () {});\n"
+      + "self.addEventListener('activate', function (event) { event.waitUntil(self.clients.claim()); });\n"
+      + "self.addEventListener('message', function (event) { if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting(); });\n",
+  }));
+  await pwaPage.evaluate(`navigator.serviceWorker.register('/sw-probe.js')`);
+  const updateButton = pwaPage.getByRole('button', { name: 'Update now' });
+  await updateButton.waitFor({ timeout: 15_000 });
+  check(true, 'a waiting worker reveals the explicit update action');
+  await pwaPage.getByRole('button', { name: 'Later' }).click();
+  check(await absentEventually(updateButton), 'Later dismisses the update for this view');
+
+  // The deferral is per view, not permanent: a fresh document offers it again.
+  await pwaPage.goto(new URL('/terms', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
+  const updatedButton = pwaPage.getByRole('button', { name: 'Update now' });
+  await updatedButton.waitFor({ timeout: 15_000 });
+  // Count reloads from the document side: `framenavigated` can fire more than
+  // once for one service-worker-controlled reload, so the truth is how many
+  // documents were initialised. A baseline of 1 is set in the current page; a
+  // single reload makes it 2.
+  await pwaPage.evaluate(`sessionStorage.setItem('revisio-probe-loads', '1')`);
+  await pwaPage.addInitScript({
+    content: "try { sessionStorage.setItem('revisio-probe-loads', String(Number(sessionStorage.getItem('revisio-probe-loads') || '0') + 1)); } catch (e) {}",
+  });
+  await Promise.all([
+    pwaPage.waitForEvent('framenavigated', { predicate: (frame) => frame === pwaPage.mainFrame(), timeout: 15_000 }),
+    updatedButton.click(),
+  ]);
+  await settle(pwaPage);
+  await pwaPage.waitForTimeout(500);
+  const documentsLoaded = Number(await pwaPage.evaluate(`Number(sessionStorage.getItem('revisio-probe-loads') || '0')`));
+  check(documentsLoaded === 2, `an explicit update reloads the page exactly once (${documentsLoaded - 1} reloads)`);
+  const controlledBy = await pwaPage
+    .waitForFunction(
+      "!!navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL",
+      undefined,
+      { timeout: 10_000 },
+    )
+    .then((handle) => handle.jsonValue() as Promise<string>)
+    .catch(() => null);
+  // The reloaded page re-registers the app's own /sw.js, which may take over
+  // from the probe; what matters is that some worker controls the page.
+  check(
+    typeof controlledBy === 'string' && controlledBy.endsWith('/sw.js'),
+    `the page is controlled by an active worker after the update (controller: ${String(controlledBy)})`,
+  );
   await pwaContext.close();
+
+  // iOS has no install prompt; Safari users get the Add to Home Screen path.
+  const iosContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'reduce',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  });
+  iosContext.setDefaultTimeout(30_000);
+  await stubApis(iosContext);
+  const iosPage = await iosContext.newPage();
+  await watchPage(iosPage);
+  await iosPage.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
+  await iosPage.getByText(/Add to Home Screen/i).waitFor({ timeout: 10_000 });
+  check(true, 'iOS Safari is told how to install instead of being offered a prompt');
+  await iosContext.close();
+
+  // A failed worker registration says so and offers Retry; the retry works.
+  const retryContext = await makeContext(browser);
+  let refuseWorker = true;
+  await retryContext.route('**/sw.js', (route) => {
+    if (refuseWorker) return route.fulfill({ status: 500, contentType: 'text/javascript', body: 'nope' });
+    return route.continue();
+  });
+  const retryPage = await retryContext.newPage();
+  // The injected 500 is itself logged by the browser as a console error; that
+  // one line is the fault under test, not an application failure. Everything
+  // else in this context is still required to be clean and is reported.
+  const retryErrors: string[] = [];
+  retryPage.on('pageerror', (error) => retryErrors.push(error.message));
+  retryPage.on('console', (message) => {
+    if (message.type() !== 'error') return;
+    if (/bad HTTP response code \(500\) was received when fetching the script/i.test(message.text())) return;
+    retryErrors.push(message.text());
+  });
+  await retryPage.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
+  const offlineNotice = retryPage.getByText(/Offline support could not start/i);
+  await offlineNotice.waitFor({ timeout: 10_000 });
+  check(true, 'a failed worker registration is reported instead of swallowed');
+  refuseWorker = false;
+  await retryPage.getByRole('button', { name: 'Retry' }).click();
+  check(await absentEventually(offlineNotice), 'retrying the worker registration clears the failure notice');
+  check(retryErrors.length === 0, `failed-registration probe raised no unexpected errors (${retryErrors.join('; ')})`);
+  await retryContext.close();
 
   check(report.blockedWrites.length === 0, 'public suite made no API write requests');
   check(report.pageErrors.length === 0, `public routes raised no browser errors (${report.pageErrors.length} found)`);

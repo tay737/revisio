@@ -822,6 +822,14 @@
       font-size: 14px;
     }
   }
+  /* A table-of-contents chip is a sentence, not a token: let it wrap instead of
+     pushing a 320px page sideways. */
+  .chip-wrap {
+    white-space: normal;
+    max-width: 100%;
+    padding-block: 6px;
+    text-align: left;
+  }
   .chip-active {
     border-color: transparent;
     background: var(--foreground);

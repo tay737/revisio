@@ -2,6 +2,7 @@ import 'server-only';
 
 import Link from 'next/link';
 import { Markdown } from '@/components/Markdown';
+import { LegalHeader } from '@/components/LegalHeader';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │  COOKIE POLICY                                                          │
@@ -43,7 +44,7 @@ const CATEGORIES = [
     id: 'analytics',
     name: 'Analytics',
     purpose: 'Usage metrics',
-    note: 'Anonymous, aggregated data on how people use the Service, used to improve it. No personal content is measured. Your account-level consent can switch this off.',
+    note: 'Anonymous, aggregated data on how people use the Service, used to improve it. No personal content is measured. We do not currently load an optional analytics service; if one is introduced, it will run only after this consent is given.',
   },
   {
     id: 'marketing',
@@ -77,16 +78,16 @@ const HOW_TO_REFUSE = `
   without them.
   - **Non-essential cookies** are set only after you choose to accept them. On
   your first visit, a cookie-consent banner asks for your choice before any
-  non-essential cookie is loaded.
+  non-essential cookie is loaded. Today the Service sets no non-essential
+  cookie at all; the categories below record what we would load, and your
+  choice governs it.
   - You can change your mind at any time in **Settings → How we use your data**.
   - You can unsubscribe from product updates and non-essential email with the
   link in the message, or in **Settings → How we use your data**.
-  - Device-level analytics can be switched off in your browser's privacy
-  settings. We record this choice on your account so it applies to the Service
-  too.
+  - Your browser's own privacy settings remain a second, independent control.
 
-  Each refusal you make is stored with a time-stamp and is applied on your next
-  request, so you will not need to repeat it.
+  Each refusal you make is stored with a time-stamp (on this device and, when
+  you are signed in, on your account), so you will not need to repeat it.
 `;
 
 const HOW_WE_KEEP_IT_CURRENT = `
@@ -98,6 +99,8 @@ const HOW_WE_KEEP_IT_CURRENT = `
 
 export default function CookiePolicyPage() {
   return (
+    <>
+    <LegalHeader current="/cookie-policy" />
     <main>
       <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
@@ -122,9 +125,9 @@ export default function CookiePolicyPage() {
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
             A cookie is a small text file that a website saves on your device so
             the Service can remember your actions and preferences. We also use
-            similar technologies: local storage for your session and preference
-            settings, and device identifiers for analytics, all with the same
-            limits described in this policy.
+            similar technologies: local storage for your consent choice, your
+            preference settings and the offline cache. These are covered by the
+            same limits described in this policy.
           </p>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
             <em>First-party</em> cookies are set by us. <em>Third-party</em>{' '}
@@ -142,7 +145,9 @@ export default function CookiePolicyPage() {
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
             We only use cookies that are necessary for the Service, or that you
             have explicitly consented to. The table below lists each category,
-            its purpose, and the information that applies to it.
+            its purpose, and the information that applies to it. Several of
+            these are account settings rather than cookies — they are stored in
+            our database because they must follow you between devices.
           </p>
 
           <div className="mt-3 divide-y divide-border">
@@ -193,8 +198,8 @@ export default function CookiePolicyPage() {
       <footer className="border-t border-border pt-6 text-xs text-muted-foreground">
         <p>
           Questions about cookies or how we use your data?{' '}
-          <Link href="mailto:support@revisio.pro" className="underline underline-offset-4">
-            Contact us
+          <Link href="mailto:tayyab@outlook.jp" className="underline underline-offset-4">
+            tayyab@outlook.jp
           </Link>
           , or see the full{' '}
           <Link href="/privacy" className="underline underline-offset-4">
@@ -205,5 +210,6 @@ export default function CookiePolicyPage() {
       </footer>
       </article>
     </main>
+    </>
   );
 }

@@ -35,3 +35,4 @@ dist/
 # browser-test evidence: screenshots and reports, regenerated every run
 artifacts/
 .browsers/
+.agentsroom/transfer-context-*.txt
