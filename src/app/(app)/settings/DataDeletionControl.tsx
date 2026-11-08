@@ -98,6 +98,8 @@ export function DataDeletionControl() {
             type="email"
             className="input"
             autoComplete="email"
+            spellCheck={false}
+            autoCapitalize="none"
             value={typedEmail}
             onChange={(event) => setTypedEmail(event.target.value)}
             disabled={remaining === 0 || busy}

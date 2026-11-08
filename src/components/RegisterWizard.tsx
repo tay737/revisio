@@ -310,6 +310,8 @@ export default function RegisterWizard() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       autoComplete="email"
+                      spellCheck={false}
+                      autoCapitalize="none"
                       placeholder="you@school.edu"
                     />
                   </Field>

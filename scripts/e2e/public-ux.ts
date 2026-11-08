@@ -137,6 +137,19 @@ function consentRegionOf(page: Page) {
 }
 
 /**
+ * The per-purpose controls sit behind the `Customise` disclosure, so a test that
+ * wants one has to open the disclosure first — the way a person would. It
+ * returns the Analytics checkbox once the list is actually on screen.
+ */
+async function openConsentPurposes(page: Page, region = consentRegionOf(page)) {
+  const toggle = region.getByRole('button', { name: 'Customise' });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  const analytics = region.getByRole('checkbox', { name: 'Analytics' });
+  await analytics.waitFor({ state: 'visible' });
+  return analytics;
+}
+
+/**
  * Axe must not sample an element mid-fade: a half-transparent label reads as low
  * contrast. Wait for every finite animation to finish; infinite loops (shimmer,
  * pulse, spin) never finish and are ignored, since they do not change ink colour.
@@ -225,7 +238,19 @@ try {
   await consentPage.goto(new URL('/', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   const consentRegion = consentPage.getByRole('region', { name: 'Cookie consent' });
   await consentRegion.waitFor();
-  const analytics = consentPage.getByRole('checkbox', { name: 'Analytics' });
+  check(
+    await consentRegion.getByRole('checkbox').count() === 0,
+    'optional purposes stay behind the disclosure until asked for',
+  );
+  check(
+    await consentRegion.getByRole('button', { name: 'Customise' }).getAttribute('aria-expanded') === 'false',
+    'the purposes disclosure starts collapsed and says so',
+  );
+  const analytics = await openConsentPurposes(consentPage, consentRegion);
+  check(
+    await consentRegion.getByRole('button', { name: 'Customise' }).getAttribute('aria-expanded') === 'true',
+    'customise reveals the purpose controls',
+  );
   await analytics.check();
   check(await analytics.isChecked(), 'anonymous visitor can change an individual purpose');
   await consentPage.getByRole('button', { name: 'Reject all' }).click();
@@ -242,7 +267,7 @@ try {
   // Partial choice is a completed decision and survives public navigation.
   await consentPage.evaluate(() => localStorage.removeItem('revisio.cookie-consent'));
   await consentPage.reload({ waitUntil: 'domcontentloaded' });
-  const partialAnalytics = consentPage.getByRole('checkbox', { name: 'Analytics' });
+  const partialAnalytics = await openConsentPurposes(consentPage);
   await partialAnalytics.check();
   await consentPage.getByRole('button', { name: 'Save choices' }).click();
   await consentPage.goto(new URL('/terms', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
@@ -400,7 +425,22 @@ try {
     check(dimensions.width <= dimensions.viewportWidth, `no horizontal document overflow at ${viewport.width}px`);
     check(!!dimensions.panel && dimensions.panel.height <= viewport.height && dimensions.panel.left >= 0, `consent panel stays within ${viewport.width}×${viewport.height}`);
     check(dimensions.actions.every((rect) => rect.bottom <= viewport.height && rect.left >= 0), `consent actions remain visible at ${viewport.width}px`);
-    const analytics = mobilePage.getByRole('checkbox', { name: 'Analytics' });
+    // The rest state is new markup (heading, inline privacy link, three
+    // controls), so it is scanned on its own rather than inferred from the
+    // expanded panel.
+    await mobilePage.addScriptTag({ path: axeSource });
+    await scanAxe(mobilePage, `consent@${viewport.width}`, 'light');
+    // Rest first: measure the compact bar, then the same panel with the
+    // purposes open. Growing on demand is the property being bought.
+    const restingHeight = (await panel.boundingBox())?.height ?? 0;
+    const analytics = await openConsentPurposes(mobilePage, panel);
+    await settle(mobilePage);
+    const expandedHeight = (await panel.boundingBox())?.height ?? 0;
+    check(
+      expandedHeight > restingHeight,
+      `customise grows the consent panel only when opened (${Math.round(restingHeight)}→${Math.round(expandedHeight)} at ${viewport.width}px)`,
+    );
+    check(restingHeight <= viewport.height * 0.45, `the consent panel rests under half the screen at ${viewport.width}px`);
     await analytics.focus();
     const focused = await mobilePage.evaluate(() => {
       const active = document.activeElement;
@@ -410,8 +450,7 @@ try {
       return !!panel && panel.contains(active) && rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
     });
     check(focused, `focused consent control remains visible at ${viewport.width}px`);
-    await mobilePage.addScriptTag({ path: axeSource });
-    await scanAxe(mobilePage, `consent@${viewport.width}`, 'light');
+    await scanAxe(mobilePage, `consent-expanded@${viewport.width}`, 'light');
   }
   await mobileContext.close();
 

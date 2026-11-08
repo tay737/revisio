@@ -46,7 +46,7 @@ const SPOTLIGHT = 'rgb(169 124 248 / 0.14)';
 export default function LandingPage() {
   return (
     <MotionConfig reducedMotion="never">
-      <div className="landing-motion min-h-screen bg-background">
+      <div className="landing-motion min-h-viewport bg-background">
         <ScrollProgress />
         <a href="#main" className="skip-link">
           Skip to content

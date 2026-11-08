@@ -310,6 +310,16 @@
   --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
 }
 
+/* A full-height shell is the viewport MINUS whatever a fixed bottom bar is
+   using. `min-h-screen` measures the full viewport and so lets the consent
+   banner sit on top of the page: measured on /login, where the bar covered the
+   `Sign in` button and Playwright's click never landed (38 retries, "subtree
+   intercepts pointer events"). Every shell that sizes to the viewport uses
+   this instead of `min-h-screen`. */
+@utility min-h-viewport {
+  min-height: calc(100dvh - var(--consent-h, 0px));
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -319,6 +329,10 @@
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
     scroll-padding-top: 64px;
+    /* The consent banner is a `fixed` bottom bar and publishes its own height
+       as `--consent-h`. Without giving that height back, a long page's last
+       element can never be scrolled clear of the bar. */
+    scroll-padding-bottom: var(--consent-h, 0px);
   }
 
   body {
@@ -332,6 +346,9 @@
     text-rendering: optimizeLegibility;
     font-feature-settings: 'ss01', 'cv11';
     overscroll-behavior-y: none;
+    /* Trailing space so the bottom of the document can scroll above the bar
+       rather than underneath it. */
+    padding-bottom: var(--consent-h, 0px);
   }
 
   /* Uber's display face is never letter-spaced and never italic; the display
@@ -343,6 +360,15 @@
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: 0;
+    /* Keep a heading from ending on one orphaned word. `pretty` is the
+       fallback for the last line; browsers that support `balance` use it. */
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 
   a,

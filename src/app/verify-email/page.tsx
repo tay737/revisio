@@ -68,7 +68,7 @@ function VerifyEmailInner() {
     );
 
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden px-6 py-14">
+    <main className="relative grid min-h-viewport place-items-center overflow-hidden px-6 py-14">
       <div aria-hidden className="absolute inset-x-0 top-0 h-[46%] bg-[#272729]" />
 
       <div className="relative w-full max-w-md">

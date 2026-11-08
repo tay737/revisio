@@ -58,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             the toggle reads, so the key exists in exactly one place. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
       </head>
-      <body className="min-h-screen">
+      <body className="min-h-viewport">
         <ReviewSessionProvider>
           <MotionProvider>
             {children}

@@ -511,7 +511,7 @@ function SettingsBody({
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="New email" htmlFor="set-email" hint="We email a confirmation link; the change happens when you click it.">
-            <input id="set-email" type="email" className="input" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="you@school.example" autoComplete="email" />
+            <input id="set-email" type="email" className="input" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="you@school.example" autoComplete="email" spellCheck={false} autoCapitalize="none" />
           </Field>
           <Field label="Current password" htmlFor="set-email-pw" hint="Proof it is you.">
             <input id="set-email-pw" type="password" className="input" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} autoComplete="current-password" />
@@ -654,8 +654,12 @@ function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange
       onClick={() => onChange(!on)}
       className={`relative h-7 w-12 shrink-0 rounded-pill transition-colors duration-150 ${on ? 'bg-good' : 'bg-border-strong'}`}
     >
+      {/* The knob travels with `transform`, not `left`: animating `left`
+          re-lays-out the track on every frame of the slide, and `transition-all`
+          was animating the shadow at the same time. Travel is
+          48 − 24 − 2×2 = 20px, which is `translate-x-5`. */}
       <span
-        className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-all duration-150 ${on ? 'left-[22px]' : 'left-0.5'}`}
+        className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-150 ease-[var(--ease-out)] ${on ? 'translate-x-5' : 'translate-x-0'}`}
         aria-hidden
       />
     </button>
