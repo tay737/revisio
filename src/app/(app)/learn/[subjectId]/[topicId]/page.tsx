@@ -127,7 +127,11 @@ export default function TopicScreen() {
         subtitle={meta.description || undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1 backdrop-blur">
+            <div
+              className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1 backdrop-blur"
+              role="group"
+              aria-label="Note detail"
+            >
               {(['detailed', 'summary'] as const).map((d) => (
                 <button
                   key={d}

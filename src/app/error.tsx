@@ -29,7 +29,7 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-5 py-14">
+    <main className="grid min-h-viewport place-items-center bg-background px-5 py-14">
       <div className="w-full max-w-md">
         <div className="card p-7 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">

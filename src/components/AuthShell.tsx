@@ -27,7 +27,7 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-viewport flex-col bg-background">
       <a href="#main" className="skip-link">
         Skip to content
       </a>

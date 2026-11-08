@@ -146,6 +146,10 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
+            // An address is an identifier, not prose: a spell-checker underlines
+            // it and mobile keyboards capitalise the first letter.
+            spellCheck={false}
+            autoCapitalize="none"
             placeholder="you@school.edu"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : undefined}

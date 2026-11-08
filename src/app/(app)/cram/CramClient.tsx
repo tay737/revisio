@@ -390,7 +390,7 @@ export default function CramClient() {
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <span className="label">Notes to show</span>
-            <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
+            <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1" role="group" aria-label="Notes to show">
               {(['summary', 'detailed'] as const).map((d) => (
                 <button
                   key={d}

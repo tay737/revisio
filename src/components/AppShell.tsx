@@ -78,7 +78,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const overflowActive = overflow.some((item) => isActivePath(pathname, item.href));
 
   return (
-    <div className="flex min-h-screen" style={{ '--nav-h': '64px' } as React.CSSProperties}>
+    <div className="flex min-h-viewport" style={{ '--nav-h': '64px' } as React.CSSProperties}>
       {/* First focusable element on every page: keyboard users get past the
           sidebar's eleven links in one Tab instead of re-trapping themselves in
           the nav on every load. `tabIndex={-1}` lets activation move focus, not

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { api, downloadFile } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { useRanked, type RankedScope } from '@/lib/useRanked';
@@ -59,10 +60,34 @@ const VIEWS = [
 
 type View = (typeof VIEWS)[number]['id'];
 
-export default function RankPage() {
+const SCOPES = ['daily', 'weekly', 'monthly'] as const;
+
+/** The tab named by `?view=`, falling back to the ladder it always opened on. */
+function viewFromParam(value: string | null): View {
+  return VIEWS.some((v) => v.id === value) ? (value as View) : 'rank';
+}
+
+/** The XP board's window from `?scope=`, falling back to the week. */
+function scopeFromParam(value: string | null): RankedScope {
+  return SCOPES.includes(value as (typeof SCOPES)[number]) ? (value as RankedScope) : 'weekly';
+}
+
+function RankPage() {
   const { me } = useMe();
-  const [scope, setScope] = useState<RankedScope>('weekly');
-  const [view, setView] = useState<View>('rank');
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const viewParam = params.get('view');
+  const scopeParam = params.get('scope');
+  // Which window the XP board counts — also a choice worth a link, so it rides
+  // in the URL next to the tab rather than resetting on reload.
+  const [scope, setScope] = useState<RankedScope>(() => scopeFromParam(scopeParam));
+  // The tab lives in the URL. "This week" and "Strength" were reachable only by
+  // clicking: the tab was local state, so a link could not open one, a reload
+  // dropped you back on the ladder, and Back left the page instead of stepping
+  // between tabs. `rank` is the default, so it stays out of the URL rather than
+  // being written into it.
+  const [view, setView] = useState<View>(() => viewFromParam(viewParam));
   const { ranked, loading } = useRanked(scope);
   const [optOut, setOptOut] = useState(false);
   const [note, setNote] = useState('');
@@ -71,6 +96,35 @@ export default function RankPage() {
   useEffect(() => {
     if (me) setOptOut(me.leaderboardOptOut);
   }, [me]);
+
+  // Back/forward and any link that arrives with a `?view=` move the tab too.
+  useEffect(() => {
+    setView(viewFromParam(viewParam));
+  }, [viewParam]);
+
+  useEffect(() => {
+    setScope(scopeFromParam(scopeParam));
+  }, [scopeParam]);
+
+  /** Write one selection into the URL, leaving the rest of the query alone. */
+  const writeParam = (key: 'view' | 'scope', value: string | null) => {
+    const search = new URLSearchParams(params.toString());
+    if (value === null) search.delete(key);
+    else search.set(key, value);
+    const query = search.toString();
+    // Shallow replace: a switch must not refetch or scroll back to the top.
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const selectView = (next: View) => {
+    setView(next);
+    writeParam('view', next === 'rank' ? null : next);
+  };
+
+  const selectScope = (next: RankedScope) => {
+    setScope(next);
+    writeParam('scope', next === 'weekly' ? null : next);
+  };
 
   const toggleOptOut = async () => {
     const next = !optOut;
@@ -118,7 +172,7 @@ export default function RankPage() {
             season={data.season}
           />
 
-          <Tabs value={view} onValueChange={(next) => setView(next as View)}>
+          <Tabs value={view} onValueChange={(next) => selectView(next as View)}>
             {/* Four tabs share one row. `px-2` on the narrowest screens is not
                 cosmetic: at `px-4` the four labels need more width than a 320px
                 phone has, and "This week" wraps to two lines and breaks the
@@ -218,12 +272,15 @@ export default function RankPage() {
               <section className="card">
                 <header className="flex items-center justify-between gap-3">
                   <h2 className="t-tagline">XP board</h2>
-                  <div className="flex gap-1.5">
+                  {/* A pressed-state button is only meaningful with the question
+                      it answers attached; the three chips read as "daily" on
+                      their own otherwise. */}
+                  <div className="flex gap-1.5" role="group" aria-label="XP board window">
                     {(['daily', 'weekly', 'monthly'] as const).map((s) => (
                       <button
                         key={s}
                         type="button"
-                        onClick={() => setScope(s)}
+                        onClick={() => selectScope(s)}
                         aria-pressed={scope === s}
                         className={cn('chip capitalize', scope === s && 'chip-active')}
                       >
@@ -349,5 +406,15 @@ export default function RankPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+/** `useSearchParams` suspends, so this route keeps a boundary around it the
+ *  same way /review and /cram do. */
+export default function RankRoute() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <RankPage />
+    </Suspense>
   );
 }

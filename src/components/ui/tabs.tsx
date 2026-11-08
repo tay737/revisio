@@ -72,7 +72,10 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn('min-w-0 flex-1 outline-none', className)}
+      // No `outline-none` here: Base UI makes the panel focusable (`tabIndex`
+      // 0 when it holds nothing focusable), so keyboard users need to see where
+      // they are. The app's global `:focus-visible` ring is the replacement.
+      className={cn('min-w-0 flex-1', className)}
       {...props}
     />
   );

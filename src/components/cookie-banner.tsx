@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { applyConsentChange, blankConsent, consentFromBlob, purposeDescription, type ConsentKey, type ConsentState } from '@/lib/consent';
 import { api, getToken } from '@/lib/api';
+import { Icon } from '@/components/ui/icons';
 
 // A consent manager that is pure and server-safe so the banner and the route
 // layer can never disagree about what is on or off. The banner only renders
@@ -91,10 +92,16 @@ export function purposeLine(key: ConsentKey): string {
 /**
  * The cookie-consent banner.
  *
- * Appears on first visit; hidden after the user makes a choice. The banner
- * presents Essential always-on, then one explicit control per non-essential
- * purpose, then an accept/reject of all. Nothing is loaded until the user
- * acts.
+ * Appears on first visit; hidden after the user makes a choice. Nothing is
+ * loaded until the user acts.
+ *
+ * At rest it is a compact bar: heading, one line of policy, and the three
+ * decisions a visitor actually came to make (accept all / reject all /
+ * customise). The seven per-purpose controls live behind the `Customise`
+ * disclosure, because they are the *detail* of a decision, not the decision —
+ * showing them all at once made the bar 344px tall on desktop and ~the whole
+ * screen at 320px, which is a wall, not a question. The privacy link rides in
+ * the caption so it costs no extra row.
  */
 export function CookieConsentBanner() {
   const pathname = usePathname();
@@ -104,8 +111,41 @@ export function CookieConsentBanner() {
   const [error, setError] = useState('');
   const [storageError, setStorageError] = useState(false);
   const [syncError, setSyncError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const dismissedForSession = useRef(false);
+  const bannerRef = useRef<HTMLDivElement | null>(null);
   const exempt = isBannerExempt(pathname ?? '');
+
+  /**
+   * Publish the bar's height as `--consent-h` for as long as it is on screen.
+   *
+   * The banner is `fixed` to the bottom of the viewport, so while it is up the
+   * page has less room than `100vh`. Shells size to `min-h-viewport` (which
+   * subtracts this variable) and `body` reserves the same height as scrollable
+   * tail space; without both, the banner sits on top of whatever the page put
+   * at the bottom. Measured on /login: it covered the `Sign in` button and the
+   * click never landed.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    const node = bannerRef.current;
+    if (!node) {
+      root.style.removeProperty('--consent-h');
+      return;
+    }
+    const publish = () => {
+      root.style.setProperty('--consent-h', `${Math.ceil(node.getBoundingClientRect().height)}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(node);
+    window.addEventListener('resize', publish);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', publish);
+      root.style.removeProperty('--consent-h');
+    };
+  }, [exempt, loaded, dismissed, syncError]);
 
   useEffect(() => {
     let active = true;
@@ -165,7 +205,7 @@ export function CookieConsentBanner() {
   if (!loaded || exempt) return null;
   if (dismissed) {
     return syncError ? (
-      <div className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-float)] pb-safe" role="status">
+      <div ref={bannerRef} className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-float)] pb-safe" role="status">
         <p className="t-caption min-w-0 flex-1">Your choice is saved on this device. Account sync is still pending.</p>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => void retrySync()}>Retry sync</button>
       </div>
@@ -173,6 +213,7 @@ export function CookieConsentBanner() {
   }
 
   const choices = saved.choices;
+  const purposesId = 'consent-purposes';
   const allOn = NON_ESSENTIAL.every(({ key }) => choices[key]);
   const allOff = NON_ESSENTIAL.every(({ key }) => !choices[key]);
 
@@ -203,61 +244,25 @@ export function CookieConsentBanner() {
 
   return (
     <div
+      ref={bannerRef}
       className="fixed inset-x-0 bottom-0 z-50 flex flex-col items-center bg-background/95 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-sm sm:px-6"
       role="region"
       aria-label="Cookie consent"
     >
       <div className="w-full max-w-2xl">
-        <div className="flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-1.5rem)] flex-col overflow-hidden rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-float)] sm:p-6">
-          <h2 className="t-strong shrink-0">Cookies on Revisio</h2>
-          <p className="t-caption mt-1 shrink-0 text-muted-foreground">
-            Essential operation is always on. Optional purposes are off unless you choose them.
+        <div className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-float)] sm:p-6">
+          <h2 className="t-strong">Cookies on Revisio</h2>
+          <p className="t-caption mt-1 text-muted-foreground">
+            Essential cookies keep Revisio running. Optional ones stay off until you choose.{' '}
+            <Link
+              href="/privacy#your-rights"
+              className="underline decoration-border underline-offset-2 hover:text-foreground"
+            >
+              Privacy details
+            </Link>
           </p>
 
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1" tabIndex={0} aria-label="Optional consent purposes">
-          {/* Essential — always on. */}
-          <div className="border-b border-border pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="t-fine">Essential</p>
-                <p className="t-caption text-muted-foreground">
-                  Strictly necessary for the Service to work and to keep your
-                  account secure. Cannot be switched off.
-                </p>
-              </div>
-              {/* `bg-good` under `text-good-strong` measured 2.43:1 (axe); the
-                  soft pairing is the legible one and matches the rest of the app. */}
-              <span className="shrink-0 rounded-full bg-good-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-good-strong">
-                Always on
-              </span>
-            </div>
-          </div>
-
-          {/* Non-essential — one control per purpose. */}
-          <div className="mt-3 space-y-2">
-            {NON_ESSENTIAL.map((c) => (
-              <label
-                key={c.key}
-                className="flex min-h-11 items-start gap-3 rounded-lg border border-border p-2.5"
-              >
-                <input
-                  type="checkbox"
-                  checked={saved.choices[c.key]}
-                  onChange={(e) => setSaved((current) => applyConsentChange(current, { [c.key]: e.target.checked }))}
-                  className="mt-1 h-5 w-5 shrink-0 rounded border-border text-primary focus:ring-1 focus:ring-ring"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{c.label}</p>
-                  <p className="t-fine text-muted-foreground">{c.description}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          </div>
-
-          {/* Actions remain visible while the purpose list scrolls. */}
-          <div className="mt-3 flex shrink-0 flex-wrap gap-2 border-t border-border pt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
               className="btn btn-primary"
@@ -272,16 +277,84 @@ export function CookieConsentBanner() {
             >
               Reject all
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => void commit(saved)}>Save choices</button>
-            <Link href="/privacy#your-rights" className="btn btn-ghost">Privacy details</Link>
+            {/* A disclosure, not a dialog: `aria-expanded` is what tells a
+                screen reader that the purposes below it come and go. */}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              aria-expanded={expanded}
+              aria-controls={purposesId}
+              onClick={() => setExpanded((current) => !current)}
+            >
+              Customise
+              <Icon name="collapse" size={15} className={expanded ? 'rotate-180' : undefined} />
+            </button>
           </div>
 
-          {/* Summary. */}
-          <p className="t-fine mt-2 shrink-0 text-muted-foreground" aria-live="polite">
-            {allOn ? 'All optional purposes selected.' : allOff ? 'All optional purposes are off.' : 'Choose only the purposes you want.'}
-          </p>
+          {expanded && (
+            <div id={purposesId} className="mt-3 border-t border-border pt-3">
+              {/* The list is its own scroll container, capped in viewport units
+                  and rem: on a short phone the purposes scroll while the
+                  decisions above and the summary below stay put. */}
+              <div
+                className="max-h-[min(38dvh,15rem)] overflow-y-auto overscroll-contain pr-1"
+                tabIndex={0}
+                aria-label="Optional consent purposes"
+              >
+                {/* Essential — always on. */}
+                <div className="border-b border-border pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="t-fine">Essential</p>
+                      <p className="t-caption text-muted-foreground">
+                        Strictly necessary for the Service to work and to keep your
+                        account secure. Cannot be switched off.
+                      </p>
+                    </div>
+                    {/* `bg-good` under `text-good-strong` measured 2.43:1 (axe); the
+                        soft pairing is the legible one and matches the rest of the app. */}
+                    <span className="shrink-0 rounded-full bg-good-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-good-strong">
+                      Always on
+                    </span>
+                  </div>
+                </div>
 
-          {error && <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2" role="alert">
+                {/* Non-essential — one control per purpose. */}
+                <div className="mt-3 space-y-2">
+                  {NON_ESSENTIAL.map((c) => (
+                    <label
+                      key={c.key}
+                      className="flex min-h-11 items-start gap-3 rounded-lg border border-border p-2.5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={saved.choices[c.key]}
+                        onChange={(e) => setSaved((current) => applyConsentChange(current, { [c.key]: e.target.checked }))}
+                        className="mt-1 h-5 w-5 shrink-0 rounded border-border text-primary focus:ring-1 focus:ring-ring"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{c.label}</p>
+                        <p className="t-fine text-muted-foreground">{c.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Saving a partial choice is only meaningful once the purposes
+                  are on screen, so it lives with them. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                <button type="button" className="btn btn-secondary" onClick={() => void commit(saved)}>
+                  Save choices
+                </button>
+                <p className="t-fine min-w-0 text-muted-foreground" aria-live="polite">
+                  {allOn ? 'All optional purposes selected.' : allOff ? 'All optional purposes are off.' : 'Choose only the purposes you want.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {error && <div className="mt-2 flex flex-wrap items-center justify-between gap-2" role="alert">
             <p className="t-fine text-destructive-ink">{error}</p>
             {storageError && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { dismissedForSession.current = true; setDismissed(true); }}>Continue for now</button>}
           </div>}
