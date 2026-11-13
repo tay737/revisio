@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 type StartResponse = { secret: string; uri: string; qrDataUrl: string };
 type ConfirmResponse = { enabled: boolean; recoveryCodes: string[] };
@@ -124,7 +126,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
 
       {/* ── Recovery codes shown once ────────────────────────────────────── */}
       {recoveryCodes && (
-        <div className="card-soft mt-4">
+        <Card variant="soft" className="mt-4">
           <p className="t-strong">Save your recovery codes now</p>
           <p className="t-caption mt-1 text-muted-foreground">
             Each works once, in place of an authenticator code, if you ever lose the app. These are
@@ -141,7 +143,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
             <Icon name={copied ? 'correct' : 'notes'} size={14} />
             {copied ? 'Copied' : 'Copy all'}
           </Button>
-        </div>
+        </Card>
       )}
 
       {/* ── Off: begin enrolment ─────────────────────────────────────────── */}
@@ -186,8 +188,8 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
               <div>
                 <p className="t-caption-s">Type the six-digit code the app shows</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <input
-                    className="input max-w-[180px] tracking-[0.4em]"
+                  <Input
+                    className="max-w-[180px] tracking-[0.4em]"
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                     maxLength={6}
@@ -236,8 +238,8 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
             authenticator app to prove it&apos;s you.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              className="input max-w-[180px] tracking-[0.4em]"
+            <Input
+              className="max-w-[180px] tracking-[0.4em]"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
               maxLength={6}

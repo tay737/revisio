@@ -7,6 +7,9 @@ import { signOut } from '@/lib/useMe';
 import { useMe } from '@/lib/useMe';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type DeletionPreview = {
   confirm: true;
@@ -77,7 +80,7 @@ export function DataDeletionControl() {
   const emailMatches = !!preview?.email && typedEmail.trim().toLowerCase() === preview.email.toLowerCase();
 
   return (
-    <section className="card p-5" aria-labelledby="delete-account-heading">
+    <Card as="section" className="p-5" aria-labelledby="delete-account-heading">
       <h2 id="delete-account-heading" className="t-strong">Delete my data</h2>
       <p className="t-caption mt-1 text-muted-foreground">
         This anonymises your account and removes selected account records. It does not currently erase all historical learning or class records. You will not be able to sign in again, and the action cannot be undone.
@@ -92,11 +95,10 @@ export function DataDeletionControl() {
             {preview.message} Confirm within {remaining} seconds. This confirmation is linked to your signed-in account and email; it does not verify guardian authority or ask for your password.
           </Notice>
           {remaining === 0 && <p className="t-caption text-destructive-ink" role="status">This confirmation window has expired. Request a new one to continue.</p>}
-          <label htmlFor="delete-account-email" className="label">Type your account email to confirm</label>
-          <input
+          <Label htmlFor="delete-account-email">Type your account email to confirm</Label>
+          <Input
             id="delete-account-email"
             type="email"
-            className="input"
             autoComplete="email"
             spellCheck={false}
             autoCapitalize="none"
@@ -116,6 +118,6 @@ export function DataDeletionControl() {
         </div>
       )}
       <Notice tone="bad" show={!!error} className="mt-3">{error}</Notice>
-    </section>
+    </Card>
   );
 }

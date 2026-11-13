@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { SRS_LADDER, type SrsTier } from '@/domain/srs';
 import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
 
 /**
  * The strength ladder, BunPro-style: twelve rungs grouped into four tiers, one
@@ -53,7 +55,7 @@ export function StrengthCard({
   }));
 
   return (
-    <div className="card">
+    <Card>
       <div className="flex items-center justify-between gap-3">
         <h2 className="t-strong">Your strength</h2>
         <span className="num text-[13px] font-semibold text-muted-foreground">
@@ -109,10 +111,10 @@ export function StrengthCard({
         <p className="t-caption text-muted-foreground">
           What you keep missing, and every answer as it was graded.
         </p>
-        <Link href="/progress" className="btn btn-ghost btn-sm shrink-0 gap-1.5">
+        <Link href="/progress" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'shrink-0 gap-1.5')}>
           Insights
         </Link>
       </div>
-    </div>
+    </Card>
   );
 }

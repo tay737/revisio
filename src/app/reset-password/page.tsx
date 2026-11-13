@@ -6,6 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api, setToken } from '@/lib/api';
 import { AuthShell } from '@/components/AuthShell';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 type LoginResponse = { accessToken?: string };
 
@@ -43,33 +48,32 @@ function ResetPasswordInner() {
 
   return (
     <AuthShell footer={<Link href="/login" className="transition-colors hover:text-foreground">Back to sign in</Link>}>
-      <div className="card p-6 sm:p-7">
+      <Card className="p-6 sm:p-7">
         {!token ? (
           <>
-            <h1 className="t-tagline">That link is missing its token</h1>
+            <h1 className="t-title">That link is missing its token</h1>
             <p className="t-caption mt-2 text-muted-foreground">
               Open the reset link from your email, or start again.
             </p>
-            <Link href="/forgot-password" className="btn btn-primary mt-5 w-full">
+            <Link href="/forgot-password" className={cn(buttonVariants({ variant: 'primary' }), 'mt-5 w-full')}>
               Request a new link
             </Link>
           </>
         ) : (
           <>
-            <h1 className="t-tagline">Choose a new password</h1>
+            <h1 className="t-title">Choose a new password</h1>
             <p className="t-caption mt-1.5 text-muted-foreground">
               At least 8 characters. Saving it signs out every other device.
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
-                <label className="label" htmlFor="new-password">
+                <Label htmlFor="new-password">
                   New password
-                </label>
-                <input
+                </Label>
+                <Input
                   id="new-password"
                   type="password"
-                  className="input"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -80,13 +84,12 @@ function ResetPasswordInner() {
                 />
               </div>
               <div>
-                <label className="label" htmlFor="confirm-password">
+                <Label htmlFor="confirm-password">
                   Repeat it
-                </label>
-                <input
+                </Label>
+                <Input
                   id="confirm-password"
                   type="password"
-                  className="input"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   required
@@ -115,7 +118,7 @@ function ResetPasswordInner() {
             </p>
           </>
         )}
-      </div>
+      </Card>
     </AuthShell>
   );
 }

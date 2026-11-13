@@ -570,6 +570,53 @@
     background: var(--secondary);
   }
 
+  /* ── Landing rhythm ──────────────────────────────────────────────────────
+     One section per screen. The bands used to be content-height, which made
+     the hero ~510px tall on a 900px viewport and let the next section's head
+     show on the first screen. `--consent-h` is published by the banner, so a
+     first visit fits the same screen as a returning one. */
+  .landing-hero,
+  .landing-section {
+    display: flex;
+    align-items: center;
+    min-height: calc(100svh - 64px - var(--consent-h, 0px));
+  }
+  /* The hero's own padding, tighter than the shared band: at 390 the text, the
+     controls, the facts and the demo card were 51px taller than the screen. */
+  .landing-hero {
+    padding-block: 20px;
+  }
+  @media (min-width: 768px) {
+    .landing-hero {
+      padding-block: 48px;
+    }
+  }
+
+  /* Standalone links on the auth screens are 16–19px tall as text, under the
+     32px a thumb needs. Vertical padding on an inline element grows the hit
+     area without moving the line box, so nothing on the card shifts. Links in
+     running prose (the policy pages) are left alone: WCAG 2.5.8 exempts them. */
+  .auth-footer a,
+  a.tap-link {
+    padding-block: 8px;
+  }
+
+  /* Legal documents: the 768px column runs to ~95 characters at 15px. Cap the
+     measure on the prose only, so headings and the contents chips keep the
+     column's full width. */
+  .legal-doc :is(p, li) {
+    max-width: 68ch;
+  }
+  .landing-hero > *,
+  .landing-section > * {
+    width: 100%;
+  }
+  .landing-close {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - 64px - var(--consent-h, 0px));
+  }
+
   /* Sticky chrome. Glass is sanctioned here and only here: a translucent bar
      that content scrolls *under* is a real optical effect, not decoration. */
   .glass-bar {
@@ -1195,14 +1242,24 @@ html[data-magicui-theme-vt='active'] ::view-transition-new(root) {
   }
 }
 
-/* The landing page (.landing-motion) opts out: it shows its motion regardless of the OS setting. */
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   One policy for the whole product, marketing included. There used to be a
+   `.landing-motion` exception that kept the landing page's entrances running
+   regardless of the OS setting; a marketing page is still a page, and a
+   vestibular-sensitive visitor gets the same answer on `/` as on `/review`.
+
+   `MotionProvider` (`components/ui/motion/motion-provider.tsx`) is the primary
+   owner: `reducedMotion="always"` drops transforms while keeping opacity, so
+   state changes stay legible. This branch is the belt-and-braces fallback for
+   CSS keyframes and transitions. Nothing here hides content: entrances are
+   snapped to their finished state, never left at `opacity: 0`. */
 @media (prefers-reduced-motion: reduce) {
-  html:not(:has(.landing-motion)) {
+  html {
     scroll-behavior: auto;
   }
-  html:not(:has(.landing-motion)) *,
-  html:not(:has(.landing-motion)) *::before,
-  html:not(:has(.landing-motion)) *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

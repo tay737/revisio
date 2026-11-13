@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
 
 /**
  * The one replacement for `window.confirm` in the staff consoles.
@@ -37,15 +38,16 @@ export function InlineConfirm({
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
-        className="btn btn-ghost gap-1.5 text-destructive-ink"
+        variant="ghost"
+        className="gap-1.5 text-destructive-ink"
         onClick={() => setOpen(true)}
         aria-expanded={open}
       >
         {icon && <Icon name={icon} size={14} />}
         {label}
-      </button>
+      </Button>
     );
   }
 
@@ -58,19 +60,20 @@ export function InlineConfirm({
       <p className="t-caption-s text-destructive-ink">{title}</p>
       {message && <p className="t-caption mt-0.5 text-muted-foreground">{message}</p>}
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <button
+        <Button
           type="button"
-          className="btn btn-sm bg-destructive text-white hover:opacity-90"
+          variant="destructive"
+          size="sm"
           onClick={() => {
             setOpen(false);
             onConfirm();
           }}
         >
           {confirmLabel}
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );

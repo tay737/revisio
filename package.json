@@ -43,7 +43,8 @@
     "e2e:smoke": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/smoke.ts",
     "e2e:headed": "E2E_HEADED=1 npm run e2e:smoke",
     "e2e:restore": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/restore.ts",
-    "e2e:a11y": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/a11y.ts"
+    "e2e:a11y": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/a11y.ts",
+    "design:shots": "node scripts/design/shots.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
@@ -66,7 +67,6 @@
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.44.2",
     "exceljs": "^4.4.0",
-    "framer-motion": "^11.2.10",
     "jose": "^5.6.3",
     "lucide-react": "^1.47.0",
     "mathjs": "^15.2.0",

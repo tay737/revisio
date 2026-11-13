@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import { InsightsBody, type StudentProgress } from '@/components/insights/InsightsBody';
+import { Card } from '@/components/ui/card';
 
 /**
  * The learner's own insights, as a tab on the Rank page: the same sections the
@@ -29,10 +30,10 @@ export function StrengthTab() {
   if (error) return <Notice tone="bad">{error}</Notice>;
   if (!data) {
     return (
-      <div className="card flex items-center justify-center gap-2 py-12 text-muted-foreground">
+      <Card className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
         <Icon name="rotate" size={16} className="animate-spin" />
         <span className="t-caption">Loading your insights…</span>
-      </div>
+      </Card>
     );
   }
   return <InsightsBody data={data} self />;

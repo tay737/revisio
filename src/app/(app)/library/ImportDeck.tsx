@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import type { TopicOption } from '@/components/content/MergeTopics';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type Subject = { id: string; name: string };
 type ImportResponse = { created: number; failed: number; attached: boolean; topicName: string; errors: { row: number; message: string }[]; message?: string };
@@ -79,14 +82,14 @@ export function ImportDeck({
     <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="min-w-0">
-          <label className="label" htmlFor="import-file">
+          <Label htmlFor="import-file">
             File
-          </label>
-          <input
+          </Label>
+          <Input
             id="import-file"
             type="file"
             accept=".csv,.tsv,.txt"
-            className="input py-2.5"
+            className="py-2.5"
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
               setReport('');
@@ -94,19 +97,19 @@ export function ImportDeck({
           />
         </div>
         <div className="min-w-0">
-          <label className="label" htmlFor="import-format">
+          <Label htmlFor="import-format">
             Format
-          </label>
-          <select id="import-format" className="input" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+          </Label>
+          <NativeSelect id="import-format" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
             <option value="tsv">TSV / Anki export</option>
             <option value="csv">CSV</option>
             <option value="anki_tsv">Anki TSV</option>
-          </select>
+          </NativeSelect>
         </div>
       </div>
 
       <div>
-        <span className="label">Where should these questions go?</span>
+        <Label>Where should these questions go?</Label>
         <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
           {(
             [
@@ -130,10 +133,10 @@ export function ImportDeck({
 
       {mode === 'existing' ? (
         <div>
-          <label className="label" htmlFor="import-target">
+          <Label htmlFor="import-target">
             Attach to
-          </label>
-          <select id="import-target" className="input" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+          </Label>
+          <NativeSelect id="import-target" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
             <option value="">Pick a topic…</option>
             {topics.map((t) => (
               <option key={t.id} value={t.id}>
@@ -141,7 +144,7 @@ export function ImportDeck({
                 {t.cardCount !== undefined ? ` — ${t.cardCount} questions, ${t.lessonCount ?? 0} note ${(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}` : ''}
               </option>
             ))}
-          </select>
+          </NativeSelect>
           <p className="t-caption mt-1.5 text-muted-foreground">
             The notes in that topic stay where they are, and the questions land beside them.
           </p>
@@ -149,28 +152,27 @@ export function ImportDeck({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="min-w-0">
-            <label className="label" htmlFor="import-name">
+            <Label htmlFor="import-name">
               Topic name
-            </label>
-            <input
+            </Label>
+            <Input
               id="import-name"
-              className="input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Defaults to the file name"
             />
           </div>
           <div className="min-w-0">
-            <label className="label" htmlFor="import-subject">
+            <Label htmlFor="import-subject">
               Subject
-            </label>
-            <select id="import-subject" className="input" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+            </Label>
+            <NativeSelect id="import-subject" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
       )}

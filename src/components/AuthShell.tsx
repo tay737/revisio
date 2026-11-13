@@ -1,7 +1,5 @@
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { BlurFade } from '@/components/ui/blur-fade';
-import { AnimatedGridPattern } from '@/components/ui/animated-grid-pattern';
 
 /**
  * One shell for all four auth pages (login, register, staff login, staff
@@ -33,18 +31,9 @@ export function AuthShell({
       </a>
       {/* A header landmark: otherwise the wordmark and strapline sit outside
           every region and axe reports the whole band as unlandmarked content. */}
-      <header className="band tile-dark relative overflow-hidden px-5 pt-safe">
-        {/* The library's drifting grid, masked to the top-right so the wordmark
-            stays clean. Decorative only, so it is hidden from assistive tech. */}
-        <AnimatedGridPattern
-          numSquares={22}
-          maxOpacity={0.08}
-          duration={6}
-          aria-hidden
-          className="fill-foreground stroke-foreground/[0.07] mask-[radial-gradient(640px_circle_at_top_right,white,transparent)]"
-        />
+      <header className="band tile-dark relative px-5 pt-safe">
         <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-5">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="-my-1 flex items-center gap-2.5 py-1">
             <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
               R
             </span>
@@ -53,17 +42,22 @@ export function AuthShell({
           <ThemeToggle />
         </div>
 
-        <div className="relative mx-auto w-full max-w-md pb-16 pt-10">
+        {/* The band is a masthead, not a competing headline: the card's own h1
+            has to be the largest thing on the screen. */}
+        <div className="relative mx-auto w-full max-w-md pb-14 pt-9">
           <p className="t-eyebrow">Spaced repetition</p>
-          <p className="t-display mt-2 max-w-xs">Ten minutes a day.</p>
+          <p className="t-display-sm mt-2 max-w-xs">Ten minutes a day.</p>
         </div>
       </header>
 
-      <main id="main" tabIndex={-1} className="mx-auto -mt-8 w-full max-w-md flex-1 px-5 pb-12 outline-none">
-        <BlurFade delay={0.06}>{children}</BlurFade>
+      {/* `relative z-10` is what makes the overlap visible: the header is a
+          positioned element, so without it the band paints over the card's top
+          32px and the page h1 sits on the band's edge. */}
+      <main id="main" tabIndex={-1} className="relative z-10 mx-auto -mt-8 w-full max-w-md flex-1 px-5 pb-12 outline-none">
+        {children}
 
         {footer && (
-          <div className="mt-5 text-center text-[13px] text-muted-foreground">
+          <div className="auth-footer mt-5 text-center text-[13px] text-muted-foreground">
             <p>{footer}</p>
           </div>
         )}

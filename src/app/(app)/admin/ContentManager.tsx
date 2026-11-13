@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import { MergeTopics, type TopicOption } from '@/components/content/MergeTopics';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type Topic = TopicOption & { description: string | null; visibility: string; ownerId: string | null; subjectId: string; subjectName: string | null };
 type Lesson = { id: string; title: string; detailedMd: string; summaryMd: string | null; specRefs: string | null };
@@ -127,16 +132,16 @@ export function ContentManager() {
       {!open ? (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              className="input sm:max-w-xs"
+            <Input
+              className="sm:max-w-xs"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Filter by topic or subject"
               aria-label="Filter topics"
             />
-            <span className="chip">
+            <Badge variant="chip">
               {visible.length} of {topics.length}
-            </span>
+            </Badge>
           </div>
 
           <div className="space-y-2">
@@ -217,7 +222,7 @@ export function ContentManager() {
             </Button>
           </div>
 
-          <div className="card space-y-3">
+          <Card className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="t-strong">Topic</h3>
               <span className="t-caption text-muted-foreground">
@@ -225,18 +230,18 @@ export function ContentManager() {
               </span>
             </div>
             <div>
-              <label className="label" htmlFor="cm-name">Name</label>
-              <input id="cm-name" className="input" value={open.topic.name} onChange={(e) => patchOpen((t) => { t.topic.name = e.target.value; })} />
+              <Label htmlFor="cm-name">Name</Label>
+              <Input id="cm-name" value={open.topic.name} onChange={(e) => patchOpen((t) => { t.topic.name = e.target.value; })} />
             </div>
             <div>
-              <label className="label" htmlFor="cm-desc">Description</label>
-              <textarea id="cm-desc" className="input" rows={2} value={open.topic.description ?? ''} onChange={(e) => patchOpen((t) => { t.topic.description = e.target.value; })} />
+              <Label htmlFor="cm-desc">Description</Label>
+              <Textarea id="cm-desc" rows={2} value={open.topic.description ?? ''} onChange={(e) => patchOpen((t) => { t.topic.description = e.target.value; })} />
             </div>
             <Button size="sm" onClick={saveTopic} disabled={busy}>Save topic</Button>
-          </div>
+          </Card>
 
           {open.lessons.map((l, i) => (
-            <div key={l.id} className="card space-y-3">
+            <Card key={l.id} className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="t-strong">Note set {i + 1}</h3>
                 <div className="flex gap-2">
@@ -245,26 +250,26 @@ export function ContentManager() {
                 </div>
               </div>
               <div>
-                <label className="label" htmlFor={`l-title-${l.id}`}>Title</label>
-                <input id={`l-title-${l.id}`} className="input" value={l.title} onChange={(e) => patchOpen((t) => { t.lessons[i].title = e.target.value; })} />
+                <Label htmlFor={`l-title-${l.id}`}>Title</Label>
+                <Input id={`l-title-${l.id}`} value={l.title} onChange={(e) => patchOpen((t) => { t.lessons[i].title = e.target.value; })} />
               </div>
               <div>
-                <label className="label" htmlFor={`l-detail-${l.id}`}>Detailed notes</label>
-                <textarea id={`l-detail-${l.id}`} className="input t-fine min-h-[120px] font-mono" rows={6} value={l.detailedMd} onChange={(e) => patchOpen((t) => { t.lessons[i].detailedMd = e.target.value; })} />
+                <Label htmlFor={`l-detail-${l.id}`}>Detailed notes</Label>
+                <Textarea id={`l-detail-${l.id}`} className="t-fine min-h-[120px] font-mono" rows={6} value={l.detailedMd} onChange={(e) => patchOpen((t) => { t.lessons[i].detailedMd = e.target.value; })} />
               </div>
               <div>
-                <label className="label" htmlFor={`l-sum-${l.id}`}>Summary notes</label>
-                <textarea id={`l-sum-${l.id}`} className="input t-fine min-h-[72px] font-mono" rows={3} value={l.summaryMd ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].summaryMd = e.target.value; })} />
+                <Label htmlFor={`l-sum-${l.id}`}>Summary notes</Label>
+                <Textarea id={`l-sum-${l.id}`} className="t-fine min-h-[72px] font-mono" rows={3} value={l.summaryMd ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].summaryMd = e.target.value; })} />
               </div>
               <div>
-                <label className="label" htmlFor={`l-spec-${l.id}`}>Spec references</label>
-                <input id={`l-spec-${l.id}`} className="input" value={l.specRefs ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].specRefs = e.target.value; })} />
+                <Label htmlFor={`l-spec-${l.id}`}>Spec references</Label>
+                <Input id={`l-spec-${l.id}`} value={l.specRefs ?? ''} onChange={(e) => patchOpen((t) => { t.lessons[i].specRefs = e.target.value; })} />
               </div>
-            </div>
+            </Card>
           ))}
 
           {open.cards.map((c, ci) => (
-            <div key={c.id} className="card space-y-3">
+            <Card key={c.id} className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="t-strong capitalize">{c.kind} question</h3>
                 <div className="flex gap-2">
@@ -276,14 +281,13 @@ export function ContentManager() {
               {c.kind === 'cloze' && (
                 <>
                   <div>
-                    <label className="label" htmlFor={`c-text-${c.id}`}>Sentence — ____ marks the blank</label>
-                    <input id={`c-text-${c.id}`} className="input" value={c.textWithBlank ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].textWithBlank = e.target.value; })} />
+                    <Label htmlFor={`c-text-${c.id}`}>Sentence — ____ marks the blank</Label>
+                    <Input id={`c-text-${c.id}`} value={c.textWithBlank ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].textWithBlank = e.target.value; })} />
                   </div>
                   <div>
-                    <label className="label" htmlFor={`c-ans-${c.id}`}>Accepted answers — one per line</label>
-                    <textarea
+                    <Label htmlFor={`c-ans-${c.id}`}>Accepted answers — one per line</Label>
+                    <Textarea
                       id={`c-ans-${c.id}`}
-                      className="input"
                       rows={2}
                       value={c.answers.map((a) => a.text).join('\n')}
                       onChange={(e) =>
@@ -302,14 +306,13 @@ export function ContentManager() {
               {c.kind === 'flashcard' && (
                 <>
                   <div>
-                    <label className="label" htmlFor={`c-prompt-${c.id}`}>Prompt</label>
-                    <textarea id={`c-prompt-${c.id}`} className="input" rows={2} value={c.prompt ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].prompt = e.target.value; })} />
+                    <Label htmlFor={`c-prompt-${c.id}`}>Prompt</Label>
+                    <Textarea id={`c-prompt-${c.id}`} rows={2} value={c.prompt ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].prompt = e.target.value; })} />
                   </div>
                   <div>
-                    <label className="label" htmlFor={`c-model-${c.id}`}>Model answer</label>
-                    <textarea
+                    <Label htmlFor={`c-model-${c.id}`}>Model answer</Label>
+                    <Textarea
                       id={`c-model-${c.id}`}
-                      className="input"
                       rows={2}
                       value={c.answers[0]?.text ?? ''}
                       onChange={(e) =>
@@ -321,10 +324,9 @@ export function ContentManager() {
                     />
                   </div>
                   <div>
-                    <label className="label" htmlFor={`c-kw-${c.id}`}>Key points — one per line, * to require</label>
-                    <textarea
+                    <Label htmlFor={`c-kw-${c.id}`}>Key points — one per line, * to require</Label>
+                    <Textarea
                       id={`c-kw-${c.id}`}
-                      className="input"
                       rows={3}
                       value={(c.answers[0]?.keywords ?? []).map((k) => `${k.required ? '*' : ''}${k.phrase}`).join('\n')}
                       onChange={(e) =>
@@ -340,12 +342,12 @@ export function ContentManager() {
                     />
                   </div>
                   <div>
-                    <label className="label" htmlFor={`c-min-${c.id}`}>Key points needed — 0 means keyword mode</label>
-                    <input
+                    <Label htmlFor={`c-min-${c.id}`}>Key points needed — 0 means keyword mode</Label>
+                    <Input
                       id={`c-min-${c.id}`}
                       type="number"
                       min={0}
-                      className="input max-w-[110px]"
+                      className="max-w-[110px]"
                       value={c.answers[0]?.minPoints ?? 0}
                       onChange={(e) =>
                         patchOpen((t) => {
@@ -361,11 +363,11 @@ export function ContentManager() {
               {c.kind === 'mcq' && (
                 <>
                   <div>
-                    <label className="label" htmlFor={`c-q-${c.id}`}>Question</label>
-                    <textarea id={`c-q-${c.id}`} className="input" rows={2} value={c.question ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].question = e.target.value; })} />
+                    <Label htmlFor={`c-q-${c.id}`}>Question</Label>
+                    <Textarea id={`c-q-${c.id}`} rows={2} value={c.question ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].question = e.target.value; })} />
                   </div>
                   <div className="space-y-2">
-                    <span className="label">Options — tick the correct one</span>
+                    <Label>Options — tick the correct one</Label>
                     {(c.options ?? []).map((o, oi) => (
                       <div key={o.id} className="flex items-center gap-2">
                         <input
@@ -376,7 +378,7 @@ export function ContentManager() {
                           aria-label={`Option ${oi + 1} is correct`}
                           className="accent-[rgb(var(--foreground))]"
                         />
-                        <input className="input" value={o.text} onChange={(e) => patchOpen((t) => { t.cards[ci].options![oi].text = e.target.value; })} />
+                        <Input value={o.text} onChange={(e) => patchOpen((t) => { t.cards[ci].options![oi].text = e.target.value; })} />
                       </div>
                     ))}
                   </div>
@@ -384,10 +386,10 @@ export function ContentManager() {
               )}
 
               <div>
-                <label className="label" htmlFor={`c-exp-${c.id}`}>Shown after answering</label>
-                <input id={`c-exp-${c.id}`} className="input" value={c.explanationMd ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].explanationMd = e.target.value; })} />
+                <Label htmlFor={`c-exp-${c.id}`}>Shown after answering</Label>
+                <Input id={`c-exp-${c.id}`} value={c.explanationMd ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].explanationMd = e.target.value; })} />
               </div>
-            </div>
+            </Card>
           ))}
 
           {open.cards.length === 0 && (

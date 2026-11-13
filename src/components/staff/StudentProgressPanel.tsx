@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { InsightsBody, type StudentProgress } from '@/components/insights/InsightsBody';
+import { Button } from '@/components/ui/button';
 
 /**
  * One learner, read as a whole — the sheet the teacher roster and the admin
@@ -64,10 +65,10 @@ export function StudentProgressPanel({
           {/* The sheet's own close control is switched off above: this labelled
               button *is* the affordance, and shipping both put two of them side
               by side in the top-right corner. */}
-          <button type="button" className="btn btn-ghost shrink-0 gap-1.5" onClick={onClose}>
+          <Button variant="ghost" type="button" className="shrink-0 gap-1.5" onClick={onClose}>
             <Icon name="close" size={14} />
             Close
-          </button>
+          </Button>
         </div>
 
         <Notice tone="bad" show={Boolean(error)}>{error}</Notice>

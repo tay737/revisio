@@ -4,7 +4,12 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type TopicOption = { id: string; name: string; subjectName: string };
 type Proposal = { answer: string; textWithBlank: string; lessonTitle?: string; keep: boolean };
@@ -86,13 +91,13 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
 
       <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
         <div>
-          <label className="label" htmlFor="gen-topic">Topic</label>
-          <select id="gen-topic" className="input" value={topicId} onChange={(e) => { setTopicId(e.target.value); setProposals(null); setError(''); }}>
+          <Label htmlFor="gen-topic">Topic</Label>
+          <NativeSelect id="gen-topic" value={topicId} onChange={(e) => { setTopicId(e.target.value); setProposals(null); setError(''); }}>
             <option value="">Choose a topic…</option>
             {topics.map((t) => (
               <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName} — ${t.name}` : t.name}</option>
             ))}
-          </select>
+          </NativeSelect>
           <p className="t-caption mt-1.5 text-muted-foreground">
             {picked
               ? picked.subjectName
@@ -102,7 +107,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
           </p>
         </div>
         <div>
-          <label className="label" htmlFor="gen-count">How many — {count}</label>
+          <Label htmlFor="gen-count">How many — {count}</Label>
           <input
             id="gen-count"
             type="range"
@@ -134,21 +139,21 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
             <div key={`${i}-${p.answer}`} className={`inset px-4 py-3 ${p.keep ? '' : 'opacity-55'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <input
-                    className="input text-[14px]"
+                  <Input
+                    className="text-[14px]"
                     value={p.textWithBlank}
                     onChange={(e) => patch(i, { textWithBlank: e.target.value })}
                     aria-label="Question text"
                   />
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <label className="t-caption text-muted-foreground" htmlFor={`ans-${i}`}>Answer</label>
-                    <input
+                    <Input
                       id={`ans-${i}`}
-                      className="input w-44 text-[14px]"
+                      className="w-44 text-[14px]"
                       value={p.answer}
                       onChange={(e) => patch(i, { answer: e.target.value })}
                     />
-                    {p.lessonTitle && <span className="chip shrink-0">{p.lessonTitle}</span>}
+                    {p.lessonTitle && <Badge variant="chip" className="shrink-0">{p.lessonTitle}</Badge>}
                   </div>
                 </div>
                 <button

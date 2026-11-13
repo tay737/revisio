@@ -4,6 +4,8 @@ import { useId, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
 
 /**
  * The forgetting curve, made touchable.
@@ -67,7 +69,7 @@ export function ForgettingCurve() {
   }
 
   return (
-    <div className="card !p-5 shadow-[var(--shadow-card)]">
+    <Card className="!p-5 shadow-[var(--shadow-card)]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Recall now</p>
@@ -146,7 +148,8 @@ export function ForgettingCurve() {
             onClick={() => rate(r.id)}
             whileTap={{ scale: 0.96 }}
             className={cn(
-              'btn btn-secondary !h-auto flex-col !py-3 text-[14px]',
+              buttonVariants({ variant: 'secondary' }),
+              '!h-auto flex-col !py-3 text-[14px]',
               lastRating === r.id && 'ring-2 ring-ring',
             )}
           >
@@ -161,6 +164,6 @@ export function ForgettingCurve() {
             ? `Forgotten. Stability drops to ${stability.toFixed(1)} days, so it comes back sooner.`
             : `Rescheduled. Stability is now ${stability.toFixed(1)} days, so the next gap is wider.`}
       </p>
-    </div>
+    </Card>
   );
 }

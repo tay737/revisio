@@ -19,7 +19,14 @@ import { DataDeletionControl } from '@/app/(app)/settings/DataDeletionControl';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 import { PRONOUN_MAX, PRONOUN_SUGGESTIONS, pronounsProblem } from '@/lib/pronouns';
 import { useMotionPreference } from '@/components/ui/motion/motion-provider';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
+import { badgeVariants } from '@/components/ui/badge';
 
 /**
  * Settings — one page, five questions:
@@ -264,7 +271,7 @@ function SettingsBody({
       <Notice tone="bad" show={!!error}>{error}</Notice>
 
       {/* ── Profile ───────────────────────────────────────────────────────── */}
-      <section className="card p-5">
+      <Card as="section" className="p-5">
         <h2 className="t-strong">Profile</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           How you appear on your public profile{' '}
@@ -284,7 +291,7 @@ function SettingsBody({
         </div>
 
         <div className="mt-5">
-          <span className="label">Banner</span>
+          <Label>Banner</Label>
           <div className="mt-1.5">
             <ProfileBanner imageUrl={bannerUrl} color={bannerColor} />
           </div>
@@ -400,10 +407,10 @@ function SettingsBody({
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label="Full name" htmlFor="set-name">
-            <input id="set-name" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+            <Input id="set-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           </Field>
           <Field label="Display name" htmlFor="set-nickname" hint="Shown on your profile instead of your full name.">
-            <input id="set-nickname" className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={40} placeholder="Optional" />
+            <Input id="set-nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={40} placeholder="Optional" />
           </Field>
           <Field
             label="Username"
@@ -411,9 +418,8 @@ function SettingsBody({
             hint={usernameOk ? (username ? `Your profile: /u/${username.toLowerCase()}` : 'Optional — letters, numbers, hyphens.') : '3–20 characters: letters, numbers, hyphens, underscores.'}
             bad={!usernameOk}
           >
-            <input
+            <Input
               id="set-username"
-              className="input"
               value={username}
               onChange={(e) => setUsername(e.target.value.toLowerCase())}
               maxLength={20}
@@ -422,13 +428,13 @@ function SettingsBody({
             />
           </Field>
           <Field label="About me" htmlFor="set-bio" hint="A line or two, up to 240 characters.">
-            <textarea id="set-bio" className="input min-h-[72px]" value={bio} onChange={(e) => setBio(e.target.value)} maxLength={240} placeholder="Optional" />
+            <Textarea id="set-bio" className="min-h-[72px]" value={bio} onChange={(e) => setBio(e.target.value)} maxLength={240} placeholder="Optional" />
           </Field>
           {/* Pronouns get their own full-width row rather than a third cell: the
               chips are the point, and a two-column grid would squeeze six of them
               into half the card. */}
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="set-pronouns">Pronouns</label>
+            <Label htmlFor="set-pronouns">Pronouns</Label>
             <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Pronoun suggestions">
               {PRONOUN_SUGGESTIONS.map((p) => (
                 <button
@@ -442,9 +448,9 @@ function SettingsBody({
                 </button>
               ))}
             </div>
-            <input
+            <Input
               id="set-pronouns"
-              className="input mt-2"
+              className="mt-2"
               value={pronouns}
               onChange={(e) => setPronouns(e.target.value)}
               maxLength={PRONOUN_MAX}
@@ -473,10 +479,10 @@ function SettingsBody({
           </Button>
           {profileDirty && <span className="t-caption text-muted-foreground">Unsaved changes</span>}
         </div>
-      </section>
+      </Card>
 
       {/* ── Privacy ───────────────────────────────────────────────────────── */}
-      <section className="card p-5">
+      <Card as="section" className="p-5">
         <h2 className="t-strong">Privacy</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           Choose what someone visiting your profile can see. You always see everything.
@@ -500,10 +506,10 @@ function SettingsBody({
         <p className="t-fine mt-3 text-muted-foreground">
           Your email is never shown to anyone. Leaderboard visibility is a separate switch on the Rank page.
         </p>
-      </section>
+      </Card>
 
       {/* ── Account ───────────────────────────────────────────────────────── */}
-      <section className="card p-5">
+      <Card as="section" className="p-5">
         <h2 className="t-strong">Account</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           Signed in as <span className="font-mono text-[13px]">{me.email}</span>
@@ -511,10 +517,10 @@ function SettingsBody({
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="New email" htmlFor="set-email" hint="We email a confirmation link; the change happens when you click it.">
-            <input id="set-email" type="email" className="input" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="you@school.example" autoComplete="email" spellCheck={false} autoCapitalize="none" />
+            <Input id="set-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="you@school.example" autoComplete="email" spellCheck={false} autoCapitalize="none" />
           </Field>
           <Field label="Current password" htmlFor="set-email-pw" hint="Proof it is you.">
-            <input id="set-email-pw" type="password" className="input" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} autoComplete="current-password" />
+            <Input id="set-email-pw" type="password" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} autoComplete="current-password" />
           </Field>
         </div>
         <Button
@@ -526,8 +532,8 @@ function SettingsBody({
           <Icon name="mail" size={15} />
           Send confirmation email
         </Button>
-      </section>      {/* ── Security ──────────────────────────────────────────────────────── */}
-      <section className="card p-5">
+      </Card>      {/* ── Security ──────────────────────────────────────────────────────── */}
+      <Card as="section" className="p-5">
         <h2 className="t-strong">Security</h2>
         <p className="t-caption mt-1 text-muted-foreground">Password and two-factor sign-in.</p>
 
@@ -538,7 +544,7 @@ function SettingsBody({
           <div className="flex items-center justify-between gap-3">
             <a
               href="#two-factor"
-              className="chip shrink-0"
+              className={cn(badgeVariants({ variant: 'chip' }), 'shrink-0')}
               onClick={(e) => {
                 e.preventDefault();
                 document.getElementById('two-factor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -558,13 +564,13 @@ function SettingsBody({
           <h3 className="t-caption-s">Password</h3>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <Field label="Current password" htmlFor="set-pw-current">
-              <input id="set-pw-current" type="password" className="input" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+              <Input id="set-pw-current" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
             </Field>
             <Field label="New password" htmlFor="set-pw-new" hint="At least 8 characters.">
-              <input id="set-pw-new" type="password" className="input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+              <Input id="set-pw-new" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
             </Field>
             <Field label="Repeat new password" htmlFor="set-pw-confirm">
-              <input id="set-pw-confirm" type="password" className="input" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+              <Input id="set-pw-confirm" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
             </Field>
           </div>
           <Button
@@ -578,14 +584,14 @@ function SettingsBody({
           </Button>
           <p className="t-fine mt-2 text-muted-foreground">Changing your password signs out every other device.</p>
         </div>
-      </section>
+      </Card>
 
       {/* ── How we use your data ─────────────────────────────────────────── */}
       <ConsentSection />
       <DataDeletionControl />
 
       {/* ── Preferences ───────────────────────────────────────────────────── */}
-      <section className="card p-5">
+      <Card as="section" className="p-5">
         <h2 className="t-strong">Preferences</h2>
         <div className="mt-4 divide-y divide-border">
           <div className="flex items-center justify-between gap-4 py-3">
@@ -593,15 +599,15 @@ function SettingsBody({
               <label htmlFor="pref-density" className="text-[14px] font-semibold">Note density</label>
               <p className="t-caption text-muted-foreground">Full notes while learning, or the short version.</p>
             </div>
-            <select
+            <NativeSelect
               id="pref-density"
-              className="input max-w-[150px]"
+              className="max-w-[150px]"
               value={me.prefs?.noteDensity ?? 'detailed'}
               onChange={(e) => savePrefs({ noteDensity: e.target.value })}
             >
               <option value="detailed">Detailed</option>
               <option value="summary">Summary</option>
-            </select>
+            </NativeSelect>
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
@@ -628,7 +634,7 @@ function SettingsBody({
             />
           </div>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
@@ -636,7 +642,7 @@ function SettingsBody({
 function Field({ label, htmlFor, hint, bad, children }: { label: string; htmlFor: string; hint?: string; bad?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="label">{label}</label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint && <p id={`${htmlFor}-hint`} className={bad ? 't-fine mt-1 text-destructive-ink' : 't-fine mt-1 text-muted-foreground'}>{hint}</p>}
     </div>

@@ -6,7 +6,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -14,6 +15,10 @@ import { SPRING, transition } from '@/lib/motion';
 import { sessionSummary } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type CramTopic = { id: string; name: string; visibility: string; subjectId: string; cardCount: number };
 type Note = { topicId: string; title: string; contentMd: string; specRefs: string };
@@ -168,7 +173,7 @@ export default function CramClient() {
   /* ── session complete ─────────────────────────────────────────────────── */
   if (session && !card) {
     return (
-      <div className="card mx-auto max-w-md p-8 text-center">
+      <Card className="mx-auto max-w-md p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
           <Icon name="cram" size={22} />
         </span>
@@ -190,7 +195,7 @@ export default function CramClient() {
             Back to reviews
           </Link>
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -202,11 +207,11 @@ export default function CramClient() {
           <span className="t-caption tabular-nums text-muted-foreground">
             {idx + 1} <span className="text-border">/</span> {session.queue.length}
           </span>
-          <span className="chip">
+          <Badge variant="chip">
             <Icon name="target" size={14} className="text-primary" />
             <NumberTicker value={score.correct} className="tabular-nums" />
             <span>/ {score.total} correct</span>
-          </span>
+          </Badge>
         </div>
 
         <div className="meter">
@@ -222,7 +227,7 @@ export default function CramClient() {
             <summary className="flex cursor-pointer items-center gap-2 px-5 py-4 text-[14px] font-semibold leading-[1.29] tracking-[-0.224px]">
               <Icon name="notes" size={16} className="text-primary" />
               Revision notes
-              <span className="chip ml-1 capitalize">{session.noteDensityLabel}</span>
+              <Badge variant="chip" className="ml-1 capitalize">{session.noteDensityLabel}</Badge>
               <Icon name="collapse" size={15} className="ml-auto text-muted-foreground" />
             </summary>
             <div className="space-y-2 border-t border-border/70 px-5 py-4">
@@ -231,7 +236,7 @@ export default function CramClient() {
                   <summary className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-[14px] font-semibold leading-[1.29] tracking-[-0.224px]">
                     <Icon name="learn" size={14} className="text-primary" />
                     {n.title}
-                    {n.specRefs && <span className="chip ml-auto">{n.specRefs}</span>}
+                    {n.specRefs && <Badge variant="chip" className="ml-auto">{n.specRefs}</Badge>}
                   </summary>
                   <div className="border-t border-border/60 px-3 py-3">
                     <Markdown text={n.contentMd} />
@@ -250,12 +255,12 @@ export default function CramClient() {
             exit={{ opacity: 0, y: -10 }}
             transition={transition.quick}
           >
-            <div className="card">
+            <Card>
               <div className="flex items-center justify-between gap-3">
-                <span className="chip chip-active">
+                <Badge variant="chip-active">
                   <Icon name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'} size={13} />
                   {KIND_LABEL[card.kind]}
-                </span>
+                </Badge>
                 <span className="t-caption truncate text-muted-foreground">{card.topicName}</span>
               </div>
 
@@ -293,8 +298,8 @@ export default function CramClient() {
                     submit();
                   }}
                 >
-                  <textarea
-                    className="input min-h-[100px]"
+                  <Textarea
+                    className="min-h-[100px]"
                     placeholder="Write your answer…"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -333,7 +338,7 @@ export default function CramClient() {
               )}
 
               <Notice tone="bad" className="mt-3">{error}</Notice>
-            </div>
+            </Card>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -351,9 +356,9 @@ export default function CramClient() {
         subtitle="Extra practice. Your schedule stays put."
       />
 
-      <div className="card space-y-5">
+      <Card className="space-y-5">
         <div>
-          <span className="label">Topics</span>
+          <Label>Topics</Label>
           {withCards.length === 0 ? (
             <p className="t-caption text-muted-foreground">
               None of your topics have questions yet. <Link href="/library" className="text-primary hover:underline">Add some</Link> and they will show up here.
@@ -389,7 +394,7 @@ export default function CramClient() {
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <span className="label">Notes to show</span>
+            <Label>Notes to show</Label>
             <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1" role="group" aria-label="Notes to show">
               {(['summary', 'detailed'] as const).map((d) => (
                 <button
@@ -409,9 +414,9 @@ export default function CramClient() {
           </div>
 
           <div>
-            <label className="label" htmlFor="max-per-topic">
+            <Label htmlFor="max-per-topic">
               Questions per topic — {maxPerTopic}
-            </label>
+            </Label>
             <input
               id="max-per-topic"
               type="range"
@@ -436,7 +441,7 @@ export default function CramClient() {
         </Button>
 
         <Notice tone="bad">{error}</Notice>
-      </div>
+      </Card>
     </div>
   );
 }

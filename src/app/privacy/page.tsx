@@ -676,7 +676,7 @@ export default function PrivacyPage() {
     <>
     <LegalHeader current="/privacy" />
     <main>
-      <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
+      <article className="legal-doc mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Legal</p>
         <h1 className="t-strong mt-1 text-3xl">Privacy Policy</h1>
@@ -685,7 +685,9 @@ export default function PrivacyPage() {
         </p>
       </header>
 
-      <nav className="toc flex flex-wrap gap-2" aria-label="Table of contents">
+      {/* 13 chips wrap to ten rows on a phone and push the first section off
+          the screen; below `sm` the numbered headings carry the structure. */}
+      <nav className="toc hidden flex-wrap gap-2 sm:flex" aria-label="Table of contents">
         {SECTIONS.map((s) => (
           <Link
             key={s.id}

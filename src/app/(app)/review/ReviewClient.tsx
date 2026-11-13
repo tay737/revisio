@@ -22,7 +22,8 @@ import { useRanked } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { TilePanel } from '@/components/ui/tile';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
 import { BlurFade } from '@/components/ui/blur-fade';
 import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -32,6 +33,9 @@ import { rankChange, reviewsForRp, type Rank } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
 import { useReviewSession } from '@/components/ReviewSessionContext';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 
 type QueueCard = {
   id: string;
@@ -453,7 +457,7 @@ export default function ReviewClient() {
     const allMet = session && session.progress.total > 0 && session.progress.remaining === 0;
     if (session) {
       return (
-        <div className="card mx-auto max-w-md p-7 text-center">
+        <Card className="mx-auto max-w-md p-7 text-center">
           <span className={`mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-strong`}>
             <Icon name={allMet ? 'reviewed' : 'notes'} size={22} />
           </span>
@@ -478,11 +482,11 @@ export default function ReviewClient() {
               Back to reviews
             </Link>
           </div>
-        </div>
+        </Card>
       );
     }
     return (
-      <div className="card mx-auto max-w-md p-7 text-center">
+      <Card className="mx-auto max-w-md p-7 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-strong">
           <Icon name="reviewed" size={22} />
         </span>
@@ -498,7 +502,7 @@ export default function ReviewClient() {
             Read ahead
           </Link>
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -546,10 +550,10 @@ export default function ReviewClient() {
         <div className="mb-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="t-eyebrow">First look · {session.topic.subjectName}</span>
-            <span className="badge badge-quiet num">
+            <Badge variant="quiet" className="num">
               <Icon name="notes" size={12} />
               {session.progress.met} / {session.progress.total} met
-            </span>
+            </Badge>
           </div>
           <h1 className="t-title">{session.topic.name}</h1>
 
@@ -564,7 +568,7 @@ export default function ReviewClient() {
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-info" />
                   </span>
                 )}
-                <span className="chip ml-auto shrink-0">{session.notes.length}</span>
+                <Badge variant="chip" className="ml-auto shrink-0">{session.notes.length}</Badge>
                 <Icon name="collapse" size={15} className="shrink-0 text-muted-foreground" />
               </summary>
               <div className="space-y-2 border-t border-border/70 px-4 py-4">
@@ -572,7 +576,7 @@ export default function ReviewClient() {
                   <article key={n.id}>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="t-strong">{n.title}</h2>
-                      {n.specRefs && <span className="chip">{n.specRefs}</span>}
+                      {n.specRefs && <Badge variant="chip">{n.specRefs}</Badge>}
                     </div>
                     <Markdown text={n.summaryMd || n.detailedMd} className="mt-2 text-[15px]" />
                   </article>
@@ -590,14 +594,14 @@ export default function ReviewClient() {
         </span>
         <span className="flex items-center gap-2">
           {offline && (
-            <span className="badge badge-quiet" title="Saved on this device and sent when you reconnect">
+            <Badge variant="quiet" title="Saved on this device and sent when you reconnect">
               <Icon name="clock" size={12} />
               {pending > 0 ? `${pending} saved` : 'Offline'}
-            </span>
+            </Badge>
           )}
-          <span className="badge badge-quiet num">
+          <Badge variant="quiet" className="num">
             <Icon name="xp" size={12} />+{sessionXp} XP
-          </span>
+          </Badge>
           {/* Ink, not green — leaving is not something to celebrate. Ending a
               session keeps every point already earned; the summary opens and
               the remaining cards stay due. */}
@@ -628,20 +632,20 @@ export default function ReviewClient() {
           exit={{ opacity: 0, y: -10 }}
           transition={transition.quick}
         >
-          <div className="card">
+          <Card>
             <div className="flex items-center justify-between gap-3">
               <span className="flex items-center gap-1.5">
-                <span className="badge badge-quiet">
+                <Badge variant="quiet">
                   <Icon
                     name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'}
                     size={13}
                   />
                   {KIND_LABEL[card.kind]}
-                </span>
+                </Badge>
                 {card.srsLevel != null && (
-                  <span className="badge badge-quiet num" title={`Strength: ${card.srsLabel} (level ${card.srsLevel} of 12)`}>
+                  <Badge variant="quiet" className="num" title={`Strength: ${card.srsLabel} (level ${card.srsLevel} of 12)`}>
                     Lv {card.srsLevel}
-                  </span>
+                  </Badge>
                 )}
               </span>
               <span className="truncate text-[12px] text-muted-foreground">
@@ -722,8 +726,8 @@ export default function ReviewClient() {
                   // A textarea swallows Enter as a newline, so the hint below
                   // promised something the form never did: the answer sat there
                   // unchecked. Enter now checks; Shift+Enter is the line break.
-                  <textarea
-                    className="input min-h-[110px]"
+                  <Textarea
+                    className="min-h-[110px]"
                     placeholder="What do you remember? Key ideas count, not wording."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -783,7 +787,7 @@ export default function ReviewClient() {
                 {error}
               </p>
             )}
-          </div>
+          </Card>
         </motion.div>
       </AnimatePresence>
     </div>
@@ -816,10 +820,10 @@ function FirstExposureReport({
 
   return (
     <TilePanel tone="dark" className="text-center">
-      <span className="badge badge-quiet">
+      <Badge variant="quiet">
         <Icon name="learn" size={13} />
         First look
-      </span>
+      </Badge>
 
       <h1 className="t-display mt-4">
         {remaining === 0 ? 'That is the whole topic' : `${done} new ${done === 1 ? 'question' : 'questions'} met`}
@@ -832,17 +836,17 @@ function FirstExposureReport({
       </p>
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <span className="chip num">
+        <Badge variant="chip" className="num">
           <Icon name="xp" size={14} className="text-gold-ink" />+{sessionXp} XP
-        </span>
-        <span className="chip num">
+        </Badge>
+        <Badge variant="chip" className="num">
           <Icon name="reviewed" size={14} className="text-good" />
           {correct}/{done}
-        </span>
-        <span className="chip num">
+        </Badge>
+        <Badge variant="chip" className="num">
           <Icon name="notes" size={14} className="text-muted-foreground" />
           {met}/{session.progress.total} met
-        </span>
+        </Badge>
       </div>
 
       <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
@@ -920,18 +924,18 @@ function SessionReport({
       </p>
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <span className="chip num">
+        <Badge variant="chip" className="num">
           <Icon name="xp" size={14} className="text-gold-ink" />+{sessionXp} XP
-        </span>
-        <span className="chip num">
+        </Badge>
+        <Badge variant="chip" className="num">
           <Icon name="reviewed" size={14} className="text-good" />
           {correct}/{done}
-        </span>
+        </Badge>
         {rank && (
-          <span className="chip num">
+          <Badge variant="chip" className="num">
             <Icon name="rank" size={14} className="text-muted-foreground" />
             {rank.points.toLocaleString()} RP
-          </span>
+          </Badge>
         )}
       </div>
 

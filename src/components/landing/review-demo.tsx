@@ -5,6 +5,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 /**
  * A working cloze review, sized for the landing page.
@@ -20,12 +23,12 @@ type Card = { topic: string; prompt: string; answer: string; alternates?: string
 const CARDS: Card[] = [
   {
     topic: 'Biology · Enzymes',
-    prompt: 'An enzyme lowers the activation energy by binding to its ___.',
+    prompt: 'An enzyme lowers the activation energy by binding to its ___',
     answer: 'substrate',
   },
   {
     topic: 'Physics · Forces',
-    prompt: 'The SI unit of force is the ___.',
+    prompt: 'The SI unit of force is the ___',
     answer: 'newton',
   },
   {
@@ -97,7 +100,7 @@ export function ReviewDemo() {
 
   return (
     <div className="relative w-full">
-      <div className="card relative overflow-hidden !p-5 shadow-[var(--shadow-card)]">
+      <Card className="relative overflow-hidden !p-5 shadow-[var(--shadow-card)]">
         {/* Progress along the top of the card, the same hairline the app shows. */}
         <div className="absolute inset-x-0 top-0 h-1 bg-secondary" aria-hidden>
           <motion.div
@@ -109,11 +112,11 @@ export function ReviewDemo() {
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
-          <span className="badge badge-quiet">
+          <Badge variant="quiet">
             <Icon name="notes" size={13} />
             Fill the blank
-          </span>
-          <span className="text-[12px] text-muted-foreground">{done ? 'Session complete' : card.topic}</span>
+          </Badge>
+          <span className="t-fine text-muted-foreground">{done ? 'Session complete' : card.topic}</span>
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
@@ -130,9 +133,9 @@ export function ReviewDemo() {
               <p className="mt-2 text-[15px] text-muted-foreground">
                 You earned <span className="num text-foreground">{xp}</span> XP in one sitting.
               </p>
-              <button type="button" onClick={restart} className="btn btn-secondary mt-5">
+              <Button variant="secondary" type="button" onClick={restart} className="mt-5">
                 Try again
-              </button>
+              </Button>
             </motion.div>
           ) : (
             <motion.form
@@ -143,17 +146,22 @@ export function ReviewDemo() {
               exit={{ opacity: 0, x: -24 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             >
-              <label htmlFor={inputId} className="mt-4 block text-[19px] font-bold leading-snug">
+              <label htmlFor={inputId} className="t-tagline mt-4 block leading-snug">
                 {card.prompt.split('___').map((part, i, arr) => (
                   <span key={i}>
                     {part}
                     {i < arr.length - 1 && (
-                      <span className="mx-1 inline-block min-w-[5rem] border-b-2 border-border-strong align-baseline">
-                        {result === 'correct' ? (
-                          <span className="text-good-strong">{card.answer}</span>
-                        ) : result === 'wrong' ? (
-                          <span className="text-destructive-ink">{card.answer}</span>
-                        ) : null}
+                      // The blank and the full stop are one unbreakable unit:
+                      // at 390 the period used to strand itself on a line alone.
+                      <span className="whitespace-nowrap">
+                        <span className="ml-1 inline-block min-w-[5rem] border-b-2 border-border-strong align-baseline">
+                          {result === 'correct' ? (
+                            <span className="text-good-strong">{card.answer}</span>
+                          ) : result === 'wrong' ? (
+                            <span className="text-destructive-ink">{card.answer}</span>
+                          ) : null}
+                        </span>
+                        .
                       </span>
                     )}
                   </span>
@@ -173,14 +181,14 @@ export function ReviewDemo() {
                 aria-invalid={result === 'wrong' || undefined}
                 placeholder="Type your answer"
                 className={cn(
-                  'mt-4 flex min-h-[46px] w-full items-center rounded-sm border-2 bg-transparent px-3.5 text-[15px] outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                  'mt-4 flex min-h-[46px] w-full items-center rounded-sm border-2 bg-transparent px-3.5 text-[16px] outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring',
                   result === 'correct' && 'border-good',
                   result === 'wrong' && 'border-destructive-ink',
                   !result && 'border-border focus:border-border-strong',
                 )}
               />
 
-              <div id={feedbackId} aria-live="polite" className="mt-2 min-h-[20px] text-[13px]">
+              <div id={feedbackId} aria-live="polite" className="t-caption mt-2 min-h-[20px]">
                 {result === 'correct' && <span className="font-semibold text-good-strong">Correct. +{XP_PER_CORRECT} XP</span>}
                 {result === 'wrong' && (
                   <span className="text-destructive-ink">
@@ -190,14 +198,22 @@ export function ReviewDemo() {
               </div>
 
               {answered ? (
-                <button type="button" onClick={next} className="btn btn-primary mt-2 w-full gap-2">
+                <Button variant="primary" type="button" onClick={next} className="mt-2 w-full gap-2">
                   {index + 1 >= CARDS.length ? 'Finish' : 'Next card'}
                   <Icon name="next" size={17} />
-                </button>
+                </Button>
               ) : (
-                <button type="submit" disabled={!value.trim()} className="btn btn-good mt-2 w-full disabled:opacity-40">
+                // The disabled state used to be the green fill at 40% opacity,
+                // which read as a broken control rather than "answer first".
+                // The quiet variant is the honest waiting state.
+                <Button
+                  variant={value.trim() ? 'good' : 'secondary'}
+                  type="submit"
+                  disabled={!value.trim()}
+                  className="mt-2 w-full"
+                >
                   Check
-                </button>
+                </Button>
               )}
             </motion.form>
           )}
@@ -208,16 +224,14 @@ export function ReviewDemo() {
             {Math.min(index + 1, CARDS.length)} / {CARDS.length}
           </span>
           <span className="flex items-center gap-2">
-            {streak > 1 && <span className="badge badge-gold">{streak} in a row</span>}
-            <span className="badge badge-gold">
+            {streak > 1 && <Badge variant="gold">{streak} in a row</Badge>}
+            <Badge variant="gold">
               +<NumberTicker value={xp} />
               {' '}XP
-            </span>
+            </Badge>
           </span>
         </div>
-      </div>
-
-      <p className="mt-3 text-center text-[12px] text-muted-foreground">Try it. This is the real review loop.</p>
+      </Card>
     </div>
   );
 }

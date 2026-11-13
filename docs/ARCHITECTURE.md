@@ -331,6 +331,12 @@ src/db/**             schema + pooled client
 
 ### 18.2 Frontend structure
 
+> **Superseded for design purposes (2026-11-13).** Where code lives is unchanged;
+> the rules above still apply. The design language is now owned by
+> `docs/UI-SYSTEM.md` (which replaces `DESIGN-UBER.md` and `DESIGN-DUOLINGO.md`
+> as build rules), the rework plan by `docs/FRONTEND-ARCHITECTURE.md`, and the
+> onboarding findings by `docs/ONBOARDING-REVIEW.md`.
+
 ```
 src/lib/              non-React logic and cross-cutting policy
   theme.ts              ← the only owner of theme policy

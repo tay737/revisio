@@ -13,6 +13,10 @@ import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type AoSplit = { ao: string; marks: number };
 type ExamQuestion = {
@@ -263,9 +267,9 @@ export default function ExamPage() {
 
       {/* ── Builder ──────────────────────────────────────────────────────── */}
       {!paper && (
-        <div className="card space-y-5">
+        <Card className="space-y-5">
           <div>
-            <span className="label">Topics in this paper</span>
+            <Label>Topics in this paper</Label>
             {info.topics.length === 0 ? (
               <p className="t-caption text-muted-foreground">No exam topics are available on this deployment yet.</p>
             ) : (
@@ -297,9 +301,9 @@ export default function ExamPage() {
           </div>
 
           <div>
-            <label className="label" htmlFor="exam-count">
+            <Label htmlFor="exam-count">
               Questions — {count}
-            </label>
+            </Label>
             <input
               id="exam-count"
               type="range"
@@ -324,7 +328,7 @@ export default function ExamPage() {
             <Icon name="start" size={18} />
             {busy ? 'Building…' : 'Generate paper'}
           </Button>
-        </div>
+        </Card>
       )}
 
       {/* ── Paper ────────────────────────────────────────────────────────── */}
@@ -336,17 +340,17 @@ export default function ExamPage() {
               <span className="tabular-nums font-semibold text-foreground">{answeredCount}</span> of{' '}
               <span className="tabular-nums">{paper.length}</span> answered
             </span>
-            <span className="chip">
+            <Badge variant="chip">
               <Icon name="spec" size={13} className="text-primary" />
               <span className="tabular-nums">
                 {paper.reduce((sum, q) => sum + q.marks, 0)} marks
               </span>
-            </span>
+            </Badge>
           </div>
 
           {paper.map((q, i) => (
             <BlurFade key={q.id} delay={Math.min(i * 0.04, 0.2)}>
-              <div className="card">
+              <Card>
                 <div className="flex items-center justify-between text-[14px] leading-[1.43] tracking-[-0.224px] text-muted-foreground">
                   <span className="flex items-center gap-2">
                     <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[12px] font-semibold text-primary">
@@ -356,9 +360,9 @@ export default function ExamPage() {
                     {q.qwcMarks > 0 && <span className="tabular-nums">+ {q.qwcMarks} QWC</span>}
                   </span>
                   {q.sourceYear && (
-                    <span className="chip">
+                    <Badge variant="chip">
                       {q.board} {q.sourceYear}
-                    </span>
+                    </Badge>
                   )}
                 </div>
 
@@ -388,15 +392,15 @@ export default function ExamPage() {
                     ))}
                   </div>
                 ) : (
-                  <textarea
-                    className="input mt-3 min-h-[110px]"
+                  <Textarea
+                    className="mt-3 min-h-[110px]"
                     placeholder="Write your answer the way you would under timed conditions."
                     value={answers[q.id] ?? ''}
                     onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
                     aria-label={`Answer for question ${i + 1}`}
                   />
                 )}
-              </div>
+              </Card>
             </BlurFade>
           ))}
 
@@ -410,7 +414,7 @@ export default function ExamPage() {
       {result && (
         <div className="relative space-y-4">
           <Confetti ref={confettiRef} className="pointer-events-none fixed inset-0 z-[60]" />
-          <div className="card p-8 text-center" tabIndex={-1} ref={resultHeadingRef}>
+          <Card className="p-8 text-center" tabIndex={-1} ref={resultHeadingRef}>
             <div className="t-num" role="status">
               <span className="sr-only">You scored </span>
               <NumberTicker value={result.percentage} className="num" />%
@@ -426,14 +430,14 @@ export default function ExamPage() {
                   ? 'A solid pass. Read the feedback below before you move on.'
                   : 'Worth re-reading the notes on the questions you lost marks on.'}
             </p>
-          </div>
+          </Card>
 
           {result.detail.map((d, i) => (
             <ResultDetail key={d.questionId} d={d} index={i} />
           ))}
 
           {result.aoProfile && result.aoProfile.length > 0 && (
-            <div className="card space-y-2">
+            <Card className="space-y-2">
               <div className="flex items-baseline justify-between">
                 <h2 className="t-strong">Where the marks went</h2>
                 <span className="t-caption text-muted-foreground">marks earned by assessment objective</span>
@@ -457,7 +461,7 @@ export default function ExamPage() {
               <p className="t-caption text-muted-foreground">
                 {aoDirective(result.aoProfile)}
               </p>
-            </div>
+            </Card>
           )}
 
           <Button
@@ -475,7 +479,7 @@ export default function ExamPage() {
 
       {/* ── Stored board papers ─────────────────────────────────────────── */}
       {!paper && info.papers.length > 0 && (
-        <section className="card">
+        <Card as="section">
           <h2 className="t-strong">Real papers &amp; mark schemes</h2>
           <p className="t-caption mt-1 text-muted-foreground">
             The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide
@@ -526,12 +530,12 @@ export default function ExamPage() {
               );
             })}
           </div>
-        </section>
+        </Card>
       )}
 
       {/* ── Past attempts ────────────────────────────────────────────────── */}
       {info.attempts.length > 0 && !paper && (
-        <section className="card">
+        <Card as="section">
           <h2 className="t-strong">Your attempts</h2>
           <p className="t-caption mt-1 text-muted-foreground">Every paper you have sat, most recent first.</p>
           <div className="mt-3 space-y-2">
@@ -561,7 +565,7 @@ export default function ExamPage() {
               );
             })}
           </div>
-        </section>
+        </Card>
       )}
     </div>
   );

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
 import { BlurFade } from '@/components/ui/blur-fade';
@@ -14,6 +15,10 @@ import { motion } from 'motion/react';
 import PageSkeleton from '@/components/PageSkeleton';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { StudentProgressPanel } from '@/components/staff/StudentProgressPanel';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type Roster = {
   userId: string;
@@ -96,7 +101,7 @@ export default function TeacherPage() {
 
   if (!me || me.role === 'student') {
     return (
-      <div className="card p-8 text-center">
+      <Card className="p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
           <Icon name="private" size={22} />
         </span>
@@ -104,7 +109,7 @@ export default function TeacherPage() {
         <p className="t-caption mt-2 text-muted-foreground">
           This page manages classes and rosters. Student accounts do not have access to it.
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -133,21 +138,21 @@ export default function TeacherPage() {
       <Notice tone="bad">{error}</Notice>
 
       {/* ── Create a class ───────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">New class</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           You will get a six-character code to hand out. You can rotate it if it spreads further than you want.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <input
-            className="input flex-1 sm:min-w-[200px]"
+          <Input
+            className="flex-1 sm:min-w-[200px]"
             value={className}
             onChange={(e) => setClassName(e.target.value)}
             placeholder="10B Biology"
             aria-label="Class name"
           />
-          <select
-            className="input sm:max-w-[220px]"
+          <NativeSelect
+            className="sm:max-w-[220px]"
             value={subjectId}
             onChange={(e) => setSubjectId(e.target.value)}
             aria-label="Subject"
@@ -158,7 +163,7 @@ export default function TeacherPage() {
                 {s.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
           <Button
             type="button"
             variant="primary" className="shrink-0 gap-2"
@@ -174,11 +179,11 @@ export default function TeacherPage() {
             Create
           </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Classes ──────────────────────────────────────────────────────── */}
       {data?.classes.length === 0 && (
-        <div className="card p-8 text-center">
+        <Card className="p-8 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
             <Icon name="class" size={22} />
           </span>
@@ -186,12 +191,12 @@ export default function TeacherPage() {
           <p className="t-caption mt-2 text-muted-foreground">
             Create one above, share the code, and students appear here as they join.
           </p>
-        </div>
+        </Card>
       )}
 
       {data?.classes.map((c, ci) => (
         <BlurFade key={c.id} delay={Math.min(ci * 0.05, 0.2)}>
-          <section className="card">
+          <Card as="section">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
@@ -272,8 +277,8 @@ export default function TeacherPage() {
 
             {renamingId === c.id && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <input
-                  className="input flex-1 sm:min-w-[200px]"
+                <Input
+                  className="flex-1 sm:min-w-[200px]"
                   value={renameDraft}
                   onChange={(e) => setRenameDraft(e.target.value)}
                   aria-label="New class name"
@@ -304,9 +309,9 @@ export default function TeacherPage() {
                   });
                 }}
               >
-                <input
+                <Input
                   type="email"
-                  className="input flex-1 sm:min-w-[200px]"
+                  className="flex-1 sm:min-w-[200px]"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="student@school.org"
@@ -325,9 +330,9 @@ export default function TeacherPage() {
               <label className="t-fine text-muted-foreground" htmlFor={`subject-${c.id}`}>
                 Subject
               </label>
-              <select
+              <NativeSelect
                 id={`subject-${c.id}`}
-                className="input max-w-[220px]"
+                className="max-w-[220px]"
                 value={c.subjectId}
                 onChange={(e) => post({ action: 'set_class_subject', classId: c.id, subjectId: e.target.value }, 'Subject updated.')}
               >
@@ -337,7 +342,7 @@ export default function TeacherPage() {
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
 
             {c.roster.length === 0 ? (
@@ -409,15 +414,15 @@ export default function TeacherPage() {
                 ))}
               </ul>
             )}
-          </section>
+          </Card>
         </BlurFade>
       ))}
 
       {/* ── Publishing ───────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Content</h2>
-          <span className="chip">{myTopics.length} topic{myTopics.length === 1 ? '' : 's'}</span>
+          <Badge variant="chip">{myTopics.length} topic{myTopics.length === 1 ? '' : 's'}</Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
           Staff topics go public immediately, and the questions inside go with them.
@@ -464,15 +469,15 @@ export default function TeacherPage() {
             })}
           </ul>
         )}
-      </section>
+      </Card>
 
       {/* ── New subject ──────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">New subject</h2>
         <p className="t-caption mt-1 text-muted-foreground">Subjects group topics — one per course, usually.</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <input
-            className="input flex-1 sm:min-w-[200px]"
+          <Input
+            className="flex-1 sm:min-w-[200px]"
             value={newSubject}
             onChange={(e) => setNewSubject(e.target.value)}
             placeholder="Chemistry"
@@ -488,7 +493,7 @@ export default function TeacherPage() {
             Create
           </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Student progress sheet ──────────────────────────────────────── */}
       {progressFor && (

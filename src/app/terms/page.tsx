@@ -372,7 +372,7 @@ export default function TermsPage() {
     <>
     <LegalHeader current="/terms" />
     <main>
-      <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
+      <article className="legal-doc mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Legal</p>
         <h1 className="t-strong mt-1 text-3xl">Terms of Service</h1>
@@ -381,7 +381,8 @@ export default function TermsPage() {
         </p>
       </header>
 
-      <nav className="toc flex flex-wrap gap-2" aria-label="Table of contents">
+      {/* Ten rows of chips before any text on a phone; headings take over. */}
+      <nav className="toc hidden flex-wrap gap-2 sm:flex" aria-label="Table of contents">
         {SECTIONS.map((s) => (
           <Link
             key={s.id}

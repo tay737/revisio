@@ -114,7 +114,7 @@ export default function CookiePolicyPage() {
     <>
     <LegalHeader current="/cookie-policy" />
     <main>
-      <article className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
+      <article className="legal-doc mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Legal</p>
         <h1 className="t-strong mt-1 text-3xl">Cookie Policy</h1>
@@ -123,7 +123,7 @@ export default function CookiePolicyPage() {
         </p>
       </header>
 
-      <nav className="toc flex flex-wrap gap-2" aria-label="Table of contents">
+      <nav className="toc hidden flex-wrap gap-2 sm:flex" aria-label="Table of contents">
         <Link href="#what-are-cookies" className={badgeVariants({ variant: 'chip' })}>What</Link>
         <Link href="#categories" className={badgeVariants({ variant: 'chip' })}>Categories</Link>
         <Link href="#refuse" className={badgeVariants({ variant: 'chip' })}>Refuse</Link>

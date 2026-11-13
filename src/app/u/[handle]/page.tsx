@@ -13,6 +13,10 @@ import { getPublicProfile } from '@/services/profile';
 import { rankFor } from '@/domain/ranked';
 import { cappedDelay } from '@/lib/motion';
 import { ProfileBadgeChip } from '@/components/ui/profile-badge';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 /**
  * The public profile — /u/<username>.
@@ -96,7 +100,7 @@ export default async function ProfilePage({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="t-display min-w-0 truncate">{display}</h1>
           {owner && (
-            <Link href="/settings" className="btn btn-secondary btn-sm shrink-0 gap-1.5">
+            <Link href="/settings" className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'shrink-0 gap-1.5')}>
               <Icon name="edit" size={14} />
               Edit profile
             </Link>
@@ -123,7 +127,7 @@ export default async function ProfilePage({
 
       {/* ── Rank + stats ─────────────────────────────────────────────────── */}
       {rank && profile.gamification ? (
-        <section className="card mt-6 flex flex-wrap items-center gap-5 p-5">
+        <Card as="section" className="mt-6 flex flex-wrap items-center gap-5 p-5">
           <RankCrest rank={rank} size={72} />
           <div className="min-w-0">
             <div className="t-strong">{profile.gamification.rankLabel}</div>
@@ -145,13 +149,13 @@ export default async function ProfilePage({
               <dd className="num t-strong">{profile.achievements.length}</dd>
             </div>
           </dl>
-        </section>
+        </Card>
       ) : owner ? (
-        <section className="card mt-6 p-5 text-center">
+        <Card as="section" className="mt-6 p-5 text-center">
           <p className="text-[14px] text-muted-foreground">
             Your stats are hidden from visitors. Turn them on in Settings → Privacy if you want them shown.
           </p>
-        </section>
+        </Card>
       ) : null}
 
       {/* ── Subjects ─────────────────────────────────────────────────────── */}
@@ -160,10 +164,10 @@ export default async function ProfilePage({
           <h2 className="t-tagline">Studying</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {profile.subjects.map((s) => (
-              <span key={s.id} className="chip">
+              <Badge variant="chip" key={s.id}>
                 <Icon name="learn" size={13} />
                 {s.name}
-              </span>
+              </Badge>
             ))}
           </div>
         </section>
@@ -171,7 +175,7 @@ export default async function ProfilePage({
 
       {/* ── Achievements ─────────────────────────────────────────────────── */}
       {profile.achievements.length > 0 && (
-        <section className="card mt-6 p-5">
+        <Card as="section" className="mt-6 p-5">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="t-tagline">Achievements</h2>
             <span className="num text-[13px] text-muted-foreground">{profile.achievements.length}</span>
@@ -191,7 +195,7 @@ export default async function ProfilePage({
               </BlurFade>
             ))}
           </div>
-        </section>
+        </Card>
       )}
 
       <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">

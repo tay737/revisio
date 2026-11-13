@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { applyConsentChange, blankConsent, consentFromBlob, purposeDescription, type ConsentKey, type ConsentState } from '@/lib/consent';
 import { api, getToken } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
 
 // A consent manager that is pure and server-safe so the banner and the route
 // layer can never disagree about what is on or off. The banner only renders
@@ -207,7 +208,7 @@ export function CookieConsentBanner() {
     return syncError ? (
       <div ref={bannerRef} className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-float)] pb-safe" role="status">
         <p className="t-caption min-w-0 flex-1">Your choice is saved on this device. Account sync is still pending.</p>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => void retrySync()}>Retry sync</button>
+        <Button variant="secondary" size="sm" type="button" onClick={() => void retrySync()}>Retry sync</Button>
       </div>
     ) : null;
   }
@@ -256,39 +257,36 @@ export function CookieConsentBanner() {
             Essential cookies keep Revisio running. Optional ones stay off until you choose.{' '}
             <Link
               href="/privacy#your-rights"
-              className="underline decoration-border underline-offset-2 hover:text-foreground"
+              className="tap-link underline decoration-border underline-offset-2 hover:text-foreground"
             >
               Privacy details
             </Link>
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
+            <Button variant="primary"
               type="button"
-              className="btn btn-primary"
               onClick={() => void commit(applyConsentChange(saved, Object.fromEntries(NON_ESSENTIAL.map(({ key }) => [key, true]))))}
             >
               Accept all
-            </button>
-            <button
+            </Button>
+            <Button variant="secondary"
               type="button"
-              className="btn btn-secondary"
               onClick={() => void commit(applyConsentChange(saved, Object.fromEntries(NON_ESSENTIAL.map(({ key }) => [key, false]))))}
             >
               Reject all
-            </button>
+            </Button>
             {/* A disclosure, not a dialog: `aria-expanded` is what tells a
                 screen reader that the purposes below it come and go. */}
-            <button
+            <Button variant="secondary"
               type="button"
-              className="btn btn-secondary"
               aria-expanded={expanded}
               aria-controls={purposesId}
               onClick={() => setExpanded((current) => !current)}
             >
               Customise
               <Icon name="collapse" size={15} className={expanded ? 'rotate-180' : undefined} />
-            </button>
+            </Button>
           </div>
 
           {expanded && (
@@ -344,9 +342,9 @@ export function CookieConsentBanner() {
               {/* Saving a partial choice is only meaningful once the purposes
                   are on screen, so it lives with them. */}
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                <button type="button" className="btn btn-secondary" onClick={() => void commit(saved)}>
+                <Button variant="secondary" type="button" onClick={() => void commit(saved)}>
                   Save choices
-                </button>
+                </Button>
                 <p className="t-fine min-w-0 text-muted-foreground" aria-live="polite">
                   {allOn ? 'All optional purposes selected.' : allOff ? 'All optional purposes are off.' : 'Choose only the purposes you want.'}
                 </p>
@@ -356,7 +354,7 @@ export function CookieConsentBanner() {
 
           {error && <div className="mt-2 flex flex-wrap items-center justify-between gap-2" role="alert">
             <p className="t-fine text-destructive-ink">{error}</p>
-            {storageError && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { dismissedForSession.current = true; setDismissed(true); }}>Continue for now</button>}
+            {storageError && <Button variant="ghost" size="sm" type="button" onClick={() => { dismissedForSession.current = true; setDismissed(true); }}>Continue for now</Button>}
           </div>}
         </div>
       </div>

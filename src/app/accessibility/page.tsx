@@ -11,7 +11,7 @@ export default function AccessibilityPage() {
   return (
     <>
     <LegalHeader current="/accessibility" />
-    <main className="mx-auto max-w-3xl space-y-7 px-4 py-10 sm:px-6">
+    <main className="legal-doc mx-auto max-w-3xl space-y-7 px-4 py-10 sm:px-6">
       <header className="pt-6 sm:pt-8">
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Access for everyone</p>
         <h1 className="t-strong mt-1 text-3xl">Accessibility statement</h1>

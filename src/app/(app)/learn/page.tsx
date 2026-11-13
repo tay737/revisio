@@ -7,7 +7,11 @@ import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { BlurFade } from '@/components/ui/blur-fade';
 import PageSkeleton from '@/components/PageSkeleton';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 type Subject = {
   id: string;
@@ -72,9 +76,9 @@ export default function LearnPage() {
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
             <Icon name="search" size={17} />
           </span>
-          <input
+          <Input
             type="search"
-            className="input pl-11"
+            className="pl-11"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search subjects…"
@@ -84,7 +88,7 @@ export default function LearnPage() {
       )}
 
       {subjects.length === 0 && (
-        <div className="card p-8 text-center">
+        <Card className="p-8 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
             <Icon name="library2" size={22} />
           </span>
@@ -95,23 +99,23 @@ export default function LearnPage() {
           <Link href="/library" className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
             Go to My content
           </Link>
-        </div>
+        </Card>
       )}
 
       {visible.length === 0 && subjects.length > 0 && (
-        <div className="card p-6 text-center">
+        <Card className="p-6 text-center">
           <p className="t-strong">Nothing matches “{query}”</p>
           <p className="t-caption mt-1 text-muted-foreground">Try a shorter piece of the name.</p>
           <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={() => setQuery('')}>
             Clear the search
           </Button>
-        </div>
+        </Card>
       )}
 
       <div className="space-y-3">
         {visible.map((s, i) => (
           <BlurFade key={s.id} delay={Math.min(i * 0.04, 0.24)}>
-            <div className="card p-0">
+            <Card className="p-0">
               {/* Link-first: the whole card navigates, the Follow control is a
                   sibling action — never a button inside a button. On a phone
                   the info and the actions are two rows; the one-line lockup was
@@ -130,9 +134,9 @@ export default function LearnPage() {
                   </span>
                 </Link>
                 <div className="flex shrink-0 items-center gap-2 pl-[52px] sm:pl-0">
-                  <span className="chip">
+                  <Badge variant="chip">
                     {s.topicCount} {s.topicCount === 1 ? 'topic' : 'topics'}
-                  </span>
+                  </Badge>
                   {!s.enrolled ? (
                     <Button
                       type="button"
@@ -153,7 +157,7 @@ export default function LearnPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </Card>
           </BlurFade>
         ))}
       </div>
