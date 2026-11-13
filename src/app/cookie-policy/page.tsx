@@ -3,6 +3,7 @@ import 'server-only';
 import Link from 'next/link';
 import { Markdown } from '@/components/Markdown';
 import { LegalHeader } from '@/components/LegalHeader';
+import { badgeVariants } from '@/components/ui/badge';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │  COOKIE POLICY                                                          │
@@ -44,7 +45,7 @@ const CATEGORIES = [
     id: 'analytics',
     name: 'Analytics',
     purpose: 'Usage metrics',
-    note: 'Anonymous, aggregated data on how people use the Service, used to improve it. No personal content is measured. We do not currently load an optional analytics service; if one is introduced, it will run only after this consent is given.',
+    note: 'Anonymous, aggregated data on how people use the Service, used to improve it. No personal content is measured. We do not load an optional analytics service today; if we introduce one it runs only after this consent is given, and this page names it first.',
   },
   {
     id: 'marketing',
@@ -64,6 +65,18 @@ const CATEGORIES = [
     purpose: 'Anonymised research',
     note: 'Anonymised product research. Data can be removed from research records on request.',
   },
+  {
+    id: 'profile',
+    name: 'Profile fields',
+    purpose: 'Your public profile',
+    note: 'Which profile fields a visitor can see. The switches live under Privacy in Settings; this consent records the choice for the audit trail. Your email address is never shown.',
+  },
+  {
+    id: 'school',
+    name: 'School and class data',
+    purpose: 'Classroom use',
+    note: 'Class and account data held for a learner’s schooling, including what the teacher who owns a class can see. Applies only if a class is joined.',
+  },
 ];
 
 // Prose only — the section already renders its own `<h2>`, so the copy here
@@ -77,10 +90,9 @@ const HOW_TO_REFUSE = `
   - **Essential cookies** cannot be switched off: the Service will not work
   without them.
   - **Non-essential cookies** are set only after you choose to accept them. On
-  your first visit, a cookie-consent banner asks for your choice before any
-  non-essential cookie is loaded. Today the Service sets no non-essential
-  cookie at all; the categories below record what we would load, and your
-  choice governs it.
+  your first visit, a banner asks for your choice before anything non-essential
+  is loaded. Today the Service sets no non-essential cookie at all. The
+  categories above record what we would load, and your choice governs it.
   - You can change your mind at any time in **Settings → How we use your data**.
   - You can unsubscribe from product updates and non-essential email with the
   link in the message, or in **Settings → How we use your data**.
@@ -107,16 +119,16 @@ export default function CookiePolicyPage() {
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Legal</p>
         <h1 className="t-strong mt-1 text-3xl">Cookie Policy</h1>
         <p className="t-caption mt-2">
-          Revisio — Learn it once · 1 October 2026
+          Revisio · last reviewed 13 November 2026
         </p>
       </header>
 
       <nav className="toc flex flex-wrap gap-2" aria-label="Table of contents">
-        <Link href="#what-are-cookies" className="chip">What</Link>
-        <Link href="#categories" className="chip">Categories</Link>
-        <Link href="#refuse" className="chip">Refuse</Link>
-        <Link href="#no-consent" className="chip">No consent</Link>
-        <Link href="#update" className="chip">Update</Link>
+        <Link href="#what-are-cookies" className={badgeVariants({ variant: 'chip' })}>What</Link>
+        <Link href="#categories" className={badgeVariants({ variant: 'chip' })}>Categories</Link>
+        <Link href="#refuse" className={badgeVariants({ variant: 'chip' })}>Refuse</Link>
+        <Link href="#no-consent" className={badgeVariants({ variant: 'chip' })}>No consent</Link>
+        <Link href="#update" className={badgeVariants({ variant: 'chip' })}>Update</Link>
       </nav>
 
       <div className="space-y-10">
@@ -131,12 +143,12 @@ export default function CookiePolicyPage() {
           </p>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
             <em>First-party</em> cookies are set by us. <em>Third-party</em>{' '}
-            cookies are set by the providers we use to operate or improve the
-            Service — for example, for analytics or email delivery. Those
-            providers are
-            subject to our data-processing requirements and we audit them
-            before we use them. See the Privacy Policy, section 13, for the
-            third-party audit.
+            cookies are set by a provider we use to run the Service. No
+            third-party cookie is set today: email delivery is the only provider
+            that touches a page you visit, and it runs server-side, so it never
+            places anything in your browser. If that changes, this section and
+            the consent banner change first. See the Privacy Policy, section 14,
+            for what we check and who the providers are.
           </p>
         </section>
 
@@ -144,10 +156,10 @@ export default function CookiePolicyPage() {
           <h2 className="t-strong">2. Categories of cookie we use</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
             We only use cookies that are necessary for the Service, or that you
-            have explicitly consented to. The table below lists each category,
-            its purpose, and the information that applies to it. Several of
-            these are account settings rather than cookies — they are stored in
-            our database because they must follow you between devices.
+            have explicitly consented to. Each category below gives its purpose
+            and what applies to it. Several of these are account settings rather
+            than cookies: they are stored in our database because they have to
+            follow you between devices.
           </p>
 
           <div className="mt-3 divide-y divide-border">
@@ -175,17 +187,17 @@ export default function CookiePolicyPage() {
         <section id="no-consent" className="scroll-mt-24">
           <h2 className="t-strong">4. What happens if you do not consent</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
-            If you decline non-essential cookies, the Service will still work.
-            You will see the Service, your reviews will be scheduled, and you
-            can still learn. What you will not get is personalisation that
-            requires your consent — the analytics we run on usage, and any
-            promotional messages from us.
+            If you decline, the Service still works. Your reviews are scheduled,
+            your progress is kept and you can learn as normal. What you do not get
+            is anything that depends on permission you have not given: product
+            updates and promotional email, non-essential notifications, and
+            anonymised research use of your data.
           </p>
           <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
-            We do not use &quot;soft opt-in&quot; or implied consent for
-            anything other than essential cookies, and we do not make
-            consent a condition of using the Service unless that use is
-            necessary for the Service to work.
+            We do not use a soft opt-in or implied consent for anything beyond
+            essential cookies, and we never make a non-essential cookie a
+            condition of using the Service. The switches under Privacy in
+            Settings are separate from this banner and still apply.
           </p>
         </section>
 
