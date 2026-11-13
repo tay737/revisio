@@ -2,26 +2,33 @@ import 'server-only';
 
 import Link from 'next/link';
 import { LegalHeader } from '@/components/LegalHeader';
+import { badgeVariants } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │  PRIVACY POLICY                                                         │
 // │                                                                         │
 // │  Revisio — a spaced-repetition and learning service.                    │
 // │                                                                         │
-// │  Last reviewed: 1 October 2026.                                       │
-// │  This policy is written for UK GDPR and the Data Protection Act 2018, │
-// │  with the same standards applied where we process data of EEA or      │
-// │  international users.                                                  │
+// │  Last reviewed: 13 November 2026.                                       │
+// │  Written for UK GDPR and the Data Protection Act 2018, with the same    │
+// │  standards applied to EEA and international users.                      │
 // └─────────────────────────────────────────────────────────────────────────┘
 
 export const metadata = {
   title: 'Privacy Policy — Revisio',
   description:
-    'How Revisio collects, uses, stores and deletes your data. Read our commitments on data minimisation, security, your rights and deletion.',
+    'What Revisio collects, the lawful basis for each use, who processes it, how long it is kept and how to get it back or deleted.',
 };
 
-// The reading order here mirrors the ICO's transparency code: what you need to
+// The reading order mirrors the ICO's transparency code: what you need to
 // know first, then the detail. The sections that change most often sit last.
+//
+// Every claim here is checked against the code before a release. The provider
+// list in section 5 and 14 is the real one (hosting, database, mirror and
+// object store, email); the deletion scope in section 10 is what
+// `/api/v1/data-deletion` actually does. Do not add a processor, a retention
+// period or a right that the app cannot honour.
 
 const SECTIONS = [
   {
@@ -30,73 +37,101 @@ const SECTIONS = [
     content: (
       <>
         <p>
-          Revisio (&quot;we&quot;, &quot;us&quot; or &quot;our&quot;) operates the
-          spaced-repetition service at{' '}
+          Revisio runs the spaced-repetition service at{' '}
           <Link href="https://revisio-srs.vercel.app">
             https://revisio-srs.vercel.app
-          </Link>
-          (&quot;the Service&quot;). We process personal data only to
-          provide the Service, keep it secure and comply with the law.
+          </Link>{' '}
+          (&quot;the Service&quot;). For the personal data described here,
+          Revisio is the data controller: we decide what is collected and why.
         </p>
         <p>
-          This policy explains what data we collect, why we collect it, how we
-          keep it safe, what rights you have and how to withdraw consent or ask
-          us to delete your data. It also covers the cookies and similar
-          technologies we use, how third-party software is used and audited, and
-          how we stay accurate and up to date.
+          This policy sets out what we collect, the lawful basis for each use,
+          who else processes it, how long we keep it, and how to get a copy or
+          have it deleted. Cookies and similar storage are covered by the{' '}
+          <Link href="/cookie-policy">Cookie Policy</Link>. Your account and
+          what you may do with the Service are covered by the{' '}
+          <Link href="/terms">Terms of Service</Link>.
         </p>
         <p className="t-fine">
-          Read the{' '}
-          <Link href="/cookie-policy">Cookie Policy</Link> and the{' '}
-          <Link href="/terms">Terms of Service</Link> together with this
-          policy. If you are a parent or guardian of a learner under 13, read section 11 before an account is created for them.
+          If you are registering a learner under 13, read section 12 first. It
+          explains what we check and what we do not, before an account exists.
         </p>
       </>
     ),
   },
   {
     id: 'data-we-collect',
-    title: '2. What data we collect',
+    title: '2. What we collect',
     content: (
       <>
         <p>
-          We collect only the minimum personal data required to run the Service
-          — that is the &quot;data minimisation&quot; principle under UK GDPR.
-          We do not build marketing profiles, sell personal data, or share it
-          with advertisers.
+          We collect what the Service needs to run and nothing beyond that. The
+          list below is the complete set; if a field is not here, we do not hold
+          it.
         </p>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">Identity and account          </h3>
+          <h3 className="t-caption-s mb-1">Account and profile</h3>
           <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
-            <li>Email address (used as your login identifier).</li>
-            <li>Name or display name, chosen by you.</li>
-            <li>Username, chosen by you (optional).</li>
-            <li>Password, stored only as a salted hash.</li>
-            <li>Profiles and profile visibility settings you choose for your public profile.</li>
+            <li>Your email address, which is your login and where account mail goes.</li>
+            <li>Your name, and optionally a display name, username, bio and pronouns.</li>
+            <li>
+              Your date of birth, used once at registration to decide whether a
+              guardian must consent. We keep it only for accounts registered
+              under 13, where it is the basis of that consent. For anyone 13 or
+              over it is not written to the database at all.
+            </li>
+            <li>A password, stored as a bcrypt hash. We never see the password itself.</li>
+            <li>
+              Your avatar (initials, an emoji, a colour, or an uploaded image up
+              to 5 MB) and your banner (a colour wash or an uploaded image).
+            </li>
+            <li>
+              If you turn on two-factor sign-in, the shared secret and your
+              recovery codes in hashed form.
+            </li>
+            <li>
+              Your profile visibility switches, so we know which fields a
+              visitor may see.
+            </li>
           </ul>
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">Learning activity (necessary for the Service)          </h3>
+          <h3 className="t-caption-s mb-1">Learning activity</h3>
           <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
-            <li>Review history, streak, XP and rank — used to run spaced repetition and to show you your own progress.</li>
-            <li>Card responses and timing data, used to schedule your reviews.</li>
-            <li>Subjects and topics you study and your performance in them.</li>
-            <li>Leaderboard participation is opt-in; you may switch it off in Settings.</li>
+            <li>
+              Each review: the card, the answer you typed, the verdict, how long
+              you took and the rating you gave yourself.
+            </li>
+            <li>Scheduling state per card and topic, so the queue knows what is due.</li>
+            <li>
+              Streaks, XP events, league membership, season results and
+              achievements.
+            </li>
+            <li>Exam attempts, with per-question detail of what you answered.</li>
+            <li>
+              The subjects you study, the classes you join, and any content you
+              author or import (the file name and a report of what was created).
+            </li>
           </ul>
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">Cookies and local storage          </h3>
+          <h3 className="t-caption-s mb-1">Security and records</h3>
           <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
-            <li>Essential cookies that keep you signed in and the Service secure.</li>
-            <li>Non-essential cookies for analytics and marketing — only after your consent (see the Cookie Policy).</li>
-            <li>No optional analytics script is currently loaded. If we introduce one, it runs only after your consent and the data stays anonymous and aggregated.</li>
-          </ul>
-        </section>
-        <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">If you are a child under 13</h3>
-          <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
-            <li>We do not knowingly collect personal data from children under 13 without a parent or guardian’s consent. A parent or guardian can revoke that consent at any time (see section 11).</li>
-            <li>If you believe we hold a child&apos;s data without the required consent, contact support so we can review the account and any erasure request.</li>
+            <li>
+              Session records: refresh-token hashes with an expiry, and
+              single-use token hashes for email verification and password reset.
+            </li>
+            <li>
+              Short-lived counters keyed by IP address, used to slow down
+              password guessing, registration spam and verification-email
+              abuse. Each one counts inside a fixed window of 15 minutes
+              (sign-in, two-factor) or an hour (registration, verification
+              resends) and resets when that window ends.
+            </li>
+            <li>
+              Your consent choices and the time you made them, kept as the
+              record that permission was given or refused.
+            </li>
           </ul>
         </section>
       </>
@@ -104,36 +139,49 @@ const SECTIONS = [
   },
   {
     id: 'why-we-use-it',
-    title: '3. Why we use your data',
+    title: '3. Why we use it',
     content: (
       <>
-        <p>We use personal data to provide, secure and improve the Service. Each use is linked to a specific lawful basis, and we will not use your data for an unrelated purpose.</p>
-        <section className="mt-3 grid gap-2 text-sm">
+        <p>
+          Every purpose below has one lawful basis attached to it. We do not
+          reuse data for an unrelated purpose afterwards.
+        </p>
+        <section className="mt-3 grid gap-3 text-sm">
           <p>
-            <span className="font-semibold">Contract:</span> to provide your
-            spaced-repetition training, schedule your reviews, store your
-            progress and let you access your own account.
+            <span className="font-semibold">Contract (Article 6(1)(b)).</span>{' '}
+            Running your account, scheduling your reviews, grading your answers,
+            keeping your progress, showing your classes and their rosters, and
+            sending the service email an account cannot work without:
+            verification, password reset and email-change links.
           </p>
           <p>
-            <span className="font-semibold">Legal obligation:</span> to comply
-            with applicable laws, including accounting, tax and security
-            requirements, and to detect or prevent fraud or abuse.
+            <span className="font-semibold">Consent (Article 6(1)(a)).</span>{' '}
+            Product-update email, non-essential notifications, anonymised
+            research, and publishing the profile fields you switch on. Each one
+            is a separate choice, none of them is pre-selected, and you can turn
+            any of them off in Settings under &quot;How we use your data&quot;.
+            Withdrawing consent stops the processing from that point; it does
+            not undo what was lawful before.
           </p>
           <p>
-            <span className="font-semibold">Vital interests:</span> only if
-            necessary to protect someone's life.
+            <span className="font-semibold">Legitimate interests (Article 6(1)(f)).</span>{' '}
+            Keeping the Service secure and available: rate limiting to resist
+            password guessing and sign-up spam, logging of administrative
+            access so misuse can be investigated, and keeping the read copy of
+            the database consistent with the primary. These are the least
+            intrusive means we found for each; a service that hands out accounts
+            without a limit, or cannot trace who changed what, is worse for
+            everyone using it. You may object, and we will stop unless we have
+            compelling grounds that override your interests.
           </p>
           <p>
-            <span className="font-semibold">Legitimate interest:</span> for
-            security, abuse prevention, product improvement and
-            anonymised research. Where we rely on this, you may object by
-            contacting us (section 8).
+            <span className="font-semibold">Legal obligation (Article 6(1)(c)).</span>{' '}
+            Answering a valid legal request, and keeping the record of consent
+            as evidence that processing was permitted.
           </p>
-          <p>
-            <span className="font-semibold">Consent (optional):</span> for
-            analytics, marketing, certain research and non-essential
-            notifications. You may withdraw consent at any time with the same
-            ease as giving it (section 8).
+          <p className="t-fine">
+            We do not rely on vital interests or on a public task anywhere in the
+            Service.
           </p>
         </section>
       </>
@@ -141,72 +189,104 @@ const SECTIONS = [
   },
   {
     id: 'data-we-dont-collect',
-    title: '4. What we do not collect (data minimisation)',
+    title: '4. What we do not collect',
     content: (
       <>
         <p>
-          We deliberately do not collect: your precise location, your racial or
-          ethnic origin, political opinions, religious or philosophical beliefs,
-          trade-union membership, genetic or biometric data, health data, sex
-          life or sexual orientation, and financial data beyond the email
-          address needed to send you notifications and receipts.
+          Being clear about the gaps is part of data minimisation, so here is
+          what is deliberately absent:
         </p>
-        <p>
-          We do not use your data to make unsupported claims about your
-          performance, and we do not include testimonial or review copy in our
-          marketing that implies a result we cannot substantiate. Any claim we
-          make about the Service — its effectiveness, its delivery, its
-          certifications — is accurate and verifiable, or we will not make it.
-        </p>
+        <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
+          <li>No phone number, postal address, precise location or contact-list access.</li>
+          <li>
+            No special category data: no health, biometric or genetic data, no
+            racial or ethnic origin, religion, political opinion, trade-union
+            membership, sex life or sexual orientation.
+          </li>
+          <li>
+            No payment details. The Service is free and takes no payments, so
+            there is no card processor and no billing record.
+          </li>
+          <li>
+            No advertising identifiers, no behavioural advertising profile, and
+            no data sold or rented to anyone.
+          </li>
+        </ul>
         <p className="t-fine">
-          See section 11 for our commitment not to use dark patterns in our
-          sign-up and consent flows.
+          We also do not make solely automated decisions that produce legal or
+          similarly significant effects. Your rank and your queue are computed
+          from your own reviews; neither is used to decide anything about you
+          beyond what the Service shows you.
         </p>
       </>
     ),
   },
   {
     id: 'sharing',
-    title: '5. Who we share your data',
+    title: '5. Who sees your data',
     content: (
       <>
         <p>
-          We share personal data only in the limited, specific circumstances
-          below. We do not sell or rent your personal data to third parties.
+          Four companies process personal data for us, each for a single job.
+          They act on our instructions and may not use the data for their own
+          purposes.
+        </p>
+        <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
+          <li>
+            <span className="font-semibold">Vercel</span> hosts the application
+            and runs the serverless functions that serve it. Processing happens
+            in its Dublin region; the company is based in the United States.
+          </li>
+          <li>
+            <span className="font-semibold">Supabase</span> hosts the primary
+            Postgres database, in Ireland (eu-west-1).
+          </li>
+          <li>
+            <span className="font-semibold">Neon</span> hosts a read copy of the
+            database and the object store that holds uploaded avatars and
+            banners, in Frankfurt (eu-central-1).
+          </li>
+          <li>
+            <span className="font-semibold">Resend</span> delivers service
+            email: verification, password reset and email-change links. The
+            company is based in the United States.
+          </li>
+        </ul>
+        <p className="mt-3">
+          That is the whole list. There is no analytics provider, no advertising
+          network, no payment processor and no support-desk platform holding
+          your data.
         </p>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">Processors and service providers          </h3>
+          <h3 className="t-caption-s mb-1">Other people using the Service</h3>
           <p className="t-fine">
-            We may share data with providers that help us operate the Service,
-            subject to contracts that restrict their use and require
-            appropriate security. These may include hosting, email delivery,
-            video calls, analytics, payments and customer support software.
-            Before we use a new provider, we confirm in writing that it meets our
-            security and data-protection standards.
+            Three features show your data to someone else, and each one is under
+            your control:
           </p>
+          <ul className="mt-1 list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+            <li>
+              Your public profile at <span className="font-mono">/u/</span> your
+              username shows only the fields you switch on. Anyone with the
+              link can see them, including someone who is not signed in. Your
+              email address is never shown.
+            </li>
+            <li>
+              Leaderboards show your display name and your weekly XP to other
+              learners while leaderboard visibility is on. Turning it off hides
+              you without affecting your rank.
+            </li>
+            <li>
+              If you join a class, the teacher who owns it can see your name and
+              your progress in that class&apos;s subject.
+            </li>
+          </ul>
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">Legal requests          </h3>
+          <h3 className="t-caption-s mb-1">Legal requests</h3>
           <p className="t-fine">
-            Where required by law, regulation or valid legal process, we may be
-            compelled to disclose data. We will do so only where required and in
-            the least intrusive way possible.
-          </p>
-        </section>
-        <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">Group companies          </h3>
-          <p className="t-fine">
-            Where we operate as part of a group, we may share data within
-            group companies that need it to administer the Service, subject to
-            appropriate safeguards.
-          </p>
-        </section>
-        <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">School / account data          </h3>
-          <p className="t-fine">
-            Where a learner's data is held for schooling, a parent or guardian
-            may permit us to share it with that learner's school or educational
-            provider. Any such sharing is explicit, time-limited and reversible.
+            Where the law, a court or a valid legal process requires it, we may
+            have to disclose data. When that happens we disclose only what the
+            request covers, and we tell you unless the request forbids it.
           </p>
         </section>
       </>
@@ -214,190 +294,265 @@ const SECTIONS = [
   },
   {
     id: 'storage',
-    title: '6. How long we keep it and where it lives',
+    title: '6. How long we keep it, and where',
     content: (
       <>
         <p>
-          We keep personal data only as long as necessary for the purposes
-          described above, and in any case no longer than we need to fulfil our
-          legal obligations. When the purpose for a category of data ends, we
-          delete or anonymise it.
+          Retention follows the job the data does. These are the periods we
+          actually apply:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
+          <li>Account, profile and preferences: while the account exists.</li>
+          <li>Email verification links: 24 hours. Password-reset links: 30 minutes and single use.</li>
+          <li>Sign-in sessions: 30 days, or until you sign out, change your password or delete the account.</li>
+          <li>
+            Rate-limit counters: 15 minutes for sign-in and two-factor, one hour
+            for registration and verification resends. The row keeps an IP
+            address and a count, and nothing is derived from it afterwards.
+          </li>
+          <li>
+            Consent records: as long as we need the evidence, including after
+            consent is withdrawn.
+          </li>
+          <li>
+            Reviews, XP, streaks, achievements, exam attempts and season
+            results: while the account exists, and afterwards in the anonymised
+            form described in section 10.
+          </li>
+        </ul>
+        <p className="mt-3">
+          The primary database is in Ireland and the read copy is in Germany.
+          Backups are encrypted and reachable only by the person who runs the
+          Service. A record you delete may persist in a backup until that backup
+          ages out.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'transfers',
+    title: '7. Transfers outside the UK',
+    content: (
+      <>
+        <p>
+          Ireland and Germany are covered by the UK&apos;s adequacy regulations,
+          so data held there needs no further safeguard.
         </p>
         <p>
-          Our production database is hosted in the European Economic Area
-          (Ireland). Our read replica is hosted in the EU (Germany).
-          Backups are encrypted and access is restricted to authorised staff.
-          Data is not stored in third countries except where a transfer is
-          permitted by the UK or EU adequacy decision or on a documented
-          transfer mechanism.
-        </p>
-        <p>
-          If a learner under 13 or their parent or guardian requests erasure, contact support. We will assess the request and explain any records that are retained and why.
+          Two providers are United States companies and may process data there:
+          Vercel for application hosting and Resend for email delivery. Those
+          transfers rely on the UK International Data Transfer Addendum to the
+          EU Standard Contractual Clauses, which each provider incorporates into
+          its data-processing terms. We do not send personal data to any other
+          country.
         </p>
       </>
     ),
   },
   {
     id: 'security',
-    title: '7. How we keep it safe',
+    title: '8. How we protect it',
     content: (
       <>
         <p>
-          We use administrative, technical and physical measures appropriate to
-          the sensitivity of the data: encryption in transit and at rest,
-          least-privilege access controls, regular access reviews, logging of
-          administrative access, and staff training. We test our
-          authentication, rate-limiting and privacy controls in every release.
+          Access is limited to what each part of the system needs. Passwords are
+          bcrypt hashes. Sign-in sessions use a short-lived token kept in memory
+          and a rotating refresh cookie marked HttpOnly, so a script on the page
+          cannot read it. Traffic is encrypted in transit and the database and
+          object store are encrypted at rest. The media bucket is private and is
+          served through the application, and every administrative action lands
+          in an audit log.
         </p>
         <p>
-          Security is not a product feature we can &quot;add later&quot; — it is
-          a requirement we audit before every deployment.
+          Rate limits protect the routes that are worth attacking: sign-in,
+          registration, verification-email resend and two-factor checks. Two-factor
+          sign-in is available on every account. The privacy filters, the
+          consent record and the deletion path are covered by automated checks
+          that run against the live API before a release.
+        </p>
+        <p>
+          No system is perfect. If a breach occurs that is likely to put your
+          rights at risk, we report it to the Information Commissioner&apos;s
+          Office within 72 hours of becoming aware of it, and we tell you
+          directly if the risk to you is high.
         </p>
       </>
     ),
   },
   {
     id: 'your-rights',
-    title: '8. Your rights (data-subject rights)',
+    title: '9. Your rights',
     content: (
       <>
         <p>
-          You have the following rights under UK GDPR. To exercise any of them,
-          contact us at the address below. We will respond without undue delay,
-          and in any case within one month (we may extend this by a further two
-          months where the request is complex).
+          You have the rights below under UK GDPR. To use any of them, email the
+          address in section 17. We answer within one month; if a request is
+          genuinely complex we may extend that by two further months and will
+          tell you why before the first month runs out. There is no charge.
         </p>
         <section className="mt-3 grid gap-2 text-sm">
           <p>
-            <span className="font-semibold">Access:</span> you can ask what
-            personal data we hold, why, and where it is processed.
+            <span className="font-semibold">Access.</span> Ask what we hold about
+            you, why we hold it, and who else processes it. You get a copy in a
+            common format.
           </p>
           <p>
-            <span className="font-semibold">Rectification:</span> you can ask us
-            to correct inaccurate or incomplete data.
+            <span className="font-semibold">Correction.</span> Ask us to fix
+            anything inaccurate or incomplete. Most profile fields you can edit
+            yourself in Settings.
           </p>
           <p>
-            <span className="font-semibold">Erasure (&quot;right to be
-            forgotten&quot;):</span> you can ask us to delete your personal data.
-            See section 9 for the deletion process and the exceptions.
+            <span className="font-semibold">Erasure.</span> Ask us to delete
+            your data. Section 10 explains what the Settings control removes and
+            what survives it.
           </p>
           <p>
-            <span className="font-semibold">Restriction:</span> you can ask us to
-            suspend processing while you contest the lawfulness of processing.
+            <span className="font-semibold">Restriction.</span> Ask us to stop
+            processing while a dispute about accuracy or lawfulness is settled.
           </p>
           <p>
-            <span className="font-semibold">Portability:</span> you can ask for
-            your data in a machine-readable format and transfer it to another
-            provider.
+            <span className="font-semibold">Portability.</span> Ask for the data
+            you gave us in a machine-readable format, or ask us to send it to
+            another provider where that is technically possible.
           </p>
           <p>
-            <span className="font-semibold">Object:</span> you can object to
-            processing based on our legitimate interest, including
-            analytics, profiling and direct marketing.
+            <span className="font-semibold">Objection.</span> Object to
+            processing we base on legitimate interests. We stop unless we can
+            show compelling grounds.
           </p>
           <p>
-            <span className="font-semibold">Automated decision-making:</span> we
-            do not make solely automated decisions that produce legal or
-            similarly significant effects.
-          </p>
-          <p>
-            <span className="font-semibold">Withdraw consent:</span> where we
-            rely on consent, you may withdraw it at any time with the same ease
-            as giving it. Withdrawal does not erase the lawfulness of
-            processing already carried out.
+            <span className="font-semibold">Withdrawing consent.</span> Turn off
+            any non-essential purpose in Settings, or email us. It is as easy to
+            withdraw as it was to give.
           </p>
         </section>
         <p className="t-fine">
-          You also have the right to lodge a complaint with the Information
-          Commissioner's Office (ICO) at{' '}
-          <Link href="https://ico.org.uk">https://ico.org.uk</Link> if you are
-          unsatisfied with our response.
+          We may ask you to confirm you control the account before we act, and
+          we may have to keep a record of the request itself. If you are not
+          satisfied with our answer, you can complain to the Information
+          Commissioner&apos;s Office at{' '}
+          <Link href="https://ico.org.uk">https://ico.org.uk</Link>.
         </p>
       </>
     ),
   },
   {
     id: 'deletion',
-    title: '9. How to ask us to delete your data',
+    title: '10. Deleting your account',
     content: (
       <>
         <p>
-          You can request account anonymisation through the &quot;Delete my data&quot;
-          control in Settings. The current control anonymises your account and
-          removes selected account records; it does not currently erase all
-          historical learning or class records. Contact{' '}
-          <Link href="mailto:tayyab@outlook.jp">tayyab@outlook.jp</Link> to
-          ask about access, correction, restriction or erasure of other records.
+          The &quot;Delete my data&quot; control is in Settings. It is
+          deliberately awkward to trigger by accident: you need to be signed in,
+          you get a confirmation that expires after 60 seconds, and you type
+          your account email back before the button will work. The action cannot
+          be undone.
         </p>
-        <p>
-          When you ask us to delete your data:
-        </p>
+        <p>What it removes:</p>
         <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
-          <li>The Settings control requires a signed-in session, a short-lived confirmation and the account email typed back into the form.</li>
-          <li>It anonymises the account and removes selected profile, session, subject, achievement and review-state records.</li>
-          <li>It does not currently erase every historical learning, class or activity record; contact support to make a broader data-rights request.</li>
-          <li>The current control does not verify guardian authority. A parent or guardian requesting action for a learner should contact support.</li>
+          <li>Every session and refresh token, and every unused email token.</li>
+          <li>Your subject enrolments, card-level scheduling, streak, achievements and any pending role request.</li>
+          <li>
+            Your name, display name, username, bio, pronouns, avatar, banner,
+            two-factor secret and recovery codes, and your saved consent record.
+          </li>
         </ul>
+        <p className="mt-3">What it changes rather than removes:</p>
+        <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
+          <li>
+            Your email address is replaced with a placeholder, your password with
+            a value that cannot be used, and the account is marked deleted, so
+            nobody can sign in to it again.
+          </li>
+        </ul>
+        <p className="mt-3">
+          What remains, and why: your review log, XP events, exam attempts, class
+          memberships, imports and season results stay, keyed to an internal
+          account id that no longer connects to a name or an email address. We
+          keep them because the XP ledger and the season table are records of
+          what happened, and removing half of a season would change other
+          learners&apos; standings.
+        </p>
         <p>
-          Some account, class, activity or security records may remain after
-          account anonymisation. We review broader erasure requests individually
-          and explain any records that must be retained and why.
+          Uploaded avatar and banner images are not removed by that control
+          today. Email us and we will delete the image and its stored copy.
+        </p>
+        <p className="t-fine">
+          The control does not verify guardian authority. A parent or guardian
+          acting for a learner should email us instead, and we will handle it as
+          a data-subject request. If you want records beyond the control&apos;s
+          scope removed, ask; we will do it unless a specific record has to stay
+          and we will tell you which and why.
         </p>
       </>
     ),
   },
   {
     id: 'cookies',
-    title: '10. Cookies and similar technologies',
+    title: '11. Cookies and local storage',
     content: (
       <>
         <p>
-          We use cookies and similar technologies to operate the Service,
-          analyse how it is used, and — only with your consent — to personalise
-          content and serve marketing. You can control or block cookies in your
-          browser, but blocking all cookies may break parts of the Service.
+          Essential cookies keep you signed in and keep the Service secure. They
+          cannot be switched off, because the Service does not work without
+          them. On your first visit a banner asks what you want to allow;
+          nothing non-essential is loaded before you answer, and no non-essential
+          cookie is set today.
         </p>
         <p>
-          The categories of cookie we use, how to refuse them, and instructions
-          for opting out of analytics and marketing are in the{' '}
-          <Link href="/cookie-policy">Cookie Policy</Link>.
+          Your choice is stored in this browser&apos;s local storage, and on
+          your account when you are signed in, so it follows you between
+          devices. The categories, what each one would cover, and how to refuse
+          them are in the <Link href="/cookie-policy">Cookie Policy</Link>. You
+          can change your mind at any time in Settings.
         </p>
       </>
     ),
   },
   {
     id: 'age-consent',
-    title: '11. Children&apos;s data (age consent)',
+    title: "12. Children's data",
     content: (
       <>
         <p>
-          UK GDPR and the Age Appropriate Design Code place special protection
-          on children&apos;s data. We design the Service for learners aged 13
-          and over. Learners under 13 may register only when the person
-          completing registration self-attests as a parent or legal guardian
-          and consents to the processing needed to provide the Service.
+          UK GDPR and the Age Appropriate Design Code give children&apos;s data
+          extra protection. The Service is designed for learners aged 13 and
+          over. A learner under 13 can hold an account only when the person
+          completing registration confirms that they are the parent or legal
+          guardian and agrees to the processing needed to provide the Service.
         </p>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">How we confirm a parent&apos;s consent          </h3>
+          <h3 className="t-caption-s mb-1">What that check is, and is not</h3>
           <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
-            <li>Registration asks the person completing it to attest that they are the parent or legal guardian when the learner is under 13.</li>
-            <li>This is self-attestation only: we do not independently verify the guardian&apos;s identity, relationship or control of an email address. Contact support to withdraw consent.</li>
-            <li>If we learn we hold a child&apos;s data without the required consent, we will review the account and take appropriate action, including considering an erasure request.</li>
+            <li>
+              Registration asks for a date of birth and, where it puts the
+              learner under 13, a ticked statement that the person completing
+              the form is their parent or legal guardian.
+            </li>
+            <li>
+              That is self-attestation. We do not independently verify who the
+              person is, their relationship to the learner, or that they control
+              the email address used. We would rather say so plainly than imply
+              a check that does not happen.
+            </li>
+            <li>
+              If we find that we hold a child&apos;s data without the consent
+              that was required, we review the account and act on it, which can
+              include deleting it.
+            </li>
           </ul>
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
-          <h3 className="t-caption-s mb-1">How to withdraw a guardian&apos;s consent</h3>
+          <h3 className="t-caption-s mb-1">Withdrawing a guardian&apos;s consent</h3>
           <p className="mb-2">
-            The guardian can withdraw consent at any time from the learner&apos;s
-            account, or by contacting us. Where consent is withdrawn, we will
-            delete the learner&apos;s personal data as soon as possible unless a
-            we have another lawful basis to retain it and explain that basis.
+            A guardian can withdraw consent at any time by emailing us. We then
+            delete the learner&apos;s personal data as soon as we can, unless
+            another lawful basis requires us to keep a specific record, in which
+            case we tell you which record and why.
           </p>
           <p>
-            If the learner is aged 13 or over, they may withdraw their
-            own consent — for example, they can change their notice and consent
-            settings in Settings, and we ask them to confirm that any change is
-            made by them.
+            A learner aged 13 or over can withdraw their own consent in Settings,
+            and can turn any non-essential purpose off without asking anyone.
           </p>
         </section>
       </>
@@ -405,103 +560,111 @@ const SECTIONS = [
   },
   {
     id: 'dark-patterns',
-    title: '12. No dark patterns',
+    title: '13. No dark patterns',
     content: (
       <>
         <p>
-          We do not use dark patterns — interfaces designed to trick you into
-          doing things you did not intend. That means:
+          A dark pattern is an interface built to get a decision you did not mean
+          to make. We do not use them. In practice that means:
         </p>
         <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
-          <li>Consent to non-essential cookies or communications is always explicit, separate from essential consent, and easy to withdraw.</li>
-          <li>We never pre-tick a box for you to change, hide your choices, or make it hard to find the &quot;no thanks&quot; option.</li>
-          <li>We never use urgency or scarcity to make you click past a decision.</li>
-          <li>We never use contrast, position or wording to push you into sharing more than you intend.</li>
+          <li>
+            Consent to non-essential purposes is a separate, unticked control
+            for each purpose, never a single box covering everything.
+          </li>
+          <li>
+            Refusing is as easy as accepting. The banner offers &quot;Reject
+            all&quot; beside &quot;Accept all&quot;, and Settings holds the same
+            switches.
+          </li>
+          <li>
+            We do not use countdowns, scarcity or guilt to move you past a
+            decision, and we do not hide the &quot;no thanks&quot; route.
+          </li>
+          <li>
+            We do not use colour, position or wording to nudge you into sharing
+            more than you intended.
+          </li>
         </ul>
       </>
     ),
   },
   {
     id: 'third-party',
-    title: '13. Third-party software audit',
+    title: '14. Third-party software',
     content: (
       <>
         <p>
-          We use third-party software only to operate the Service. Before we
-          integrate a new provider, we confirm that it:
+          Before we add a provider we check four things: that it publishes a
+          privacy policy and data-processing terms, that it processes data only
+          on our instructions, that it is hosted in the EEA or a country with an
+          adequacy decision (or that a transfer mechanism is in place, as with
+          Vercel and Resend), and that it cannot read personal data about our
+          users unless we have configured it to.
         </p>
-        <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
-          <li>Has a documented privacy policy and data-processing terms.</li>
-          <li>Processes data only for our instructions and on the same security standards we require.</li>
-          <li>Is hosted in the EEA or a country with an adequacy decision.</li>
-          <li>cannot read personal data about our users unless we have consented and we configure it to do so.</li>
-        </ul>
         <p>
-          We review this list in every release and when we add new software. The
-          audit log is held in our records-management system and is available
-          for inspection on request.
+          Today that check has passed for the four providers named in section 5,
+          and for no others. There is no tag manager, no session recorder and no
+          third-party script on the pages you use. If you want to know what a
+          particular provider is used for, ask and we will tell you.
         </p>
       </>
     ),
   },
   {
     id: 'accuracy',
-    title: '14. Accuracy and changes to this policy',
+    title: '15. Accuracy and changes to this policy',
     content: (
       <>
         <p>
-          We make errors visible rather than unverifiable: if we tell you the
-          Service does something, we confirm it does before we say it, and we
-          correct any claim we cannot substantiate. We will not claim a result —
-          for example, a rank, a review count or a guarantee of progress — and
-          then fail to meet it.
+          We would rather describe the Service as it is than as we would like it
+          to be. Where a control does less than you might assume, this policy
+          says so, as section 10 does about deletion.
         </p>
         <p>
           We review this policy at least once a year and whenever our practices
-          change. Where we make a significant change, we will post a notice on
-          the Service and, where required, contact you. The &quot;last
-          reviewed&quot; date above is when this version was last checked.
+          change. If a change affects your rights, we post a notice on the
+          Service and email you where the law requires it. The date at the top is
+          when this version was last checked.
         </p>
       </>
     ),
   },
   {
     id: 'accessibility',
-    title: '15. Accessibility',
+    title: '16. Accessibility',
     content: (
       <>
         <p>
-          We want the Service to be usable by as many people as possible, and we
-          work to meet the Web Content Accessibility Guidelines (WCAG) 2.2 AA
-          standard. This includes alternatives for images, clear contrast,
-          keyboard access and readable text.
-        </p>
-        <p>
-          If you find a barrier to accessing any part of the Service, please
-          contact us and we will do our best to help.
+          This policy should be readable by everyone who needs it. If any part of
+          it is hard to use, email us and we will send the content in another
+          form. Our fuller statement, including the WCAG 2.2 AA target we work
+          to and the limitations we know about, is the{' '}
+          <Link href="/accessibility">Accessibility Statement</Link>.
         </p>
       </>
     ),
   },
   {
     id: 'contact',
-    title: '16. Questions, complaints and contact details',
+    title: '17. Contact and complaints',
     content: (
       <>
         <p>
-          If you have a question about this policy, want to exercise your
-          rights, or want to withdraw consent or request deletion:
+          For a question about this policy, a data-subject request, a withdrawal
+          of consent or a deletion request:
         </p>
         <p className="mt-2">
           Revisio<br />
-          <span className="t-fine">Privacy team</span><br />
+          <span className="t-fine">Privacy</span><br />
           <Link href="mailto:tayyab@outlook.jp">tayyab@outlook.jp</Link>
         </p>
         <p className="t-fine">
-          If you are in the EEA, you may instead contact your local data
-          protection authority. The Information Commissioner&apos;s Office is the
-          UK authority:{' '}
-          <Link href="https://ico.org.uk">https://ico.org.uk</Link>.
+          We answer complaints ourselves first, and most are settled that way. If
+          you are not satisfied, the Information Commissioner&apos;s Office is
+          the UK supervisory authority:{' '}
+          <Link href="https://ico.org.uk">https://ico.org.uk</Link>. If you live
+          in the EEA, you can complain to your own national authority instead.
         </p>
       </>
     ),
@@ -518,7 +681,7 @@ export default function PrivacyPage() {
         <p className="t-fine uppercase tracking-wide text-muted-foreground">Legal</p>
         <h1 className="t-strong mt-1 text-3xl">Privacy Policy</h1>
         <p className="t-caption mt-2">
-          Revisio — Learn it once · v2 · 1 October 2026
+          Revisio · version 3 · last reviewed 13 November 2026
         </p>
       </header>
 
@@ -527,7 +690,7 @@ export default function PrivacyPage() {
           <Link
             key={s.id}
             href={`#${s.id}`}
-            className="chip chip-wrap"
+            className={cn(badgeVariants({ variant: 'chip' }), 'chip-wrap')}
           >
             {/* The whole heading, minus its number: stripping the first word
                 left links like “1. Who we are” with no accessible name at all. */}
@@ -550,7 +713,7 @@ export default function PrivacyPage() {
       <footer className="border-t border-border pt-6 text-xs text-muted-foreground">
         <p>
           This policy describes how Revisio handles personal data and the
-          choices you have over it. It does not constitute legal advice.
+          choices you have over it. It is not legal advice to anyone else.
         </p>
         <p className="mt-2">
           <Link href="/terms" className="underline underline-offset-4">
@@ -560,7 +723,7 @@ export default function PrivacyPage() {
           <Link href="/cookie-policy" className="underline underline-offset-4">
             Cookie Policy
           </Link>
-          ·{' '}
+          {' '}·{' '}
           <Link href="/accessibility" className="underline underline-offset-4">
             Accessibility Statement
           </Link>
