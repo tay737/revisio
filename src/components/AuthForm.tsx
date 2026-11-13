@@ -8,8 +8,11 @@ import { api, setToken, ApiClientError } from '@/lib/api';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { SPRING } from '@/lib/motion';
 import { Notice } from '@/components/Notice';
-import { ShimmerButton } from '@/components/ui/shimmer-button';
-import { MagicCard } from '@/components/ui/magic-card';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type LoginResponse = {
   accessToken?: string;
@@ -130,18 +133,17 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
       : 'Developer accounts are approved before activation.';
 
   return (
-    <MagicCard className="rounded-2xl p-0">
-      <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
-      <h1 className="t-tagline">{title}</h1>
+    <Card className="p-6 shadow-[var(--shadow-card)] sm:p-7">
+      <h1 className="t-title">{title}</h1>
       <p className="t-caption mt-1.5 text-muted-foreground">{subtitle}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         <Field icon="mail" label="Email" htmlFor="email">
-          <input
+          <Input
             id="email"
             ref={emailRef}
             type="email"
-            className="input pl-11"
+            className="pl-11"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -157,10 +159,10 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         </Field>
 
         <Field icon="secure" label="Password" htmlFor="password">
-          <input
+          <Input
             id="password"
             type="password"
-            className="input pl-11"
+            className="pl-11"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -174,12 +176,12 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
 
         {mode === 'register' && (
           <div>
-            <label className="label" htmlFor="staff-note">
+            <Label htmlFor="staff-note">
               Why do you need a staff account?
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="staff-note"
-              className="input min-h-[80px]"
+              className="min-h-[80px]"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Team, role, what you need access to…"
@@ -197,10 +199,10 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
               className="overflow-hidden"
             >
               <Field icon="private" label="Two-factor code" htmlFor="totp">
-                <input
+                <Input
                   id="totp"
                   ref={totpRef}
-                  className="input pl-11 tracking-[0.4em]"
+                  className="pl-11 tracking-[0.4em]"
                   value={totp}
                   onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
                   maxLength={6}
@@ -231,32 +233,39 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         </Notice>
 
         {unverifiedEmail && (
-          <button
+          <Button variant="secondary"
             type="button"
             onClick={resendVerification}
             disabled={busy}
-            className="btn btn-secondary w-full gap-2"
+            className="w-full gap-2"
           >
             <Icon name="rotate" size={16} />
             Re-send the verification email
-          </button>
+          </Button>
         )}
 
-        <ShimmerButton type="submit" disabled={busy} className="w-full">
-          <span className="text-sm font-medium">
-            {busy ? 'Just a moment…' : mode === 'login' ? (mfaStage ? 'Verify and sign in' : 'Sign in') : 'Create account'}
-          </span>
-        </ShimmerButton>
+        <Button type="submit" disabled={busy} className="w-full">
+          {busy ? 'Just a moment…' : mode === 'login' ? (mfaStage ? 'Verify and sign in' : 'Sign in') : 'Create account'}
+        </Button>
       </form>
 
       <p className="t-caption mt-5 text-center text-muted-foreground">
         {mode === 'login' ? (
-          <>
-            No account yet?{' '}
-            <Link href="/staff/register" className="text-primary underline underline-offset-4 hover:text-primary/80">
-              Request staff access
-            </Link>
-          </>
+          staff ? (
+            <>
+              Need a staff account?{' '}
+              <Link href="/staff/register" className="tap-link font-medium text-foreground underline underline-offset-4">
+                Request access
+              </Link>
+            </>
+          ) : (
+            <>
+              New to Revisio?{' '}
+              <Link href="/register" className="tap-link font-medium text-foreground underline underline-offset-4">
+                Start free
+              </Link>
+            </>
+          )
         ) : (
           <>
             Already registered?{' '}
@@ -271,13 +280,12 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           learner is actually looking, not only in the footer. */}
       {mode === 'login' && (
         <p className="t-caption mt-1.5 text-center">
-          <Link href="/forgot-password" className="text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
+          <Link href="/forgot-password" className="tap-link text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
             Forgot your password?
           </Link>
         </p>
       )}
-      </div>
-    </MagicCard>
+    </Card>
   );
 }
 
@@ -299,9 +307,9 @@ export function Field({
 }) {
   return (
     <div>
-      <label className="label" htmlFor={htmlFor}>
+      <Label htmlFor={htmlFor}>
         {label}
-      </label>
+      </Label>
       <div className="relative">
         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
           <Icon name={icon} size={17} />

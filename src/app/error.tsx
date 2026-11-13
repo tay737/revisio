@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 /**
  * The branded failure state.
@@ -31,7 +35,7 @@ export default function ErrorPage({
   return (
     <main className="grid min-h-viewport place-items-center bg-background px-5 py-14">
       <div className="w-full max-w-md">
-        <div className="card p-7 text-center">
+        <Card className="p-7 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
             <Icon name="due" size={22} />
           </span>
@@ -41,11 +45,11 @@ export default function ErrorPage({
           </p>
 
           <div className="mt-6 flex flex-col gap-2">
-            <button type="button" onClick={reset} className="btn btn-primary w-full">
+            <Button variant="primary" type="button" onClick={reset} className="w-full">
               <Icon name="rotate" size={16} />
               Try again
-            </button>
-            <Link href="/dashboard" className="btn btn-secondary w-full">
+            </Button>
+            <Link href="/dashboard" className={cn(buttonVariants({ variant: 'secondary' }), 'w-full')}>
               Back to Today
             </Link>
           </div>
@@ -55,7 +59,7 @@ export default function ErrorPage({
               If this keeps happening, quote this code: <span className="font-mono">{error.digest}</span>
             </p>
           )}
-        </div>
+        </Card>
       </div>
     </main>
   );

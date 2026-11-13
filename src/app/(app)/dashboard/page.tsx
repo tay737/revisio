@@ -14,6 +14,10 @@ import { RankStrip } from '@/components/rank/RankStrip';
 import { StrengthCard } from '@/components/insights/StrengthCard';
 import { companionFor, greetingFor, openers } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 /**
  * Today — the dashboard.
@@ -73,11 +77,11 @@ export default function DashboardPage() {
   if (loading) return <PageSkeleton />;
   if (error || !me || !started) {
     return (
-      <div className="card text-center">
+      <Card className="text-center">
         <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
         <p className="t-strong mt-2">We couldn’t load your dashboard.</p>
         <p className="t-caption mt-1 text-muted-foreground">Check your connection and try again.</p>
-      </div>
+      </Card>
     );
   }
 
@@ -99,7 +103,7 @@ export default function DashboardPage() {
 
         <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
           {today.due > 0 ? (
-            <Link href="/review" className="btn btn-good btn-lg gap-2.5">
+            <Link href="/review" className={cn(buttonVariants({ variant: 'good', size: 'lg' }), 'gap-2.5')}>
               <Icon name="review" size={18} />
               Start review
               <span className="num rounded-full bg-black/20 px-2 py-0.5 text-[13px] font-bold">
@@ -107,12 +111,12 @@ export default function DashboardPage() {
               </span>
             </Link>
           ) : (
-            <Link href="/learn" className="btn btn-good btn-lg gap-2.5">
+            <Link href="/learn" className={cn(buttonVariants({ variant: 'good', size: 'lg' }), 'gap-2.5')}>
               <Icon name="learn" size={18} />
               Get ahead
             </Link>
           )}
-          <Link href="/cram" className="btn btn-secondary btn-lg gap-2.5">
+          <Link href="/cram" className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'gap-2.5')}>
             <Icon name="cram" size={18} />
             Cram instead
           </Link>
@@ -180,7 +184,7 @@ export default function DashboardPage() {
 
       {/* ── Subjects, and the two facts worth keeping from the old card ──── */}
       <BlurFade>
-        <div className="card">
+        <Card>
           <div className="flex items-center justify-between gap-3">
             <h2 className="t-strong">Your subjects</h2>
             <Link href="/library" className="text-[14px] font-medium underline underline-offset-4">
@@ -191,9 +195,9 @@ export default function DashboardPage() {
           {me.subjects.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {me.subjects.map((s) => (
-                <span key={s.id} className="chip chip-soft">
+                <Badge variant="chip-soft" key={s.id}>
                   {s.name}
-                </span>
+                </Badge>
               ))}
             </div>
           ) : (
@@ -223,7 +227,7 @@ export default function DashboardPage() {
               </dd>
             </div>
           </dl>
-        </div>
+        </Card>
       </BlurFade>
     </div>
   );
@@ -246,7 +250,7 @@ function Stat({
     tone === 'good' ? 'text-good-strong' : tone === 'streak' ? 'text-streak-pressed' : 'text-muted-foreground';
 
   return (
-    <div className="card p-4">
+    <Card className="p-4">
       <div className={`flex items-center gap-1.5 ${tone ? tint : 'text-muted-foreground'}`}>
         <Icon name={icon} size={15} />
         <span className="t-fine">{label}</span>
@@ -255,6 +259,6 @@ function Stat({
         <NumberTicker value={value} className="num" />
         {suffix && <span className="text-[12px] font-normal text-muted-foreground">{suffix}</span>}
       </div>
-    </div>
+    </Card>
   );
 }

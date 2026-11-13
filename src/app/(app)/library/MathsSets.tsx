@@ -5,6 +5,9 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type Concept = { id: string; name: string; category: string; description: string };
 type Subject = { id: string; name: string; mathsEnabled: boolean };
@@ -108,10 +111,9 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="maths-subject">Subject (maths enabled)</label>
-              <select
+              <Label htmlFor="maths-subject">Subject (maths enabled)</Label>
+              <NativeSelect
                 id="maths-subject"
-                className="input"
                 value={subjectId}
                 onChange={(e) => {
                   setSubjectId(e.target.value);
@@ -123,32 +125,32 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div>
-              <label className="label" htmlFor="maths-topic">Topic</label>
-              <select id="maths-topic" className="input" value={topicId} onChange={(e) => setTopicId(e.target.value)} disabled={!subjectId}>
+              <Label htmlFor="maths-topic">Topic</Label>
+              <NativeSelect id="maths-topic" value={topicId} onChange={(e) => setTopicId(e.target.value)} disabled={!subjectId}>
                 <option value="">Choose…</option>
                 {subjectTopics.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="maths-title">Set title</label>
-              <input id="maths-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Brackets and equations" required />
+              <Label htmlFor="maths-title">Set title</Label>
+              <Input id="maths-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Brackets and equations" required />
             </div>
             <div>
-              <label className="label" htmlFor="maths-desc">One line about it</label>
-              <input id="maths-desc" className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
+              <Label htmlFor="maths-desc">One line about it</Label>
+              <Input id="maths-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
             </div>
           </div>
 
           <div>
-            <span className="label">Concepts in this set ({picked.size})</span>
+            <Label>Concepts in this set ({picked.size})</Label>
             <div className="max-h-64 space-y-3 overflow-y-auto rounded-[11px] border border-border/70 p-3">
               {byCategory.map(([category, list]) => (
                 <div key={category}>
@@ -185,7 +187,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <span className="label">Default difficulty</span>
+              <Label>Default difficulty</Label>
               <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
                 {(['easy', 'medium', 'hard', 'mixed'] as const).map((d) => (
                   <button key={d} type="button" onClick={() => setDifficulty(d)} aria-pressed={difficulty === d} className={`segment flex-1 capitalize ${difficulty === d ? 'segment-active' : ''}`}>
@@ -195,7 +197,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
               </div>
             </div>
             <div>
-              <label className="label" htmlFor="maths-count">Default questions — {count}</label>
+              <Label htmlFor="maths-count">Default questions — {count}</Label>
               <input id="maths-count" type="range" min={5} max={30} step={5} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
             </div>
           </div>
@@ -211,7 +213,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
 
       {mySets.length > 0 && (
         <div className="space-y-2">
-          <span className="label">Your sets in this subject</span>
+          <Label>Your sets in this subject</Label>
           {mySets.map((s) => (
             <div key={s.id} className="inset flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useReviewSession } from '@/components/ReviewSessionContext';
+import { Button } from '@/components/ui/button';
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -136,20 +137,20 @@ export default function PwaRegister() {
         </div>
         {showRegistrationError ? (
           <>
-            <button type="button" className="btn btn-primary btn-sm" onClick={registerWorker}>Retry</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRegistrationFailed(false)}>Dismiss</button>
+            <Button variant="primary" size="sm" type="button" onClick={registerWorker}>Retry</Button>
+            <Button variant="ghost" size="sm" type="button" onClick={() => setRegistrationFailed(false)}>Dismiss</Button>
           </>
         ) : showUpdate ? (
           <>
-            <button type="button" className="btn btn-primary btn-sm" onClick={update} disabled={isReview || activating}>
+            <Button variant="primary" size="sm" type="button" onClick={update} disabled={isReview || activating}>
               {activating ? 'Updating…' : 'Update now'}
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUpdateHidden(true)}>Later</button>
+            </Button>
+            <Button variant="ghost" size="sm" type="button" onClick={() => setUpdateHidden(true)}>Later</Button>
           </>
         ) : installPrompt ? (
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => void install()}>Install app</button>
+          <Button variant="primary" size="sm" type="button" onClick={() => void install()}>Install app</Button>
         ) : (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIosInstructions(false)}>Close</button>
+          <Button variant="ghost" size="sm" type="button" onClick={() => setIosInstructions(false)}>Close</Button>
         )}
       </div>
     </aside>

@@ -16,6 +16,8 @@ import { ClozeMarking } from './ClozeMarking';
 import { GenerateCloze } from './GenerateCloze';
 import { useMe } from '@/lib/useMe';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 type Topic = TopicOption & {
   visibility: string;
@@ -185,7 +187,7 @@ export default function LibraryPage() {
         {/* ── Topics ──────────────────────────────────────────────────────── */}
         <TabsContent value="topics" className="space-y-4">
           {topics.length === 0 ? (
-            <div className="card p-8 text-center">
+            <Card className="p-8 text-center">
               <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
                 <Icon name="library2" size={22} />
               </span>
@@ -194,7 +196,7 @@ export default function LibraryPage() {
                 Questions and notes live together in one — write it under <strong>Write</strong>, or bring a deck you
                 already have under <strong>Import</strong>.
               </p>
-            </div>
+            </Card>
           ) : (
             <div className="space-y-2">
               {topics.map((t, i) => (
@@ -258,18 +260,18 @@ export default function LibraryPage() {
 
         {/* ── Write ───────────────────────────────────────────────────────── */}
         <TabsContent value="write">
-          <div className="card">
+          <Card>
             <h2 className="t-strong">Write a topic</h2>
             <p className="t-caption mt-1 text-muted-foreground">Notes and questions together, so they arrive as one.</p>
             <div className="mt-5">
               <ComposeTopic subjects={subjects} onCreated={(m) => { say(m); load(); }} />
             </div>
-          </div>
+          </Card>
         </TabsContent>
 
         {/* ── Import ──────────────────────────────────────────────────────── */}
         <TabsContent value="import">
-          <div className="card">
+          <Card>
             <h2 className="t-strong">Bring a deck</h2>
             <p className="t-caption mt-1 text-muted-foreground">
               Add it to a topic you already have, so its questions sit with its notes.
@@ -277,12 +279,12 @@ export default function LibraryPage() {
             <div className="mt-5">
               <ImportDeck subjects={subjects} topics={topics} onImported={say} onChanged={load} />
             </div>
-          </div>
+          </Card>
         </TabsContent>
 
         {/* ── Generate (cloze from notes) ────────────────────────────────── */}
         <TabsContent value="generate">
-          <div className="card">
+          <Card>
             <h2 className="t-strong">Generate fill-the-blank questions</h2>
             <p className="t-caption mt-1 text-muted-foreground">
               Proposals come from this topic's own notes, ranked by how well they test recall. You approve each one —
@@ -294,12 +296,12 @@ export default function LibraryPage() {
                 onDone={(m) => { say(m); load(); }}
               />
             </div>
-          </div>
+          </Card>
         </TabsContent>
 
         {/* ── Maths sets ──────────────────────────────────────────────────── */}
         <TabsContent value="maths">
-          <div className="card">
+          <Card>
             <h2 className="t-strong">Maths practice sets</h2>
             <p className="t-caption mt-1 text-muted-foreground">
               Pin generator concepts to a topic. Questions are generated fresh at practice time — every student can meet different numbers, forever.
@@ -307,13 +309,13 @@ export default function LibraryPage() {
             <div className="mt-5">
               <MathsSets topics={topics.map((t) => ({ id: t.id, name: t.name, subjectId: t.subjectId }))} onDone={say} />
             </div>
-          </div>
+          </Card>
         </TabsContent>
 
         {/* ── Cloze marking (staff only; the tab is hidden for students) ──── */}
         {isStaff && (
         <TabsContent value="marking">
-          <div className="card">
+          <Card>
             <h2 className="t-strong">Cloze marking</h2>
             <p className="t-caption mt-1 text-muted-foreground">
               How strictly fill-the-blank answers are marked. Applies to your subjects and topics; developers set the
@@ -322,20 +324,20 @@ export default function LibraryPage() {
             <div className="mt-5">
               <ClozeMarking isDeveloper={me?.role === 'developer'} />
             </div>
-          </div>
+          </Card>
         </TabsContent>
         )}
 
         {/* ── Class ───────────────────────────────────────────────────────── */}
         <TabsContent value="class">
-          <div className="card">
+          <Card>
             <h2 className="t-strong">Join a class</h2>
             <p className="t-caption mt-1 text-muted-foreground">
               The six-character code from your teacher. It shares your review activity, nothing else.
             </p>
             <form onSubmit={joinClass} className="mt-4 flex flex-wrap gap-2">
-              <input
-                className="input uppercase tracking-[0.3em] sm:max-w-[200px]"
+              <Input
+                className="uppercase tracking-[0.3em] sm:max-w-[200px]"
                 value={classCode}
                 onChange={(e) => setClassCode(e.target.value.toUpperCase())}
                 maxLength={6}
@@ -347,7 +349,7 @@ export default function LibraryPage() {
                 {joining ? 'Joining…' : 'Join'}
               </Button>
             </form>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

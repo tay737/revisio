@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { AuthShell } from '@/components/AuthShell';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Phase =
   | { kind: 'form' }
@@ -45,39 +48,38 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell footer={<Link href="/login" className="transition-colors hover:text-foreground">Back to sign in</Link>}>
-      <div className="card p-6 sm:p-7">
+      <Card className="p-6 sm:p-7">
         {phase.kind === 'sent' ? (
           <>
-            <h1 className="t-tagline">Check your inbox</h1>
+            <h1 className="t-title">Check your inbox</h1>
             <p className="t-caption mt-2 text-muted-foreground">{phase.message}</p>
             <p className="t-caption mt-2 text-muted-foreground">
               Haven&apos;t received it? Check your spam folder, then try again — requests are
               limited to a few per address.
             </p>
-            <button
+            <Button variant="secondary"
               type="button"
-              className="btn btn-secondary mt-5 w-full"
+              className="mt-5 w-full"
               onClick={() => setPhase({ kind: 'form' })}
             >
               Use a different address
-            </button>
+            </Button>
           </>
         ) : (
           <>
-            <h1 className="t-tagline">Reset your password</h1>
+            <h1 className="t-title">Reset your password</h1>
             <p className="t-caption mt-1.5 text-muted-foreground">
               Tell us the address you signed up with and we&apos;ll send you a link to choose a new one.
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
-                <label className="label" htmlFor="reset-email">
+                <Label htmlFor="reset-email">
                   Email
-                </label>
-                <input
+                </Label>
+                <Input
                   id="reset-email"
                   type="email"
-                  className="input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -102,7 +104,7 @@ export default function ForgotPasswordPage() {
             </p>
           </>
         )}
-      </div>
+      </Card>
     </AuthShell>
   );
 }

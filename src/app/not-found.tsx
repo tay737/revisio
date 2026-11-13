@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/icons';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 /**
  * The branded 404.
@@ -13,7 +16,7 @@ export default function NotFound() {
   return (
     <main className="grid min-h-viewport place-items-center bg-background px-5 py-14">
       <div className="w-full max-w-md">
-        <div className="card p-7 text-center">
+        <Card className="p-7 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary text-muted-foreground">
             <Icon name="search" size={22} />
           </span>
@@ -23,14 +26,14 @@ export default function NotFound() {
           </p>
 
           <div className="mt-6 flex flex-col gap-2">
-            <Link href="/dashboard" className="btn btn-primary w-full">
+            <Link href="/dashboard" className={cn(buttonVariants({ variant: 'primary' }), 'w-full')}>
               Back to Today
             </Link>
-            <Link href="/learn" className="btn btn-secondary w-full">
+            <Link href="/learn" className={cn(buttonVariants({ variant: 'secondary' }), 'w-full')}>
               Browse subjects
             </Link>
           </div>
-        </div>
+        </Card>
       </div>
     </main>
   );

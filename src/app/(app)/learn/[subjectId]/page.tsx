@@ -10,7 +10,10 @@ import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { unitFromTopic, topicSortKey, type Topic } from './shared';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 /**
  * The subject screen — the stable home the old pull-out list never gave a
@@ -61,7 +64,7 @@ export default function SubjectScreen() {
 
   if (!subjectId || failed || (topics && subject === null)) {
     return (
-      <div className="card p-8 text-center">
+      <Card className="p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
           <Icon name="learn" size={22} />
         </span>
@@ -70,7 +73,7 @@ export default function SubjectScreen() {
         <Link href="/learn" className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
           Back to Learn
         </Link>
-      </div>
+      </Card>
     );
   }
 
@@ -106,9 +109,9 @@ export default function SubjectScreen() {
           <h1 className="t-title">{subject.name}</h1>
           <p className="mt-1 text-[14px] leading-snug text-muted-foreground">{subject.description}</p>
         </div>
-        <span className="chip shrink-0">
+        <Badge variant="chip" className="shrink-0">
           {topics.length} {topics.length === 1 ? 'topic' : 'topics'} · {specCount} spec refs
-        </span>
+        </Badge>
       </header>
 
       {/* ── Specification ────────────────────────────────────────────────
@@ -116,7 +119,7 @@ export default function SubjectScreen() {
           drift. Collapsed by default so it informs without pushing the topic
           list below the fold. */}
       {specCount > 0 && (
-        <section aria-labelledby="specs-heading" className="card p-0">
+        <Card as="section" aria-labelledby="specs-heading" className="p-0">
           <button
             type="button"
             onClick={() => setSpecsOpen((v) => !v)}
@@ -156,9 +159,9 @@ export default function SubjectScreen() {
                     <dt className="t-strong">Unit {unit}</dt>
                     <dd className="mt-1.5 flex flex-wrap gap-1.5">
                       {entry.refs.map((ref) => (
-                        <span key={ref} className="chip chip-soft">
+                        <Badge variant="chip-soft" key={ref}>
                           {ref}
-                        </span>
+                        </Badge>
                       ))}
                     </dd>
                   </div>
@@ -166,7 +169,7 @@ export default function SubjectScreen() {
               </dl>
             </div>
           </motion.div>
-        </section>
+        </Card>
       )}
 
       <section aria-labelledby="topics-heading" className="space-y-4">
@@ -178,9 +181,9 @@ export default function SubjectScreen() {
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
               <Icon name="search" size={17} />
             </span>
-            <input
+            <Input
               type="search"
-              className="input pl-11"
+              className="pl-11"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search topics…"
@@ -220,10 +223,10 @@ export default function SubjectScreen() {
                       </span>
                     )}
                   </span>
-                  <span className="chip shrink-0">
+                  <Badge variant="chip" className="shrink-0">
                     {t.lessons ?? 0} {(t.lessons ?? 0) === 1 ? 'note' : 'notes'} · {t.cards ?? 0}{' '}
                     {(t.cards ?? 0) === 1 ? 'question' : 'questions'}
-                  </span>
+                  </Badge>
                 </Link>
                 <div className="flex gap-2 sm:shrink-0">
                   <Link

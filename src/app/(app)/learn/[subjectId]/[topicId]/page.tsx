@@ -12,7 +12,9 @@ import PageSkeleton from '@/components/PageSkeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { Markdown } from '@/components/Markdown';
 import { SPRING } from '@/lib/motion';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 type Lesson = { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string };
 
@@ -92,7 +94,7 @@ export default function TopicScreen() {
 
   if (!topicId || failed) {
     return (
-      <div className="card p-8 text-center">
+      <Card className="p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
           <Icon name="notes" size={22} />
         </span>
@@ -101,7 +103,7 @@ export default function TopicScreen() {
         <Link href={subjectId ? `/learn/${subjectId}` : '/learn'} className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
           Back
         </Link>
-      </div>
+      </Card>
     );
   }
 
@@ -165,10 +167,10 @@ export default function TopicScreen() {
       />
 
       {lessons.length === 0 && (
-        <div className="card p-8 text-center">
+        <Card className="p-8 text-center">
           <h2 className="t-tagline">No notes written for this topic yet</h2>
           <p className="t-caption mt-2 text-muted-foreground">Check back once the topic has been published.</p>
-        </div>
+        </Card>
       )}
 
       <div className="space-y-8">
@@ -186,10 +188,10 @@ export default function TopicScreen() {
                   {l.title}
                 </h2>
                 {l.specRefs && (
-                  <span className="chip chip-soft shrink-0">
+                  <Badge variant="chip-soft" className="shrink-0">
                     <Icon name="spec" size={12} />
                     {l.specRefs}
-                  </span>
+                  </Badge>
                 )}
               </div>
               <Markdown

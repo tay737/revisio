@@ -1,37 +1,37 @@
 import Link from 'next/link';
-import { MotionConfig } from 'motion/react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { TileBand } from '@/components/ui/tile';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { Icon, type IconName } from '@/components/ui/icons';
-import { BorderBeam } from '@/components/ui/border-beam';
-import { AnimatedGridPattern } from '@/components/ui/animated-grid-pattern';
-import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
-import { ScrollProgress } from '@/components/ui/scroll-progress';
-import { NumberTicker } from '@/components/ui/number-ticker';
-import { ShimmerButton } from '@/components/ui/shimmer-button';
-import { MagicCard } from '@/components/ui/magic-card';
 import { ReviewDemo } from '@/components/landing/review-demo';
 import { ForgettingCurve } from '@/components/landing/forgetting-curve';
-import { GlareHover } from '@/components/ui/glare-hover';
-import { WordReveal } from '@/components/landing/word-reveal';
+import { HeroEnter, HeroItem } from '@/components/landing/hero-enter';
 import { rankFor } from '@/domain/ranked';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 /**
- * Landing — docs/DESIGN-UBER.md, read strictly.
+ * Landing — docs/UI-SYSTEM.md, read as rules rather than inspiration.
  *
- * Edge-to-edge bands alternate canvas → ink → canvas → parchment → ink, so the
- * colour change is the divider. On top of that the page is deliberately
- * animated: a scroll progress rule, a word-by-word headline, a grid drifting
- * behind the hero, a tilt on the demo card, beams and shimmer on the CTAs, and
- * spotlight borders on the bento tiles.
+ * What changed from the previous version, and why:
  *
- * This page ignores the OS reduced-motion setting (`MotionConfig` below and the
- * `.landing-motion` opt-out in globals.css). The rest of the app still honours it.
- *
- * The two demos are real, not screenshots: a cloze review you can answer, and
- * a forgetting curve you can reschedule.
+ *   • The hero is one full screen and says what is sold, to whom, with a fact.
+ *     It used to be a ~510px band whose next section showed on the first screen.
+ *   • The effect stack is gone. No drifting grid, border beam, glare-follow,
+ *     word reveal, shiny text or scroll progress: the demo *is* the motion, and
+ *     a page that animates because it scrolled is not allowed by the spec.
+ *   • One entrance (HeroEnter: transform + opacity). Nothing else on the page
+ *     moves until the visitor touches it.
+ *   • One button language. The shimmer CTA is replaced by the system primary,
+ *     which keeps the press lip and the focus ring.
+ *   • The bento's 21-square grid was decoration pretending to be data; it is
+ *     now the demo's actual three-card queue.
+ *   • The rank numbers are static. They were rendered by NumberTicker, which
+ *     starts at zero and only runs in view — so a full-page capture (and any
+ *     reader who arrived mid-page) saw two empty stat slots.
+ *   • The companion band merged into the rank band. On its own it was a
+ *     half-empty screen with one small card.
  */
 
 const FEATURES: { icon: IconName; title: string; body: string }[] = [
@@ -39,293 +39,250 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
   { icon: 'exam', title: 'Papers that mark like real ones', body: 'Per-question feedback against the scheme.' },
 ];
 
-const COMPANION_LINE = 'Nothing is due — you are ahead.';
+/** The demo's own three cards, so the queue shown here is the queue beside it. */
+const QUEUE = [
+  { topic: 'Biology · Enzymes', kind: 'Cloze' },
+  { topic: 'Physics · Forces', kind: 'Cloze' },
+  { topic: 'Chemistry · Bonding', kind: 'Cloze' },
+];
 
-const SPOTLIGHT = 'rgb(169 124 248 / 0.14)';
+const FACTS: { value: string; short: string; label: string }[] = [
+  { value: '10 min', short: 'a day', label: 'a day' },
+  { value: '30', short: 'rungs', label: 'rungs, never reset' },
+  { value: 'Free', short: 'to start', label: 'to start' },
+];
+
+const COMPANION_LINE = 'Nothing is due — you are ahead.';
 
 export default function LandingPage() {
   return (
-    <MotionConfig reducedMotion="never">
-      <div className="landing-motion min-h-viewport bg-background">
-        <ScrollProgress />
-        <a href="#main" className="skip-link">
-          Skip to content
-        </a>
+    <div className="min-h-viewport bg-background">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
 
-        {/* ── Nav bar ───────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-safe backdrop-blur-xl">
-          <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-5 sm:px-8">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
-                R
-              </span>
-              <span className="t-tagline">Revisio</span>
+      {/* ── Nav bar ───────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background pt-safe">
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-5 sm:px-8">
+          <Link href="/" className="-my-1 flex items-center gap-2.5 py-1">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
+              R
+            </span>
+            <span className="t-tagline">Revisio</span>
+          </Link>
+
+          <nav className="ml-6 hidden items-center gap-1 md:flex">
+            <a href="#try" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+              Try it
+            </a>
+            <a href="#how" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+              How it works
+            </a>
+            <a href="#rank" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+              Rank
+            </a>
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle className="h-10 w-10" />
+            <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'hidden sm:inline-flex')}>
+              Log in
             </Link>
+            <Link href="/register" className={buttonVariants({ variant: 'primary' })}>
+              Start free
+            </Link>
+          </div>
+        </div>
+      </header>
 
-            <nav className="ml-6 hidden items-center gap-1 md:flex">
-              <a href="#try" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
-                Try it
-              </a>
-              <a href="#how" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
-                How it works
-              </a>
-              <a href="#rank" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
-                Rank
-              </a>
-            </nav>
+      <main id="main" tabIndex={-1}>
+        {/* ── Hero: what it is, who it is for, one fact, the real thing ────── */}
+        <TileBand tone="light" className="landing-hero">
+          <div className="grid items-center gap-6 sm:gap-8 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+            <HeroEnter>
+              <HeroItem>
+                <h1 className="t-hero max-w-[21ch]">Spaced repetition for GCSE, A-level and university.</h1>
+              </HeroItem>
 
-            <div className="ml-auto flex items-center gap-2">
-              <ThemeToggle className="h-10 w-10" />
-              <Link href="/login" className="btn btn-ghost hidden sm:inline-flex">
-                Log in
-              </Link>
-              <Link href="/register" className="btn btn-primary">
-                Start free
-              </Link>
+              <HeroItem>
+                <p className="t-lead-airy mt-4 max-w-[46ch] sm:mt-5">
+                  Learn a card once and it comes back the day before you would forget it.
+                  Ten minutes a day beats five hours the night before.
+                </p>
+              </HeroItem>
+
+              <HeroItem>
+                <div className="mt-6 flex flex-col gap-2.5 sm:mt-7 sm:flex-row">
+                  <Link href="/register" className={buttonVariants({ variant: 'primary', size: 'lg' })}>
+                    Start free
+                    <Icon name="next" size={17} />
+                  </Link>
+                  <a href="#try" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
+                    Try a card
+                  </a>
+                </div>
+              </HeroItem>
+
+              <HeroItem>
+                <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 sm:mt-9 sm:items-end sm:gap-x-9 sm:gap-y-4">
+                  {FACTS.map((fact) => (
+                    <div key={fact.value} className="flex items-baseline gap-1 sm:block">
+                      <p className="t-num-sm">{fact.value}</p>
+                      {/* "30" alone is not a fact. The short label rides beside
+                          the number on a phone and drops below it on desktop. */}
+                      <p className="t-fine text-muted-foreground sm:hidden">{fact.short}</p>
+                      <p className="t-fine mt-0.5 hidden text-muted-foreground sm:block">{fact.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </HeroItem>
+            </HeroEnter>
+
+            <div className="relative">
+              <ReviewDemo />
             </div>
           </div>
-        </header>
+        </TileBand>
 
-        <main id="main" tabIndex={-1}>
-          {/* ── Hero: headline left, the working review card right ──────────── */}
-          <TileBand tone="light" className="relative overflow-hidden !py-10 md:!py-20">
-            <AnimatedGridPattern
-              numSquares={28}
-              maxOpacity={0.07}
-              duration={5}
-              className="fill-foreground stroke-foreground/[0.06] mask-[radial-gradient(900px_circle_at_top_right,white,transparent)]"
-            />
-            <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
-              <div>
-                <BlurFade>
-                  <AnimatedShinyText className="t-eyebrow !mx-0 !max-w-none">Spaced repetition, properly</AnimatedShinyText>
-                </BlurFade>
-
-                <h1 className="t-hero mt-3 max-w-xl">
-                  <WordReveal text="Learn it once." delay={0.1} />
-                </h1>
-
-                <BlurFade delay={0.1}>
-                  <p className="mt-4 max-w-lg text-[17px] leading-relaxed text-muted-foreground">
-                    Revisio shows you the right card at the right moment, then gets out of the way.
-                    Five minutes today beats five hours the night before.
-                  </p>
-                </BlurFade>
-
-                <BlurFade delay={0.15}>
-                  <div className="mt-7 flex flex-col gap-2.5 sm:flex-row">
-                    <ShimmerButton
-                      href="/register"
-                      background="var(--foreground)"
-                      shimmerColor="var(--background)"
-                      className="h-12 gap-2 px-7 text-[16px] font-semibold text-background"
-                    >
-                      Start free
-                      <Icon name="next" size={17} />
-                    </ShimmerButton>
-                    <a href="#try" className="btn btn-secondary btn-lg">
-                      Try a card
-                    </a>
-                  </div>
-                </BlurFade>
-              </div>
-
-              <BlurFade delay={0.12}>
-                <GlareHover width="100%" height="auto" background="transparent" color="#ffffff" opacity={0.22} className="relative cursor-default rounded-xl">
-                  <BorderBeam size={120} duration={7} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" borderWidth={2} />
-                  <ReviewDemo />
-                </GlareHover>
-              </BlurFade>
+        {/* ── Try it: the forgetting curve ─────────────────────────────────── */}
+        <TileBand tone="parchment" id="try" className="landing-section">
+          <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+            <div>
+              <p className="t-eyebrow">Memory, on a schedule</p>
+              <h2 className="t-display mt-3 max-w-md">You forget on a curve. Reviews flatten it.</h2>
+              <p className="mt-4 max-w-md text-[16px] leading-relaxed text-muted-foreground">
+                Recall falls away fast, then slower. Each good review widens the next gap, so a fact
+                you revisited three times costs you less than one you crammed. Drag the slider and
+                see when Revisio brings a card back.
+              </p>
             </div>
-          </TileBand>
+            <ForgettingCurve />
+          </div>
+        </TileBand>
 
-          {/* ── Try it: the forgetting curve ─────────────────────────────────── */}
-          <TileBand tone="parchment" id="try" className="!py-12 md:!py-20">
-            <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-              <div>
-                <BlurFade>
-                  <p className="t-eyebrow">Memory, on a schedule</p>
-                </BlurFade>
-                <BlurFade delay={0.05}>
-                  <h2 className="t-display mt-3 max-w-md">You forget on a curve. Reviews flatten it.</h2>
-                </BlurFade>
-                <BlurFade delay={0.1}>
-                  <p className="mt-4 max-w-md text-[16px] leading-relaxed text-muted-foreground">
-                    Recall falls away fast, then slower. Each good review widens the next gap, so a fact
-                    you revisited three times costs you less than one you crammed. Drag the slider and
-                    see when Revisio brings a card back.
-                  </p>
-                </BlurFade>
-              </div>
-              <BlurFade delay={0.08}>
-                <ForgettingCurve />
-              </BlurFade>
-            </div>
-          </TileBand>
+        {/* ── How it works ─────────────────────────────────────────────────── */}
+        <TileBand tone="light" id="how" className="landing-section">
+          <div>
+            <h2 className="t-display max-w-sm">Three ways in.</h2>
+            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-muted-foreground">
+              A queue you do not have to plan, the note behind every card, and past papers marked
+              the way the scheme marks them.
+            </p>
 
-          {/* ── How it works: bento ───────────────────────────────────────────── */}
-          <TileBand tone="light" id="how" className="!py-12 md:!py-20">
-            <BlurFade>
-              <h2 className="t-display max-w-xl">Three ways in.</h2>
-            </BlurFade>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 md:grid-rows-2">
+              <Card className="flex h-full flex-col bg-secondary md:row-span-2">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
+                  <Icon name="review" size={19} />
+                </span>
+                <h3 className="t-display-sm mt-5">A queue that builds itself</h3>
+                <p className="mt-2 max-w-sm text-[15px] text-muted-foreground">
+                  Due the day before you would forget. Nothing to plan, nothing to sort. Open it and
+                  the next right card is already waiting.
+                </p>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
-              <BlurFade className="md:row-span-2">
-                <MagicCard className="h-full rounded-lg" gradientColor={SPOTLIGHT} gradientSize={320}>
-                  <div className="relative h-full overflow-hidden rounded-lg bg-secondary p-6 md:p-8">
-                    <BorderBeam size={160} duration={9} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" />
-                    <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
-                      <Icon name="review" size={19} />
-                    </span>
-                    <h3 className="t-display-sm mt-5">A queue that builds itself</h3>
-                    <p className="mt-2 max-w-sm text-[15px] text-muted-foreground">
-                      Due the day before you would forget. Nothing to plan, nothing to sort. Open it and the next
-                      right card is already waiting.
-                    </p>
-                    <div className="mt-8 grid grid-cols-7 gap-1.5" aria-hidden>
-                      {Array.from({ length: 21 }).map((_, i) => (
-                        <span
-                          key={i}
-                          className={`h-7 rounded-sm ${
-                            i % 5 === 3 ? 'bg-foreground' : i % 3 === 0 ? 'bg-border-strong' : 'bg-card'
-                          }`}
-                        />
+                {/* The demo's actual cards, not a decorative heatmap. */}
+                <div className="mt-auto pt-6">
+                  <div className="overflow-hidden rounded-md border border-border bg-card">
+                    <p className="t-label px-4 pt-3 text-muted-foreground">Today’s queue</p>
+                    <ul className="mt-1 divide-y divide-border">
+                      {QUEUE.map((item) => (
+                        <li key={item.topic} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                          <span className="text-[14px] font-medium">{item.topic}</span>
+                          <span className="t-fine text-muted-foreground">{item.kind}</span>
+                        </li>
                       ))}
-                    </div>
-                  </div>
-                </MagicCard>
-              </BlurFade>
-
-              {FEATURES.map((f, i) => (
-                <BlurFade key={f.title} delay={0.05 + i * 0.05}>
-                  <MagicCard className="h-full rounded-lg" gradientColor={SPOTLIGHT} gradientSize={260}>
-                    <div className="h-full bg-secondary p-6">
-                      <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
-                        <Icon name={f.icon} size={19} />
-                      </span>
-                      <h3 className="t-display-sm mt-4">{f.title}</h3>
-                      <p className="mt-1.5 text-[15px] text-muted-foreground">{f.body}</p>
-                    </div>
-                  </MagicCard>
-                </BlurFade>
-              ))}
-            </div>
-          </TileBand>
-
-          {/* ── Rank band: the polarity flip ─────────────────────────────────── */}
-          <TileBand tone="dark" id="rank" className="!py-12 md:!py-20">
-            <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-              <div>
-                <p className="t-eyebrow">The ladder</p>
-                <h2 className="t-display mt-3 max-w-md">A rank you can defend.</h2>
-                <p className="mt-4 max-w-lg text-[16px] leading-relaxed text-muted-foreground">
-                  Thirty rungs across ten tiers, earned from everything you have ever reviewed. They never
-                  reset. Each week you are seated in a lobby, and the top of the table moves up.
-                </p>
-
-                <dl className="mt-7 grid grid-cols-3 gap-4 border-t border-border pt-5">
-                  <div>
-                    <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Rungs</dt>
-                    <dd className="t-num-sm mt-1">
-                      <NumberTicker value={30} />
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Tiers</dt>
-                    <dd className="t-num-sm mt-1">
-                      <NumberTicker value={10} />
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Resets</dt>
-                    <dd className="t-num-sm mt-1">Never</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="grid grid-cols-5 items-end gap-1.5 sm:gap-4">
-                {[0, 400, 1500, 4000, 9000].map((base, i) => {
-                  const rung = rankFor(base);
-                  return (
-                    <BlurFade key={base} delay={i * 0.07} className="min-w-0">
-                      <div
-                        className={`flex min-w-0 flex-col items-center gap-2 rounded-lg border border-border px-1 py-4 sm:px-2 ${
-                          i === 1 ? 'bg-secondary' : ''
-                        }`}
-                      >
-                        <RankCrest rank={rung} size={i === 4 ? 40 : 34} showProgress={false} muted={i > 1} animate={false} />
-                        <span
-                          className={`w-full truncate text-center text-[10px] font-bold uppercase tracking-[0.06em] sm:text-[11px] ${
-                            i > 1 ? 'text-muted-foreground' : ''
-                          }`}
-                        >
-                          {rung.tier}
-                        </span>
-                      </div>
-                    </BlurFade>
-                  );
-                })}
-              </div>
-            </div>
-          </TileBand>
-
-          {/* ── The companion ────────────────────────────────────────────────── */}
-          <TileBand tone="parchment" className="!py-12 md:!py-20">
-            <div className="grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-              <div>
-                <p className="t-eyebrow">Not a dashboard</p>
-                <h2 className="t-display mt-3 max-w-md">It talks to you like a person.</h2>
-                <p className="mt-4 max-w-md text-[16px] leading-relaxed text-muted-foreground">
-                  One sentence, from your own numbers, on every screen. It notices a gap, it notices a
-                  clean sheet, and it never nags.
-                </p>
-              </div>
-
-              <BlurFade>
-                <div className="card flex items-start gap-4 p-5">
-                  <RankCrest rank={rankFor(1500)} size={44} showProgress={false} animate={false} />
-                  <div className="min-w-0">
-                    <p className="text-[17px] font-medium leading-snug">{COMPANION_LINE}</p>
-                    <p className="mt-2 text-[13px] text-muted-foreground">— on a Tuesday, mid-streak</p>
+                    </ul>
                   </div>
                 </div>
-              </BlurFade>
-            </div>
-          </TileBand>
+              </Card>
 
-          {/* ── Closing CTA on the ink band ──────────────────────────────────── */}
-          <TileBand tone="dark" className="relative overflow-hidden !py-14 md:!py-20">
-            <AnimatedGridPattern
-              numSquares={22}
-              maxOpacity={0.12}
-              duration={6}
-              className="fill-foreground stroke-foreground/[0.08] mask-[radial-gradient(600px_circle_at_center,white,transparent)]"
-            />
-            <BlurFade className="relative mx-auto max-w-2xl text-center">
+              {FEATURES.map((feature) => (
+                <Card key={feature.title} className="h-full bg-secondary">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-card">
+                    <Icon name={feature.icon} size={19} />
+                  </span>
+                  <h3 className="t-display-sm mt-4">{feature.title}</h3>
+                  <p className="mt-1.5 text-[15px] text-muted-foreground">{feature.body}</p>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </TileBand>
+
+        {/* ── The ladder, and the companion in the same band ───────────────── */}
+        <TileBand tone="dark" id="rank" className="landing-section">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:gap-16">
+            <div>
+              <p className="t-eyebrow">The ladder</p>
+              <h2 className="t-display mt-3 max-w-md">A record of what stuck.</h2>
+              <p className="mt-4 max-w-lg text-[16px] leading-relaxed text-muted-foreground">
+                Thirty rungs across ten tiers, earned from everything you have ever reviewed. They
+                never reset. Each week you are seated in a lobby, and the top of the table moves up.
+              </p>
+
+              <div className="mt-7 grid grid-cols-3 gap-4 border-t border-border pt-5">
+                <div>
+                  <p className="t-num-sm">30</p>
+                  <p className="t-fine mt-0.5 text-muted-foreground">Rungs</p>
+                </div>
+                <div>
+                  <p className="t-num-sm">10</p>
+                  <p className="t-fine mt-0.5 text-muted-foreground">Tiers</p>
+                </div>
+                <div>
+                  <p className="t-num-sm">Never</p>
+                  <p className="t-fine mt-0.5 text-muted-foreground">Resets</p>
+                </div>
+              </div>
+
+              <div className="mt-7 flex items-start gap-4 border-t border-border pt-5">
+                <RankCrest rank={rankFor(1500)} size={40} showProgress={false} animate={false} />
+                <div className="min-w-0">
+                  <p className="text-[16px] font-medium leading-snug">{COMPANION_LINE}</p>
+                  <p className="t-fine mt-1 text-muted-foreground">— one sentence, from your own numbers</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 items-end gap-1.5 sm:gap-4">
+              {[0, 400, 1500, 4000, 9000].map((base, i) => {
+                const rung = rankFor(base);
+                return (
+                  <div
+                    key={base}
+                    className="flex min-w-0 flex-col items-center gap-2 rounded-lg border border-border px-1 py-4 sm:px-2"
+                  >
+                    <RankCrest rank={rung} size={i === 4 ? 40 : 34} showProgress={false} animate={false} />
+                    <span className="w-full truncate text-center text-[10px] font-bold uppercase tracking-[0.06em] sm:text-[11px]">
+                      {rung.tier}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </TileBand>
+
+        {/* ── Close and footer, one screen ─────────────────────────────────── */}
+        <TileBand tone="dark" className="landing-close">
+          <div className="flex flex-1 flex-col">
+            <div className="mx-auto my-auto max-w-2xl py-6 text-center">
               <h2 className="t-display">Start with one card today.</h2>
               <p className="mx-auto mt-4 max-w-md text-[16px] text-muted-foreground">
                 Free to start. Five minutes is enough to begin the habit.
               </p>
               <div className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
-                <ShimmerButton
-                  href="/register"
-                  background="var(--foreground)"
-                  shimmerColor="var(--background)"
-                  className="h-12 gap-2 px-7 text-[16px] font-semibold text-background"
-                >
+                <Link href="/register" className={buttonVariants({ variant: 'primary', size: 'lg' })}>
                   Start free
                   <Icon name="next" size={17} />
-                </ShimmerButton>
-                <Link href="/login" className="btn btn-secondary btn-lg">
+                </Link>
+                <Link href="/login" className={buttonVariants({ variant: 'secondary', size: 'lg' })}>
                   I have an account
                 </Link>
               </div>
-            </BlurFade>
-          </TileBand>
+            </div>
 
-          {/* ── Footer ───────────────────────────────────────────────────────── */}
-          <TileBand tone="dark" className="!py-10 md:!py-14">
-            <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="mt-10 flex flex-wrap items-center justify-between gap-6 border-t border-border pt-6">
               <div>
                 <span className="t-tagline">Revisio</span>
                 <p className="mt-1.5 max-w-sm text-[14px] text-muted-foreground">
@@ -333,18 +290,26 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Link href="/privacy" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Privacy</Link>
-                <Link href="/terms" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Terms</Link>
-                <Link href="/cookie-policy" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Cookies</Link>
-                <Link href="/accessibility" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">Accessibility</Link>
-                <Link href="/login" className="btn btn-ghost !text-muted-foreground hover:!text-foreground">
+                <Link href="/privacy" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
+                  Privacy
+                </Link>
+                <Link href="/terms" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
+                  Terms
+                </Link>
+                <Link href="/cookie-policy" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
+                  Cookies
+                </Link>
+                <Link href="/accessibility" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
+                  Accessibility
+                </Link>
+                <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
                   Log in
                 </Link>
               </div>
             </div>
-          </TileBand>
-        </main>
-      </div>
-    </MotionConfig>
+          </div>
+        </TileBand>
+      </main>
+    </div>
   );
 }

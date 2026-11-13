@@ -6,6 +6,8 @@ import { Icon } from '@/components/ui/icons';
 import { SRS_LADDER, type SrsTier } from '@/domain/srs';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 /**
  * One learner's progress, rendered — the single body both the staff sheet
@@ -176,9 +178,9 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                         {s.subjectName} · last miss {when(s.lastMissedAt)}
                       </div>
                     </div>
-                    <span className="chip border-destructive/40 text-destructive-ink num shrink-0">
+                    <Badge variant="chip" className="border-destructive/40 text-destructive-ink num shrink-0">
                       {s.misses} miss{s.misses === 1 ? '' : 'es'}
-                    </span>
+                    </Badge>
                   </div>
                 </li>
               ))}
@@ -234,10 +236,10 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
         <div className="flex items-center justify-between gap-3">
           <h3 className="t-tagline">Card strengths</h3>
           {data.distribution.length > 8 && (
-            <button type="button" className="btn btn-ghost btn-sm gap-1.5" onClick={() => setShowAllCards((v) => !v)}>
+            <Button variant="ghost" size="sm" type="button" className="gap-1.5" onClick={() => setShowAllCards((v) => !v)}>
               <Icon name={showAllCards ? 'collapse' : 'expand'} size={13} />
               {showAllCards ? 'Show less' : `Show all ${data.distribution.length}`}
-            </button>
+            </Button>
           )}
         </div>
         {cards.length === 0 ? (

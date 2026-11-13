@@ -23,6 +23,8 @@ import { formFor } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StrengthTab } from '@/components/insights/StrengthTab';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 /**
  * Rank — the competitive hub.
@@ -210,15 +212,15 @@ function RankPage() {
             </TabsContent>
 
             <TabsContent value="lobby" className="mt-4">
-              <section className="card">
+              <Card as="section">
                 <header className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="t-tagline">{data.rank.label} lobby</h2>
                     <p className="text-[13px] text-muted-foreground">{data.week.rangeLabel}</p>
                   </div>
-                  <span className="badge badge-quiet num shrink-0">
+                  <Badge variant="quiet" className="num shrink-0">
                     {data.week.daysLeft === 1 ? 'Last day' : `${data.week.daysLeft} days left`}
-                  </span>
+                  </Badge>
                 </header>
 
                 <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
@@ -265,11 +267,11 @@ function RankPage() {
                     <LobbyTable lobby={data.lobby} />
                   )}
                 </div>
-              </section>
+              </Card>
             </TabsContent>
 
             <TabsContent value="board" className="mt-4">
-              <section className="card">
+              <Card as="section">
                 <header className="flex items-center justify-between gap-3">
                   <h2 className="t-tagline">XP board</h2>
                   {/* A pressed-state button is only meaningful with the question
@@ -339,12 +341,12 @@ function RankPage() {
                 >
                   {optOut ? 'Join the boards' : 'Hide me from the boards'}
                 </button>
-              </section>
+              </Card>
             </TabsContent>
           </Tabs>
 
           {/* ── Achievements ───────────────────────────────────────────────── */}
-          <section className="card">
+          <Card as="section">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="t-tagline">Achievements</h2>
               <span className="num text-[13px] text-muted-foreground">
@@ -384,12 +386,12 @@ function RankPage() {
                 </BlurFade>
               ))}
             </div>
-          </section>
+          </Card>
         </>
       )}
 
       {/* ── Transcript ─────────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-tagline">Transcript</h2>
         <p className="mt-1 text-[13px] text-muted-foreground">
           Your full history — share it with a teacher, or keep it.
@@ -404,7 +406,7 @@ function RankPage() {
             JSON
           </Button>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

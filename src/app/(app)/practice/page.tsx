@@ -12,6 +12,10 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Concept = { id: string; name: string; category: string; description: string };
 type Subject = { id: string; name: string; mathsEnabled: boolean };
@@ -183,11 +187,11 @@ export default function PracticePage() {
           <span className="t-caption tabular-nums text-muted-foreground">
             {idx + 1} <span className="text-border">/</span> {paper.length}
           </span>
-          <span className="chip">
+          <Badge variant="chip">
             <Icon name="correct" size={14} className="text-primary" />
             <NumberTicker value={score.correct} className="tabular-nums" />
             <span>/ {log.length} correct</span>
-          </span>
+          </Badge>
         </div>
         <div className="meter">
           <motion.div className="h-full rounded-full bg-primary" animate={{ width: `${(idx / paper.length) * 100}%` }} transition={SPRING.meter} />
@@ -201,11 +205,11 @@ export default function PracticePage() {
             exit={{ opacity: 0, y: -10 }}
             transition={transition.quick}
           >
-            <div className="card">
+            <Card>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="chip chip-active">{question.conceptName}</span>
+                <Badge variant="chip-active">{question.conceptName}</Badge>
                 <span className="flex items-center gap-2">
-                  <span className="chip capitalize">{question.difficulty}</span>
+                  <Badge variant="chip" className="capitalize">{question.difficulty}</Badge>
                   <span className="t-caption tabular-nums text-muted-foreground">{question.marks} {question.marks === 1 ? 'mark' : 'marks'}</span>
                 </span>
               </div>
@@ -220,9 +224,9 @@ export default function PracticePage() {
                     submit();
                   }}
                 >
-                  <input
+                  <Input
                     type="text"
-                    className="input text-[17px]"
+                    className="text-[17px]"
                     placeholder="Type your answer"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -271,7 +275,7 @@ export default function PracticePage() {
               )}
 
               <Notice tone="bad" className="mt-3">{error}</Notice>
-            </div>
+            </Card>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -284,7 +288,7 @@ export default function PracticePage() {
     const missed = log.filter((l) => !l.r.correct);
     return (
       <div className="mx-auto max-w-xl space-y-4">
-        <div className="card p-8 text-center">
+        <Card className="p-8 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
             <Icon name="target" size={22} />
           </span>
@@ -308,17 +312,17 @@ export default function PracticePage() {
               New session
             </Button>
           </div>
-        </div>
+        </Card>
 
         {missed.length > 0 && (
-          <section className="card">
+          <Card as="section">
             <h2 className="t-strong">Worth another look</h2>
             <p className="t-caption mt-1 text-muted-foreground">The ones that went wrong, with their worked solutions.</p>
             <div className="mt-3 space-y-3">
               {missed.map(({ q, r }) => (
                 <div key={q.questionId} className="inset px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="chip">{q.conceptName}</span>
+                    <Badge variant="chip">{q.conceptName}</Badge>
                     <span className="t-caption-s text-muted-foreground">Answer: <span className="font-semibold text-foreground">{r.answer}</span></span>
                   </div>
                   <Markdown text={q.prompt} className="mt-2 text-[15px]" />
@@ -326,7 +330,7 @@ export default function PracticePage() {
                 </div>
               ))}
             </div>
-          </section>
+          </Card>
         )}
       </div>
     );
@@ -338,7 +342,7 @@ export default function PracticePage() {
       <PageHeader icon="practice" title="Practice" subtitle="Generate maths questions. Your schedule stays out of it." />
 
       {mathsSubjects.length === 0 ? (
-        <div className="card p-8 text-center">
+        <Card className="p-8 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
             <Icon name="practice" size={22} />
           </span>
@@ -346,11 +350,11 @@ export default function PracticePage() {
           <p className="t-caption mx-auto mt-2 max-w-sm text-muted-foreground">
             A developer or teacher turns maths practice on per subject. Once one has it, its topics appear here.
           </p>
-        </div>
+        </Card>
       ) : (
-        <div className="card space-y-5">
+        <Card className="space-y-5">
           <div>
-            <span className="label">Subject</span>
+            <Label>Subject</Label>
             <div className="flex flex-wrap gap-2">
               {mathsSubjects.map((s) => (
                 <button
@@ -370,7 +374,7 @@ export default function PracticePage() {
           {subjectId && (
             <>
               <div>
-                <span className="label">Topics</span>
+                <Label>Topics</Label>
                 {topics === null && <p className="t-caption text-muted-foreground">Loading…</p>}
                 {topics?.length === 0 && <p className="t-caption text-muted-foreground">No topics reach you in this subject yet.</p>}
                 <div className="flex flex-wrap gap-2">
@@ -407,7 +411,7 @@ export default function PracticePage() {
                 <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold">
                   <Icon name="filter" size={15} />
                   Focus concepts
-                  <span className="chip ml-1">{pickedConcepts.size || 'all'}</span>
+                  <Badge variant="chip" className="ml-1">{pickedConcepts.size || 'all'}</Badge>
                   <Icon name="collapse" size={14} className="ml-auto text-muted-foreground" />
                 </summary>
                 <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
@@ -443,7 +447,7 @@ export default function PracticePage() {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <span className="label">Difficulty</span>
+                  <Label>Difficulty</Label>
                   <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
                     {(['easy', 'medium', 'hard', 'mixed'] as const).map((d) => (
                       <button
@@ -459,9 +463,9 @@ export default function PracticePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="label" htmlFor="practice-count">
+                  <Label htmlFor="practice-count">
                     Questions — {count}
-                  </label>
+                  </Label>
                   <input id="practice-count" type="range" min={5} max={30} step={5} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
                 </div>
               </div>
@@ -472,7 +476,7 @@ export default function PracticePage() {
               </Button>
             </>
           )}
-        </div>
+        </Card>
       )}
 
       <Notice tone="bad">{error}</Notice>

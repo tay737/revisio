@@ -3,7 +3,14 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { AuthShell } from '@/components/AuthShell';
 import { Icon } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 type State =
   | { kind: 'verifying' }
@@ -18,6 +25,7 @@ function VerifyEmailInner() {
   );
   const [email, setEmail] = useState('');
   const [resent, setResent] = useState(false);
+  const [resendError, setResendError] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -48,102 +56,112 @@ function VerifyEmailInner() {
     e.preventDefault();
     if (!email) return;
     setBusy(true);
+    setResendError('');
+    // A failed request must not produce the sent sentence. The previous
+    // version set `resent` in `finally`, so a 500 still claimed a link was
+    // on its way — the one thing this screen must never say falsely.
     try {
-      await fetch('/api/v1/auth/verify-email', {
+      const res = await fetch('/api/v1/auth/verify-email', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
+      if (!res.ok) throw new Error('resend failed');
+      setResent(true);
+    } catch {
+      setResendError('We could not send that just now. Try again in a moment.');
     } finally {
       setBusy(false);
-      setResent(true);
     }
   };
 
-  if (state.kind === 'verifying')
-    return (
-      <p className="px-6 py-10 text-center text-[14px] text-muted-foreground" role="status">
-        Verifying…
-      </p>
-    );
-
   return (
-    <main className="relative grid min-h-viewport place-items-center overflow-hidden px-6 py-14">
-      <div aria-hidden className="absolute inset-x-0 top-0 h-[46%] bg-[#272729]" />
-
-      <div className="relative w-full max-w-md">
-        <Link
-          href="/"
-          className="mb-6 flex items-center justify-center gap-2 text-[17px] font-semibold tracking-[-0.374px] text-white"
-        >
-          <span className="grid h-6 w-6 place-items-center rounded-[6px] bg-primary text-[11px] font-semibold text-primary-foreground">
-            R
-          </span>
-          Revisio
+    <AuthShell
+      footer={
+        <Link href="/login" className="transition-colors hover:text-foreground">
+          Back to sign in
         </Link>
+      }
+    >
+      <Card className="p-6 text-center sm:p-7">
+        {state.kind === 'verifying' ? (
+          <>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary text-foreground">
+              <Icon name="mail" size={22} />
+            </span>
+            <h1 className="t-title mt-4">Checking that link</h1>
+            <p className="t-caption mt-2 text-muted-foreground" role="status">
+              Verifying your email address… This takes a moment.
+            </p>
+          </>
+        ) : state.kind === 'done' ? (
+          <>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-strong">
+              <Icon name="reviewed" size={22} />
+            </span>
+            <h1 className="t-title mt-4">Email verified</h1>
+            <p className="t-caption mt-2 text-muted-foreground">
+              Your account is active. Sign in and we will build today’s queue.
+            </p>
+            <Link href="/login" className={cn(buttonVariants({ variant: 'primary' }), 'mt-6 w-full')}>
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
+              <Icon name="due" size={22} />
+            </span>
+            <h1 className="t-title mt-4">That link didn’t work</h1>
+            <p className="t-caption mt-2 text-muted-foreground">{state.message}</p>
 
-        <div className="card p-7 text-center">
-          {state.kind === 'done' ? (
-            <>
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good/10 text-good-strong">
-                <Icon name="reviewed" size={22} />
-              </span>
-              <h1 className="t-tagline mt-4">Email verified</h1>
-              <p className="t-caption mt-2 text-muted-foreground">
-                Your account is active. Sign in and we will build today’s queue.
+            {resent ? (
+              <p className="t-caption mt-5 rounded-md bg-secondary px-3 py-2.5 text-foreground" role="status">
+                If that address has an unverified account, a fresh link is on its way.
               </p>
-              <Link href="/login" className="btn btn-primary mt-6 w-full">
-                Sign in
-              </Link>
-            </>
-          ) : (
-            <>
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
-                <Icon name="due" size={22} />
-              </span>
-              <h1 className="t-tagline mt-4">That link didn’t work</h1>
-              <p className="t-caption mt-2 text-muted-foreground">{state.message}</p>
-
-              {resent ? (
-                <p className="t-caption mt-5 rounded-[11px] bg-primary/10 px-3 py-2.5 text-primary">
-                  If that address has an unverified account, a fresh link is on its way.
-                </p>
-              ) : (
-                <form onSubmit={resend} className="mt-5 space-y-3 text-left">
-                  <div>
-                    <label className="label" htmlFor="resend-email">
-                      Send me a new link
-                    </label>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        <Icon name="mail" size={17} />
-                      </span>
-                      <input
-                        id="resend-email"
-                        type="email"
-                        required
-                        className="input pl-11"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@school.edu"
-                      />
-                    </div>
+            ) : (
+              <form onSubmit={resend} className="mt-5 space-y-3 text-left">
+                <div>
+                  <Label htmlFor="resend-email">Send me a new link</Label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      <Icon name="mail" size={17} />
+                    </span>
+                    <Input
+                      id="resend-email"
+                      type="email"
+                      required
+                      className="pl-11"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@school.edu"
+                      autoComplete="email"
+                      spellCheck={false}
+                      autoCapitalize="none"
+                      aria-describedby={resendError ? 'resend-error' : undefined}
+                      aria-invalid={resendError ? true : undefined}
+                    />
                   </div>
-                  <button type="submit" className="btn btn-secondary w-full gap-2" disabled={busy}>
-                    <Icon name="rotate" size={16} />
-                    {busy ? 'Sending…' : 'Re-send verification email'}
-                  </button>
-                </form>
-              )}
+                </div>
+                {resendError && (
+                  <p id="resend-error" className="t-fine text-destructive-ink" role="alert">
+                    {resendError}
+                  </p>
+                )}
+                <Button variant="secondary" type="submit" className="w-full gap-2" disabled={busy}>
+                  <Icon name="rotate" size={16} />
+                  {busy ? 'Sending…' : 'Re-send verification email'}
+                </Button>
+              </form>
+            )}
 
-              <Link href="/login" className="btn btn-primary mt-3 w-full">
-                Back to sign in
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    </main>
+            <Link href="/login" className={cn(buttonVariants({ variant: 'primary' }), 'mt-3 w-full')}>
+              Back to sign in
+            </Link>
+          </>
+        )}
+      </Card>
+    </AuthShell>
   );
 }
 
@@ -151,9 +169,13 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <p className="px-6 py-10 text-center text-[14px] text-muted-foreground" role="status">
-          Verifying…
-        </p>
+        <AuthShell>
+          <Card className="p-6 sm:p-7">
+            <p className="t-caption text-muted-foreground" role="status">
+              Verifying…
+            </p>
+          </Card>
+        </AuthShell>
       }
     >
       <VerifyEmailInner />

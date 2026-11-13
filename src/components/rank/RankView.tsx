@@ -25,6 +25,10 @@ import {
   type Tier,
 } from '@/domain/ranked';
 import { seasonLine, type SeasonReward } from '@/domain/seasons';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { buttonVariants } from '@/lib/button-variants';
 
 /**
  * Rank — one view, because there is one rank.
@@ -70,13 +74,13 @@ export function RankView({ data }: { data: RankViewData }) {
   if (loading && !season) {
     return (
       <div className="space-y-4">
-        <div className="card">
+        <Card>
           <div className="skeleton h-4 w-40" />
           <div className="skeleton mt-4 h-24 w-full" />
-        </div>
-        <div className="card">
+        </Card>
+        <Card>
           <div className="skeleton h-40 w-full" />
-        </div>
+        </Card>
       </div>
     );
   }
@@ -151,15 +155,15 @@ function SeasonClock({
   isLastDay: boolean;
 }) {
   return (
-    <section className="card">
+    <Card as="section">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="min-w-0">
           <p className="t-eyebrow">{season.label}</p>
           <h2 className="t-display mt-1">{season.rangeLabel}</h2>
         </div>
-        <span className="num badge badge-quiet shrink-0">
+        <Badge variant="quiet" className="num shrink-0">
           {isLastDay ? 'Last day' : `${season.daysLeft} days left`}
-        </span>
+        </Badge>
       </header>
 
       <div className="mt-4 flex items-center gap-3">
@@ -233,7 +237,7 @@ function SeasonClock({
           <Icon name="league" size={18} className="text-muted-foreground" />
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -256,7 +260,7 @@ function TierProgress({
   }, [rank.points]);
 
   return (
-    <section className="card">
+    <Card as="section">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Tier progress</h3>
         <span className="num text-[13px] text-muted-foreground">
@@ -306,7 +310,7 @@ function TierProgress({
         </span>
         <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">{form?.detail}</span>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -328,7 +332,7 @@ function TheLadder({
   }, [rank.index]);
 
   return (
-    <section className="card">
+    <Card as="section">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">The ladder</h3>
         <span className="num text-[13px] text-muted-foreground">
@@ -382,7 +386,7 @@ function TheLadder({
           <>Top of the ladder. Holding it for ninety days is the hard part.</>
         )}
       </p>
-    </section>
+    </Card>
   );
 }
 
@@ -398,7 +402,7 @@ function SeasonBoard({
   mine: { position: number };
 }) {
   return (
-    <section className="card">
+    <Card as="section">
       <header className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Season board</h3>
         <span className="t-fine text-muted-foreground">Resets with the season</span>
@@ -450,7 +454,7 @@ function SeasonBoard({
           You are {mine.position} in the season — outside the top {board.length}, and climbing.
         </p>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -475,7 +479,7 @@ function Showcase({
   onClaim: (seasonNumber: number) => void;
 }) {
   return (
-    <section className="card">
+    <Card as="section">
       <header className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Your seasons</h3>
         <span className="num text-[13px] text-muted-foreground">{history.length}</span>
@@ -514,25 +518,25 @@ function Showcase({
                 <p className="t-fine mt-0.5 text-muted-foreground">{row.reward.detail}</p>
               </div>
               {row.rewardClaimedAt ? (
-                <span className="badge badge-quiet shrink-0 gap-1">
+                <Badge variant="quiet" className="shrink-0 gap-1">
                   <Icon name="checked" size={12} />
                   Claimed
-                </span>
+                </Badge>
               ) : (
-                <button
+                <Button variant="secondary" size="sm"
                   type="button"
-                  className="btn btn-secondary btn-sm shrink-0"
+                  className="shrink-0"
                   disabled={claiming === row.seasonNumber}
                   onClick={() => onClaim(row.seasonNumber)}
                 >
                   {claiming === row.seasonNumber ? 'Claiming…' : 'Claim'}
-                </button>
+                </Button>
               )}
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -540,7 +544,7 @@ function Showcase({
 
 function YourRecord({ lifetimeRank, totalXp }: { lifetimeRank: Rank; totalXp: number }) {
   return (
-    <section className="card">
+    <Card as="section">
       <header className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Your record</h3>
         <span className="num text-[13px] text-muted-foreground">
@@ -563,7 +567,7 @@ function YourRecord({ lifetimeRank, totalXp }: { lifetimeRank: Rank; totalXp: nu
           <NumberTicker value={lifetimeRank.points} /> RP lifetime
         </span>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -575,7 +579,7 @@ function SeasonRewards({
   rewards: { tier: Tier; name: string; reward: SeasonReward }[];
 }) {
   return (
-    <section className="card">
+    <Card as="section">
       <h3 className="t-tagline">Season rewards</h3>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
         Paid on the tier you finish in, not the division — so a season never ends one rung short of the
@@ -596,10 +600,10 @@ function SeasonRewards({
           </li>
         ))}
       </ul>
-      <Link href="/review" className="btn btn-primary mt-4 gap-2 sm:w-auto">
+      <Link href="/review" className={cn(buttonVariants({ variant: 'primary' }), 'mt-4 gap-2 sm:w-auto')}>
         Earn this season&apos;s rank
         <Icon name="next" size={16} />
       </Link>
-    </section>
+    </Card>
   );
 }

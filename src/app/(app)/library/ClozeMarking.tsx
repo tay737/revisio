@@ -7,6 +7,9 @@ import { Notice } from '@/components/Notice';
 import { DEFAULT_CLOZE_POLICY, type ClozeMarkPolicy } from '@/domain/grading';
 import { gradeClozeWithPolicy } from '@/domain/grading';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
 
 type PolicyPayload = {
   default: ClozeMarkPolicy;
@@ -120,7 +123,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <span className="label">Applies to</span>
+          <Label>Applies to</Label>
           <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
             {(['global', 'subject', 'topic'] as const).map((t) => (
               <button
@@ -139,10 +142,9 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
 
         {scopeType === 'subject' && (
           <div>
-            <label className="label" htmlFor="marking-subject">Subject</label>
-            <select
+            <Label htmlFor="marking-subject">Subject</Label>
+            <NativeSelect
               id="marking-subject"
-              className="input"
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
             >
@@ -150,32 +152,32 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
               {data?.subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         )}
 
         {scopeType === 'topic' && (
           <div>
-            <label className="label" htmlFor="marking-subject2">Subject</label>
-            <select id="marking-subject2" className="input" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setTopicId(''); }}>
+            <Label htmlFor="marking-subject2">Subject</Label>
+            <NativeSelect id="marking-subject2" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setTopicId(''); }}>
               <option value="">Choose a subject…</option>
               {data?.subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-            </select>
-            <label className="label mt-2" htmlFor="marking-topic">Topic</label>
-            <select id="marking-topic" className="input" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+            </NativeSelect>
+            <Label className="mt-2" htmlFor="marking-topic">Topic</Label>
+            <NativeSelect id="marking-topic" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
               <option value="">Choose a topic…</option>
               {topicsForSubject.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         )}
       </div>
 
       <div>
-        <span className="label">Strictness</span>
+        <Label>Strictness</Label>
         <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
           <button
             type="button"
@@ -204,9 +206,9 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
       {policy.mode === 'similar' && (
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="label" htmlFor="typo-threshold">
+            <Label htmlFor="typo-threshold">
               Typo strictness — {policy.typoThreshold ?? DEFAULT_CLOZE_POLICY.typoThreshold}
-            </label>
+            </Label>
             <input
               id="typo-threshold"
               type="range"
@@ -222,10 +224,10 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
             </p>
           </div>
           <div>
-            <label className="label" htmlFor="synonym-groups">Same-meaning words (one group per line)</label>
-            <textarea
+            <Label htmlFor="synonym-groups">Same-meaning words (one group per line)</Label>
+            <Textarea
               id="synonym-groups"
-              className="input min-h-[86px] font-mono text-[13px]"
+              className="min-h-[86px] font-mono text-[13px]"
               placeholder={'phishing, fraud\ndata, information'}
               value={synonyms}
               onChange={(e) => setSynonyms(e.target.value)}

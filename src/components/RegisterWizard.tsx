@@ -6,13 +6,16 @@ import { AnimatePresence, motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
-import { ShimmerButton } from '@/components/ui/shimmer-button';
-import { MagicCard } from '@/components/ui/magic-card';
 import { Notice } from '@/components/Notice';
 import { Field } from '@/components/AuthForm';
 import { DUR, EASE, SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { buttonVariants } from '@/lib/button-variants';
 
 type Role = 'student' | 'teacher';
 type StepKey = 'role' | 'account' | 'profile' | 'subjects' | 'review';
@@ -177,8 +180,8 @@ export default function RegisterWizard() {
 
   if (result) {
     return (
-      <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
-        <h1 className="t-tagline">You are in</h1>
+      <Card className="p-6 shadow-[var(--shadow-card)] sm:p-7">
+        <h1 className="t-title">You are in</h1>
         <Notice tone="note" show className="mt-5">
           <span>{result.message}</span>
           {result.devLink && (
@@ -187,18 +190,18 @@ export default function RegisterWizard() {
             </a>
           )}
         </Notice>
-        <Link href="/login" className="btn btn-primary mt-6 w-full">
+        <Link href="/login" className={cn(buttonVariants({ variant: 'primary' }), 'mt-6 w-full')}>
           Go to sign in
         </Link>
-      </div>
+      </Card>
     );
   }
 
   const subjectNames = subjects.filter((s) => subjectIds.includes(s.id)).map((s) => s.name);
 
   return (
-    <div className="card p-6 shadow-[var(--shadow-card)] sm:p-7">
-      <h1 className="t-tagline">Create your account</h1>
+    <Card className="p-6 shadow-[var(--shadow-card)] sm:p-7">
+      <h1 className="t-title">Create your account</h1>
 
       <div className="mt-5">
         <div
@@ -238,7 +241,7 @@ export default function RegisterWizard() {
                 id="wizard-step-title"
                 ref={headingRef}
                 tabIndex={-1}
-                className="t-title font-semibold outline-none"
+                className="t-display-sm outline-none"
               >
                 {STEP_TITLES[step].title}
               </h2>
@@ -254,8 +257,8 @@ export default function RegisterWizard() {
                   ).map((option) => {
                     const selected = role === option.value;
                     return (
-                      <MagicCard key={option.value} className="rounded-2xl p-0">
-                        <button
+                      <button
+                          key={option.value}
                           type="button"
                           onClick={() => setRole(option.value)}
                           aria-pressed={selected}
@@ -282,7 +285,6 @@ export default function RegisterWizard() {
                             </span>
                           )}
                         </button>
-                      </MagicCard>
                     );
                   })}
                 </fieldset>
@@ -291,9 +293,9 @@ export default function RegisterWizard() {
               {step === 'account' && (
                 <>
                   <Field icon="person" label="Full name" htmlFor="name">
-                    <input
+                    <Input
                       id="name"
-                      className="input pl-11"
+                      className="pl-11"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
@@ -302,10 +304,10 @@ export default function RegisterWizard() {
                     />
                   </Field>
                   <Field icon="mail" label="Email" htmlFor="email">
-                    <input
+                    <Input
                       id="email"
                       type="email"
-                      className="input pl-11"
+                      className="pl-11"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -317,10 +319,10 @@ export default function RegisterWizard() {
                   </Field>
                   <div>
                     <Field icon="secure" label="Password" htmlFor="password">
-                      <input
+                      <Input
                         id="password"
                         type="password"
-                        className="input pl-11"
+                        className="pl-11"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -351,10 +353,10 @@ export default function RegisterWizard() {
               {step === 'profile' && role === 'student' && (
                 <>
                   <Field icon="person" label="Learner’s date of birth" htmlFor="dateOfBirth">
-                    <input
+                    <Input
                       id="dateOfBirth"
                       type="date"
-                      className="input pl-11"
+                      className="pl-11"
                       value={dateOfBirth}
                       max={new Date().toISOString().slice(0, 10)}
                       onChange={(event) => {
@@ -399,12 +401,12 @@ export default function RegisterWizard() {
 
               {step === 'profile' && role === 'teacher' && (
                 <div>
-                  <label className="label" htmlFor="note">
+                  <Label htmlFor="note">
                     Why do you need a teacher account?
-                  </label>
-                  <textarea
+                  </Label>
+                  <Textarea
                     id="note"
-                    className="input min-h-[96px]"
+                    className="min-h-[96px]"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="School, role, subjects you teach…"
@@ -416,7 +418,7 @@ export default function RegisterWizard() {
               {step === 'subjects' && (
                 <>
                   <div>
-                    <span className="label">Subjects</span>
+                    <Label>Subjects</Label>
                     {subjects.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {subjects.map((s) => {
@@ -441,9 +443,9 @@ export default function RegisterWizard() {
                     <p className="t-caption mt-2 text-muted-foreground">You can change these at any time.</p>
                   </div>
                   <Field icon="join" label="Class code (optional)" htmlFor="classCode">
-                    <input
+                    <Input
                       id="classCode"
-                      className="input pl-11 uppercase tracking-[0.2em]"
+                      className="pl-11 uppercase tracking-[0.2em]"
                       value={classCode}
                       onChange={(e) => setClassCode(e.target.value.toUpperCase())}
                       maxLength={6}
@@ -480,14 +482,14 @@ export default function RegisterWizard() {
 
               <div className="flex items-center gap-3 pt-2">
                 {stepIndex > 0 && (
-                  <button type="button" onClick={back} disabled={busy} className="btn btn-secondary shrink-0 active:scale-[0.98] transition-transform">
+                  <Button variant="secondary" type="button" onClick={back} disabled={busy} className="shrink-0 active:scale-[0.98] transition-transform">
                     Back
-                  </button>
+                  </Button>
                 )}
                 {isLast ? (
-                  <ShimmerButton type="submit" disabled={busy} className="w-full">
-                    <span className="text-sm font-medium">{busy ? 'Just a moment…' : 'Create account'}</span>
-                  </ShimmerButton>
+                  <Button type="submit" disabled={busy} className="w-full">
+                    {busy ? 'Just a moment…' : 'Create account'}
+                  </Button>
                 ) : (
                   <Button type="submit" className="flex-1 gap-2 active:scale-[0.98] transition-transform">
                     Continue
@@ -502,11 +504,11 @@ export default function RegisterWizard() {
 
       <p className="t-caption mt-5 text-center text-muted-foreground">
         Already registered?{' '}
-        <Link href="/login" className="text-primary underline underline-offset-4 hover:text-primary/80">
+        <Link href="/login" className="tap-link text-primary underline underline-offset-4 hover:text-primary/80">
           Sign in
         </Link>
       </p>
-    </div>
+    </Card>
   );
 }
 

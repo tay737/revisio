@@ -6,6 +6,7 @@ import { useMe } from '@/lib/useMe';
 import { applyConsentChange, blankConsent, consentFromBlob, type ConsentKey, type ConsentState } from '@/lib/consent';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 const PURPOSES: { key: Exclude<ConsentKey, 'essential'>; label: string; description: string }[] = [
   { key: 'preferences', label: 'Preferences', description: 'Appearance, accessibility and app behaviour.' },
@@ -61,10 +62,10 @@ export function ConsentSection() {
     }
   };
 
-  if (loading || !me) return <div className="card p-5"><div className="h-4 w-24 rounded bg-secondary" /></div>;
+  if (loading || !me) return <Card className="p-5"><div className="h-4 w-24 rounded bg-secondary" /></Card>;
 
   return (
-    <section className="card p-5" aria-labelledby="how-we-use-your-data">
+    <Card as="section" className="p-5" aria-labelledby="how-we-use-your-data">
       <h2 id="how-we-use-your-data" className="t-strong">How we use your data</h2>
       <p className="t-caption mt-1 text-muted-foreground">
         Essential cookies, sessions and security are always on. You can change your other choices at any time.
@@ -107,6 +108,6 @@ export function ConsentSection() {
       </p>
       {saved && <p className="t-fine mt-2 text-muted-foreground" role="status">Your consent choices have been saved.</p>}
       <Notice tone="bad" show={!!error}>{error}</Notice>
-    </section>
+    </Card>
   );
 }

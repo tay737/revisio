@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { rankFor } from '@/domain/ranked';
 import { isActivePath, type NavItem } from '@/components/nav/routes';
 import type { Me } from '@/lib/useMe';
+import { Button } from '@/components/ui/button';
 
 /**
  * Everything the bar cannot hold, plus who you are.
@@ -104,14 +105,14 @@ export function AccountSheet({
 
         <div className="mt-3 flex items-center gap-2.5 border-t border-border px-5 py-4">
           <ThemeToggle className="h-11 w-11" />
-          <button
+          <Button variant="secondary"
             type="button"
             onClick={onSignOut}
-            className="btn btn-secondary flex-1 gap-2"
+            className="flex-1 gap-2"
           >
             <Icon name="signOut" size={17} />
             Sign out
-          </button>
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

@@ -9,6 +9,9 @@ import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { tierColor, TIER_ORDER, type Tier } from '@/domain/ranked';
 import { rewardLadder, type SeasonReward } from '@/domain/seasons';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 
 /**
  * Season configuration.
@@ -268,17 +271,16 @@ export function SeasonManager() {
                     {row.state}
                   </span>
                   {row.grandfatherRp && (
-                    <span
-                      className="badge badge-quiet"
+                    <Badge variant="quiet"
                       title="XP earned before this season opened still counts toward it"
                     >
                       Counts all past XP
-                    </span>
+                    </Badge>
                   )}
                   {overrides > 0 && (
-                    <span className="badge badge-quiet" title="This season overrides the default rewards">
+                    <Badge variant="quiet" title="This season overrides the default rewards">
                       {overrides} reward{overrides === 1 ? '' : 's'} custom
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 <p className="t-fine mt-1 text-muted-foreground">
@@ -389,22 +391,22 @@ function SeasonEditor({
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="t-caption-s">Season number</span>
-          <input
+          <Input
             type="number"
             min={1}
             value={d.number}
             onChange={(e) => setD({ ...d, number: Number(e.target.value) })}
-            className="input mt-1.5"
+            className="mt-1.5"
           />
         </label>
         <label className="block">
           <span className="t-caption-s">Name</span>
-          <input
+          <Input
             type="text"
             value={d.name}
             placeholder={`Season ${d.number}`}
             onChange={(e) => setD({ ...d, name: e.target.value })}
-            className="input mt-1.5"
+            className="mt-1.5"
           />
           <span className="t-fine mt-1 block text-muted-foreground">
             Leave empty to show &ldquo;Season {d.number}&rdquo;.
@@ -412,43 +414,43 @@ function SeasonEditor({
         </label>
         <label className="block">
           <span className="t-caption-s">Starts (UTC)</span>
-          <input
+          <Input
             type="datetime-local"
             value={d.startsAt}
             onChange={(e) => setD({ ...d, startsAt: e.target.value })}
-            className="input mt-1.5"
+            className="mt-1.5"
           />
         </label>
         <label className="block">
           <span className="t-caption-s">Ends (UTC)</span>
-          <input
+          <Input
             type="datetime-local"
             value={d.endsAt}
             onChange={(e) => setD({ ...d, endsAt: e.target.value })}
-            className="input mt-1.5"
+            className="mt-1.5"
           />
         </label>
         <label className="block sm:col-span-2">
           <span className="t-caption-s">Operator note</span>
-          <input
+          <Input
             type="text"
             value={d.note}
             placeholder="Why this window is what it is"
             onChange={(e) => setD({ ...d, note: e.target.value })}
-            className="input mt-1.5"
+            className="mt-1.5"
           />
         </label>
         <label className="block">
           <span className="t-caption-s">State</span>
-          <select
+          <NativeSelect
             value={d.state}
             onChange={(e) => setD({ ...d, state: e.target.value as Draft['state'] })}
-            className="input mt-1.5"
+            className="mt-1.5"
           >
             <option value="draft">Draft — not yet live</option>
             <option value="active">Active — the live season</option>
             <option value="closed">Closed — finished, kept for the record</option>
-          </select>
+          </NativeSelect>
         </label>
         <div className="flex items-end">
           <p className="t-fine text-muted-foreground">
@@ -515,28 +517,26 @@ function SeasonEditor({
                       aria-hidden
                     />
                     <span className="t-caption-s">{name}</span>
-                    {changed && <span className="badge badge-quiet ml-auto">Custom</span>}
+                    {changed && <Badge variant="quiet" className="ml-auto">Custom</Badge>}
                   </div>
                   <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                    <input
+                    <Input
                       type="text"
                       value={r.name}
                       aria-label={`${name} reward name`}
                       onChange={(e) =>
                         setD({ ...d, rewards: { ...d.rewards, [tier]: { ...r, name: e.target.value } } })
                       }
-                      className="input"
                     />
-                    <input
+                    <Input
                       type="text"
                       value={r.detail}
                       aria-label={`${name} reward detail`}
                       onChange={(e) =>
                         setD({ ...d, rewards: { ...d.rewards, [tier]: { ...r, detail: e.target.value } } })
                       }
-                      className="input"
                     />
-                    <select
+                    <NativeSelect
                       value={r.icon}
                       aria-label={`${name} reward icon`}
                       onChange={(e) =>
@@ -548,14 +548,13 @@ function SeasonEditor({
                           },
                         })
                       }
-                      className="input"
                     >
                       {ICONS.map((i) => (
                         <option key={i} value={i}>
                           {i}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                 </li>
               );

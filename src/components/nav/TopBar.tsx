@@ -9,6 +9,9 @@ import { DUR, EASE } from '@/lib/motion';
 import { labelForPath } from '@/components/nav/routes';
 import { rankFor } from '@/domain/ranked';
 import type { Me } from '@/lib/useMe';
+import { Badge } from '@/components/ui/badge';
+import { badgeVariants } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 /**
  * The app bar.
@@ -61,17 +64,17 @@ export function TopBar({
         <span className="t-strong truncate">{title}</span>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <span className="chip num" title={`${streak}-day streak`}>
+          <Badge variant="chip" className="num" title={`${streak}-day streak`}>
             <Icon
               name="streak"
               size={14}
               className={streak > 0 ? 'text-streak-pressed' : 'text-muted-foreground'}
             />
             {streak}
-          </span>
+          </Badge>
           <Link
             href="/review"
-            className="chip num"
+            className={cn(badgeVariants({ variant: 'chip' }), 'num')}
             title={`${due} cards due today`}
             aria-label={`${due} cards due today`}
           >
@@ -94,7 +97,7 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Link href="/review" className="chip num" title={`${due} cards due today`}>
+          <Link href="/review" className={cn(badgeVariants({ variant: 'chip' }), 'num')} title={`${due} cards due today`}>
             <Icon
               name="review"
               size={14}
@@ -103,7 +106,7 @@ export function TopBar({
             {due}
             <span className="text-muted-foreground">due</span>
           </Link>
-          <span className="chip num" title={`${streak}-day streak`}>
+          <Badge variant="chip" className="num" title={`${streak}-day streak`}>
             <Icon
               name="streak"
               size={14}
@@ -111,7 +114,7 @@ export function TopBar({
             />
             {streak}
             <span className="text-muted-foreground">day streak</span>
-          </span>
+          </Badge>
           <ThemeToggle className="h-9 w-9" />
         </div>
       </div>

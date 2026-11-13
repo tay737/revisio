@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { cn } from '@/lib/utils';
 import { type LobbyZone, type Rank } from '@/domain/ranked';
+import { Badge } from '@/components/ui/badge';
 
 export type LobbyRow = {
   position: number;
@@ -54,14 +55,14 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
     <div className={cn('min-w-0', className)}>
       {/* Band legend. */}
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
-        <span className="badge badge-good">
+        <Badge variant="good">
           <Icon name="zoneUp" size={12} />
           Top {lobby.band} promote
-        </span>
-        <span className="badge badge-quiet">
+        </Badge>
+        <Badge variant="quiet">
           <Icon name="zoneDown" size={12} />
           Bottom {lobby.band} demote
-        </span>
+        </Badge>
         <span className="num ml-auto text-[12px] text-muted-foreground">
           {lobby.filled}/{lobby.size} seats
         </span>

@@ -14,7 +14,14 @@ import { ClozeMarking } from '../library/ClozeMarking';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StudentProgressPanel } from '@/components/staff/StudentProgressPanel';
 import { SRS_LADDER } from '@/domain/srs';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
 
 type AdminData = {
   approvals: {
@@ -102,7 +109,7 @@ export default function AdminPage() {
 
   if (me?.role !== 'developer') {
     return (
-      <div className="card p-8 text-center">
+      <Card className="p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive-ink">
           <Icon name="private" size={22} />
         </span>
@@ -110,7 +117,7 @@ export default function AdminPage() {
         <p className="t-caption mt-2 text-muted-foreground">
           Algorithms, feature flags, approvals and user management live behind this door.
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -161,7 +168,7 @@ export default function AdminPage() {
       )}
 
       {/* ── Content manager ──────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">Content</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           Every topic with its counts. Publish, withdraw, open it, or merge two together.
@@ -169,10 +176,10 @@ export default function AdminPage() {
         <div className="mt-5">
           <ContentManager />
         </div>
-      </section>
+      </Card>
 
       {/* ── Approvals ────────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Approval requests</h2>
           <span className={`chip ${pendingApprovals.length > 0 ? 'chip-active' : ''}`}>
@@ -192,7 +199,7 @@ export default function AdminPage() {
                 <div className="min-w-0">
                   <span className="t-strong">{a.name}</span>
                   <span className="t-caption ml-2 text-muted-foreground">{a.email}</span>
-                  <span className="chip ml-2 capitalize">{a.roleRequested}</span>
+                  <Badge variant="chip" className="ml-2 capitalize">{a.roleRequested}</Badge>
                   {a.note && <p className="t-caption mt-1 text-muted-foreground">{a.note}</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -225,10 +232,10 @@ export default function AdminPage() {
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
       {/* ── Publishing queue ─────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Publishing queue</h2>
           <span className={`chip ${(data?.pendingTopics.length ?? 0) > 0 ? 'chip-active' : ''}`}>
@@ -273,11 +280,11 @@ export default function AdminPage() {
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
       {/* ── Covered this week ──────────────────────────────────────────────── */}
       {data?.coveredTopics.length ? (
-        <section className="card">
+        <Card as="section">
           <div className="flex items-center justify-between gap-3">
             <h2 className="t-strong">Covered this week</h2>
             <span className={`chip ${data?.coveredTopics.length > 0 ? 'chip-active' : ''}`}>
@@ -321,22 +328,22 @@ export default function AdminPage() {
               <p className="t-caption text-muted-foreground">Every covered topic already has questions.</p>
             )}
           </div>
-        </section>
+        </Card>
       ) : (
-        <section className="card">
+        <Card as="section">
           <h2 className="t-strong">Covered this week</h2>
           <p className="t-caption mt-1 text-muted-foreground">
             Topics covered in class this week that still need questions are listed here once the approval queue builds up.
           </p>
           <p className="t-caption mt-3 text-muted-foreground">Nothing yet.</p>
-        </section>
+        </Card>
       )}
 
       {/* ── Seasons ──────────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Seasons</h2>
-          <span className="chip">rank resets here</span>
+          <Badge variant="chip">rank resets here</Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
           The windows every learner&apos;s rank is measured inside. Open the next one, stretch this one over
@@ -345,13 +352,13 @@ export default function AdminPage() {
         <div className="mt-5">
           <SeasonManager />
         </div>
-      </section>
+      </Card>
 
       {/* ── Subjects ─────────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Subjects</h2>
-          <span className="chip">{data?.subjects.length ?? 0}</span>
+          <Badge variant="chip">{data?.subjects.length ?? 0}</Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
           The course a topic hangs from. Renaming keeps its topics; deleting removes everything under it. Maths practice is a standalone tool — turning it on opens /practice for that subject and changes nothing about reviews or XP.
@@ -368,8 +375,8 @@ export default function AdminPage() {
                 <Icon name="practice" size={14} />
                 Maths {s.mathsEnabled ? 'on' : 'off'}
               </button>
-              <input
-                className="input sm:max-w-[220px]"
+              <Input
+                className="sm:max-w-[220px]"
                 value={renameTo[s.id] ?? ''}
                 onChange={(e) => setRenameTo((prev) => ({ ...prev, [s.id]: e.target.value }))}
                 placeholder="Rename to…"
@@ -395,8 +402,8 @@ export default function AdminPage() {
           {data?.subjects.length === 0 && <p className="t-caption text-muted-foreground">No subjects yet.</p>}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <input
-            className="input sm:max-w-[220px]"
+          <Input
+            className="sm:max-w-[220px]"
             value={newSubject}
             onChange={(e) => setNewSubject(e.target.value)}
             placeholder="New subject"
@@ -411,10 +418,10 @@ export default function AdminPage() {
             Create
           </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Cloze marking ────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">Cloze marking</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           How strictly fill-the-blank answers are marked across the platform. A similar-but-wrong answer stays wrong —
@@ -423,10 +430,10 @@ export default function AdminPage() {
         <div className="mt-5">
           <ClozeMarking isDeveloper />
         </div>
-      </section>
+      </Card>
 
       {/* ── Algorithms ───────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">Scheduling algorithms</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           Which scheduler produces intervals. Changing this creates a new default for future reviews; existing
@@ -482,27 +489,27 @@ export default function AdminPage() {
         </div>
 
         <div className="mt-4">
-          <label className="label" htmlFor="algo-params">
+          <Label htmlFor="algo-params">
             Optional parameter overrides (JSON)
-          </label>
-          <textarea
+          </Label>
+          <Textarea
             id="algo-params"
-            className="input t-fine min-h-[60px] font-mono"
+            className="t-fine min-h-[60px] font-mono"
             rows={2}
             value={algoParams}
             onChange={(e) => setAlgoParams(e.target.value)}
             placeholder='{"learningStepMinutes": 5}'
           />
         </div>
-      </section>
+      </Card>
 
       {/* ── Feature flags ────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Feature flags</h2>
-          <span className="chip">
+          <Badge variant="chip">
             {enabledFlags} of {data?.flags.length ?? 0} enabled
-          </span>
+          </Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
           Flags reach the client through the <code>/me</code> payload and are cached for 30 seconds.
@@ -524,10 +531,10 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
-      </section>
+      </Card>
 
       {/* ── Badges ──────────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">Profile badges</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           Chips that ride beside the role badge on a profile — a {'<3'}, an Alpha Tester, whatever you mint.
@@ -537,7 +544,7 @@ export default function AdminPage() {
         {data?.badges.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {data.badges.map((b) => (
-              <span key={b.id} className="chip chip-active gap-2">
+              <Badge variant="chip-active" key={b.id} className="gap-2">
                 {b.icon && <Icon name={b.icon as never} size={12} />}
                 {b.label}
                 <span className="num text-[11px] text-muted-foreground">×{b.grants}</span>
@@ -548,7 +555,7 @@ export default function AdminPage() {
                   confirmLabel="Remove"
                   onConfirm={() => act({ action: 'delete_badge', badgeId: b.id }, `Badge "${b.label}" deleted.`)}
                 />
-              </span>
+              </Badge>
             ))}
           </div>
         ) : (
@@ -556,23 +563,23 @@ export default function AdminPage() {
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <input
-            className="input max-w-[180px]"
+          <Input
+            className="max-w-[180px]"
             placeholder="Label — e.g. <3"
             value={badgeLabel}
             maxLength={24}
             onChange={(e) => setBadgeLabel(e.target.value)}
             aria-label="Badge label"
           />
-          <input
-            className="input max-w-[140px]"
+          <Input
+            className="max-w-[140px]"
             placeholder="Icon (optional)"
             value={badgeIcon}
             onChange={(e) => setBadgeIcon(e.target.value)}
             aria-label="Badge icon name"
           />
-          <select
-            className="input max-w-[110px]"
+          <NativeSelect
+            className="max-w-[110px]"
             value={badgeColor}
             aria-label="Badge colour"
             onChange={(e) => setBadgeColor(e.target.value as typeof badgeColor)}
@@ -581,7 +588,7 @@ export default function AdminPage() {
             <option value="primary">ink</option>
             <option value="good">green</option>
             <option value="rose">rose</option>
-          </select>
+          </NativeSelect>
           <Button
             type="button"
             variant="secondary"
@@ -598,10 +605,10 @@ export default function AdminPage() {
             Mint badge
           </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Users ────────────────────────────────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <h2 className="t-strong">Users</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           {data?.users.length ?? 0} accounts. Suspending revokes access immediately; nothing is deleted.
@@ -629,8 +636,8 @@ export default function AdminPage() {
                   </td>
                   <td className="py-3 pr-3">
                     {/* The action existed in the API with no way to reach it. */}
-                    <select
-                      className="input max-w-[130px] capitalize"
+                    <NativeSelect
+                      className="max-w-[130px] capitalize"
                       value={u.role}
                       aria-label={`Role for ${u.name}`}
                       onChange={(e) => act({ action: 'set_user_role', userId: u.id, role: e.target.value }, `${u.name} is now ${e.target.value}.`)}
@@ -640,7 +647,7 @@ export default function AdminPage() {
                           {r}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </td>
                   <td className="py-3 pr-3">
                     {(() => {
@@ -653,42 +660,42 @@ export default function AdminPage() {
                               const b = data?.badges.find((x) => x.id === g.badgeId);
                               if (!b) return null;
                               return (
-                                <button
+                                <Button variant="chipActive"
                                   key={g.badgeId}
                                   type="button"
                                   title={`Revoke "${b.label}"`}
-                                  className="chip chip-active gap-1"
+                                  className="gap-1"
                                   onClick={() => act({ action: 'revoke_badge', userId: u.id, badgeId: b.id }, `Badge "${b.label}" revoked from ${u.name}.`)}
                                 >
                                   {b.label}
                                   <Icon name="close" size={10} />
-                                </button>
+                                </Button>
                               );
                             })}
-                            <button
+                            <Button variant="chip"
                               type="button"
                               aria-label={`Badges for ${u.name}`}
                               aria-expanded={open}
-                              className="chip gap-1"
+                              className="gap-1"
                               onClick={() => setBadgePickerFor(open ? null : u.id)}
                             >
                               <Icon name={open ? 'collapse' : 'add'} size={10} />
-                            </button>
+                            </Button>
                           </div>
                           {open && (
                             <div className="inset space-y-2 rounded-md p-2.5">
                               <div className="flex flex-wrap gap-1">
                                 {(data?.badges.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">Mint a badge first.</span>}
                                 {data?.badges.filter((b) => !worn.some((g) => g.badgeId === b.id)).map((b) => (
-                                  <button
+                                  <Button variant="chip"
                                     key={b.id}
                                     type="button"
-                                    className="chip gap-1"
+                                    className="gap-1"
                                     onClick={() => act({ action: 'grant_badge', userId: u.id, badgeId: b.id }, `"${b.label}" granted to ${u.name}.`)}
                                   >
                                     <Icon name="add" size={10} />
                                     {b.label}
-                                  </button>
+                                  </Button>
                                 ))}
                               </div>
                               {(data?.manualAchievements.length ?? 0) > 0 && (
@@ -728,26 +735,26 @@ export default function AdminPage() {
                         <div className="flex flex-col gap-1.5">
                           <div className="flex flex-wrap items-center gap-1">
                             {inClasses.map((c) => (
-                              <button
+                              <Button variant="chipActive"
                                 key={c.id}
                                 type="button"
                                 title={`Remove ${u.name} from ${c.name}`}
-                                className="chip chip-active gap-1"
+                                className="gap-1"
                                 onClick={() => act({ action: 'remove_class_member', classId: c.id, userId: u.id }, `${u.name} removed from ${c.name}.`)}
                               >
                                 {c.name}
                                 <Icon name="close" size={10} />
-                              </button>
+                              </Button>
                             ))}
-                            <button
+                            <Button variant="chip"
                               type="button"
                               aria-label={`Classes for ${u.name}`}
                               aria-expanded={open}
-                              className="chip gap-1"
+                              className="gap-1"
                               onClick={() => setClassPickerFor(open ? null : u.id)}
                             >
                               <Icon name={open ? 'collapse' : 'add'} size={10} />
-                            </button>
+                            </Button>
                           </div>
                           {open && (
                             <div className="inset flex flex-wrap gap-1 rounded-md p-2.5">
@@ -755,16 +762,16 @@ export default function AdminPage() {
                               {data?.classes
                                 .filter((c) => !c.members.some((m) => m.userId === u.id))
                                 .map((c) => (
-                                  <button
+                                  <Button variant="chip"
                                     key={c.id}
                                     type="button"
                                     title={`${c.teacherName} · code ${c.joinCode}`}
-                                    className="chip gap-1"
+                                    className="gap-1"
                                     onClick={() => act({ action: 'add_class_member', classId: c.id, userId: u.id }, `${u.name} added to ${c.name}.`)}
                                   >
                                     <Icon name="class" size={10} />
                                     {c.name}
-                                  </button>
+                                  </Button>
                                 ))}
                             </div>
                           )}
@@ -836,13 +843,13 @@ export default function AdminPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
       {/* ── Classes (all of them, any owner) ────────────────────────────── */}
-      <section className="card">
+      <Card as="section">
         <div className="flex items-center justify-between gap-3">
           <h2 className="t-strong">Classes</h2>
-          <span className="chip">{data?.classes.length ?? 0} on the platform</span>
+          <Badge variant="chip">{data?.classes.length ?? 0} on the platform</Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
           Every class with its owner and code. Rename, retune owner or subject, remove members — teachers manage their own from Teaching.
@@ -891,8 +898,8 @@ export default function AdminPage() {
 
                 {classRenameTo[c.id] !== undefined && (
                   <div className="mt-2.5 flex flex-wrap gap-2">
-                    <input
-                      className="input flex-1 sm:min-w-[200px]"
+                    <Input
+                      className="flex-1 sm:min-w-[200px]"
                       value={classRenameTo[c.id]}
                       onChange={(e) => setClassRenameTo({ ...classRenameTo, [c.id]: e.target.value })}
                       aria-label={`New name for ${c.name}`}
@@ -918,8 +925,8 @@ export default function AdminPage() {
                 {/* Owner + subject rows — selects, because the honest control
                     for "point this at someone else" is a pick list. */}
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  <select
-                    className="input max-w-[220px]"
+                  <NativeSelect
+                    className="max-w-[220px]"
                     value={c.teacherId}
                     aria-label={`Owner of ${c.name}`}
                     onChange={(e) => act({ action: 'set_class_teacher', classId: c.id, teacherId: e.target.value }, `${c.name} now belongs to a new owner.`)}
@@ -936,9 +943,9 @@ export default function AdminPage() {
                     {!data?.users.some((u) => u.id === c.teacherId && u.role !== 'student') && (
                       <option value={c.teacherId}>{c.teacherName}</option>
                     )}
-                  </select>
-                  <select
-                    className="input max-w-[200px]"
+                  </NativeSelect>
+                  <NativeSelect
+                    className="max-w-[200px]"
                     value={c.subjectId}
                     aria-label={`Subject of ${c.name}`}
                     onChange={(e) => act({ action: 'set_class_subject', classId: c.id, subjectId: e.target.value }, `${c.name} subject updated.`)}
@@ -949,23 +956,23 @@ export default function AdminPage() {
                         {s.name}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 {/* Roster — same chip grammar as the Users table. */}
                 {c.members.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap items-center gap-1">
                     {c.members.map((m) => (
-                      <button
+                      <Button variant="chip"
                         key={m.userId}
                         type="button"
                         title={`Remove ${m.name} from ${c.name}`}
-                        className="chip gap-1"
+                        className="gap-1"
                         onClick={() => act({ action: 'remove_class_member', classId: c.id, userId: m.userId }, `${m.name} removed from ${c.name}.`)}
                       >
                         {m.name}
                         <Icon name="close" size={10} />
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 )}
@@ -973,12 +980,12 @@ export default function AdminPage() {
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
       {/* ── Audit ────────────────────────────────────────────────────────── */}
       {(data?.audit.length ?? 0) > 0 && (
         <BlurFade inView>
-          <section className="card">
+          <Card as="section">
             <h2 className="t-strong">Audit log</h2>
             <p className="t-caption mt-1 text-muted-foreground">Every administrative action, newest first.</p>
             <div className="mt-3 space-y-1.5">
@@ -990,7 +997,7 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
-          </section>
+          </Card>
         </BlurFade>
       )}
 
@@ -1013,10 +1020,10 @@ export default function AdminPage() {
  */
 function Stat({ label, value, note, alarm }: { label: string; value: number; note?: string; alarm?: boolean }) {
   return (
-    <div className="card p-4">
+    <Card className="p-4">
       <span className="t-caption text-muted-foreground">{label}</span>
       <div className={`t-display-sm num mt-1 ${alarm ? 'text-destructive-ink' : ''}`}>{value}</div>
       {note && <span className="t-fine mt-0.5 block text-muted-foreground">{note}</span>}
-    </div>
+    </Card>
   );
 }

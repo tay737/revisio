@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
 import { SPRING } from '@/lib/motion';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 
 export type TopicOption = {
   id: string;
@@ -90,12 +92,11 @@ export function MergeTopics({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="min-w-0">
-          <label className="label" htmlFor="merge-source">
+          <Label htmlFor="merge-source">
             Move everything from
-          </label>
-          <select
+          </Label>
+          <NativeSelect
             id="merge-source"
-            className="input"
             value={source}
             onChange={(e) => {
               setSource(e.target.value);
@@ -109,15 +110,14 @@ export function MergeTopics({
                 {t.cardCount !== undefined ? ` — ${t.cardCount} questions` : ''}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className="min-w-0">
-          <label className="label" htmlFor="merge-target">
+          <Label htmlFor="merge-target">
             into
-          </label>
-          <select
+          </Label>
+          <NativeSelect
             id="merge-target"
-            className="input"
             value={target}
             onChange={(e) => {
               setTarget(e.target.value);
@@ -131,7 +131,7 @@ export function MergeTopics({
                 {t.lessonCount !== undefined ? ` — ${t.lessonCount} note ${t.lessonCount === 1 ? 'set' : 'sets'}` : ''}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 

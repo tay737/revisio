@@ -5,6 +5,11 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
 
 type Subject = { id: string; name: string };
 type Kind = 'cloze' | 'flashcard' | 'mcq';
@@ -91,12 +96,11 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
     <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="min-w-0">
-          <label className="label" htmlFor="topic-name">
+          <Label htmlFor="topic-name">
             Topic
-          </label>
-          <input
+          </Label>
+          <Input
             id="topic-name"
-            className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -104,26 +108,25 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
           />
         </div>
         <div className="min-w-0">
-          <label className="label" htmlFor="topic-subject">
+          <Label htmlFor="topic-subject">
             Subject
-          </label>
-          <select id="topic-subject" className="input" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+          </Label>
+          <NativeSelect id="topic-subject" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 
       <div>
-        <label className="label" htmlFor="topic-desc">
+        <Label htmlFor="topic-desc">
           One line about it
-        </label>
-        <input
+        </Label>
+        <Input
           id="topic-desc"
-          className="input"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional"
@@ -134,30 +137,28 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
         <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold leading-snug">
           <Icon name="notes" size={15} />
           Notes
-          <span className="chip ml-1">{lesson.title ? '1' : '0'}</span>
+          <Badge variant="chip" className="ml-1">{lesson.title ? '1' : '0'}</Badge>
           <Icon name="collapse" size={14} className="ml-auto text-muted-foreground" />
         </summary>
         <div className="mt-3 space-y-3">
-          <input
-            className="input"
+          <Input
             value={lesson.title}
             onChange={(e) => setLesson({ ...lesson, title: e.target.value })}
             placeholder="Where I read this from"
           />
-          <textarea
-            className="input min-h-[120px]"
+          <Textarea
+            className="min-h-[120px]"
             value={lesson.detailedMd}
             onChange={(e) => setLesson({ ...lesson, detailedMd: e.target.value })}
             placeholder={'## Heading\n- a point worth remembering'}
           />
-          <textarea
-            className="input min-h-[70px]"
+          <Textarea
+            className="min-h-[70px]"
             value={lesson.summaryMd}
             onChange={(e) => setLesson({ ...lesson, summaryMd: e.target.value })}
             placeholder="Summary — the version cram shows you"
           />
-          <input
-            className="input"
+          <Input
             value={lesson.specRefs}
             onChange={(e) => setLesson({ ...lesson, specRefs: e.target.value })}
             placeholder="Spec references, e.g. 1.1.1"
@@ -169,15 +170,15 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
         <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold leading-snug">
           <Icon name="target" size={15} />
           Questions
-          <span className="chip ml-1">{drafts.length}</span>
+          <Badge variant="chip" className="ml-1">{drafts.length}</Badge>
           <Icon name="collapse" size={14} className="ml-auto text-muted-foreground" />
         </summary>
         <div className="mt-3 space-y-3">
           {drafts.map((d, i) => (
             <div key={i} className="inset space-y-2.5 p-3.5">
               <div className="flex items-center gap-2">
-                <select
-                  className="input max-w-[170px]"
+                <NativeSelect
+                  className="max-w-[170px]"
                   value={d.kind}
                   onChange={(e) => patch(i, blank(e.target.value as Kind))}
                   aria-label="Question type"
@@ -185,7 +186,7 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
                   <option value="cloze">Fill the blank</option>
                   <option value="flashcard">Flashcard</option>
                   <option value="mcq">Multiple choice</option>
-                </select>
+                </NativeSelect>
                 <Button
                   type="button"
                   variant="ghost"
@@ -199,16 +200,14 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
               </div>
 
               {d.kind === 'cloze' && (
-                <input
-                  className="input"
+                <Input
                   value={d.textWithBlank}
                   onChange={(e) => patch(i, { textWithBlank: e.target.value })}
                   placeholder="The powerhouse of the cell is the ____"
                 />
               )}
               {d.kind === 'flashcard' && (
-                <input
-                  className="input"
+                <Input
                   value={d.prompt}
                   onChange={(e) => patch(i, { prompt: e.target.value })}
                   placeholder="What should you be able to answer?"
@@ -216,34 +215,32 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
               )}
               {d.kind === 'mcq' && (
                 <>
-                  <input
-                    className="input"
+                  <Input
                     value={d.question}
                     onChange={(e) => patch(i, { question: e.target.value })}
                     placeholder="Question"
                   />
-                  <textarea
-                    className="input min-h-[80px]"
+                  <Textarea
+                    className="min-h-[80px]"
                     value={d.options}
                     onChange={(e) => patch(i, { options: e.target.value })}
                     placeholder="One option per line"
                   />
-                  <label className="label" htmlFor={`correct-${i}`}>
+                  <Label htmlFor={`correct-${i}`}>
                     Correct option — count from 0
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     id={`correct-${i}`}
                     type="number"
                     min={0}
-                    className="input max-w-[110px]"
+                    className="max-w-[110px]"
                     value={d.correctIdx}
                     onChange={(e) => patch(i, { correctIdx: Number(e.target.value) })}
                   />
                 </>
               )}
               {d.kind !== 'mcq' && (
-                <input
-                  className="input"
+                <Input
                   value={d.answers}
                   onChange={(e) => patch(i, { answers: e.target.value })}
                   placeholder={d.kind === 'cloze' ? 'Accepted answers, separated by |' : 'Model answer'}

@@ -12,6 +12,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { rankFor } from '@/domain/ranked';
 import { isActivePath, type NavItem } from '@/components/nav/routes';
 import type { Me } from '@/lib/useMe';
+import { Button } from '@/components/ui/button';
 
 /**
  * Desktop navigation.
@@ -121,14 +122,14 @@ export function Sidebar({
           <div className="text-[12px] capitalize text-muted-foreground">{me.role}</div>
         </div>
         <ThemeToggle className="h-9 w-9" />
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={onSignOut}
           aria-label="Sign out"
-          className="btn btn-ghost h-9 w-9 !min-h-9 !px-0"
+          className="h-9 w-9 !min-h-9 !px-0"
         >
           <Icon name="signOut" size={16} />
-        </button>
+        </Button>
       </div>
     </aside>
   );

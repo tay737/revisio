@@ -20,7 +20,7 @@ export function LegalHeader({ current }: { current?: string }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 pt-safe backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 max-w-3xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="-my-1 flex items-center gap-2.5 py-1">
           <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
             R
           </span>
