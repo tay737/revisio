@@ -56,16 +56,27 @@ isolated the residual overflow element:
 - **SF4 closed.** No small target on the range input; the shared
   `input[type='range']` rule now gives a 44px hit area with the 6px track painted
   as a centred gradient.
-- **SF1 partially closed.** `/admin` @390 overflow dropped +229px → +33px
-  (`scrollWidth` 423 vs 390). The flag-description `break-all` worked; the
-  residual is the new badge row: the `span.flex.items-center.gap-1.5` group
-  (chip + "Remove badge …" ghost button, ~316–386px, atomic) cannot wrap inside
-  the 316px card row. Returned to frontend with the fix spec (`flex-wrap` on the
-  group and/or a shorter visible label). Acceptance: `scrollWidth ===
-  clientWidth` at 390, axe still clean.
 - One expected-conflict 409 (`create_subject` "UX Audit Subject" already exists)
   was logged; `teacher/page.tsx:122` surfaces it in the bad `Notice` — correct
   error UX, fixture artifact only.
+
+## Verification update, 14 Nov (residual fix `adbd6d9`, final gate on production)
+
+Frontend applied both levers: `flex-wrap` on the badge group span and a shortened
+visible label ("Remove" + icon) with a new `InlineConfirm ariaLabel` prop keeping
+the full "Remove badge <name>" accessible name; button stays at 44px.
+
+- DOM probe `/admin` @390: `scrollWidth` 390 === `clientWidth` — **zero page
+  overflow**. The only wide element left is the users table inside its own
+  `overflow-x-auto` scroller (correct degradation).
+- Full `audit:staff` re-run on the deployed build — report
+  `artifacts/staff-audit/2026-11-14T14-08-17/report.json`: **17 screens, 0 axe,
+  0 overflow, `smallTargets: []` everywhere, 0 findings** except the same
+  expected-conflict fixture 409.
+
+**All four findings (SF1–SF4) closed.** Staff surfaces pass the UX gate and are
+handed to QA for the standard three-gate sign-off plus `audit:staff` on the new
+SHA (`adbd6d9`).
 
 ---
 
