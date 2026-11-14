@@ -1,5 +1,5 @@
 import 'server-only';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand, CreateBucketCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, HeadBucketCommand, CreateBucketCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
@@ -35,6 +35,27 @@ const CONTENT_TYPES: Record<string, string> = {
 /** The upload gate: type whitelist + size cap, checked before any presign. */
 export function mediaConfigured(): boolean {
   return Boolean(ENDPOINT && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+}
+
+/** Same whitelist presign enforces, for callers that check after the fact. */
+export function isAllowedMediaContentType(contentType: string): boolean {
+  return contentType in CONTENT_TYPES;
+}
+
+/**
+ * Whether the object a presigned PUT was meant to create actually exists.
+ * Confirm calls this before recording the asset: without it a client could
+ * confirm a key whose bytes never landed and pin a broken image to the
+ * profile until the next upload.
+ */
+export async function mediaObjectExists(key: string): Promise<boolean> {
+  if (!mediaConfigured()) return false;
+  try {
+    await client().send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function client(): S3Client {

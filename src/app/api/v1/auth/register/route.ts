@@ -124,6 +124,11 @@ export const POST = route(async (req: NextRequest) => {
       name: user.name,
       role: user.role,
       status: user.status,
+      // Staff requests sit in the approval queue while the account itself is
+      // still a pending student — clients that only see `role: 'student'`
+      // would tell the applicant they are in, when the truth is "waiting for
+      // approval". `pendingApproval` is the flag the web form already reads.
+      ...(requestedRole !== 'student' ? { pendingApproval: true } : {}),
       ...(unavailableSubjects.length > 0 ? { unavailableSubjects } : {}),
       ...(emailConfigured ? {} : { verifyUrl: `/verify-email?token=${token}` }),
     },

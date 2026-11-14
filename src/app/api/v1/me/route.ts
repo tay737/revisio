@@ -146,14 +146,22 @@ export const PATCH = route(async (req: NextRequest) => {
     }
     update.bannerColor = body.bannerColor;
   }
-  if (body.profileVisibility !== undefined) {
-    // Merge with the stored value: absent keys keep their current setting, so
-    // a client updating one toggle cannot silently blank the others.
-    const [current] = await db.select({ v: users.profileVisibility }).from(users).where(eq(users.id, user.id)).limit(1);
-    update.profileVisibility = { ...DEFAULT_VISIBILITY, ...(current?.v ?? {}), ...body.profileVisibility };
+  if (body.profileVisibility !== undefined || body.prefs) {
+    // One read serves both merges: profileVisibility and prefs each keep the
+    // keys the client did not send, so a partial write cannot blank the rest.
+    const [current] = await db
+      .select({ v: users.profileVisibility, p: users.prefs })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+    if (body.profileVisibility !== undefined) {
+      // Merge with the stored value: absent keys keep their current setting, so
+      // a client updating one toggle cannot silently blank the others.
+      update.profileVisibility = { ...DEFAULT_VISIBILITY, ...(current?.v ?? {}), ...body.profileVisibility };
+    }
+    if (body.prefs) update.prefs = { ...(current?.p ?? {}), ...body.prefs };
   }
   if (typeof body.leaderboardOptOut === 'boolean') update.leaderboardOptOut = body.leaderboardOptOut;
-  if (body.prefs) update.prefs = body.prefs;
 
   if (Object.keys(update).length > 0) {
     try {

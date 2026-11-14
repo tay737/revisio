@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { users } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
-import { publicUrlFor, presignMediaUpload, replaceProfileImage, mediaConfigured, KINDS, type MediaKind } from '@/services/storage';
+import { publicUrlFor, presignMediaUpload, replaceProfileImage, mediaConfigured, mediaObjectExists, isAllowedMediaContentType, KINDS, type MediaKind } from '@/services/storage';
 
 // ── Profile media API ───────────────────────────────────────────────────────
 // The browser asks for a presigned PUT, uploads the bytes straight to the
@@ -37,6 +37,12 @@ export const POST = route(async (req: NextRequest) => {
       const key = String(body.key ?? '');
       if (!key.startsWith(`u/${user.id}/`)) throw new ApiError(403, 'not_yours', 'That object is not yours.');
       const contentType = String(body.contentType ?? '');
+      if (!isAllowedMediaContentType(contentType)) throw new ApiError(415, 'bad_type', 'Avatars and banners must be PNG, JPEG or GIF.');
+      // The PUT is the only thing that puts bytes in the bucket; a confirm
+      // without it would pin a key that 404s forever. Check before recording.
+      if (!(await mediaObjectExists(key))) {
+        throw new ApiError(400, 'upload_missing', 'The file is not in storage yet — finish the upload, then confirm.');
+      }
       const sizeBytes = Math.round(Number(body.sizeBytes ?? 0));
       await replaceProfileImage(user.id, kind, { key, contentType, sizeBytes });
       await db
