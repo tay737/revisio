@@ -28,6 +28,24 @@ supersede that limitation for the checks they cover.
 
 ---
 
+## Verification update, 14 Nov (commit `87d47dd`, "Land the remaining frontend audit fixes and drop the unconsumed level field")
+
+Landed by the frontend lane; audited against the findings above:
+
+- **F3 (inline `text-[Npx]`)**: closed. `grep` returns 0 occurrences in `src/`; type scale now uses `.t-*` only.
+- **F5 (wizard per-field errors + focus)**: closed. Per-field error slots with `aria-invalid`/`aria-describedby` and focus to first failure.
+- **F6 (noun step headings)**: closed. `STEP_TITLES` now "Your role / Your account / About you / What you study / Confirm".
+- **F7 (success title)**: closed. "Check your inbox" (dev mode keeps "You are in").
+- **F8/F9 (placeholder + DOB label)**: closed. "Your name", "you@example.com", "Your date of birth".
+- **F10 (consent wording)**: closed. DPO-approved sentence, with withdrawal as a link.
+- **F12 (duplicate theme toggle)**: closed. Removed from `TopBar`; Sidebar keeps the one desktop toggle.
+- **F13 (system radii/lip)**: closed. `rounded-lg` + `transition-colors`.
+- **F1 (education level)**: closed end to end. Field dropped from wizard/register/me/deletion/schema; migration `0015` drops the column on both DBs.
+- **F4 (tap targets)** and **F11 (PWA gate)**: remain open — not in this commit's scope.
+- `tsc --noEmit` clean; production build passes.
+
+---
+
 ## 1. Summary
 
 The public surface now holds the line the spec drew. The landing names its
@@ -106,6 +124,7 @@ Severity: 4 catastrophe, 3 major, 2 minor, 1 cosmetic.
 - What remains: the study/account/profile/review headings are still questions or phrased copies (`"How will you use Revisio?"`, `"What are you studying?"`, `"A little about you"`, `"Check and create"`) rather than the noun labels named in the spec (tracked in F6), and Q3 is still open on which exact label set is canonical.
 - Why: `ONBOARDING-REVIEW.md` §4.2; `UI-SYSTEM.md` §8.6 and §9.
 - Severity 1 now for the remaining copy/label alignment (was 3), Effort S, Confidence Certain for the current state; High for the canonical-label choice (Q3).
+- Superseded 14 Nov: the DPO ruled that the level had no consumer and therefore no lawful basis (Art 5(1)(c)), so the field was removed end to end in `87d47dd` rather than wired into a feature. The wizard no longer asks for or sends a level, the register/`me`/deletion paths and drizzle schema no longer carry it, `0015_drop_education_level.sql` drops the column, and the privacy policy no longer promises the question. F1's remaining copy work (F6) is still closed by the same commit.
 
 ### F2. `education_level` was missing from production (closed 14 Nov)
 
