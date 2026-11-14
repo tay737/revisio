@@ -1,5 +1,6 @@
 import { getTableName, getTableColumns, type Table } from 'drizzle-orm';
 import { Pool } from 'pg';
+import { waitUntil } from '@vercel/functions';
 import { createAppPool } from './pool';
 import * as schema from './schema';
 
@@ -429,6 +430,13 @@ type SyncEvent = { seq: string; table_name: string; op: string; pk: string; row_
  * after the whole batch succeeds, so a crash replays rather than skips.
  */
 export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap, maxEvents = 2_000): Promise<number> {
+  // Collapse bursts before draining: only each row's final state matters
+  // (INSERT and UPDATE both land as the same upsert, DELETE as a tombstone),
+  // so intermediate events for a pk are dead weight that can only fail —
+  // an orphaned INSERT ahead of its own DELETE is exactly what stalled the
+  // queue for five weeks in Oct/Nov 2026.
+  await compactSyncEvents(from);
+
   let drained = 0;
   const deadline = Date.now() + DRAIN_BUDGET_MS;
   for (;;) {
@@ -445,7 +453,7 @@ export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap
     }
     if (events.length === 0) break;
 
-    await applyEventBatch(to, events, pkMap);
+    await applyEventBatch(from, to, events, pkMap);
 
     const seqs = events.map((e) => Number(e.seq));
     const fromClient2 = await from.pool.connect();
@@ -490,8 +498,15 @@ const DRAIN_BUDGET_MS = Number(process.env.NEON_DRAIN_BUDGET_MS ?? 25_000);
  * every replicated write would be re-captured — an echo loop), a pass either
  * lands whole or not at all, and per-event savepoints let FK-stranded rows be
  * parked and retried without aborting the pass.
+ *
+ * Self-healing: an INSERT/UPDATE that still fails after every pass is checked
+ * against the *source*. If the row no longer exists there, the event is an
+ * orphan — its parent (e.g. a deleted test user) is gone on both sides, so it
+ * can never apply and would otherwise stall the whole queue forever. The
+ * target is converged with a DELETE by pk and the event is consumed; only
+ * events whose source row still exists raise and fail the run.
  */
-async function applyEventBatch(to: SyncDb, events: SyncEvent[], pkMap: PrimaryKeyMap): Promise<void> {
+async function applyEventBatch(from: SyncDb, to: SyncDb, events: SyncEvent[], pkMap: PrimaryKeyMap): Promise<void> {
   const ordered = [...events].sort((a, b) => {
     const ia = REPLICATED_TABLES.indexOf(a.table_name as (typeof REPLICATED_TABLES)[number]);
     const ib = REPLICATED_TABLES.indexOf(b.table_name as (typeof REPLICATED_TABLES)[number]);
@@ -534,10 +549,37 @@ async function applyEventBatch(to: SyncDb, events: SyncEvent[], pkMap: PrimaryKe
     if (pass < REORDER_PASSES - 1) await new Promise((r) => setTimeout(r, REORDER_WAIT_MS));
     pending = failed;
   }
-  throw new Error(
-    `sync: ${pending.length} event(s) could not be applied to ${to.label} after ${REORDER_PASSES} passes ` +
-      `(first: ${pending[0].table_name} ${pending[0].op} ${pending[0].pk})`,
-  );
+
+  // Passes exhausted. Partition the survivors: orphans (source row gone) are
+  // converged and consumed here so they can never stall the queue again;
+  // anything whose source row still exists is a genuine conflict and fails
+  // the run as before.
+  const orphans: SyncEvent[] = [];
+  const stuck: SyncEvent[] = [];
+  const fromClient = await from.pool.connect();
+  try {
+    for (const event of pending) {
+      if (event.op !== 'DELETE' && (await sourceRowMissing(fromClient, event, pkMap))) orphans.push(event);
+      else stuck.push(event);
+    }
+  } finally {
+    fromClient.release();
+  }
+
+  if (orphans.length > 0) {
+    await convergeDroppedRows(to, orphans, pkMap);
+    await deleteConsumedEvents(from, orphans);
+    console.warn(
+      `[sync] dropped ${orphans.length} orphaned event(s) for ${to.label}: ` +
+        orphans.slice(0, 5).map((e) => `${e.table_name} ${e.op} ${e.pk}`).join('; '),
+    );
+  }
+  if (stuck.length > 0) {
+    throw new Error(
+      `sync: ${stuck.length} event(s) could not be applied to ${to.label} after ${REORDER_PASSES} passes ` +
+        `(first: ${stuck[0].table_name} ${stuck[0].op} ${stuck[0].pk})`,
+    );
+  }
 }
 
 /** Decode `_sync_events.pk` — a bare value for single-pk tables, a JSON array for composites. */
@@ -550,6 +592,97 @@ function pkValues(event: SyncEvent, def: TableDef): string[] {
   return parsed.map(String);
 }
 
+/** `WHERE` clause locating one event's row, for single and composite pks alike. */
+function pkPredicate(def: TableDef, values: string[]): string {
+  return def.pkCols.map((c, i) => `"${c}" = '${values[i].replace(/'/g, "''")}'`).join(' AND ');
+}
+
+/**
+ * True when an INSERT/UPDATE event's row no longer exists on the source —
+ * the orphan case (parent deleted after capture, row deleted before its own
+ * DELETE event drained). Returns false on any doubt: a failed lookup or an
+ * unparseable pk means "not proven orphaned", so the event stays stuck and
+ * the run still fails loudly rather than silently dropping live data.
+ */
+async function sourceRowMissing(
+  client: import('pg').PoolClient,
+  event: SyncEvent,
+  pkMap: PrimaryKeyMap,
+): Promise<boolean> {
+  try {
+    const def = tableDef(event.table_name, pkMap);
+    const values = pkValues(event, def);
+    const res = await client.query(`SELECT 1 FROM "${event.table_name}" WHERE ${pkPredicate(def, values)} LIMIT 1`);
+    return res.rows.length === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Converge the target for dropped orphans: the source says the row is absent,
+ * so the target must not keep it either (it may hold a partial image from an
+ * earlier pass). One transaction, replication flag set — same discipline as
+ * a normal pass.
+ */
+async function convergeDroppedRows(to: SyncDb, events: SyncEvent[], pkMap: PrimaryKeyMap): Promise<void> {
+  const client = await to.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('app.sync_replicated', 'on', true)");
+    for (const event of events) {
+      const def = tableDef(event.table_name, pkMap);
+      const values = pkValues(event, def);
+      await client.query(`DELETE FROM "${event.table_name}" WHERE ${pkPredicate(def, values)}`);
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/** Consume orphaned events on the source so they are never re-examined. */
+async function deleteConsumedEvents(from: SyncDb, events: SyncEvent[]): Promise<void> {
+  const client = await from.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM _sync_events WHERE seq = ANY($1::bigint[])`, [
+      events.map((e) => Number(e.seq)),
+    ]);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Keep only the last event per (table_name, pk) in `_sync_events`. Every op
+ * for a pk collapses to that row's final state — upsert for INSERT/UPDATE,
+ * tombstone for DELETE — so earlier events can only fail (orphans) or waste
+ * batch slots. This is the automated form of the manual compaction that
+ * unwedged the Oct 2026 stall; it runs once per drain, cheap on an empty log.
+ */
+async function compactSyncEvents(from: SyncDb): Promise<void> {
+  const client = await from.pool.connect();
+  try {
+    const exists = await client.query(`SELECT to_regclass('_sync_events') AS t`);
+    if (!exists.rows[0]?.t) return;
+    await client.query(`
+      DELETE FROM _sync_events e
+      USING (SELECT DISTINCT ON (table_name, pk) seq, table_name, pk
+             FROM _sync_events ORDER BY table_name, pk, seq DESC) k
+      WHERE e.seq <> k.seq AND e.table_name = k.table_name AND e.pk = k.pk`);
+  } finally {
+    client.release();
+  }
+}
+
 async function applyOne(client: Pool | import('pg').PoolClient, event: SyncEvent, pkMap: PrimaryKeyMap): Promise<void> {
   // The caller's transaction carries `app.sync_replicated = 'on'`, so these
   // writes capture nothing — the two sides cannot echo events forever.
@@ -557,8 +690,7 @@ async function applyOne(client: Pool | import('pg').PoolClient, event: SyncEvent
 
   if (event.op === 'DELETE') {
     const values = pkValues(event, def);
-    const where = def.pkCols.map((c, i) => `"${c}" = '${values[i].replace(/'/g, "''")}'`).join(' AND ');
-    await client.query(`DELETE FROM "${event.table_name}" WHERE ${where}`);
+    await client.query(`DELETE FROM "${event.table_name}" WHERE ${pkPredicate(def, values)}`);
     return;
   }
 
@@ -689,7 +821,7 @@ export function sharedSyncHandles(): SyncHandles | null {
 export function kickSync(maxEvents = 200): void {
   const handles = sharedSyncHandles();
   if (!handles || !handles.neon) return;
-  void (async () => {
+  const drain = (async () => {
     try {
       const pkMap = await getPkMap(handles);
       const drained = await drainEvents(handles.primary, handles.neon as SyncDb, pkMap, maxEvents);
@@ -698,4 +830,13 @@ export function kickSync(maxEvents = 200): void {
       console.error('[sync] kick failed (cron will catch up)', e);
     }
   })();
+  // On Vercel, waitUntil keeps the function alive until the drain finishes —
+  // without it the runtime can freeze the instance the moment the response is
+  // sent and the kick silently never runs. Outside a request context (scripts,
+  // tests) there is nothing to extend; the promise still runs to completion.
+  try {
+    waitUntil(drain);
+  } catch {
+    // No request context — the drain is already running on its own.
+  }
 }
