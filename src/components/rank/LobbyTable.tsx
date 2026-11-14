@@ -101,9 +101,11 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
                 ) : (
                   <Link
                     href={`/u/${row.userId}?from=/progress`}
-                    className="block truncate t-body underline-offset-4 hover:underline"
+                    className="group flex min-h-11 w-full min-w-0 items-center"
                   >
-                    {row.name}
+                    <span className="min-w-0 truncate t-body underline-offset-4 group-hover:underline">
+                      {row.name}
+                    </span>
                   </Link>
                 )}
                 {!row.isMe && (
