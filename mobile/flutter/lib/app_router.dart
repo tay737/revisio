@@ -6,6 +6,7 @@
 library revisio.app_router;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show GlobalKey, NavigatorState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,6 +19,7 @@ import 'features/landing/landing_page.dart';
 import 'features/learn/learn_screen.dart';
 import 'features/legal/legal_screen.dart';
 import 'features/rank/rank_screen.dart';
+import 'features/cram/cram_screen.dart';
 import 'features/review/review_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/today/today_screen.dart';
@@ -31,6 +33,9 @@ const _publicPaths = {
   '/terms',
 };
 
+/// Root navigator key — the version gate shows its dialog above the router.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 const _shellPaths = {'/today', '/review', '/learn', '/rank', '/settings'};
 
 /// The router is built ONCE. Auth changes notify `refreshListenable`, which
@@ -42,6 +47,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(authProvider, (_, __) => refresh.value++);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -84,6 +90,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: '/terms',
           summary:
               'The terms that govern your use of Revisio. The full terms are published on the web and are the version that applies.',
+        ),
+      ),
+      GoRoute(
+        path: '/cram',
+        builder: (context, state) => CramScreen(
+          preselectedTopicId: state.uri.queryParameters['topic'],
         ),
       ),
       StatefulShellRoute.indexedStack(
