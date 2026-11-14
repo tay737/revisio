@@ -24,12 +24,16 @@ class ReviewSession {
   final String title;
   final String mode;
   final String? sessionId;
+  final List<Note> notes;
+  final String? noteDensityLabel;
 
   const ReviewSession({
     required this.cards,
     this.title = 'Review',
     this.mode = 'daily',
     this.sessionId,
+    this.notes = const [],
+    this.noteDensityLabel,
   });
 }
 
@@ -47,6 +51,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   String _title = 'Review';
   String _mode = 'daily';
   String? _sessionId;
+  List<Note> _notes = const [];
+  String? _noteDensityLabel;
 
   int _index = 0;
   _Phase _phase = _Phase.answering;
@@ -80,6 +86,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       _title = extra.title;
       _mode = extra.mode;
       _sessionId = extra.sessionId;
+      _notes = extra.notes;
+      _noteDensityLabel = extra.noteDensityLabel;
       _loading = false;
       _watch = Stopwatch()..start();
     } else {
@@ -272,6 +280,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             ],
           ),
         ),
+        _buildNotesPanel(context),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(20),
@@ -340,6 +349,50 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  /// Cram sessions carry revision notes; the web shows them above the card.
+  Widget _buildNotesPanel(BuildContext context) {
+    if (_notes.isEmpty) return const SizedBox.shrink();
+    final summary = _noteDensityLabel == 'summary';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          leading: RevisioIcon('notes', size: 16, color: context.foreground),
+          title: Text(
+            'Revision notes${_noteDensityLabel != null ? ' · ${_noteDensityLabel![0].toUpperCase()}${_noteDensityLabel!.substring(1)}' : ''}',
+            style: TypeScale.caption.copyWith(fontWeight: FontWeight.w600),
+          ),
+          children: [
+            for (final n in _notes)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(n.title, style: TypeScale.caption.copyWith(fontWeight: FontWeight.w700)),
+                      if (n.specRefs != null)
+                        Text(n.specRefs!,
+                            style: TypeScale.fine.copyWith(color: context.mutedForeground)),
+                      const SizedBox(height: 2),
+                      Text(
+                        n.body(summary: summary),
+                        style: TypeScale.fine.copyWith(color: context.mutedForeground, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -12,7 +12,6 @@ import 'package:dio/dio.dart';
 import '../../design/design.dart';
 import '../../services/api_client.dart';
 import 'auth_provider.dart';
-import '../../design/revisio_icons.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});

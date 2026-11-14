@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../design/components/components.dart';
+import '../../design/revisio_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../engine/copy.dart' as copy;
@@ -98,6 +99,12 @@ class _TodayBody extends ConsumerWidget {
             style: TypeScale.caption.copyWith(color: context.mutedForeground),
           ),
         ],
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: () => context.push('/cram'),
+          icon: const RevisioIcon('cram', size: 16),
+          label: const Text('Cram — extra practice before an exam'),
+        ),
       ],
     );
   }
