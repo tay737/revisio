@@ -14,12 +14,15 @@ import { cn } from '@/lib/utils';
 
 type State =
   | { kind: 'verifying' }
-  | { kind: 'done' }
+  | { kind: 'done'; emailChange?: boolean }
   | { kind: 'error'; message: string };
 
 function VerifyEmailInner() {
   const params = useSearchParams();
   const token = params.get('token');
+  // Email-change links arrive as /verify-email?token=…&kind=email_change; the
+  // token store keys on the kind, so the POST must echo it or the lookup misses.
+  const kind = params.get('kind') === 'email_change' ? 'email_change' : undefined;
   const [state, setState] = useState<State>(
     token ? { kind: 'verifying' } : { kind: 'error', message: 'That link is missing its verification token.' },
   );
@@ -36,12 +39,14 @@ function VerifyEmailInner() {
         const res = await fetch('/api/v1/auth/verify-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ token, kind }),
         });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         setState(
-          res.ok ? { kind: 'done' } : { kind: 'error', message: data?.error?.message ?? 'We could not verify that link.' },
+          res.ok
+            ? { kind: 'done', emailChange: kind === 'email_change' }
+            : { kind: 'error', message: data?.error?.message ?? 'We could not verify that link.' },
         );
       } catch {
         if (!cancelled) setState({ kind: 'error', message: 'We could not reach the server. Check your connection and try again.' });
@@ -50,7 +55,7 @@ function VerifyEmailInner() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, kind]);
 
   const resend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,12 +104,17 @@ function VerifyEmailInner() {
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-good-soft text-good-strong">
               <Icon name="reviewed" size={22} />
             </span>
-            <h1 className="t-title mt-4">Email verified</h1>
+            <h1 className="t-title mt-4">{state.emailChange ? 'Email updated' : 'Email verified'}</h1>
             <p className="t-caption mt-2 text-muted-foreground">
-              Your account is active. Sign in and we will build today’s queue.
+              {state.emailChange
+                ? 'Your sign-in email now points at the new address.'
+                : 'Your account is active. Sign in and we will build today’s queue.'}
             </p>
-            <Link href="/login" className={cn(buttonVariants({ variant: 'primary' }), 'mt-6 w-full')}>
-              Sign in
+            <Link
+              href={state.emailChange ? '/settings' : '/login'}
+              className={cn(buttonVariants({ variant: 'primary' }), 'mt-6 w-full')}
+            >
+              {state.emailChange ? 'Back to settings' : 'Sign in'}
             </Link>
           </>
         ) : (
