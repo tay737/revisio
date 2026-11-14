@@ -227,7 +227,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
             <Label htmlFor="synonym-groups">Same-meaning words (one group per line)</Label>
             <Textarea
               id="synonym-groups"
-              className="min-h-[86px] font-mono text-[13px]"
+              className="min-h-[86px] font-mono t-caption"
               placeholder={'phishing, fraud\ndata, information'}
               value={synonyms}
               onChange={(e) => setSynonyms(e.target.value)}
@@ -244,7 +244,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
           <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">How “encryption” would be marked</span>
           <div className="mt-1.5 space-y-1">
             {preview.map((p) => (
-              <div key={p.attempt} className="flex items-center gap-2 text-[13px]">
+              <div key={p.attempt} className="flex items-center gap-2 t-caption">
                 <Icon
                   name={p.relation === 'exact' ? 'correct' : 'close'}
                   size={13}

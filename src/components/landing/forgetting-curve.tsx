@@ -72,14 +72,14 @@ export function ForgettingCurve() {
     <Card className="!p-5 shadow-[var(--shadow-card)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Recall now</p>
+          <p className="t-fine uppercase tracking-[0.08em] text-muted-foreground">Recall now</p>
           <p className="num mt-1 text-[40px] font-bold leading-none" aria-live="polite">
             {recallPct}%
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">Next review</p>
-          <p className="mt-1 text-[17px] font-semibold">
+          <p className="t-fine uppercase tracking-[0.08em] text-muted-foreground">Next review</p>
+          <p className="mt-1 t-lead-airy font-semibold">
             {isDue ? 'Due now' : `In ${Math.max(1, Math.round(nextDueDays - days))} days`}
           </p>
         </div>
@@ -96,7 +96,7 @@ export function ForgettingCurve() {
             className="stroke-border-strong"
             strokeDasharray="4 4"
           />
-          <text x={W - PAD} y={PAD + (1 - DUE_AT) * (H - PAD * 2) - 5} textAnchor="end" className="fill-muted-foreground text-[10px]">
+          <text x={W - PAD} y={PAD + (1 - DUE_AT) * (H - PAD * 2) - 5} textAnchor="end" className="fill-muted-foreground t-micro">
             review at 80%
           </text>
 
@@ -124,7 +124,7 @@ export function ForgettingCurve() {
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">
-        <label htmlFor={sliderId} className="text-[14px] text-muted-foreground">
+        <label htmlFor={sliderId} className="t-caption text-muted-foreground">
           Days since you last reviewed: <span className="num font-semibold text-foreground">{days}</span>
         </label>
       </div>
@@ -139,7 +139,7 @@ export function ForgettingCurve() {
         className="mt-2 w-full accent-foreground"
       />
 
-      <p className="mt-4 text-[14px] text-muted-foreground">How well did you recall it?</p>
+      <p className="mt-4 t-caption text-muted-foreground">How well did you recall it?</p>
       <div className="mt-2 grid grid-cols-3 gap-2">
         {RATINGS.map((r) => (
           <motion.button
@@ -149,7 +149,7 @@ export function ForgettingCurve() {
             whileTap={{ scale: 0.96 }}
             className={cn(
               buttonVariants({ variant: 'secondary' }),
-              '!h-auto flex-col !py-3 text-[14px]',
+              '!h-auto flex-col !py-3 t-caption',
               lastRating === r.id && 'ring-2 ring-ring',
             )}
           >
@@ -157,7 +157,7 @@ export function ForgettingCurve() {
           </motion.button>
         ))}
       </div>
-      <p className="mt-3 text-[12px] text-muted-foreground" aria-live="polite">
+      <p className="mt-3 t-fine text-muted-foreground" aria-live="polite">
         {lastRating === null
           ? 'Drag the slider to let time pass, then rate your recall.'
           : lastRating === 'again'

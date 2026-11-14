@@ -91,6 +91,7 @@ export const GET = route(async (req: NextRequest) => {
       status: row.status,
       totpEnabled: row.totpEnabled,
       leaderboardOptOut: row.leaderboardOptOut,
+      educationLevel: row.educationLevel,
       prefs: row.prefs,
       subjects: subsRes,
       gamification: { totalXp, level, intoLevel, forNext, streak: streakRow?.current ?? 0, bestStreak: streakRow?.best ?? 0 },

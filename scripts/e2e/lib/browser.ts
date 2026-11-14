@@ -460,6 +460,20 @@ export async function signIn(
   let why = '';
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     await page.goto(new URL('/login', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
+    // Wait for React to own the form before typing. A click on a control that
+    // has only been server-rendered fires the browser's native submit (a GET to
+    // /login?) instead of the handler, so the run "types and clicks" and never
+    // posts. The React fiber key on the node is the only honest signal.
+    await page
+      .waitForFunction(
+        () => {
+          const form = document.querySelector('form');
+          return !!form && Object.keys(form).some((k) => k.startsWith('__reactFiber$'));
+        },
+        undefined,
+        { timeout: 20_000 },
+      )
+      .catch(() => undefined);
     await page.fill('#email', email);
     await page.fill('#password', password);
     await page.getByRole('button', { name: /^Sign in$/ }).click();

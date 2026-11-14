@@ -352,15 +352,27 @@ with one button style and one card radius (manual read of the DOM).
 (headings, labels, errors, focus); reduced-motion pass shows a complete page
 with no motion.
 
-### Phase 2 — App surfaces
+### Phase 2 — App surfaces (first pass done 2026-11-14)
 
-- Dashboard, review, learn, progress, library to the same card/type system.
-- Remove section-level entrance animations; keep the study loop's feedback.
-- One empty-state primitive; one page-header treatment; one stat row.
-- Nav: confirm one model (`routes.ts`) and the mobile sheet's single close.
+- [x] Dashboard, review, learn, progress, library to the same card/type system:
+      200 inline `text-[Npx]` sizes replaced by `.t-*`; tinted chrome discs
+      (`bg-primary/10`) replaced by `bg-secondary`.
+- [x] Remove section-level entrance animations (14 `BlurFade` wrappers) and the
+      dashboard's `BorderBeam` loop; the study loop's feedback stays.
+- [x] One empty-state primitive (`components/ui/empty-state.tsx`); one page-header
+      treatment (`PageHeader`); one stat row (`components/ui/stat.tsx`).
+- [x] Nav: one model (`routes.ts`); the mobile crest button is 44px.
+- [x] Touch floors: `.chip`, `[role=tab]`, `.segment` and switches take 44px under
+      640px; long chips wrap instead of scrolling Cram and Exam sideways.
+- [x] Signed-in audit: `npm run audit:app` (`scripts/e2e/app-audit.ts`), 24
+      screens, screenshots + JSON in `artifacts/app-audit/`. Findings and repairs
+      are recorded in `docs/APP-REVIEW.md`.
+- [ ] Dark-mode sweep on app routes; `/teacher` and `/admin` (the probe is a
+      student); a reduced-motion pass on app routes.
 
-**Gate:** `npm run e2e:smoke` on the throwaway probe account, with restore
-receipt; axe light/dark.
+**Gate:** `npm run audit:app` on a production build (0 FAIL), plus
+`npm run typecheck` and `npm run build`; `e2e:smoke` on the throwaway probe
+account when the signed-in write path changes.
 
 ### Phase 3 — Parity and polish
 

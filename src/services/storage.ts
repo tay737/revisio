@@ -148,13 +148,20 @@ export function publicUrlFor(key: string): string {
   return `/api/v1/assets/${key}`;
 }
 
-/** Delete one object (best-effort — the ledger row is the source of truth). */
-export async function deleteMediaObject(key: string): Promise<void> {
-  if (!mediaConfigured()) return;
+/**
+ * Delete one object. Returns whether the bytes are gone, so a caller that
+ * promises erasure can tell the difference between "removed" and "tried".
+ * Not configured means no object was ever uploaded, so there is nothing to
+ * fail; a real bucket error returns false and the caller keeps its record.
+ */
+export async function deleteMediaObject(key: string): Promise<boolean> {
+  if (!mediaConfigured()) return true;
   try {
     await client().send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+    return true;
   } catch (e) {
     console.error('[storage] delete failed for', key, e);
+    return false;
   }
 }
 

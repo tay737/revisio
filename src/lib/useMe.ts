@@ -63,6 +63,8 @@ export interface Me {
   status: string;
   totpEnabled: boolean;
   leaderboardOptOut: boolean;
+  /** Named at sign-up; null for staff and for accounts older than the question. */
+  educationLevel: string | null;
   prefs: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean } | null;
   subjects: { id: string; name: string; slug?: string }[];
   gamification: {

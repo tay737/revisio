@@ -75,6 +75,11 @@ const SECTIONS = [
             <li>Your email address, which is your login and where account mail goes.</li>
             <li>Your name, and optionally a display name, username, bio and pronouns.</li>
             <li>
+              Your education level (GCSE, A-level, IB, university or other),
+              where it is provided when the account is created. It is never
+              shown on your public profile.
+            </li>
+            <li>
               Your date of birth, used once at registration to decide whether a
               guardian must consent. We keep it only for accounts registered
               under 13, where it is the basis of that consent. For anyone 13 or
@@ -453,10 +458,19 @@ const SECTIONS = [
           <li>Every session and refresh token, and every unused email token.</li>
           <li>Your subject enrolments, card-level scheduling, streak, achievements and any pending role request.</li>
           <li>
-            Your name, display name, username, bio, pronouns, avatar, banner,
+            Your name, display name, username, bio, pronouns, education level,
             two-factor secret and recovery codes, and your saved consent record.
           </li>
+          <li>
+            The avatar and banner images you uploaded, including the stored
+            copies of them.
+          </li>
         </ul>
+        <p className="t-fine mt-2">
+          If storage is unavailable at the moment you delete, an image is queued
+          for removal and its record stays until it is removed. If you want to
+          confirm that an image is gone, email us and we will tell you.
+        </p>
         <p className="mt-3">What it changes rather than removes:</p>
         <ul className="list-disc pl-5 space-y-1 text-sm leading-relaxed">
           <li>
@@ -472,10 +486,6 @@ const SECTIONS = [
           keep them because the XP ledger and the season table are records of
           what happened, and removing half of a season would change other
           learners&apos; standings.
-        </p>
-        <p>
-          Uploaded avatar and banner images are not removed by that control
-          today. Email us and we will delete the image and its stored copy.
         </p>
         <p className="t-fine">
           The control does not verify guardian authority. A parent or guardian

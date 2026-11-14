@@ -6,7 +6,6 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { SPRING } from '@/lib/motion';
@@ -341,7 +340,7 @@ export default function ExamPage() {
               <span className="tabular-nums">{paper.length}</span> answered
             </span>
             <Badge variant="chip">
-              <Icon name="spec" size={13} className="text-primary" />
+              <Icon name="spec" size={13} className="text-foreground" />
               <span className="tabular-nums">
                 {paper.reduce((sum, q) => sum + q.marks, 0)} marks
               </span>
@@ -349,11 +348,11 @@ export default function ExamPage() {
           </div>
 
           {paper.map((q, i) => (
-            <BlurFade key={q.id} delay={Math.min(i * 0.04, 0.2)}>
-              <Card>
-                <div className="flex items-center justify-between text-[14px] leading-[1.43] tracking-[-0.224px] text-muted-foreground">
+            
+              <Card key={q.id}>
+                <div className="flex items-center justify-between t-caption leading-[1.43] tracking-[-0.224px] text-muted-foreground">
                   <span className="flex items-center gap-2">
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[12px] font-semibold text-primary">
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-secondary t-fine font-semibold">
                       {i + 1}
                     </span>
                     {q.marks} {q.marks === 1 ? 'mark' : 'marks'}
@@ -401,7 +400,7 @@ export default function ExamPage() {
                   />
                 )}
               </Card>
-            </BlurFade>
+            
           ))}
 
           <Button variant="primary" className="w-full" disabled={busy} onClick={submitPaper}>
@@ -522,7 +521,7 @@ export default function ExamPage() {
                           Loading…
                         </p>
                       ) : (
-                        <Markdown text={doc.contentMd} className="text-[14px]" />
+                        <Markdown text={doc.contentMd} className="t-caption" />
                       )}
                     </div>
                   )}
@@ -654,19 +653,19 @@ function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number
               {d.markingNotesMd && (
                 <div>
                   <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">How an examiner marks this</span>
-                  <Markdown text={d.markingNotesMd} className="mt-1 text-[14px]" />
+                  <Markdown text={d.markingNotesMd} className="mt-1 t-caption" />
                 </div>
               )}
               {d.markSchemeMd && (
                 <div>
                   <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Mark scheme</span>
-                  <Markdown text={d.markSchemeMd} className="mt-1 text-[14px] text-muted-foreground" />
+                  <Markdown text={d.markSchemeMd} className="mt-1 t-caption text-muted-foreground" />
                 </div>
               )}
               {d.modelAnswerMd && (
                 <div>
                   <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Model answer</span>
-                  <Markdown text={d.modelAnswerMd} className="mt-1 text-[14px]" />
+                  <Markdown text={d.modelAnswerMd} className="mt-1 t-caption" />
                 </div>
               )}
               {d.userAnswer && (

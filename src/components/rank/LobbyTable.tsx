@@ -63,7 +63,7 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
           <Icon name="zoneDown" size={12} />
           Bottom {lobby.band} demote
         </Badge>
-        <span className="num ml-auto text-[12px] text-muted-foreground">
+        <span className="num ml-auto t-fine text-muted-foreground">
           {lobby.filled}/{lobby.size} seats
         </span>
       </div>
@@ -82,7 +82,7 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
             >
               <span
                 className={cn(
-                  'num w-6 shrink-0 text-center text-[13px]',
+                  'num w-6 shrink-0 text-center t-caption',
                   row.isMe ? 'font-bold' : 'text-muted-foreground',
                 )}
               >
@@ -95,19 +95,19 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
 
               <span className="min-w-0 flex-1">
                 {row.isMe || !row.userId ? (
-                  <span className={cn('block truncate text-[15px]', row.isMe && 'font-bold')}>
+                  <span className={cn('block truncate t-body', row.isMe && 'font-bold')}>
                     {row.isMe ? 'You' : row.name}
                   </span>
                 ) : (
                   <Link
                     href={`/u/${row.userId}?from=/progress`}
-                    className="block truncate text-[15px] underline-offset-4 hover:underline"
+                    className="block truncate t-body underline-offset-4 hover:underline"
                   >
                     {row.name}
                   </Link>
                 )}
                 {!row.isMe && (
-                  <span className="block truncate text-[12px] text-muted-foreground">
+                  <span className="block truncate t-fine text-muted-foreground">
                     {row.rank.label}
                   </span>
                 )}
@@ -125,23 +125,23 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
                 />
               )}
 
-              <span className="num shrink-0 text-[14px] font-semibold">{row.xp} XP</span>
+              <span className="num shrink-0 t-caption font-semibold">{row.xp} XP</span>
             </li>
           );
         })}
 
         {Array.from({ length: shownSeats }).map((_, i) => (
           <li key={`open-${i}`} className="flex items-center gap-3 py-2.5">
-            <span className="num w-6 shrink-0 text-center text-[13px] text-muted-foreground">
+            <span className="num w-6 shrink-0 text-center t-caption text-muted-foreground">
               {lobby.rows.length + i + 1}
             </span>
-            <span className="min-w-0 flex-1 text-[15px] italic text-muted-foreground">Open seat</span>
+            <span className="min-w-0 flex-1 t-body italic text-muted-foreground">Open seat</span>
           </li>
         ))}
       </ol>
 
       {unclaimed > shownSeats && (
-        <p className="mt-2 text-[12px] text-muted-foreground">
+        <p className="mt-2 t-fine text-muted-foreground">
           +{unclaimed - shownSeats} more open seats
         </p>
       )}

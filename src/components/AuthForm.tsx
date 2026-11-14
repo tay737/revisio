@@ -226,7 +226,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         <Notice tone="note" show={!!info}>
           <span>{info}</span>
           {devLink && (
-            <a href={devLink} className="mt-1 block break-all text-primary underline">
+            <a href={devLink} className="mt-1 block break-all text-foreground underline">
               {devLink}
             </a>
           )}
@@ -269,7 +269,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         ) : (
           <>
             Already registered?{' '}
-            <Link href="/staff/login" className="text-primary underline underline-offset-4 hover:text-primary/80">
+            <Link href="/staff/login" className="text-foreground underline underline-offset-4 hover:text-primary/80">
               Sign in
             </Link>
           </>

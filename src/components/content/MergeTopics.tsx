@@ -164,7 +164,7 @@ export function MergeTopics({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={SPRING.soft}
-            className={`flex items-start gap-2 rounded-md px-3 py-2.5 text-[14px] leading-snug ${
+            className={`flex items-start gap-2 rounded-md px-3 py-2.5 t-caption leading-snug ${
               armed ? 'bg-destructive/10 text-destructive-ink' : 'bg-secondary text-muted-foreground'
             }`}
           >

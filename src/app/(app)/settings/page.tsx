@@ -491,7 +491,7 @@ function SettingsBody({
           {VISIBILITY_ROWS.map((row) => (
             <div key={row.key} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">
-                <label htmlFor={`vis-${row.key}`} className="text-[14px] font-semibold">{row.label}</label>
+                <label htmlFor={`vis-${row.key}`} className="t-caption font-semibold">{row.label}</label>
                 <p className="t-caption text-muted-foreground">{row.hint}</p>
               </div>
               <Toggle
@@ -512,7 +512,7 @@ function SettingsBody({
       <Card as="section" className="p-5">
         <h2 className="t-strong">Account</h2>
         <p className="t-caption mt-1 text-muted-foreground">
-          Signed in as <span className="font-mono text-[13px]">{me.email}</span>
+          Signed in as <span className="font-mono t-caption">{me.email}</span>
           {me.status !== 'active' ? ' — email not verified yet.' : '.'}
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -596,7 +596,7 @@ function SettingsBody({
         <div className="mt-4 divide-y divide-border">
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
-              <label htmlFor="pref-density" className="text-[14px] font-semibold">Note density</label>
+              <label htmlFor="pref-density" className="t-caption font-semibold">Note density</label>
               <p className="t-caption text-muted-foreground">Full notes while learning, or the short version.</p>
             </div>
             <NativeSelect
@@ -611,7 +611,7 @@ function SettingsBody({
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
-              <label htmlFor="pref-motion" className="text-[14px] font-semibold">Reduce motion</label>
+              <label htmlFor="pref-motion" className="t-caption font-semibold">Reduce motion</label>
               <p className="t-caption text-muted-foreground">Calmer animations throughout the app.</p>
             </div>
             <Toggle
@@ -623,7 +623,7 @@ function SettingsBody({
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
-              <label htmlFor="pref-board" className="text-[14px] font-semibold">Show me on leaderboards</label>
+              <label htmlFor="pref-board" className="t-caption font-semibold">Show me on leaderboards</label>
               <p className="t-caption text-muted-foreground">Your rank is unaffected either way.</p>
             </div>
             <Toggle
@@ -673,7 +673,7 @@ function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange
 }
 
 function cnChip(active: boolean): string {
-  return `grid h-9 min-w-9 place-items-center rounded-full border px-2 text-[16px] transition-colors duration-150 ${
+  return `grid h-9 min-w-9 place-items-center rounded-full border px-2 t-body transition-colors duration-150 ${
     active ? 'border-foreground bg-secondary' : 'border-border hover:border-border-strong'
   }`;
 }

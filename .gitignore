@@ -36,3 +36,4 @@ dist/
 artifacts/
 .browsers/
 .agentsroom/transfer-context-*.txt
+.agentsroom/handoff-context-*.txt

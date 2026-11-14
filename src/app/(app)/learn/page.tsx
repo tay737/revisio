@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
-import { BlurFade } from '@/components/ui/blur-fade';
+import { EmptyState } from '@/components/ui/empty-state';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/lib/button-variants';
@@ -88,18 +88,12 @@ export default function LearnPage() {
       )}
 
       {subjects.length === 0 && (
-        <Card className="p-8 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-            <Icon name="library2" size={22} />
-          </span>
-          <h2 className="t-tagline mt-4">Nothing published yet</h2>
-          <p className="t-caption mt-2 text-muted-foreground">
-            No subjects are available on this deployment. Create your own in My content, or ask a teacher to publish one.
-          </p>
-          <Link href="/library" className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
-            Go to My content
-          </Link>
-        </Card>
+        <EmptyState
+          icon="library2"
+          title="Nothing published yet"
+          body="No subjects are available on this deployment. Create your own in My content, or ask a teacher to publish one."
+          action={{ href: '/library', label: 'Go to My content' }}
+        />
       )}
 
       {visible.length === 0 && subjects.length > 0 && (
@@ -114,8 +108,8 @@ export default function LearnPage() {
 
       <div className="space-y-3">
         {visible.map((s, i) => (
-          <BlurFade key={s.id} delay={Math.min(i * 0.04, 0.24)}>
-            <Card className="p-0">
+          
+            <Card key={s.id} className="p-0">
               {/* Link-first: the whole card navigates, the Follow control is a
                   sibling action — never a button inside a button. On a phone
                   the info and the actions are two rows; the one-line lockup was
@@ -158,7 +152,7 @@ export default function LearnPage() {
                 </div>
               </div>
             </Card>
-          </BlurFade>
+          
         ))}
       </div>
     </div>

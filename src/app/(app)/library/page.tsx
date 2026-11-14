@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergeTopics, type TopicOption } from '@/components/content/MergeTopics';
 import { ComposeTopic } from './ComposeTopic';
@@ -187,21 +187,16 @@ export default function LibraryPage() {
         {/* ── Topics ──────────────────────────────────────────────────────── */}
         <TabsContent value="topics" className="space-y-4">
           {topics.length === 0 ? (
-            <Card className="p-8 text-center">
-              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
-                <Icon name="library2" size={22} />
-              </span>
-              <h2 className="t-tagline mt-4">Start with a topic</h2>
-              <p className="t-caption mx-auto mt-2 max-w-sm text-muted-foreground">
-                Questions and notes live together in one — write it under <strong>Write</strong>, or bring a deck you
-                already have under <strong>Import</strong>.
-              </p>
-            </Card>
+            <EmptyState
+              icon="library2"
+              title="Start with a topic"
+              body="Questions and notes live together in one. Write it under Write, or bring a deck you already have under Import."
+            />
           ) : (
             <div className="space-y-2">
               {topics.map((t, i) => (
-                <BlurFade key={t.id} delay={Math.min(i * 0.03, 0.2)}>
-                  <div className="inset flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+                
+                  <div key={t.id} className="inset flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
                     <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                       <span className="t-strong flex items-center gap-2">
                         <span className="line-clamp-2">{t.name}</span>
@@ -232,7 +227,7 @@ export default function LibraryPage() {
                       {t.visibility === 'public' ? 'Withdraw' : 'Publish'}
                     </Button>
                   </div>
-                </BlurFade>
+                
               ))}
             </div>
           )}

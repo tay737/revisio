@@ -62,6 +62,11 @@ Non-obvious facts about this repo that cannot be recovered by reading the code. 
 
 ## App conventions
 
+- `npm run audit:app` (`scripts/e2e/app-audit.ts`) is the signed-in design gate: 24 screens (12 routes × 1440/390), axe + tap size + inline type + overflow + page errors. Run it against a **production build** — a live `next dev` rewrites `.next` mid-run and produces phantom 404s and `Cannot find module './9276.js'` prerender crashes. Server must be started in the same command as the audit (background servers die with the command).
+- `tsx` compiles with esbuild `keepNames`, which injects a `__name` helper — `page.evaluate(fn)` then throws `__name is not defined` in the page. Pass the in-page code as a **string** (app-audit does).
+- Sign-in in a browser suite must wait for React to own the form (`__reactFiber$` on the form) before typing: a click on server-rendered markup fires a native GET to `/login?` and the suite silently never posts. `signIn` in `scripts/e2e/lib/browser.ts` now does this.
+- A session is refreshed from the httpOnly cookie on **cold load** too (`lib/api.ts`): the refresh dance runs when there is no in-memory token, except on `/api/v1/auth/*` (where a 401 is a real credential error). Before 2026-11-14 a reload of any app route signed the learner out.
+
 - `server-only` modules must never be imported from client components (build fails with a pages/-directory error). Shared validation lives in client-safe `src/lib/*` (e.g. `lib/username.ts`); server modules import it.
 - **Never import a value from a `'use client'` module into a route handler or server module.** A re-export is enough to break it: `AVATAR_COLORS.includes(…)` reached through `components/ui/avatar` throws "Attempted to call includes() from the server" and 500s — which broke *every* profile save until `npm run e2e:smoke` caught it. Constants belong in a server-importable module (`lib/colors`); the client component re-exports them for its own convenience. `grep -rn "from '@/components" src/app/api src/services src/lib` must come back empty (a `import type` is fine — it is erased).
 - Profile privacy is enforced server-side in `src/services/profile.ts` (`getPublicProfile`); never filter on the client. Hidden fields return as `null`.

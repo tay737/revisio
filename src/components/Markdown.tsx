@@ -30,7 +30,7 @@ function BlockView({ block }: { block: Block }) {
         1: 't-display-md',
         2: 't-tagline',
         3: 't-strong',
-        4: 't-strong text-[15px]',
+        4: 't-strong t-body',
       }[block.level];
       const Tag = `h${Math.min(block.level + 2, 6)}` as 'h3' | 'h4' | 'h5' | 'h6';
       return <Tag className={cls}>{block.c.map((c, i) => <InlineView key={i} node={c} />)}</Tag>;
@@ -47,7 +47,7 @@ function BlockView({ block }: { block: Block }) {
       );
     case 'code':
       return (
-        <pre className="inset overflow-x-auto px-3 py-2.5 font-mono text-[13px] leading-relaxed">
+        <pre className="inset overflow-x-auto px-3 py-2.5 font-mono t-caption leading-relaxed">
           <code>{block.v}</code>
         </pre>
       );
@@ -58,7 +58,7 @@ function BlockView({ block }: { block: Block }) {
             <li key={i}>
               {it.c.map((c, j) => <InlineView key={j} node={c} />)}
               {it.sub.length > 0 && (
-                <div className="ml-4 mt-1 space-y-1 text-[14px] text-muted-foreground">
+                <div className="ml-4 mt-1 space-y-1 t-caption text-muted-foreground">
                   {it.sub.map((s, j) => (
                     <div key={j}>{s.map((c, k) => <InlineView key={k} node={c} />)}</div>
                   ))}
@@ -75,7 +75,7 @@ function BlockView({ block }: { block: Block }) {
             <li key={i}>
               {it.c.map((c, j) => <InlineView key={j} node={c} />)}
               {it.sub.length > 0 && (
-                <div className="ml-4 mt-1 space-y-1 text-[14px] text-muted-foreground">
+                <div className="ml-4 mt-1 space-y-1 t-caption text-muted-foreground">
                   {it.sub.map((s, j) => (
                     <div key={j}>{s.map((c, k) => <InlineView key={k} node={c} />)}</div>
                   ))}
@@ -88,7 +88,7 @@ function BlockView({ block }: { block: Block }) {
     case 'table':
       return (
         <div className="inset overflow-x-auto">
-          <table className="w-full text-left text-[14px]">
+          <table className="w-full text-left t-caption">
             <thead>
               <tr className="border-b border-border">
                 {block.head.map((cell, i) => (
@@ -132,7 +132,7 @@ function InlineView({ node }: { node: Inline }) {
         <span
           className={
             node.display
-              ? 'my-1 block rounded bg-border/40 px-3 py-2 text-center font-serif text-[17px] italic'
+              ? 'my-1 block rounded bg-border/40 px-3 py-2 text-center font-serif t-lead-airy italic'
               : 'mx-0.5 font-serif italic'
           }
         >
@@ -141,7 +141,7 @@ function InlineView({ node }: { node: Inline }) {
       );
     case 'link':
       return (
-        <a href={safeUrl(node.href)} className="text-primary underline underline-offset-2" rel="noreferrer noopener">
+        <a href={safeUrl(node.href)} className="text-foreground underline underline-offset-2" rel="noreferrer noopener">
           {node.c.map((c, i) => <InlineView key={i} node={c} />)}
         </a>
       );

@@ -56,7 +56,7 @@ export function TopBar({
           type="button"
           onClick={onOpenAccount}
           aria-label="Your account and menu"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-card transition-transform duration-150 active:scale-95"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card transition-transform duration-150 active:scale-95"
         >
           <RankCrest rank={rank} size={22} showProgress={false} animate={false} />
         </button>
@@ -90,7 +90,7 @@ export function TopBar({
 
       {/* ── Desktop ───────────────────────────────────────────────────────── */}
       <div className="hidden h-16 items-center gap-4 px-8 md:flex">
-        <p className="min-w-0 flex-1 truncate text-[15px] leading-relaxed">
+        <p className="min-w-0 flex-1 truncate t-body leading-relaxed">
           <span className="font-semibold">{greeting}</span>
           <span className="mx-2 text-muted-foreground">·</span>
           <span className="text-muted-foreground">{companionLine}</span>

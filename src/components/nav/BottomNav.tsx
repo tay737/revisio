@@ -72,14 +72,14 @@ export function BottomNav({
                   <span className="relative">
                     <Icon name={item.icon} size={22} strokeWidth={active ? 2.3 : 1.9} />
                     {badge > 0 && (
-                      <span className="absolute -right-3 -top-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-good px-1 text-[10px] font-bold leading-none text-white">
+                      <span className="absolute -right-3 -top-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-good px-1 t-micro font-bold leading-none text-white">
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}
                   </span>
                   <span
                     className={cn(
-                      'text-[11px] leading-none tracking-[0.01em]',
+                      't-fine leading-none tracking-[0.01em]',
                       active ? 'font-semibold' : 'font-medium',
                     )}
                   >
@@ -112,7 +112,7 @@ export function BottomNav({
               <Icon name="more" size={22} strokeWidth={overflowActive ? 2.3 : 1.9} />
               <span
                 className={cn(
-                  'text-[11px] leading-none tracking-[0.01em]',
+                  't-fine leading-none tracking-[0.01em]',
                   overflowActive ? 'font-semibold' : 'font-medium',
                 )}
               >

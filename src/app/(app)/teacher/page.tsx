@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/lib/button-variants';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
 import { motion } from 'motion/react';
 import PageSkeleton from '@/components/PageSkeleton';
@@ -184,7 +183,7 @@ export default function TeacherPage() {
       {/* ── Classes ──────────────────────────────────────────────────────── */}
       {data?.classes.length === 0 && (
         <Card className="p-8 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
             <Icon name="class" size={22} />
           </span>
           <h2 className="t-tagline mt-4">No classes yet</h2>
@@ -195,11 +194,11 @@ export default function TeacherPage() {
       )}
 
       {data?.classes.map((c, ci) => (
-        <BlurFade key={c.id} delay={Math.min(ci * 0.05, 0.2)}>
+        
           <Card as="section">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
                   <Icon name="class" size={17} />
                 </span>
                 <div>
@@ -210,7 +209,7 @@ export default function TeacherPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <code className="rounded-md bg-secondary px-3 py-1.5 font-mono text-[14px] font-semibold tracking-[0.2em]">
+                <code className="rounded-md bg-secondary px-3 py-1.5 font-mono t-caption font-semibold tracking-[0.2em]">
                   {c.joinCode}
                 </code>
                 <button
@@ -368,13 +367,13 @@ export default function TeacherPage() {
                       className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary"
                     >
                       <div className="flex min-w-0 items-center gap-1">
-                        <span className="truncate text-[15px] font-semibold hover:underline">{r.name}</span>
+                        <span className="truncate t-body font-semibold hover:underline">{r.name}</span>
                         <Icon name="expand" size={12} className="shrink-0 text-muted-foreground" />
                       </div>
-                      <div className="truncate text-[12px] text-muted-foreground">{r.email}</div>
+                      <div className="truncate t-fine text-muted-foreground">{r.email}</div>
                     </button>
 
-                    <div className="num flex items-center gap-3.5 text-[13px] text-muted-foreground">
+                    <div className="num flex items-center gap-3.5 t-caption text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Icon
                           name="streak"
@@ -396,7 +395,7 @@ export default function TeacherPage() {
                           transition={SPRING.meter}
                         />
                       </span>
-                      <span className="num w-10 text-right text-[12px] text-muted-foreground">
+                      <span className="num w-10 text-right t-fine text-muted-foreground">
                         {Math.round(r.masteryPct)}%
                       </span>
                       {/* Reversible, so it confirms with one inline step rather
@@ -415,7 +414,7 @@ export default function TeacherPage() {
               </ul>
             )}
           </Card>
-        </BlurFade>
+        
       ))}
 
       {/* ── Publishing ───────────────────────────────────────────────────── */}
@@ -429,7 +428,7 @@ export default function TeacherPage() {
         </p>
         {myTopics.length === 0 ? (
           <p className="t-caption mt-3 text-muted-foreground">
-            Nothing written yet — start in <Link href="/library" className="text-primary hover:underline">My content</Link>.
+            Nothing written yet — start in <Link href="/library" className="text-foreground underline underline-offset-4">My content</Link>.
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
@@ -439,13 +438,13 @@ export default function TeacherPage() {
                 <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-[15px] font-semibold">{t.name}</span>
+                      <span className="truncate t-body font-semibold">{t.name}</span>
                       <span className={`chip shrink-0 ${live ? 'chip-active' : ''}`}>
                         <Icon name={live ? 'publish' : t.visibility === 'pending_review' ? 'schedule' : 'private'} size={12} />
                         {live ? 'public' : t.visibility.replace('_', ' ')}
                       </span>
                     </div>
-                    <div className="num mt-0.5 text-[12px] text-muted-foreground">
+                    <div className="num mt-0.5 t-fine text-muted-foreground">
                       <span className={(t.cardCount ?? 0) === 0 ? 'text-destructive-ink' : undefined}>{t.cardCount ?? 0} questions</span>
                       <span className="mx-1.5">·</span>
                       <span className={(t.lessonCount ?? 0) === 0 ? 'text-destructive-ink' : undefined}>{t.lessonCount ?? 0} note {(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}</span>

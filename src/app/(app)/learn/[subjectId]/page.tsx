@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { unitFromTopic, topicSortKey, type Topic } from './shared';
@@ -65,7 +64,7 @@ export default function SubjectScreen() {
   if (!subjectId || failed || (topics && subject === null)) {
     return (
       <Card className="p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
           <Icon name="learn" size={22} />
         </span>
         <h2 className="t-tagline mt-4">Subject not found</h2>
@@ -107,7 +106,7 @@ export default function SubjectScreen() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 max-w-2xl">
           <h1 className="t-title">{subject.name}</h1>
-          <p className="mt-1 text-[14px] leading-snug text-muted-foreground">{subject.description}</p>
+          <p className="mt-1 t-caption leading-snug text-muted-foreground">{subject.description}</p>
         </div>
         <Badge variant="chip" className="shrink-0">
           {topics.length} {topics.length === 1 ? 'topic' : 'topics'} · {specCount} spec refs
@@ -205,7 +204,7 @@ export default function SubjectScreen() {
         <ul className="space-y-2">
           {orderedTopics.map((t, ti) => (
             <li key={t.id} className="inset overflow-hidden">
-              <BlurFade delay={Math.min(ti * 0.04, 0.2)}>
+              
                 <div className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
                 <Link
                   href={`/learn/${subjectId}/${t.id}`}
@@ -247,7 +246,7 @@ export default function SubjectScreen() {
                   </Link>
                 </div>
               </div>
-              </BlurFade>
+              
             </li>
           ))}
         </ul>

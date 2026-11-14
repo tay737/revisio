@@ -6,7 +6,6 @@ import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Notice } from '@/components/Notice';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { InlineConfirm } from '@/components/ui/inline-confirm';
 import { ContentManager } from './ContentManager';
 import { SeasonManager } from './SeasonManager';
@@ -253,7 +252,7 @@ export default function AdminPage() {
             {data?.pendingTopics.map((t) => (
               <div key={t.id} className="inset flex items-center justify-between gap-3 px-4 py-3">
                 <span className="t-strong flex min-w-0 items-center gap-2">
-                  <Icon name="topic" size={15} className="shrink-0 text-primary" />
+                  <Icon name="topic" size={15} className="shrink-0 text-foreground" />
                   <span className="truncate">{t.name}</span>
                 </span>
                 <div className="flex shrink-0 gap-2">
@@ -443,7 +442,7 @@ export default function AdminPage() {
           {data?.algorithms.map((a) => (
             <div key={a.name} className="inset px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-[14px] font-semibold">{a.name}</span>
+                <span className="font-mono t-caption font-semibold">{a.name}</span>
                 <Button
                   type="button"
                   variant="ghost" className="gap-1.5"
@@ -479,7 +478,7 @@ export default function AdminPage() {
           <ol className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {SRS_LADDER.map((rung) => (
               <li key={rung.level} className="inset flex items-center justify-between gap-2 px-3 py-2">
-                <span className="num text-[13px] font-semibold">
+                <span className="num t-caption font-semibold">
                   <span className="text-muted-foreground">Lv {rung.level}</span> · {rung.label}
                 </span>
                 <span className="t-fine num shrink-0 text-muted-foreground">{rung.interval ?? 'complete'}</span>
@@ -518,7 +517,7 @@ export default function AdminPage() {
           {data?.flags.map((f) => (
             <div key={f.key} className="inset flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
-                <span className="font-mono text-[14px]">{f.key}</span>
+                <span className="font-mono t-caption">{f.key}</span>
                 <p className="t-caption text-muted-foreground">{f.description}</p>
               </div>
               <button
@@ -547,7 +546,7 @@ export default function AdminPage() {
               <Badge variant="chip-active" key={b.id} className="gap-2">
                 {b.icon && <Icon name={b.icon as never} size={12} />}
                 {b.label}
-                <span className="num text-[11px] text-muted-foreground">×{b.grants}</span>
+                <span className="num t-fine text-muted-foreground">×{b.grants}</span>
                 <InlineConfirm
                   label={`Remove badge ${b.label}`}
                   title={`Remove badge “${b.label}”?`}
@@ -863,7 +862,7 @@ export default function AdminPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
                     <span className="t-strong flex items-center gap-2">
-                      <Icon name="class" size={15} className="shrink-0 text-primary" />
+                      <Icon name="class" size={15} className="shrink-0 text-foreground" />
                       <span className="truncate">{c.name}</span>
                     </span>
                     <span className="t-caption mt-0.5 block text-muted-foreground">
@@ -984,7 +983,7 @@ export default function AdminPage() {
 
       {/* ── Audit ────────────────────────────────────────────────────────── */}
       {(data?.audit.length ?? 0) > 0 && (
-        <BlurFade inView>
+        
           <Card as="section">
             <h2 className="t-strong">Audit log</h2>
             <p className="t-caption mt-1 text-muted-foreground">Every administrative action, newest first.</p>
@@ -998,7 +997,7 @@ export default function AdminPage() {
               ))}
             </div>
           </Card>
-        </BlurFade>
+        
       )}
 
       {/* ── Student progress sheet ──────────────────────────────────────── */}

@@ -5,9 +5,7 @@ import { useMemo } from 'react';
 import { learnerSnapshot, useMe } from '@/lib/useMe';
 import { useRanked } from '@/lib/useRanked';
 import { Icon, type IconName } from '@/components/ui/icons';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { NumberTicker } from '@/components/ui/number-ticker';
-import { BorderBeam } from '@/components/ui/border-beam';
 import { TilePanel } from '@/components/ui/tile';
 import { Companion } from '@/components/companion';
 import { RankStrip } from '@/components/rank/RankStrip';
@@ -16,6 +14,7 @@ import { companionFor, greetingFor, openers } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
 
@@ -92,9 +91,6 @@ export default function DashboardPage() {
     <div className="space-y-4">
       {/* ── 1. The hero: greeting, one line, one green button ─────────────── */}
       <TilePanel tone="dark" className="relative overflow-hidden p-5 sm:p-7">
-        {today.due > 0 && (
-          <BorderBeam size={160} duration={9} colorFrom="var(--foreground)" colorTo="var(--muted-foreground)" />
-        )}
         <p className="t-eyebrow">{greetingFor(me.name)}</p>
 
         <div className="-my-1 mt-1">
@@ -106,7 +102,7 @@ export default function DashboardPage() {
             <Link href="/review" className={cn(buttonVariants({ variant: 'good', size: 'lg' }), 'gap-2.5')}>
               <Icon name="review" size={18} />
               Start review
-              <span className="num rounded-full bg-black/20 px-2 py-0.5 text-[13px] font-bold">
+              <span className="num rounded-full bg-black/20 px-2 py-0.5 t-caption font-bold">
                 {today.due}
               </span>
             </Link>
@@ -144,13 +140,13 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 2½. Strength: how strong the queue actually is ─────────────── */}
-      <BlurFade>
+      
         <StrengthCard levels={me.srs.levels} avgLevel={me.srs.avgLevel} totalCards={me.srs.totalCards} />
-      </BlurFade>
+      
 
       {/* ── 3. Rank: the second dark band ────────────────────────────────── */}
       {ranked && (
-        <BlurFade>
+        
           <RankStrip
             rank={ranked.ranked.rank}
             lobby={ranked.ranked.lobby}
@@ -159,14 +155,14 @@ export default function DashboardPage() {
             xpThisWeek={ranked.ranked.xpThisWeek}
             season={ranked.ranked.season}
           />
-        </BlurFade>
+        
       )}
 
       {/* ── 4. Four ways in ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ACTIONS.map((action, i) => (
-          <BlurFade key={action.href} delay={i * 0.04}>
-            <Link
+          
+            <Link key={action.href}
               href={action.href}
               className="card flex h-full flex-col gap-2.5 p-4 transition-colors duration-150 active:bg-secondary hover:border-border-strong"
             >
@@ -175,19 +171,19 @@ export default function DashboardPage() {
               </span>
               <span>
                 <span className="t-strong block">{action.title}</span>
-                <span className="block text-[13px] text-muted-foreground">{action.hint}</span>
+                <span className="block t-caption text-muted-foreground">{action.hint}</span>
               </span>
             </Link>
-          </BlurFade>
+          
         ))}
       </div>
 
       {/* ── Subjects, and the two facts worth keeping from the old card ──── */}
-      <BlurFade>
+      
         <Card>
           <div className="flex items-center justify-between gap-3">
             <h2 className="t-strong">Your subjects</h2>
-            <Link href="/library" className="text-[14px] font-medium underline underline-offset-4">
+            <Link href="/library" className="t-caption font-medium underline underline-offset-4">
               Manage
             </Link>
           </div>
@@ -204,7 +200,7 @@ export default function DashboardPage() {
             // Learners follow subjects; authors write them. A first-run student
             // with no subjects must land in the catalogue (where following one
             // fills the queue), not in the authoring tool.
-            <p className="mt-2 text-[14px] text-muted-foreground">
+            <p className="mt-2 t-caption text-muted-foreground">
               Follow a subject and your queue fills itself.{' '}
               <Link href="/learn" className="text-foreground underline underline-offset-4">
                 Find one
@@ -228,37 +224,8 @@ export default function DashboardPage() {
             </div>
           </dl>
         </Card>
-      </BlurFade>
+      
     </div>
   );
 }
 
-function Stat({
-  icon,
-  label,
-  value,
-  suffix,
-  tone,
-}: {
-  icon: IconName;
-  label: string;
-  value: number;
-  suffix?: string;
-  tone?: 'good' | 'streak';
-}) {
-  const tint =
-    tone === 'good' ? 'text-good-strong' : tone === 'streak' ? 'text-streak-pressed' : 'text-muted-foreground';
-
-  return (
-    <Card className="p-4">
-      <div className={`flex items-center gap-1.5 ${tone ? tint : 'text-muted-foreground'}`}>
-        <Icon name={icon} size={15} />
-        <span className="t-fine">{label}</span>
-      </div>
-      <div className="t-num-sm mt-1.5">
-        <NumberTicker value={value} className="num" />
-        {suffix && <span className="text-[12px] font-normal text-muted-foreground">{suffix}</span>}
-      </div>
-    </Card>
-  );
-}

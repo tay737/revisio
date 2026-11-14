@@ -130,7 +130,7 @@ export function ReviewDemo() {
               className="mt-5 text-center"
             >
               <p className="t-display-sm">Three in a row. Nice.</p>
-              <p className="mt-2 text-[15px] text-muted-foreground">
+              <p className="mt-2 t-body text-muted-foreground">
                 You earned <span className="num text-foreground">{xp}</span> XP in one sitting.
               </p>
               <Button variant="secondary" type="button" onClick={restart} className="mt-5">
@@ -181,7 +181,7 @@ export function ReviewDemo() {
                 aria-invalid={result === 'wrong' || undefined}
                 placeholder="Type your answer"
                 className={cn(
-                  'mt-4 flex min-h-[46px] w-full items-center rounded-sm border-2 bg-transparent px-3.5 text-[16px] outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                  'mt-4 flex min-h-[46px] w-full items-center rounded-sm border-2 bg-transparent px-3.5 t-body outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring',
                   result === 'correct' && 'border-good',
                   result === 'wrong' && 'border-destructive-ink',
                   !result && 'border-border focus:border-border-strong',
@@ -219,7 +219,7 @@ export function ReviewDemo() {
           )}
         </AnimatePresence>
 
-        <div className="mt-4 flex items-center justify-between text-[12px] text-muted-foreground">
+        <div className="mt-4 flex items-center justify-between t-fine text-muted-foreground">
           <span className="num">
             {Math.min(index + 1, CARDS.length)} / {CARDS.length}
           </span>

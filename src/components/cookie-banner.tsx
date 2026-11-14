@@ -311,7 +311,7 @@ export function CookieConsentBanner() {
                     </div>
                     {/* `bg-good` under `text-good-strong` measured 2.43:1 (axe); the
                         soft pairing is the legible one and matches the rest of the app. */}
-                    <span className="shrink-0 rounded-full bg-good-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-good-strong">
+                    <span className="shrink-0 rounded-full bg-good-soft px-2 py-0.5 t-micro font-semibold uppercase tracking-wide text-good-strong">
                       Always on
                     </span>
                   </div>
@@ -328,7 +328,7 @@ export function CookieConsentBanner() {
                         type="checkbox"
                         checked={saved.choices[c.key]}
                         onChange={(e) => setSaved((current) => applyConsentChange(current, { [c.key]: e.target.checked }))}
-                        className="mt-1 h-5 w-5 shrink-0 rounded border-border text-primary focus:ring-1 focus:ring-ring"
+                        className="mt-1 h-5 w-5 shrink-0 rounded border-border text-foreground focus:ring-1 focus:ring-ring"
                       />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold">{c.label}</p>

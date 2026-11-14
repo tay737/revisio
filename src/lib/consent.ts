@@ -81,9 +81,9 @@ export function purposeDescription(key: ConsentKey): string {
     case 'notifications':
       return 'In-app and email notifications that are not strictly necessary.';
     case 'profile':
-      return 'Which of your profile fields may be shown on your public profile.';
+      return 'A record of your profile visibility choice. The switches that control what visitors see are under Privacy in Settings.';
     case 'school':
-      return 'Class and account data we hold for your or your child\'s schooling.';
+      return 'A record of your choice about class data. It applies only if you join a class.';
     case 'research':
       return 'Anonymised product research and improvement.';
   }

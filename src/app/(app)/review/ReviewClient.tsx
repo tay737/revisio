@@ -24,7 +24,6 @@ import { RankCrest } from '@/components/ui/rank-crest';
 import { TilePanel } from '@/components/ui/tile';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/lib/button-variants';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
@@ -464,7 +463,7 @@ export default function ReviewClient() {
           <h1 className="t-display-sm mt-4">
             {allMet ? 'Every question met' : 'No questions here yet'}
           </h1>
-          <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 t-caption leading-relaxed text-muted-foreground">
             {allMet
               ? `You have now seen all ${session.progress.total} ${
                   session.progress.total === 1 ? 'question' : 'questions'
@@ -491,7 +490,7 @@ export default function ReviewClient() {
           <Icon name="reviewed" size={22} />
         </span>
         <h1 className="t-display-sm mt-4">Nothing due</h1>
-        <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+        <p className="mt-2 t-caption leading-relaxed text-muted-foreground">
           {emptyQueueLine(0, me?.gamification.streak ?? 0)}
         </p>
         <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
@@ -512,7 +511,7 @@ export default function ReviewClient() {
   // case.
   if (!card) {
     return (
-      <BlurFade className="relative mx-auto max-w-xl">
+      <div className="relative">
         <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-10" />
         {session ? (
           <FirstExposureReport
@@ -532,7 +531,7 @@ export default function ReviewClient() {
             onAgain={load}
           />
         )}
-      </BlurFade>
+      </div>
     );
   }
 
@@ -578,7 +577,7 @@ export default function ReviewClient() {
                       <h2 className="t-strong">{n.title}</h2>
                       {n.specRefs && <Badge variant="chip">{n.specRefs}</Badge>}
                     </div>
-                    <Markdown text={n.summaryMd || n.detailedMd} className="mt-2 text-[15px]" />
+                    <Markdown text={n.summaryMd || n.detailedMd} className="mt-2 t-body" />
                   </article>
                 ))}
               </div>
@@ -589,7 +588,7 @@ export default function ReviewClient() {
 
       {/* The session's own progress readout. Green, because you are earning. */}
       <div className="mb-2 flex items-center justify-between">
-        <span className="num text-[13px] font-semibold text-muted-foreground">
+        <span className="num t-caption font-semibold text-muted-foreground">
           {done} / {queue.length}
         </span>
         <span className="flex items-center gap-2">
@@ -648,12 +647,12 @@ export default function ReviewClient() {
                   </Badge>
                 )}
               </span>
-              <span className="truncate text-[12px] text-muted-foreground">
+              <span className="truncate t-fine text-muted-foreground">
                 {card.subjectName} · {card.topicName}
               </span>
             </div>
 
-            <div className="mt-5 text-[20px] font-bold leading-[1.35] sm:text-[22px]">
+            <div className="mt-5 t-display-sm font-bold leading-[1.35] sm:text-[22px]">
               {card.kind === 'cloze' && (
                 <ClozePrompt
                   text={card.textWithBlank ?? ''}
@@ -689,7 +688,7 @@ export default function ReviewClient() {
                 >
                   {busy ? 'Marking…' : 'Check'}
                 </Button>
-                <p className="text-center text-[12px] text-muted-foreground">One attempt only</p>
+                <p className="text-center t-fine text-muted-foreground">One attempt only</p>
               </div>
             )}
 
@@ -750,7 +749,7 @@ export default function ReviewClient() {
                 >
                   {busy ? 'Marking…' : autoMark ? 'Correct — press Enter' : 'Check'}
                 </Button>
-                <p className="mt-2 text-center text-[12px] text-muted-foreground">
+                <p className="mt-2 text-center t-fine text-muted-foreground">
                   {card.kind === 'cloze'
                     ? autoMark
                       ? 'Enter to continue'
@@ -774,14 +773,14 @@ export default function ReviewClient() {
                     Continue
                     <Icon name="next" size={17} />
                   </Button>
-                  <p className="mt-2 text-center text-[12px] text-muted-foreground">Enter for next</p>
+                  <p className="mt-2 text-center t-fine text-muted-foreground">Enter for next</p>
                 </div>
               </motion.div>
             )}
 
             {error && (
               <p
-                className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-[13px] text-destructive-ink"
+                className="mt-3 rounded-md bg-destructive/10 px-3 py-2 t-caption text-destructive-ink"
                 role="alert"
               >
                 {error}
@@ -829,7 +828,7 @@ function FirstExposureReport({
         {remaining === 0 ? 'That is the whole topic' : `${done} new ${done === 1 ? 'question' : 'questions'} met`}
       </h1>
 
-      <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+      <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-muted-foreground">
         {remaining === 0
           ? `You have met all ${session.progress.total} questions in “${session.topic.name}”. They now come back on their own schedule — you do not need to chase them.`
           : `${met} of ${session.progress.total} met in “${session.topic.name}”. ${remaining} still to meet — they will keep.`}
@@ -915,7 +914,7 @@ function SessionReport({
         {change?.promoted ? `Promoted to ${change.after.label}` : ended ? 'Session ended' : 'Session complete'}
       </h1>
 
-      <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+      <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-muted-foreground">
         {change?.promoted
           ? change.tierChanged
             ? `${correct} of ${done} correct — and that carried you into a new tier. Everything above this is harder, and worth more.`
@@ -940,7 +939,7 @@ function SessionReport({
       </div>
 
       {rank && !rank.isApex && (
-        <p className="mt-3 text-[13px] text-muted-foreground">
+        <p className="mt-3 t-caption text-muted-foreground">
           {rank.remaining} RP to the next rung · about {reviewsForRp(rank.remaining)} more reviews.
         </p>
       )}
@@ -998,7 +997,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
       className={`mt-5 rounded-md px-4 py-3.5 ${good ? 'bg-good-soft' : 'bg-destructive/10'}`}
     >
       <div
-        className={`flex items-center gap-2.5 text-[17px] font-bold ${
+        className={`flex items-center gap-2.5 t-lead-airy font-bold ${
           good ? 'text-good-strong' : 'text-destructive-ink'
         }`}
       >
@@ -1011,7 +1010,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
         </span>
         {good ? (softened ? 'Correct — with a nudge' : 'Correct') : 'Not quite'}
         {result.xpAwarded > 0 && (
-          <span className="num ml-auto text-[13px] font-semibold text-good-strong">
+          <span className="num ml-auto t-caption font-semibold text-good-strong">
             +{result.xpAwarded} XP
           </span>
         )}
@@ -1021,7 +1020,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
           held before the answer comes from the card itself; an offline-queued
           answer has no server verdict yet, so the line stays silent. */}
       {result.srsLevel != null && (
-        <p className="num mt-2 text-[13px] font-semibold text-muted-foreground" aria-live="polite">
+        <p className="num mt-2 t-caption font-semibold text-muted-foreground" aria-live="polite">
           Strength: {result.srsLabel} · level {result.srsLevel} of 12
           {card.srsLevel != null && result.srsLevel > card.srsLevel && (
             <span className="ml-1.5 text-good-strong">↑ level up</span>
@@ -1031,23 +1030,23 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
           )}
         </p>
       )}
-      {verdict.note && <p className="mt-2 text-[14px] text-foreground">{verdict.note}</p>}
+      {verdict.note && <p className="mt-2 t-caption text-foreground">{verdict.note}</p>}
 
         {result.queued && (
-          <p className="mt-2 text-[13px] text-muted-foreground">
+          <p className="mt-2 t-caption text-muted-foreground">
             Saved on this device. It is graded again by the server when you reconnect, and your XP
             and schedule land then.
           </p>
         )}
 
       {verdict.matchedPhrases && verdict.matchedPhrases.length > 0 && (
-        <p className="mt-2 text-[13px] text-foreground">
+        <p className="mt-2 t-caption text-foreground">
           <span className="font-bold">You had: </span>
           {verdict.matchedPhrases.join(', ')}
         </p>
       )}
       {verdict.missedPhrases && verdict.missedPhrases.length > 0 && (
-        <p className="mt-1 text-[13px] text-foreground">
+        <p className="mt-1 t-caption text-foreground">
           <span className="font-bold text-destructive-ink">Missing: </span>
           {verdict.missedPhrases.join(', ')}
         </p>
@@ -1056,14 +1055,14 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
       {card.kind === 'flashcard' && result.modelAnswer && (
         <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
           <span className="t-eyebrow">Model answer</span>
-          <p className="mt-0.5 text-[14px] text-foreground">{result.modelAnswer}</p>
+          <p className="mt-0.5 t-caption text-foreground">{result.modelAnswer}</p>
         </div>
       )}
 
       {result.explanation && (
         <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
           <span className="t-eyebrow">Why</span>
-          <p className="mt-0.5 text-[14px] text-foreground">{result.explanation}</p>
+          <p className="mt-0.5 t-caption text-foreground">{result.explanation}</p>
         </div>
       )}
 
@@ -1076,7 +1075,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
           className="mt-2.5 flex items-center gap-2 rounded-md bg-card/70 px-3 py-2"
         >
           <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold-ink" />
-          <span className="text-[13px] font-semibold">{a.name} unlocked</span>
+          <span className="t-caption font-semibold">{a.name} unlocked</span>
         </motion.div>
       ))}
     </div>

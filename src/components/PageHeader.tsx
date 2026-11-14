@@ -34,7 +34,7 @@ export function PageHeader({
         <div className="min-w-0">
           <h1 className="t-title">{title}</h1>
           {subtitle && (
-            <p className="mt-0.5 max-w-2xl text-[14px] leading-snug text-muted-foreground">{subtitle}</p>
+            <p className="mt-0.5 max-w-2xl t-caption leading-snug text-muted-foreground">{subtitle}</p>
           )}
         </div>
       </div>

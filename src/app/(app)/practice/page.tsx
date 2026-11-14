@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Notice } from '@/components/Notice';
 import { Markdown } from '@/components/Markdown';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -188,7 +189,7 @@ export default function PracticePage() {
             {idx + 1} <span className="text-border">/</span> {paper.length}
           </span>
           <Badge variant="chip">
-            <Icon name="correct" size={14} className="text-primary" />
+            <Icon name="correct" size={14} className="text-foreground" />
             <NumberTicker value={score.correct} className="tabular-nums" />
             <span>/ {log.length} correct</span>
           </Badge>
@@ -214,7 +215,7 @@ export default function PracticePage() {
                 </span>
               </div>
 
-              <Markdown text={question.prompt} className="mt-5 text-[18px] [&_p]:leading-snug" />
+              <Markdown text={question.prompt} className="mt-5 t-lead [&_p]:leading-snug" />
 
               {!result && (
                 <form
@@ -226,7 +227,7 @@ export default function PracticePage() {
                 >
                   <Input
                     type="text"
-                    className="text-[17px]"
+                    className="t-lead-airy"
                     placeholder="Type your answer"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -240,14 +241,14 @@ export default function PracticePage() {
                   <Button type="submit" variant="good" size="lg" className="mt-3 w-full" disabled={!input.trim() || busy}>
                     {busy ? 'Marking…' : 'Check answer'}
                   </Button>
-                  <p className="mt-2 text-center text-[12px] text-muted-foreground">Fractions like 3/4, or expressions like 2x+6, all mark.</p>
+                  <p className="mt-2 text-center t-fine text-muted-foreground">Fractions like 3/4, or expressions like 2x+6, all mark.</p>
                 </form>
               )}
 
               {result && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} transition={SPRING.soft} className="overflow-hidden">
                   <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.correct ? 'bg-good-soft' : 'bg-destructive/10'}`}>
-                    <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
+                    <div className={`flex items-center gap-2 t-lead-airy font-semibold ${result.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
                       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-white ${result.correct ? 'bg-good' : 'bg-destructive'}`}>
                         <Icon name={result.correct ? 'correct' : 'close'} size={16} strokeWidth={3} />
                       </span>
@@ -264,7 +265,7 @@ export default function PracticePage() {
                     )}
                     <div className="inset mt-2.5 px-3 py-2">
                       <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Worked solution</span>
-                      <Markdown text={result.solution} className="mt-1 text-[14px]" />
+                      <Markdown text={result.solution} className="mt-1 t-caption" />
                     </div>
                     <Button onClick={next} variant="primary" className="mt-4 w-full gap-2">
                       {idx + 1 >= paper.length ? 'See results' : 'Next'}
@@ -289,7 +290,7 @@ export default function PracticePage() {
     return (
       <div className="mx-auto max-w-xl space-y-4">
         <Card className="p-8 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
             <Icon name="target" size={22} />
           </span>
           <h1 className="t-tagline mt-4">Practice complete</h1>
@@ -301,7 +302,7 @@ export default function PracticePage() {
           </p>
           <p className="t-caption mt-1 text-muted-foreground">Practice never touches your review schedule.</p>
           {xp && xp.xpAwarded > 0 && (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[13px] font-semibold text-primary">
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 t-caption font-semibold">
               <Icon name="xp" size={14} />
               +{xp.xpAwarded} XP
               {xp.capped && <span className="font-normal text-muted-foreground">· capped this hour</span>}
@@ -325,8 +326,8 @@ export default function PracticePage() {
                     <Badge variant="chip">{q.conceptName}</Badge>
                     <span className="t-caption-s text-muted-foreground">Answer: <span className="font-semibold text-foreground">{r.answer}</span></span>
                   </div>
-                  <Markdown text={q.prompt} className="mt-2 text-[15px]" />
-                  <Markdown text={r.solution} className="mt-1 text-[14px] text-muted-foreground" />
+                  <Markdown text={q.prompt} className="mt-2 t-body" />
+                  <Markdown text={r.solution} className="mt-1 t-caption text-muted-foreground" />
                 </div>
               ))}
             </div>
@@ -342,15 +343,11 @@ export default function PracticePage() {
       <PageHeader icon="practice" title="Practice" subtitle="Generate maths questions. Your schedule stays out of it." />
 
       {mathsSubjects.length === 0 ? (
-        <Card className="p-8 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-            <Icon name="practice" size={22} />
-          </span>
-          <h2 className="t-tagline mt-4">No subject has maths practice yet</h2>
-          <p className="t-caption mx-auto mt-2 max-w-sm text-muted-foreground">
-            A developer or teacher turns maths practice on per subject. Once one has it, its topics appear here.
-          </p>
-        </Card>
+        <EmptyState
+          icon="practice"
+          title="No subject has maths practice yet"
+          body="A developer or teacher turns maths practice on per subject. Once one has it, its topics appear here."
+        />
       ) : (
         <Card className="space-y-5">
           <div>
@@ -408,7 +405,7 @@ export default function PracticePage() {
               </div>
 
               <details className="inset px-4 py-3">
-                <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold">
+                <summary className="flex cursor-pointer items-center gap-2 t-caption font-semibold">
                   <Icon name="filter" size={15} />
                   Focus concepts
                   <Badge variant="chip" className="ml-1">{pickedConcepts.size || 'all'}</Badge>
@@ -482,7 +479,7 @@ export default function PracticePage() {
       <Notice tone="bad">{error}</Notice>
 
       <p className="t-caption text-center text-muted-foreground">
-        Looking for your spaced reviews? That is <Link href="/review" className="text-primary hover:underline">Review</Link> — practice here never changes it.
+        Looking for your spaced reviews? That is <Link href="/review" className="text-foreground underline underline-offset-4">Review</Link> — practice here never changes it.
       </p>
     </div>
   );

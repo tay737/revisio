@@ -34,7 +34,7 @@ export function AuthShell({
       <header className="band tile-dark relative px-5 pt-safe">
         <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-5">
           <Link href="/" className="-my-1 flex items-center gap-2.5 py-1">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground t-caption font-bold text-background">
               R
             </span>
             <span className="t-tagline">Revisio</span>
@@ -57,7 +57,7 @@ export function AuthShell({
         {children}
 
         {footer && (
-          <div className="auth-footer mt-5 text-center text-[13px] text-muted-foreground">
+          <div className="auth-footer mt-5 text-center t-caption text-muted-foreground">
             <p>{footer}</p>
           </div>
         )}

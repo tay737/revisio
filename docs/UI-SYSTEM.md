@@ -314,7 +314,16 @@ not invent a banner.
   their own owner.
 - **`PageHeader`** is the one page-title treatment inside the app.
 
-### 8.6 Stepper (onboarding)
+### 8.6 Empty state and stat row
+
+- **`EmptyState`** (`components/ui/empty-state.tsx`): monochrome icon disc, a
+  title that names what is missing, one sentence, one destination. Every empty
+  list uses it — Learn, My content and Practice had three different recipes.
+- **`Stat`** (`components/ui/stat.tsx`): icon + label + figure, with `tone`
+  reserved for state (due, streak). The dashboard's four numbers are one row of
+  this component, never a page-local copy.
+
+### 8.7 Stepper (onboarding)
 
 One progress treatment: a 4px track with an ink fill on a spring, plus a
 `role="progressbar"` with `aria-valuetext` ("Step 2 of 5: What you study"). Used
@@ -364,6 +373,11 @@ Non-negotiable, checked in review:
 | A fifth auth shell (`verify-email`) | `AuthShell` |
 | importing `framer-motion` directly | `motion/react` (one copy of the engine, one policy) |
 | Multi-effect heroes (grid + beam + glare + shimmer + sparkle) | one entrance, at most one product-led motion |
+| `BlurFade` on app sections | the route transition, plus the study loop's own feedback |
+| `BorderBeam` anywhere in the product | nothing: it was a 9s loop in a surface that bans loops |
+| Inline `text-[Npx]` in app screens | the `.t-*` scale (200 call sites migrated 2026-11-14) |
+| Tinted `bg-primary/10` icon discs | `bg-secondary` — colour is state |
+| A page-local `Stat` or empty-state block | `components/ui/stat.tsx`, `components/ui/empty-state.tsx` |
 
 ---
 

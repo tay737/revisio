@@ -45,8 +45,8 @@ export function Toaster(props: ToasterProps) {
         classNames: {
           toast:
             'group toast !rounded-lg !border-border !bg-card !text-card-foreground !shadow-[var(--shadow-card)] !font-sans',
-          title: '!text-[15px] !font-semibold',
-          description: '!text-[14px] !text-muted-foreground',
+          title: '!t-body !font-semibold',
+          description: '!t-caption !text-muted-foreground',
           actionButton: '!rounded-pill !bg-primary !text-primary-foreground',
           cancelButton: '!rounded-pill !bg-secondary !text-secondary-foreground',
         },

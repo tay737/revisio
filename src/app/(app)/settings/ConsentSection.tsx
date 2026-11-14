@@ -13,8 +13,8 @@ const PURPOSES: { key: Exclude<ConsentKey, 'essential'>; label: string; descript
   { key: 'analytics', label: 'Analytics', description: 'Anonymous usage and product analytics to improve the service.' },
   { key: 'marketing', label: 'Marketing', description: 'Product updates and promotional messages.' },
   { key: 'notifications', label: 'Notifications', description: 'Non-essential in-app and email notifications.' },
-  { key: 'profile', label: 'Profile fields', description: 'Which profile fields may appear on your public profile.' },
-  { key: 'school', label: 'School / account data', description: 'Class and account data held for you or your child’s schooling.' },
+  { key: 'profile', label: 'Profile fields', description: 'Recorded for the audit trail. What visitors see is set under Privacy.' },
+  { key: 'school', label: 'School / account data', description: 'Recorded for the audit trail. Applies only if you join a class.' },
   { key: 'research', label: 'Research', description: 'Anonymised product research and improvement.' },
 ];
 
@@ -73,7 +73,7 @@ export function ConsentSection() {
       <div className="mt-4 divide-y divide-border">
         <div className="flex items-center justify-between gap-4 py-3">
           <div>
-            <p className="text-[14px] font-semibold">Essential</p>
+            <p className="t-caption font-semibold">Essential</p>
             <p className="t-caption text-muted-foreground">Strictly necessary for sessions, security and the account.</p>
           </div>
           <span className="t-caption shrink-0">Always on</span>
@@ -81,7 +81,7 @@ export function ConsentSection() {
         {PURPOSES.map(({ key, label, description }) => (
           <div key={key} className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">
-              <label htmlFor={`consent-${key}`} className="text-[14px] font-semibold">{label}</label>
+              <label htmlFor={`consent-${key}`} className="t-caption font-semibold">{label}</label>
               <p className="t-caption text-muted-foreground">{description}</p>
             </div>
             <button

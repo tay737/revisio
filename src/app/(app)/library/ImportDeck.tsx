@@ -193,7 +193,7 @@ export function ImportDeck({
       )}
 
       <details className="inset px-4 py-3">
-        <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold leading-snug">
+        <summary className="flex cursor-pointer items-center gap-2 t-caption font-semibold leading-snug">
           <Icon name="notes" size={15} />
           What a file can look like
           <Icon name="collapse" size={14} className="ml-auto text-muted-foreground" />
