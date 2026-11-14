@@ -253,6 +253,19 @@ class RevisioApi {
     return response.data?['sent'] == true;
   }
 
+  /// Start a password reset. The server answers with the same neutral copy
+  /// whether or not the address holds an account — never branch on `sent`.
+  Future<String> requestPasswordReset({required String email}) async {
+    final response = await _request(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/password-reset',
+        data: {'email': email},
+      ),
+    );
+    return (response.data?['message'] as String?) ??
+        'If that address has an account, a reset link is on its way.';
+  }
+
   /// Verify an email token.
   Future<bool> verifyEmail({required String token}) async {
     final response = await _request(

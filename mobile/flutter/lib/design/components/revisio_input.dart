@@ -78,6 +78,7 @@ class RevisioTextInput extends StatelessWidget {
   final bool enabled;
   final bool readOnly;
   final int? maxLength;
+  final int? maxLines;
   final FocusNode? focusNode;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
@@ -97,6 +98,7 @@ class RevisioTextInput extends StatelessWidget {
     this.enabled = true,
     this.readOnly = false,
     this.maxLength,
+    this.maxLines,
     this.focusNode,
     this.validator,
     this.onChanged,
@@ -117,6 +119,7 @@ class RevisioTextInput extends StatelessWidget {
       enabled: enabled,
       readOnly: readOnly,
       maxLength: maxLength,
+      maxLines: maxLines,
       focusNode: focusNode,
       validator: validator,
       onChanged: onChanged,

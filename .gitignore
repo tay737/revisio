@@ -37,3 +37,4 @@ artifacts/
 .browsers/
 .agentsroom/transfer-context-*.txt
 .agentsroom/handoff-context-*.txt
+.devin/mcp_config.json
