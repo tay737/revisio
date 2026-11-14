@@ -73,3 +73,9 @@ await stamp('mobile/ios/Revisio.xcodeproj/project.pbxproj', `MARKETING_VERSION $
   [/MARKETING_VERSION = [^;]*;/g, `MARKETING_VERSION = ${version};`],
   [/CURRENT_PROJECT_VERSION = [^;]*;/g, `CURRENT_PROJECT_VERSION = ${versionCode};`],
 ]);
+
+// Flutter reads its own pubspec version; the +N build is what /api/v1/version's
+// minBuild compares against, so it must be the same encoded integer.
+await stamp('mobile/flutter/pubspec.yaml', `version ${version}+${versionCode}`, [
+  [/^version:.*$/m, `version: ${version}+${versionCode}`],
+]);
