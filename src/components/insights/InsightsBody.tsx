@@ -128,7 +128,9 @@ function ExpandableText({
       aria-expanded={open}
       onClick={() => setOpen((v) => !v)}
       className={cn(
-        'min-w-0 max-w-full text-left',
+        // 44px house floor — same rule as .chip on touch, applied everywhere:
+        // these rows are tab stops, so a 20px target fails WCAG 2.5.8 too.
+        'min-h-11 min-w-0 max-w-full items-center text-left',
         className,
         open ? (openClassName ?? 'whitespace-pre-wrap break-words') : 'truncate',
       )}
