@@ -517,7 +517,7 @@ export default function AdminPage() {
             <div key={f.key} className="inset flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <span className="font-mono t-caption">{f.key}</span>
-                <p className="t-caption text-muted-foreground">{f.description}</p>
+                <p className="t-caption break-all text-muted-foreground">{f.description}</p>
               </div>
               <button
                 type="button"
@@ -542,10 +542,12 @@ export default function AdminPage() {
         {data?.badges.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {data.badges.map((b) => (
-              <Badge variant="chip-active" key={b.id} className="gap-2">
-                {b.icon && <Icon name={b.icon as never} size={12} />}
-                {b.label}
-                <span className="num t-fine text-muted-foreground">×{b.grants}</span>
+              <span key={b.id} className="flex items-center gap-1.5">
+                <Badge variant="chip-active" className="gap-2">
+                  {b.icon && <Icon name={b.icon as never} size={12} />}
+                  {b.label}
+                  <span className="num t-fine text-background/60">×{b.grants}</span>
+                </Badge>
                 <InlineConfirm
                   label={`Remove badge ${b.label}`}
                   title={`Remove badge “${b.label}”?`}
@@ -553,7 +555,7 @@ export default function AdminPage() {
                   confirmLabel="Remove"
                   onConfirm={() => act({ action: 'delete_badge', badgeId: b.id }, `Badge "${b.label}" deleted.`)}
                 />
-              </Badge>
+              </span>
             ))}
           </div>
         ) : (
