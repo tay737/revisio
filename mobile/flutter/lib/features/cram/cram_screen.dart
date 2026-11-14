@@ -12,6 +12,7 @@ import '../../design/revisio_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../engine/models.dart';
+import '../../services/api_client.dart';
 import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
 import '../review/review_screen.dart';
@@ -100,9 +101,14 @@ class _CramScreenState extends ConsumerState<CramScreen> {
           noteDensityLabel: session.noteDensity,
         ),
       );
-    } catch (e) {
+    } on ApiError catch (e) {
       setState(() {
-        _error = 'We could not start that session.';
+        _error = e.message.isNotEmpty ? e.message : 'We could not start that session.';
+        _starting = false;
+      });
+    } catch (_) {
+      setState(() {
+        _error = 'We could not start that session — check your connection and try again.';
         _starting = false;
       });
     }
@@ -161,15 +167,29 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                             for (final d in ['summary', 'detailed'])
                               Expanded(
                                 child: Padding(
-                                  padding: EdgeInsets.only(right: d == 'summary' ? 8 : 0, left: d == 'detailed' ? 8 : 0),
-                                  child: OutlinedButton(
-                                    onPressed: () => setState(() => _density = d),
-                                    style: OutlinedButton.styleFrom(
-                                      backgroundColor: _density == d ? context.primary : context.card,
-                                      foregroundColor: _density == d ? context.primaryForeground : context.foreground,
-                                      side: BorderSide(color: _density == d ? context.primary : context.border),
+                                  padding: EdgeInsets.only(
+                                      right: d == 'summary' ? 8 : 0,
+                                      left: d == 'detailed' ? 8 : 0),
+                                  child: SizedBox(
+                                    height: kTouchTarget,
+                                    child: OutlinedButton(
+                                      onPressed: () =>
+                                          setState(() => _density = d),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: _density == d
+                                            ? context.primary
+                                            : context.card,
+                                        foregroundColor: _density == d
+                                            ? context.primaryForeground
+                                            : context.foreground,
+                                        side: BorderSide(
+                                            color: _density == d
+                                                ? context.primary
+                                                : context.border),
+                                      ),
+                                      child: Text(
+                                          d[0].toUpperCase() + d.substring(1)),
                                     ),
-                                    child: Text(d[0].toUpperCase() + d.substring(1)),
                                   ),
                                 ),
                               ),
