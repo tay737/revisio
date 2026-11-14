@@ -42,7 +42,7 @@ export function Sidebar({
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-border bg-background px-3 py-4 md:flex">
       <Link href="/dashboard" className="mb-6 flex items-center gap-2.5 px-2">
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
+        <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground t-caption font-bold text-background">
           R
         </span>
         <span className="t-tagline">Revisio</span>
@@ -58,7 +58,7 @@ export function Sidebar({
               title={item.hint}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'relative flex h-11 items-center gap-3 rounded-md px-3 text-[15px] transition-colors duration-150',
+                'relative flex h-11 items-center gap-3 rounded-md px-3 t-body transition-colors duration-150',
                 active ? 'font-semibold text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
               )}
             >
@@ -85,7 +85,7 @@ export function Sidebar({
           <RankCrest rank={rank} size={44} />
           <div className="min-w-0">
             <div className="t-strong truncate">{rank.label}</div>
-            <div className="text-[12px] text-muted-foreground">
+            <div className="t-fine text-muted-foreground">
               {rank.isApex ? 'Highest rank' : `${rank.remaining} RP to next`}
             </div>
           </div>
@@ -98,7 +98,7 @@ export function Sidebar({
             transition={SPRING.meter}
           />
         </div>
-        <div className="mt-2 flex items-center justify-between text-[12px] text-muted-foreground">
+        <div className="mt-2 flex items-center justify-between t-fine text-muted-foreground">
           <span>
             <NumberTicker value={rank.points} className="num" /> RP
           </span>
@@ -118,8 +118,8 @@ export function Sidebar({
           <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} imageUrl={me.avatarUrl} size={36} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-semibold">{me.nickname?.trim() || me.name}</div>
-          <div className="text-[12px] capitalize text-muted-foreground">{me.role}</div>
+          <div className="truncate t-caption font-semibold">{me.nickname?.trim() || me.name}</div>
+          <div className="t-fine capitalize text-muted-foreground">{me.role}</div>
         </div>
         <ThemeToggle className="h-9 w-9" />
         <Button variant="ghost"

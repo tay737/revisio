@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { ScrollProgress } from '@/components/ui/scroll-progress';
 import PageSkeleton from '@/components/PageSkeleton';
 import { PageHeader } from '@/components/PageHeader';
@@ -95,7 +94,7 @@ export default function TopicScreen() {
   if (!topicId || failed) {
     return (
       <Card className="p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
           <Icon name="notes" size={22} />
         </span>
         <h2 className="t-tagline mt-4">Topic not found</h2>
@@ -175,7 +174,7 @@ export default function TopicScreen() {
 
       <div className="space-y-8">
         {lessons.map((l, i) => (
-          <BlurFade key={l.id} delay={reduce ? 0 : Math.min(i * 0.05, 0.2)}>
+          
             <motion.section
               aria-labelledby={`lesson-${i}-heading`}
               animate={{ opacity: 1, y: 0 }}
@@ -199,7 +198,7 @@ export default function TopicScreen() {
                 className="mt-3"
               />
             </motion.section>
-          </BlurFade>
+          
         ))}
       </div>
     </div>

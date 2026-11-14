@@ -1,53 +1,137 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
+    "antislop": {
+      "source": "miqdadbadjuber/anti-slop",
+      "sourceType": "github",
+      "skillPath": "skills/antislop/SKILL.md",
+      "computedHash": "5db1f692cb9722e0f642e9a378d8c44b011a102726efb41bf0003c8c37f0a137"
+    },
+    "antislop-copywriting": {
+      "source": "miqdadbadjuber/anti-slop",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-copywriting/SKILL.md",
+      "computedHash": "57a00dcdb416ea8ed4b2a388ef9580f120afbc3d9bf8bfa8cd4e6796443c9a22"
+    },
+    "antislop-ui": {
+      "source": "miqdadbadjuber/anti-slop",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-ui/SKILL.md",
+      "computedHash": "09c3efcee47866061a1609e298068941eb1d35e73eea95ae67ea2453be3951a9"
+    },
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "computedHash": "b10eab0a9684cd09cf34c31ef04a3bf530a5f4404422f9c520d42372d670c7fc"
+    },
+    "diagram-design": {
+      "source": "cathrynlavery/diagram-design",
+      "sourceType": "github",
+      "skillPath": "skills/diagram-design/SKILL.md",
+      "computedHash": "6f5602610db34734873cf23a23db878abf62f71e53026ad147ffbaff576797c2"
+    },
+    "frontend-slides": {
+      "source": "zarazhangrui/frontend-slides",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1c6781287ffc504332ec81a61bc7766d2fcee8d2c99d76a463e53bba4c55b840"
+    },
+    "humanizer": {
+      "source": "blader/humanizer",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "62d4eba31b0be2589d17b27fd211fd80fb9e19cd5046be47ff985807fc4636ca"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "85b735d81f3fbd027025884ddeeaf99e2bfa48f4094dbb09cb97bb48f960c6b1"
+    },
     "neon": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon/SKILL.md",
-      "computedHash": "07ebeb0077c3a10fd82a87ee45a75f0c071bf118b95ea61da90907c8fc05a2f4"
+      "computedHash": ""
     },
     "neon-ai-gateway": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-ai-gateway/SKILL.md",
-      "computedHash": "0edcef859ae35a6f0b1063395f56afb385b9e43999dcd1816f4075055858790a"
+      "computedHash": ""
     },
     "neon-auth": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-auth/SKILL.md",
-      "computedHash": "5459d47c3fc325e09cb73641b15c48e5bc3e5d82a2059ba6ea8769bd73ff25e1"
+      "computedHash": ""
     },
     "neon-functions": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-functions/SKILL.md",
-      "computedHash": "d1a5482a8e822164392d14aca55f3e6a95cf83dd61d417d7a05609514bfe4feb"
+      "computedHash": ""
     },
     "neon-object-storage": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-object-storage/SKILL.md",
-      "computedHash": "be0c3d0c362e51dadc4146e04e1067db30c81cd21c45517b511523a14e6ed19a"
+      "computedHash": ""
     },
     "neon-postgres": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-postgres/SKILL.md",
-      "computedHash": "b9763d379a3c5039e5555540a1333b1c529e2365d4f0b8fe2998ba41509814c5"
+      "computedHash": ""
     },
     "neon-postgres-branches": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-postgres-branches/SKILL.md",
-      "computedHash": "d6b7ecfc52508c57bd3c8572a7cd0c582c256e36731124eb8598e8b24780ab1d"
+      "computedHash": ""
     },
     "neon-postgres-egress-optimizer": {
       "source": "neondatabase/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/neon-postgres-egress-optimizer/SKILL.md",
-      "computedHash": "9f991d785e63e9ae33e1a09db18ab8d559083861c70aebc6a740df01ca5bf214"
+      "computedHash": ""
+    },
+    "ponytail": {
+      "source": "DietrichGebert/ponytail",
+      "sourceType": "github",
+      "skillPath": "skills/ponytail/SKILL.md",
+      "computedHash": "56d72677aca02689ac89bd48734e8c19b40ab86716d1257eaf5f1238b43cda6b"
+    },
+    "shadcn": {
+      "source": "shadcn-ui/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "388962d16c7a4f13aaeee0d8f128e50a87df8553d42ef7988c39c0e1c74a40e8"
+    },
+    "stop-slop": {
+      "source": "hardikpandya/stop-slop",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "02a5b429945020ed8a5ed4024d57384258c2596f09ab42c3e7498a8a43ec1c36"
+    },
+    "understand": {
+      "source": "egonex-ai/understand-anything",
+      "sourceType": "github",
+      "skillPath": "understand-anything-plugin/skills/understand/SKILL.md",
+      "computedHash": "6d9da1b30c3ba9f0f90833b3649c0ca1cac1a159353c38154ea8e8c49a63d03d"
+    },
+    "web-accessibility": {
+      "source": "hoodini/ai-agents-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-accessibility/SKILL.md",
+      "computedHash": "ce2b13bf682ca7b51c2287a4f4dd09bc3345f30dd21d80410c6b851738136eee"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "4f68ae07187fb0d1fb78c88b503d089da4cf5a9d9625d1f2e425b1590bf96d92"
     }
   }
 }

@@ -174,7 +174,7 @@ export default function CramClient() {
   if (session && !card) {
     return (
       <Card className="mx-auto max-w-md p-8 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
           <Icon name="cram" size={22} />
         </span>
         <h1 className="t-tagline mt-4">Cram session done</h1>
@@ -208,7 +208,7 @@ export default function CramClient() {
             {idx + 1} <span className="text-border">/</span> {session.queue.length}
           </span>
           <Badge variant="chip">
-            <Icon name="target" size={14} className="text-primary" />
+            <Icon name="target" size={14} className="text-foreground" />
             <NumberTicker value={score.correct} className="tabular-nums" />
             <span>/ {score.total} correct</span>
           </Badge>
@@ -224,8 +224,8 @@ export default function CramClient() {
 
         {session.notes.length > 0 && (
           <details className="card p-0">
-            <summary className="flex cursor-pointer items-center gap-2 px-5 py-4 text-[14px] font-semibold leading-[1.29] tracking-[-0.224px]">
-              <Icon name="notes" size={16} className="text-primary" />
+            <summary className="flex cursor-pointer items-center gap-2 px-5 py-4 t-caption font-semibold leading-[1.29] tracking-[-0.224px]">
+              <Icon name="notes" size={16} className="text-foreground" />
               Revision notes
               <Badge variant="chip" className="ml-1 capitalize">{session.noteDensityLabel}</Badge>
               <Icon name="collapse" size={15} className="ml-auto text-muted-foreground" />
@@ -233,8 +233,8 @@ export default function CramClient() {
             <div className="space-y-2 border-t border-border/70 px-5 py-4">
               {session.notes.map((n) => (
                 <details key={n.topicId + n.title} className="inset overflow-hidden">
-                  <summary className="flex cursor-pointer items-center gap-2 px-3 py-2.5 text-[14px] font-semibold leading-[1.29] tracking-[-0.224px]">
-                    <Icon name="learn" size={14} className="text-primary" />
+                  <summary className="flex cursor-pointer items-center gap-2 px-3 py-2.5 t-caption font-semibold leading-[1.29] tracking-[-0.224px]">
+                    <Icon name="learn" size={14} className="text-foreground" />
                     {n.title}
                     {n.specRefs && <Badge variant="chip" className="ml-auto">{n.specRefs}</Badge>}
                   </summary>
@@ -314,7 +314,7 @@ export default function CramClient() {
 
               {result && (
                 <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.verdict.correct ? 'bg-good/10' : 'bg-destructive/10'}`}>
-                  <div className={`flex items-center gap-2 text-[17px] font-semibold ${result.verdict.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
+                  <div className={`flex items-center gap-2 t-lead-airy font-semibold ${result.verdict.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
                     <Icon name={result.verdict.correct ? 'reviewed' : 'close'} size={18} />
                     {result.verdict.correct ? 'Correct' : 'Not quite'}
                     {result.xpAwarded > 0 && <span className="t-caption ml-auto font-normal text-muted-foreground">+{result.xpAwarded} XP</span>}
@@ -361,7 +361,7 @@ export default function CramClient() {
           <Label>Topics</Label>
           {withCards.length === 0 ? (
             <p className="t-caption text-muted-foreground">
-              None of your topics have questions yet. <Link href="/library" className="text-primary hover:underline">Add some</Link> and they will show up here.
+              None of your topics have questions yet. <Link href="/library" className="text-foreground underline underline-offset-4">Add some</Link> and they will show up here.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

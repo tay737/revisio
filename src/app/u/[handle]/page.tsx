@@ -7,7 +7,6 @@ import { RankCrest } from '@/components/ui/rank-crest';
 import { Avatar, ProfileBanner } from '@/components/ui/avatar';
 import { RoleBadge } from '@/components/ui/role-badge';
 import { NumberTicker } from '@/components/ui/number-ticker';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { verifyAccessToken } from '@/services/auth';
 import { getPublicProfile } from '@/services/profile';
 import { rankFor } from '@/domain/ranked';
@@ -122,7 +121,7 @@ export default async function ProfilePage({
             <span className="t-caption text-muted-foreground">· {profile.name}</span>
           ) : null}
         </div>
-        {profile.bio && <p className="mt-2.5 max-w-[52ch] text-[15px] leading-relaxed">{profile.bio}</p>}
+        {profile.bio && <p className="mt-2.5 max-w-[52ch] t-body leading-relaxed">{profile.bio}</p>}
       </header>
 
       {/* ── Rank + stats ─────────────────────────────────────────────────── */}
@@ -131,7 +130,7 @@ export default async function ProfilePage({
           <RankCrest rank={rank} size={72} />
           <div className="min-w-0">
             <div className="t-strong">{profile.gamification.rankLabel}</div>
-            <div className="num mt-0.5 text-[13px] text-muted-foreground">
+            <div className="num mt-0.5 t-caption text-muted-foreground">
               <NumberTicker value={profile.gamification.totalXp} /> XP · Level {profile.gamification.level}
             </div>
           </div>
@@ -152,7 +151,7 @@ export default async function ProfilePage({
         </Card>
       ) : owner ? (
         <Card as="section" className="mt-6 p-5 text-center">
-          <p className="text-[14px] text-muted-foreground">
+          <p className="t-caption text-muted-foreground">
             Your stats are hidden from visitors. Turn them on in Settings → Privacy if you want them shown.
           </p>
         </Card>
@@ -178,21 +177,21 @@ export default async function ProfilePage({
         <Card as="section" className="mt-6 p-5">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="t-tagline">Achievements</h2>
-            <span className="num text-[13px] text-muted-foreground">{profile.achievements.length}</span>
+            <span className="num t-caption text-muted-foreground">{profile.achievements.length}</span>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {profile.achievements.map((a, i) => (
-              <BlurFade key={a.id} delay={cappedDelay(i, 0.03, 0.24)}>
+              
                 <div className="flex items-center gap-3 rounded-md border border-border px-3.5 py-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gold/25 text-foreground">
                     <Icon name={achievementIcon(a.id, a.icon)} size={17} />
                   </span>
                   <div className="min-w-0">
                     <div className="t-caption-s">{a.name}</div>
-                    <div className="text-[12px] text-muted-foreground">{a.description}</div>
+                    <div className="t-fine text-muted-foreground">{a.description}</div>
                   </div>
                 </div>
-              </BlurFade>
+              
             ))}
           </div>
         </Card>

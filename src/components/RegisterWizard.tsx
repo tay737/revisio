@@ -185,7 +185,7 @@ export default function RegisterWizard() {
         <Notice tone="note" show className="mt-5">
           <span>{result.message}</span>
           {result.devLink && (
-            <a href={result.devLink} className="mt-1 block break-all text-primary underline">
+            <a href={result.devLink} className="mt-1 block break-all text-foreground underline">
               {result.devLink}
             </a>
           )}
@@ -504,7 +504,7 @@ export default function RegisterWizard() {
 
       <p className="t-caption mt-5 text-center text-muted-foreground">
         Already registered?{' '}
-        <Link href="/login" className="tap-link text-primary underline underline-offset-4 hover:text-primary/80">
+        <Link href="/login" className="tap-link text-foreground underline underline-offset-4 hover:text-primary/80">
           Sign in
         </Link>
       </p>
@@ -524,9 +524,9 @@ function ReviewRow({ label, value, onEdit }: { label: string; value: string; onE
     <div className="flex items-start justify-between gap-4 p-4">
       <div className="min-w-0">
         <dt className="t-caption text-muted-foreground">{label}</dt>
-        <dd className="mt-0.5 break-words text-[15px] font-medium">{value}</dd>
+        <dd className="mt-0.5 break-words t-body font-medium">{value}</dd>
       </div>
-      <button type="button" onClick={onEdit} className="shrink-0 text-[13px] font-medium text-primary hover:underline">
+      <button type="button" onClick={onEdit} className="shrink-0 t-caption font-medium text-foreground hover:underline">
         Edit<span className="sr-only"> {label.toLowerCase()}</span>
       </button>
     </div>

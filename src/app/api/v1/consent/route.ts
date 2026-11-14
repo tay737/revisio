@@ -32,21 +32,26 @@ export const PATCH = route(async (req: NextRequest) => {
   for (const key of ['preferences', 'analytics', 'marketing', 'notifications', 'profile', 'school', 'research']) {
     if (typeof body.choices[key] === 'boolean') choices[key] = body.choices[key];
   }
-  const updatedAt = typeof body.updatedAt === 'string' && !Number.isNaN(Date.parse(body.updatedAt))
+  // The moment consent was recorded is our evidence under UK GDPR Art 7(1), so
+  // the server stamps it. The browser's own time is kept beside it for the
+  // offline case (a choice made yesterday, synced today), but it never replaces
+  // the server time: a client-supplied stamp can be backdated, and a record that
+  // can be backdated proves nothing.
+  const receivedAt = new Date();
+  const claimedAt = typeof body.updatedAt === 'string' && !Number.isNaN(Date.parse(body.updatedAt))
     ? body.updatedAt
-    : new Date().toISOString();
+    : null;
   const next = {
     version: 1,
-    updatedAt,
+    updatedAt: receivedAt.toISOString(),
+    decidedAt: receivedAt.toISOString(),
+    clientReportedAt: claimedAt,
     choices,
-    decidedAt: typeof body.decidedAt === 'string' && !Number.isNaN(Date.parse(body.decidedAt))
-      ? body.decidedAt
-      : updatedAt,
-  } as const;
+  };
 
   await db.update(users).set({
     consent: next,
-    consentUpdatedAt: new Date(next.updatedAt),
+    consentUpdatedAt: receivedAt,
   }).where(eq(users.id, user.id));
 
   return ok({ consent: next });

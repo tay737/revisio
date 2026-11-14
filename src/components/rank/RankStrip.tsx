@@ -97,7 +97,7 @@ export function RankStrip({
           {/* One sentence, and it is the same one the Rank page uses
               (`seasonLine`) — the strip and the full view must not describe the
               same rank differently. */}
-          <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">
+          <p className="mt-1.5 t-caption leading-relaxed text-muted-foreground">
             {season
               ? seasonLine({
                   daysLeft: season.daysLeft,
@@ -151,7 +151,7 @@ export function RankStrip({
             <p className="t-fine text-muted-foreground">
               {week.daysLeft === 1 ? 'Last day this week' : `${week.daysLeft} days left this week`}
             </p>
-            <p className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold">
+            <p className="mt-1 flex items-center gap-1.5 t-caption font-semibold">
               {zoneLabel}
               <Icon
                 name={lobby.zone === 'demotion' ? 'zoneDown' : 'zoneUp'}

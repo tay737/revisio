@@ -188,7 +188,7 @@ function SeasonClock({
         <div className="min-w-0 flex-1">
           <p className="t-eyebrow">Your rank</p>
           <h3 className="t-display-md mt-1">{mine.placed ? mine.rank.label : 'Being placed'}</h3>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">
+          <p className="mt-1.5 t-caption leading-relaxed text-muted-foreground">
             {seasonLine({
               daysLeft: season.daysLeft,
               rankLabel: mine.rank.label,
@@ -212,12 +212,12 @@ function SeasonClock({
           </div>
 
           {!mine.placed && (
-            <p className="mt-2 text-[13px] text-muted-foreground">
+            <p className="mt-2 t-caption text-muted-foreground">
               {mine.reviews} of 10 reviews this season.
             </p>
           )}
           {mine.placed && !mine.rank.isApex && (
-            <p className="mt-2 text-[13px] text-muted-foreground">
+            <p className="mt-2 t-caption text-muted-foreground">
               {mine.rank.remaining} RP to the next rung · about {reviewsForRp(mine.rank.remaining)} more
               reviews.
             </p>
@@ -227,10 +227,10 @@ function SeasonClock({
         <div className="flex w-full shrink-0 items-center justify-between gap-4 rounded-lg border border-border bg-secondary px-4 py-3.5 sm:w-auto sm:min-w-[190px]">
           <div>
             <p className="t-fine text-muted-foreground">On the season board</p>
-            <p className="num mt-1 text-[17px] font-semibold">
+            <p className="num mt-1 t-lead-airy font-semibold">
               {mine.position}
               {mine.fieldSize > 0 && (
-                <span className="text-[13px] font-normal text-muted-foreground"> of {mine.fieldSize}</span>
+                <span className="t-caption font-normal text-muted-foreground"> of {mine.fieldSize}</span>
               )}
             </p>
           </div>
@@ -263,7 +263,7 @@ function TierProgress({
     <Card as="section">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Tier progress</h3>
-        <span className="num text-[13px] text-muted-foreground">
+        <span className="num t-caption text-muted-foreground">
           <NumberTicker value={rank.points} /> RP this season
         </span>
       </div>
@@ -289,7 +289,7 @@ function TierProgress({
               </div>
               <p
                 className={cn(
-                  'mt-1.5 truncate text-[10px] font-bold uppercase tracking-[0.06em]',
+                  'mt-1.5 truncate t-micro font-bold uppercase tracking-[0.06em]',
                   !isCurrent && 'text-muted-foreground',
                 )}
                 style={isCurrent ? { color: metal } : undefined}
@@ -303,12 +303,12 @@ function TierProgress({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3.5">
-        <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+        <span className="flex items-center gap-1.5 t-caption text-muted-foreground">
           <Icon name="form" size={14} />
           Form
           <strong className="font-semibold text-foreground">{form?.label ?? '—'}</strong>
         </span>
-        <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">{form?.detail}</span>
+        <span className="min-w-0 flex-1 t-caption text-muted-foreground">{form?.detail}</span>
       </div>
     </Card>
   );
@@ -335,7 +335,7 @@ function TheLadder({
     <Card as="section">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">The ladder</h3>
-        <span className="num text-[13px] text-muted-foreground">
+        <span className="num t-caption text-muted-foreground">
           {placement.placing ? `Placement ${placement.done}/${placement.target}` : `${RANK_LADDER.length} ranks`}
         </span>
       </div>
@@ -358,24 +358,24 @@ function TheLadder({
               )}
             >
               <RankCrest rank={rungRank} size={42} showProgress={false} muted={!reached} animate={false} />
-              <p className={cn('text-[13px] font-semibold', reached ? 'text-foreground' : 'text-muted-foreground')}>
+              <p className={cn('t-caption font-semibold', reached ? 'text-foreground' : 'text-muted-foreground')}>
                 {DIVISION_LABEL[rung.division]}
               </p>
               {/* The tier's metal rides the label once you have reached it —
                   the same rule as the crest: unreached rungs are grey. */}
               <p
-                className="text-[10px] uppercase tracking-[0.06em]"
+                className="t-micro uppercase tracking-[0.06em]"
                 style={reached ? { color: tierInk(rung.tier) } : undefined}
               >
                 {tierName(rung.tier)}
               </p>
-              <p className="num text-[10px] text-muted-foreground">{rung.base} RP</p>
+              <p className="num t-micro text-muted-foreground">{rung.base} RP</p>
             </div>
           );
         })}
       </div>
 
-      <p className="mt-3.5 text-[13px] leading-relaxed text-muted-foreground">
+      <p className="mt-3.5 t-caption leading-relaxed text-muted-foreground">
         Measured against {season.label.toLowerCase()}.{' '}
         {!rank.isApex ? (
           <>
@@ -407,13 +407,13 @@ function SeasonBoard({
         <h3 className="t-tagline">Season board</h3>
         <span className="t-fine text-muted-foreground">Resets with the season</span>
       </header>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+      <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
         Everybody on this board started {season.label.toLowerCase()} on Bronze III. Ordered by XP earned
         inside the window.
       </p>
 
       {board.length === 0 ? (
-        <p className="mt-4 text-[14px] text-muted-foreground">
+        <p className="mt-4 t-caption text-muted-foreground">
           Nobody has logged XP this season yet. One review puts you on it.
         </p>
       ) : (
@@ -428,7 +428,7 @@ function SeasonBoard({
             >
               <span
                 className={cn(
-                  'num w-6 shrink-0 text-center text-[13px]',
+                  'num w-6 shrink-0 text-center t-caption',
                   row.isMe ? 'font-bold' : 'text-muted-foreground',
                 )}
               >
@@ -436,12 +436,12 @@ function SeasonBoard({
               </span>
               <RankCrest rank={row.rank} size={30} showProgress={false} animate={false} />
               <span className="min-w-0 flex-1">
-                <span className={cn('block truncate text-[15px]', row.isMe && 'font-bold')}>{row.name}</span>
-                <span className="block truncate text-[12px]" style={{ color: tierInk(row.rank.tier) }}>
+                <span className={cn('block truncate t-body', row.isMe && 'font-bold')}>{row.name}</span>
+                <span className="block truncate t-fine" style={{ color: tierInk(row.rank.tier) }}>
                   {row.rank.label}
                 </span>
               </span>
-              <span className="num shrink-0 text-[14px] text-muted-foreground">
+              <span className="num shrink-0 t-caption text-muted-foreground">
                 <NumberTicker value={row.xp} /> RP
               </span>
             </motion.li>
@@ -450,7 +450,7 @@ function SeasonBoard({
       )}
 
       {mine.position > board.length && (
-        <p className="mt-3 text-[13px] text-muted-foreground">
+        <p className="mt-3 t-caption text-muted-foreground">
           You are {mine.position} in the season — outside the top {board.length}, and climbing.
         </p>
       )}
@@ -482,14 +482,14 @@ function Showcase({
     <Card as="section">
       <header className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Your seasons</h3>
-        <span className="num text-[13px] text-muted-foreground">{history.length}</span>
+        <span className="num t-caption text-muted-foreground">{history.length}</span>
       </header>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+      <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
         The rank you finished each season on. These do not change when the next one starts.
       </p>
 
       {history.length === 0 ? (
-        <p className="mt-4 text-[14px] leading-relaxed text-muted-foreground">
+        <p className="mt-4 t-caption leading-relaxed text-muted-foreground">
           Nothing to show yet — no season has closed since your first ten reviews. When one does, the rank
           you hold on its last day is recorded here with the reward that tier earns.
         </p>
@@ -511,7 +511,7 @@ function Showcase({
                 </p>
               </div>
               <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-[14px] font-semibold">
+                <p className="flex items-center gap-1.5 t-caption font-semibold">
                   <Icon name={row.reward.icon} size={14} className="text-gold-ink" />
                   {row.reward.name}
                 </p>
@@ -547,11 +547,11 @@ function YourRecord({ lifetimeRank, totalXp }: { lifetimeRank: Rank; totalXp: nu
     <Card as="section">
       <header className="flex items-baseline justify-between gap-3">
         <h3 className="t-tagline">Your record</h3>
-        <span className="num text-[13px] text-muted-foreground">
+        <span className="num t-caption text-muted-foreground">
           <NumberTicker value={totalXp} /> XP all time
         </span>
       </header>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+      <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
         Every review you have ever done, run through the same ladder. It is not your rank — that resets
         each season — but it is the one number that only ever goes up.
       </p>
@@ -563,7 +563,7 @@ function YourRecord({ lifetimeRank, totalXp }: { lifetimeRank: Rank; totalXp: nu
             {lifetimeRank.label}
           </p>
         </div>
-        <span className="num text-[13px] text-muted-foreground">
+        <span className="num t-caption text-muted-foreground">
           <NumberTicker value={lifetimeRank.points} /> RP lifetime
         </span>
       </div>
@@ -581,7 +581,7 @@ function SeasonRewards({
   return (
     <Card as="section">
       <h3 className="t-tagline">Season rewards</h3>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+      <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
         Paid on the tier you finish in, not the division — so a season never ends one rung short of the
         next tier for nothing.
       </p>
@@ -595,7 +595,7 @@ function SeasonRewards({
             />
             <div className="min-w-0">
               <p className="t-caption-s">{row.name}</p>
-              <p className="text-[12px] text-muted-foreground">{row.reward.detail}</p>
+              <p className="t-fine text-muted-foreground">{row.reward.detail}</p>
             </div>
           </li>
         ))}

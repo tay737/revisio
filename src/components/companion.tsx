@@ -68,7 +68,7 @@ export function Companion({
         <p
           className={cn(
             'text-pretty',
-            compact ? 'text-[14px] leading-[1.5]' : 't-body',
+            compact ? 't-caption leading-[1.5]' : 't-body',
             onTile ? 'text-muted-foreground' : 'text-foreground',
           )}
         >
@@ -83,7 +83,7 @@ export function Companion({
         >
           <Link
             href={read.action.href}
-            className="inline-flex items-center gap-1.5 text-[14px] font-semibold underline underline-offset-4 transition-opacity duration-150 hover:opacity-70"
+            className="inline-flex items-center gap-1.5 t-caption font-semibold underline underline-offset-4 transition-opacity duration-150 hover:opacity-70"
           >
             {read.action.label}
             <Icon name="next" size={14} />

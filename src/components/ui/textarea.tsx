@@ -9,8 +9,12 @@ import { cn } from '@/lib/utils';
  * it a taller radius and vertical padding, but resizing is a property of this
  * element, not of the token layer.
  */
-function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
-  return <textarea data-slot="textarea" className={cn('input resize-y', className)} {...props} />;
-}
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
+  function Textarea({ className, ...props }, ref) {
+    return (
+      <textarea ref={ref} data-slot="textarea" className={cn('input resize-y', className)} {...props} />
+    );
+  },
+);
 
 export { Textarea };

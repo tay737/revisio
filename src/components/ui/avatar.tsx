@@ -24,7 +24,7 @@ const SURFACE: Record<AvatarColor, string> = {
   moss: 'bg-good-soft text-good-strong',
   bee: 'bg-gold/30 text-foreground',
   dawn: 'bg-destructive/15 text-destructive-ink',
-  sky: 'bg-primary/15 text-primary',
+  sky: 'bg-secondary text-foreground',
 };
 
 export const AVATAR_EMOJI = ['🦉', '🧠', '📚', '⚡', '🌟', '🦊', '🐢', '🌙', '🎯', '🧪'] as const;

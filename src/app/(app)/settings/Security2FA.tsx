@@ -134,7 +134,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {recoveryCodes.map((c) => (
-              <code key={c} className="rounded-md bg-card px-2 py-1.5 text-center font-mono text-[13px] font-semibold tracking-[0.08em]">
+              <code key={c} className="rounded-md bg-card px-2 py-1.5 text-center font-mono t-caption font-semibold tracking-[0.08em]">
                 {c}
               </code>
             ))}
@@ -159,7 +159,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
         <div className="mt-4 space-y-4">
           <ol className="space-y-3">
             <li className="flex items-start gap-3">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary text-[13px] font-bold">1</span>
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary t-caption font-bold">1</span>
               <div>
                 <p className="t-caption-s">Scan this with your authenticator app</p>
                 <p className="t-fine mt-0.5 text-muted-foreground">Google Authenticator, 1Password, Authy — any TOTP app works.</p>
@@ -171,11 +171,11 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary text-[13px] font-bold">2</span>
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary t-caption font-bold">2</span>
               <div className="min-w-0">
                 <p className="t-caption-s">Or enter the code by hand</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <code className="rounded-md bg-secondary px-2.5 py-1.5 font-mono text-[13px] font-semibold tracking-[0.06em]">{start.secret}</code>
+                  <code className="rounded-md bg-secondary px-2.5 py-1.5 font-mono t-caption font-semibold tracking-[0.06em]">{start.secret}</code>
                   <Button type="button" variant="ghost" size="sm" onClick={copySecret}>
                     <Icon name="notes" size={14} />
                     Copy
@@ -184,7 +184,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary text-[13px] font-bold">3</span>
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary t-caption font-bold">3</span>
               <div>
                 <p className="t-caption-s">Type the six-digit code the app shows</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">

@@ -72,7 +72,7 @@ const TIER_BAND: Record<SrsTier, string> = {
   // tint they sit on, which the base state colours missed (axe, light mode).
   beginner: 'bg-destructive/15 text-destructive-ink',
   adept: 'bg-gold/25 text-foreground',
-  seasoned: 'bg-primary/15 text-primary',
+  seasoned: 'bg-secondary text-foreground',
   mastered: 'bg-good-soft text-good-strong',
 };
 
@@ -132,12 +132,12 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
             const count = data.srsLevels.find((s) => s.level === rung.level)?.count ?? 0;
             return (
               <li key={rung.level} className="flex items-center gap-2.5">
-                <span className={cn('num w-6 text-right text-[12px] font-bold', count === 0 && 'text-muted-foreground/50')}>
+                <span className={cn('num w-6 text-right t-fine font-bold', count === 0 && 'text-muted-foreground')}>
                   {rung.level}
                 </span>
-                <span className="num w-24 shrink-0 text-[12px] text-muted-foreground">
+                <span className="num w-24 shrink-0 t-fine text-muted-foreground">
                   {rung.label}
-                  <span className="ml-1 hidden opacity-70 sm:inline">· {rung.interval ?? 'done'}</span>
+                  <span className="ml-1 hidden text-muted-foreground sm:inline">· {rung.interval ?? 'done'}</span>
                 </span>
                 <span className="meter h-2 flex-1" title={`${count} card${count === 1 ? '' : 's'}`}>
                   <motion.span
@@ -147,7 +147,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                     transition={SPRING.meter}
                   />
                 </span>
-                <span className={cn('num w-8 text-right text-[12px]', count === 0 ? 'text-muted-foreground/50' : 'font-semibold')}>
+                <span className={cn('num w-8 text-right t-fine', count === 0 ? 'text-muted-foreground' : 'font-semibold')}>
                   {count}
                 </span>
               </li>
@@ -173,7 +173,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                       <Icon name="due" size={14} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[14px] font-semibold">{s.topicName}</div>
+                      <div className="truncate t-caption font-semibold">{s.topicName}</div>
                       <div className="t-fine truncate text-muted-foreground">
                         {s.subjectName} · last miss {when(s.lastMissedAt)}
                       </div>
@@ -212,7 +212,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                     <Icon name={r.correct === null ? 'clock' : r.correct ? 'correct' : 'close'} size={13} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium">
+                    <div className="truncate t-caption font-medium">
                       {r.prompt ?? '(no text)'}
                     </div>
                     <div className="t-fine truncate text-muted-foreground">
@@ -220,7 +220,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                     </div>
                   </div>
                   {r.userAnswer !== null && r.userAnswer !== '' && (
-                    <code className="max-w-[40%] shrink-0 truncate rounded bg-secondary px-1.5 py-0.5 text-[11px]" title={`${self ? 'Your' : 'Their'} answer: ${r.userAnswer}`}>
+                    <code className="max-w-[40%] shrink-0 truncate rounded bg-secondary px-1.5 py-0.5 t-fine" title={`${self ? 'Your' : 'Their'} answer: ${r.userAnswer}`}>
                       {r.userAnswer}
                     </code>
                   )}
@@ -248,11 +248,11 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
           <ul className="mt-2 divide-y divide-border/60">
             {cards.map((c) => (
               <li key={c.cardId} className="flex items-center gap-3 py-2.5">
-                <span className={cn('num grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12px] font-bold', TIER_BAND[tierOf(c.srsLevel)])}>
+                <span className={cn('num grid h-7 w-7 shrink-0 place-items-center rounded-full t-fine font-bold', TIER_BAND[tierOf(c.srsLevel)])}>
                   {c.srsLevel}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-medium">{c.prompt ?? '(no text)'}</div>
+                  <div className="truncate t-caption font-medium">{c.prompt ?? '(no text)'}</div>
                   <div className="t-fine truncate text-muted-foreground">
                     {c.topicName} · {c.srsLabel}
                     {c.lapses > 0 && <span className="text-destructive-ink"> · {c.lapses} lapse{c.lapses === 1 ? '' : 's'}</span>}
@@ -285,7 +285,7 @@ function OverviewStat({ label, value, note, alarm }: { label: string; value: str
   return (
     <div className={cn('inset px-3 py-2.5', alarm && 'border-destructive/40')}>
       <div className="t-eyebrow">{label}</div>
-      <div className={cn('num mt-0.5 text-[20px] font-bold leading-none', alarm && 'text-destructive-ink')}>{value}</div>
+      <div className={cn('num mt-0.5 t-display-sm font-bold leading-none', alarm && 'text-destructive-ink')}>{value}</div>
       {note && <div className="t-fine mt-1 text-muted-foreground">{note}</div>}
     </div>
   );
@@ -302,8 +302,8 @@ function TopicHealthTable({ topics }: { topics: StudentProgress['topicHealth'] }
           <li key={t.topicId} className="flex items-center gap-2.5">
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-[13px] font-medium">{t.topicName}</span>
-                <span className="num shrink-0 text-[12px] text-muted-foreground">
+                <span className="truncate t-caption font-medium">{t.topicName}</span>
+                <span className="num shrink-0 t-fine text-muted-foreground">
                   {t.masteryPct}% mastered{t.missCount > 0 && <span className="text-destructive-ink"> · {t.missCount} miss{t.missCount === 1 ? '' : 'es'}</span>}
                 </span>
               </div>

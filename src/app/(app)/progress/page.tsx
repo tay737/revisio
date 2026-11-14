@@ -10,7 +10,6 @@ import { useRanked, type RankedScope } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { NumberTicker } from '@/components/ui/number-ticker';
-import { BlurFade } from '@/components/ui/blur-fade';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Notice } from '@/components/Notice';
 import { RankStrip } from '@/components/rank/RankStrip';
@@ -184,7 +183,7 @@ function RankPage() {
                 <TabsTrigger
                   key={v.id}
                   value={v.id}
-                  className="h-9 min-w-0 flex-1 truncate rounded-pill px-2 text-[14px] font-semibold data-[active]:bg-card data-[active]:text-foreground sm:flex-none sm:px-4"
+                  className="h-11 min-w-0 flex-1 truncate rounded-pill px-2 t-caption font-semibold data-[active]:bg-card data-[active]:text-foreground sm:h-9 sm:flex-none sm:px-4"
                 >
                   {v.label}
                 </TabsTrigger>
@@ -216,14 +215,14 @@ function RankPage() {
                 <header className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="t-tagline">{data.rank.label} lobby</h2>
-                    <p className="text-[13px] text-muted-foreground">{data.week.rangeLabel}</p>
+                    <p className="t-caption text-muted-foreground">{data.week.rangeLabel}</p>
                   </div>
                   <Badge variant="quiet" className="num shrink-0">
                     {data.week.daysLeft === 1 ? 'Last day' : `${data.week.daysLeft} days left`}
                   </Badge>
                 </header>
 
-                <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+                <p className="mt-3 t-caption leading-relaxed text-muted-foreground">
                   {lobbyLine({
                     zone: data.lobby.zone,
                     position: data.lobby.position,
@@ -243,7 +242,7 @@ function RankPage() {
                       transition={SPRING.meter}
                     />
                   </div>
-                  <span className="num shrink-0 text-[12px] text-muted-foreground">
+                  <span className="num shrink-0 t-fine text-muted-foreground">
                     {100 - data.week.percentElapsed}% left
                   </span>
                 </div>
@@ -252,7 +251,7 @@ function RankPage() {
                   {optOut ? (
                     <div className="flex items-start gap-3 rounded-md bg-secondary p-3.5">
                       <Icon name="private" size={17} className="mt-0.5 shrink-0" />
-                      <p className="text-[14px] leading-snug">
+                      <p className="t-caption leading-snug">
                         Your name is hidden. Your RP still moves.{' '}
                         <button
                           type="button"
@@ -306,13 +305,13 @@ function RankPage() {
                     >
                       <span
                         className={cn(
-                          'num w-6 shrink-0 text-center text-[13px]',
+                          'num w-6 shrink-0 text-center t-caption',
                           row.isMe ? 'font-bold' : 'text-muted-foreground',
                         )}
                       >
                         {row.rank}
                       </span>
-                      <span className={cn('min-w-0 flex-1 truncate text-[15px]', row.isMe && 'font-bold')}>
+                      <span className={cn('min-w-0 flex-1 truncate t-body', row.isMe && 'font-bold')}>
                         {row.isMe || !row.userId ? (
                           row.isMe ? 'You' : row.name
                         ) : (
@@ -321,7 +320,7 @@ function RankPage() {
                           </Link>
                         )}
                       </span>
-                      <span className="num shrink-0 text-[14px] text-muted-foreground">
+                      <span className="num shrink-0 t-caption text-muted-foreground">
                         <NumberTicker value={row.xp} /> XP
                       </span>
                     </motion.li>
@@ -329,7 +328,7 @@ function RankPage() {
                 </ol>
 
                 {ranked?.board.length === 0 && (
-                  <p className="mt-3 text-[14px] text-muted-foreground">
+                  <p className="mt-3 t-caption text-muted-foreground">
                     Nobody has logged XP this {scope}. One review puts you on the board.
                   </p>
                 )}
@@ -337,7 +336,7 @@ function RankPage() {
                 <button
                   type="button"
                   onClick={toggleOptOut}
-                  className="mt-3 text-[14px] font-medium underline underline-offset-4"
+                  className="mt-3 t-caption font-medium underline underline-offset-4"
                 >
                   {optOut ? 'Join the boards' : 'Hide me from the boards'}
                 </button>
@@ -349,17 +348,17 @@ function RankPage() {
           <Card as="section">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="t-tagline">Achievements</h2>
-              <span className="num text-[13px] text-muted-foreground">
+              <span className="num t-caption text-muted-foreground">
                 {unlocked}/{ranked?.achievements.length}
               </span>
             </div>
-            <p className="mt-1 text-[13px] text-muted-foreground">
+            <p className="mt-1 t-caption text-muted-foreground">
               Permanent — a rank can slip, these cannot.
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {ranked?.achievements.map((a, i) => (
-                <BlurFade key={a.id} delay={cappedDelay(i, 0.03, 0.3)}>
-                  <div
+                
+                  <div key={a.id}
                     className={cn(
                       'flex items-center gap-3 rounded-md border px-3.5 py-3',
                       a.unlocked ? 'border-gold/60 bg-gold/10' : 'border-border',
@@ -377,13 +376,13 @@ function RankPage() {
                       <div className={cn('t-caption-s', !a.unlocked && 'text-muted-foreground')}>
                         {a.name}
                       </div>
-                      <div className="text-[12px] text-muted-foreground">{a.description}</div>
+                      <div className="t-fine text-muted-foreground">{a.description}</div>
                     </div>
                     {a.unlocked && (
                       <Icon name="checked" size={16} className="ml-auto shrink-0 text-foreground" />
                     )}
                   </div>
-                </BlurFade>
+                
               ))}
             </div>
           </Card>
@@ -393,7 +392,7 @@ function RankPage() {
       {/* ── Transcript ─────────────────────────────────────────────────────── */}
       <Card as="section">
         <h2 className="t-tagline">Transcript</h2>
-        <p className="mt-1 text-[13px] text-muted-foreground">
+        <p className="mt-1 t-caption text-muted-foreground">
           Your full history — share it with a teacher, or keep it.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">

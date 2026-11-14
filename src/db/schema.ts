@@ -52,6 +52,12 @@ export const users = pgTable('users', {
   // account fields the child owns and is cleared when the account is.
   ageConsent: boolean('age_consent').notNull().default(false),
   dateOfBirth: text('date_of_birth'),
+  /**
+   * The level named at sign-up (`lib/education-levels.ts`). Nullable: staff and
+   * every pre-0013 account were never asked, and "not asked" must stay distinct
+   * from any answer.
+   */
+  educationLevel: text('education_level'),
   prefs: jsonb('prefs')
     .$type<{ noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean }>()
     .notNull()
@@ -565,6 +571,10 @@ export const mediaAssets = pgTable('media_assets', {
   contentType: text('content_type').notNull(),
   sizeBytes: integer('size_bytes').notNull(),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  // Set only when an erasure attempt could not remove the object. A row with
+  // this filled is the queue: the bytes still exist and a retry should find
+  // them, so the row must outlive the anonymised account.
+  deleteFailedAt: timestamp('delete_failed_at', { mode: 'date' }),
 }, (t) => ({
   userIdx: index('media_assets_user_idx').on(t.userId),
   keyUnique: uniqueIndex('media_assets_key_idx').on(t.key),

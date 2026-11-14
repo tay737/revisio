@@ -9,7 +9,7 @@ import { Icon, type IconName } from '@/components/ui/icons';
 
 const TREATMENTS = {
   gold: 'border-gold/40 bg-gold/20 text-foreground',
-  primary: 'border-primary/30 bg-primary/10 text-primary',
+  primary: 'border-primary/30 bg-secondary',
   good: 'border-good/40 bg-good-soft text-good-strong',
   rose: 'border-destructive/40 bg-destructive/15 text-destructive-ink',
 } as const;
@@ -31,7 +31,7 @@ export function ProfileBadgeChip({
   return (
     <span
       className={cn(
-        'inline-flex max-w-[180px] items-center gap-1 truncate rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+        'inline-flex max-w-[180px] items-center gap-1 truncate rounded-full border px-2.5 py-0.5 t-fine font-semibold',
         treatment,
         className,
       )}

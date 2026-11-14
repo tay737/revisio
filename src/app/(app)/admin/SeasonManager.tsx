@@ -241,7 +241,7 @@ export function SeasonManager() {
 
       <div className="space-y-2">
         {rows.length === 0 && (
-          <p className="text-[14px] leading-relaxed text-muted-foreground">
+          <p className="t-caption leading-relaxed text-muted-foreground">
             No seasons configured. Until one exists the app falls back to a fixed ninety-day schedule from
             5 January 2026, so the rank still works — it just cannot be moved.
           </p>

@@ -44,7 +44,8 @@
     "e2e:headed": "E2E_HEADED=1 npm run e2e:smoke",
     "e2e:restore": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/restore.ts",
     "e2e:a11y": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/a11y.ts",
-    "design:shots": "node scripts/design/shots.mjs"
+    "design:shots": "node scripts/design/shots.mjs",
+    "audit:app": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/app-audit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
@@ -55,7 +56,6 @@
     "@neon/config": "^1.8.2",
     "@neon/env": "^1.4.7",
     "@types/canvas-confetti": "^1.9.0",
-    "@vercel/speed-insights": "^2.0.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.3.0",
     "canvas-confetti": "^1.9.4",

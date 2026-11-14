@@ -140,7 +140,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <Input
-                    className="text-[14px]"
+                    className="t-caption"
                     value={p.textWithBlank}
                     onChange={(e) => patch(i, { textWithBlank: e.target.value })}
                     aria-label="Question text"
@@ -149,7 +149,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
                     <label className="t-caption text-muted-foreground" htmlFor={`ans-${i}`}>Answer</label>
                     <Input
                       id={`ans-${i}`}
-                      className="w-44 text-[14px]"
+                      className="w-44 t-caption"
                       value={p.answer}
                       onChange={(e) => patch(i, { answer: e.target.value })}
                     />

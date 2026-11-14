@@ -68,7 +68,7 @@ export function AccountSheet({
         </div>
 
         {line && (
-          <p className="mx-5 mb-4 rounded-md bg-secondary px-3.5 py-3 text-[14px] leading-relaxed text-muted-foreground">
+          <p className="mx-5 mb-4 rounded-md bg-secondary px-3.5 py-3 t-caption leading-relaxed text-muted-foreground">
             {line}
           </p>
         )}
@@ -95,7 +95,7 @@ export function AccountSheet({
                   <span className={cn('block t-strong', active && 'font-semibold')}>
                     {item.label}
                   </span>
-                  <span className="block text-[12px] text-muted-foreground">{item.hint}</span>
+                  <span className="block t-fine text-muted-foreground">{item.hint}</span>
                 </span>
                 <Icon name="expand" size={16} className="text-muted-foreground" />
               </Link>

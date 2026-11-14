@@ -30,8 +30,8 @@ export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json(data, privateJson(init));
 }
 
-export function fail(status: number, code: string, message: string, details?: unknown) {
-  return NextResponse.json({ error: { code, message, details } }, privateJson({ status }));
+export function fail(status: number, code: string, message: string, details?: unknown, field?: string) {
+  return NextResponse.json({ error: { code, message, details, field } }, privateJson({ status }));
 }
 
 /** Extract bearer token from Authorization header. */
@@ -56,7 +56,14 @@ export async function requireUser(req: NextRequest, roles?: Role[]): Promise<Ses
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  /**
+   * `field` names the control the sentence belongs under, when it belongs under
+   * one. The UI system (§8.3) requires an error to render beneath its own field
+   * with `aria-invalid` on that control only; a single form-level string made a
+   * wrong six-digit code mark the email address invalid. Absent means the error
+   * is form-level (rate limit, capacity, an unavailable subject).
+   */
+  constructor(public status: number, public code: string, message: string, public field?: string) {
     super(message);
   }
 }
@@ -67,7 +74,7 @@ export function route(handler: (req: NextRequest, ctx: { params: Record<string, 
     try {
       return await handler(req, ctx);
     } catch (e) {
-      if (e instanceof ApiError) return fail(e.status, e.code, e.message);
+      if (e instanceof ApiError) return fail(e.status, e.code, e.message, undefined, e.field);
       // Capacity pressure is not a bug in the request and not a broken session —
       // it is a wait. Saying so (and saying it retryably) is the difference
       // between a user tapping again and a user believing the app has died.

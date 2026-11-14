@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/icons';
 
 const ROLES = {
   student: { label: 'Student', icon: 'learn', className: 'border-border bg-secondary text-muted-foreground' },
-  teacher: { label: 'Teacher', icon: 'teacher', className: 'border-primary/30 bg-primary/10 text-primary' },
+  teacher: { label: 'Teacher', icon: 'teacher', className: 'border-primary/30 bg-secondary' },
   developer: { label: 'Developer', icon: 'xp', className: 'border-gold/40 bg-gold/20 text-foreground' },
 } as const;
 
@@ -19,7 +19,7 @@ export function RoleBadge({ role, className }: { role: string; className?: strin
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 t-fine font-semibold uppercase tracking-wide',
         def.className,
         className,
       )}

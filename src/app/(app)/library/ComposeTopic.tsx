@@ -134,7 +134,7 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
       </div>
 
       <details className="inset px-4 py-3" open={missingNotes}>
-        <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold leading-snug">
+        <summary className="flex cursor-pointer items-center gap-2 t-caption font-semibold leading-snug">
           <Icon name="notes" size={15} />
           Notes
           <Badge variant="chip" className="ml-1">{lesson.title ? '1' : '0'}</Badge>
@@ -167,7 +167,7 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
       </details>
 
       <details className="inset px-4 py-3" open={missingQuestions && !missingNotes}>
-        <summary className="flex cursor-pointer items-center gap-2 text-[14px] font-semibold leading-snug">
+        <summary className="flex cursor-pointer items-center gap-2 t-caption font-semibold leading-snug">
           <Icon name="target" size={15} />
           Questions
           <Badge variant="chip" className="ml-1">{drafts.length}</Badge>

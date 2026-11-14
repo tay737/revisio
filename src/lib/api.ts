@@ -50,7 +50,12 @@ async function tryRefresh(): Promise<RefreshOutcome> {
 }
 
 export class ApiClientError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  /**
+   * The control this sentence belongs under, when the server named one. Forms
+   * render it beneath that field and point `aria-describedby` at it alone, so a
+   * bad 2FA code never marks the email address invalid.
+   */
+  constructor(public status: number, public code: string, message: string, public field?: string) {
     super(message);
   }
 }
@@ -66,11 +71,23 @@ async function request<T>(path: string, init: RequestInit & { retry?: boolean } 
   }
   const res = await fetch(path, { ...init, headers });
 
-  // The refresh dance only makes sense for requests that carried a token —
-  // resources that are public (login, register, forgot-password) return 401
-  // for their own reasons (bad password, unverified account) and must not
-  // suicide the in-memory token because of it.
-  if (res.status === 401 && !init.retry && accessToken) {
+  // The refresh dance covers two different 401s:
+  //
+  //   1. **An expired access token.** The request carried one, the server said
+  //      no, refresh and retry once.
+  //   2. **A cold page load.** The access token lives in memory only, so a
+  //      reload of any app route arrives with no token at all and the httpOnly
+  //      refresh cookie is the only thing left of the session. This case used to
+  //      be skipped (`&& accessToken`), which signed every learner out the
+  //      moment they refreshed — `/me` 401'd, the shell bounced them to `/login`,
+  //      and the cookie was still valid the whole time.
+  //
+  // Auth endpoints are excluded from case 2 on purpose: login, register and
+  // forgot-password return 401 for their own reasons (wrong password,
+  // unverified account) and must keep saying so instead of being overwritten by
+  // "your session has ended".
+  const isAuthEndpoint = path.startsWith('/api/v1/auth/');
+  if (res.status === 401 && !init.retry && (accessToken || !isAuthEndpoint)) {
     const outcome = await tryRefresh();
     if (outcome === 'ok') return request<T>(path, { ...init, retry: true });
     if (outcome === 'rejected') {
@@ -98,8 +115,8 @@ async function request<T>(path: string, init: RequestInit & { retry?: boolean } 
   }
   const data = await res.json();
   if (!res.ok) {
-    const err = (data as { error?: { code: string; message: string } }).error;
-    throw new ApiClientError(res.status, err?.code ?? 'error', err?.message ?? 'Request failed.');
+    const err = (data as { error?: { code: string; message: string; field?: string } }).error;
+    throw new ApiClientError(res.status, err?.code ?? 'error', err?.message ?? 'Request failed.', err?.field);
   }
   return data as T;
 }
