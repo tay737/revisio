@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../design/design.dart';
 import '../auth/auth_provider.dart';
+import '../../design/revisio_icons.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -21,9 +22,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _totp = TextEditingController();
+  final _recovery = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _mfaStage = false;
+  bool _useRecovery = false;
   bool _loading = false;
   String? _error;
   String? _info;
@@ -34,6 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _email.dispose();
     _password.dispose();
     _totp.dispose();
+    _recovery.dispose();
     super.dispose();
   }
 
@@ -50,7 +54,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await notifier.signIn(
       email: _email.text.trim(),
       password: _password.text,
-      totp: _mfaStage ? _totp.text.trim() : null,
+      totp: _mfaStage && !_useRecovery ? _totp.text.trim() : null,
+      recoveryCode: _mfaStage && _useRecovery ? _recovery.text.trim() : null,
     );
 
     setState(() => _loading = false);
@@ -59,6 +64,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (state is AuthMfaRequired) {
       setState(() {
         _mfaStage = true;
+        _useRecovery = false;
         _info = 'Enter the six-digit code from your authenticator app.';
       });
     } else if (state is AuthError) {
@@ -119,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   children: [
                     RevisioField(
                       label: 'Email',
-                      icon: Icons.mail_outline,
+                      icon: 'mail',
                       child: RevisioTextInput(
                         controller: _email,
                         placeholder: 'you@example.com',
@@ -141,7 +147,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 20),
                     RevisioField(
                       label: 'Password',
-                      icon: Icons.lock_outline,
+                      icon: 'secure',
                       child: RevisioPasswordInput(
                         controller: _password,
                         placeholder: 'Your password',
@@ -152,15 +158,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    if (_mfaStage)
+                    if (_mfaStage) ...[
                       RevisioField(
-                        label: 'Two-factor code',
-                        icon: Icons.pin_outlined,
+                        label: _useRecovery ? 'Recovery code' : 'Two-factor code',
+                        icon: 'private',
                         child: RevisioTextInput(
-                          controller: _totp,
-                          placeholder: '000000',
-                          keyboardType: TextInputType.number,
-                          maxLength: 6,
+                          controller: _useRecovery ? _recovery : _totp,
+                          placeholder: _useRecovery ? 'Recovery code' : '000000',
+                          keyboardType: _useRecovery ? TextInputType.text : TextInputType.number,
+                          maxLength: _useRecovery ? null : 6,
                           autofillHints: AutofillHints.oneTimeCode,
                           enabled: !_loading,
                           onSubmitted: (_) {
@@ -168,6 +174,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           },
                         ),
                       ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: RevisioGhostButton(
+                          onPressed: _loading
+                              ? null
+                              : () => setState(() {
+                                    _useRecovery = !_useRecovery;
+                                    _info = _useRecovery
+                                        ? 'Enter one of your saved recovery codes.'
+                                        : 'Enter the six-digit code from your authenticator app.';
+                                  }),
+                          child: Text(_useRecovery ? 'Use an authenticator code' : 'Use a recovery code'),
+                        ),
+                      ),
+                    ],
                     if (error != null && error.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       RevisioNotice(tone: NoticeTone.bad, show: true, child: Text(error)),
@@ -222,7 +243,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: const Divider(height: 1, color: Color(0xFFE2E2E2)),
+                    child: Divider(height: 1, color: context.border),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -232,7 +253,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   Expanded(
-                    child: const Divider(height: 1, color: Color(0xFFE2E2E2)),
+                    child: Divider(height: 1, color: context.border),
                   ),
                 ],
               ),

@@ -12,6 +12,7 @@ import 'package:dio/dio.dart';
 import '../../design/design.dart';
 import '../../services/api_client.dart';
 import 'auth_provider.dart';
+import '../../design/revisio_icons.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -93,7 +94,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   children: [
                     RevisioField(
                       label: 'Email',
-                      icon: Icons.mail_outline,
+                      icon: 'mail',
                       child: RevisioTextInput(
                         controller: _email,
                         placeholder: 'you@example.com',
@@ -144,7 +145,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               const SizedBox(height: 20),
               Center(
                 child: RevisioGhostButton(
-                  onPressed: () => context.pop(),
+                  onPressed: () => context.go('/login'),
                   child: const Text('Back to sign in'),
                 ),
               ),

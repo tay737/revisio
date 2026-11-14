@@ -33,6 +33,12 @@ Non-obvious facts about this repo that cannot be recovered by reading the code. 
 - A migration applied to BOTH databases must resolve its role rather than hardcoding `TO revisio_app`: **the Neon mirror has no such role** (it connects as `neondb_owner`) and the literal aborts there, leaving the mirror half-migrated while the primary looks fine. `drizzle/0006_season_results.sql` shows the `pg_roles`/`current_user` CASE + `EXECUTE format(...)` pattern.
 - The Neon mirror has no RLS problem but the primary does: Supabase's default privileges already grant `revisio_app` full table access on a new table, so only the **policy** is missing. Symptom of a missing policy is the 2026-09-28 incident above. `npm run verify:season-write` is the receipt that the write path really works as the app role (inserts under season 999, then deletes).
 
+## Flutter app (`mobile/flutter`)
+
+- Flutter SDK 3.50.0 stable lives at `~/development/flutter` (not on PATH) — invoke `~/development/flutter/bin/flutter`; Dart 3.14.
+- Verify with `flutter pub get && flutter analyze && flutter test` from `mobile/flutter`; the shared-vector suites (`grading_conformance_test`, `copy_conformance_test`) replay `mobile/shared/*.json` and are the parity gate.
+- `package:flutter/material.dart` shows deprecation infos on 3.50 (material_ui split) — infos only, ignore for now.
+
 ## Native clients (Android + iOS)
 
 - Four generators own the clients' constants, all re-runnable via `npm run native:generate`: `make-theme.mjs` (globals.css + `lib/motion.ts` → Theme.kt/.swift), `make-icons.mjs` (lucide registry → Icons.kt/.swift), `make-account.mjs` (`lib/username.ts` → AccountRules.kt/.swift), `make-rank.mjs` (`domain/ranked.ts` → RankLadder.kt/.swift **and** `domain/srs.ts` → SrsLadder.kt/.swift). Never hand-edit their outputs; edit the web source and regenerate.

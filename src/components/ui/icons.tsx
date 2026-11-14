@@ -11,6 +11,7 @@
 
 import {
   Activity,
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Award,
@@ -27,6 +28,7 @@ import {
   ChevronsUp,
   CircleAlert,
   CircleCheckBig,
+  CloudOff,
   ClipboardList,
   Clock,
   Compass,
@@ -36,6 +38,7 @@ import {
   Ellipsis,
   FileText,
   Flame,
+  Eye,
   EyeOff,
   Footprints,
   Gauge,
@@ -43,6 +46,7 @@ import {
   Globe,
   GraduationCap,
   House,
+  ImagePlus,
   Layers,
   Library,
   ListChecks,
@@ -83,6 +87,7 @@ import {
 export const icons = {
   // ── navigation ─────────────────────────────────────────────────────────────
   dashboard: House,
+  back: ArrowLeft,
   review: Repeat2,
   learn: BookOpen,
   cram: Timer,
@@ -120,6 +125,8 @@ export const icons = {
   download: Download,
   upload: Upload,
   rotate: RefreshCw,
+  eye: Eye,
+  eyeOff: EyeOff,
   add: Plus,
   rocket: Rocket,
   edit: Pencil,
@@ -160,6 +167,8 @@ export const icons = {
   /** The generated-maths practice tool (deliberately not a repeat/loop glyph —
    *  that family means the SRS). */
   practice: Calculator,
+  offline: CloudOff,
+  photo: ImagePlus,
   /** Concept filters. */
   filter: ListFilter,
 } satisfies Record<string, LucideIcon>;

@@ -135,6 +135,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         ageConsent: ageConsent,
       );
 
+      // Staff requests sit pending human approval — no verification email is
+      // involved, so the copy must not mention one. String is verbatim from
+      // src/components/AuthForm.tsx (copy parity).
+      if (data['pendingApproval'] == true) {
+        state = AuthRegistered(
+          message:
+              'Account created. A developer reviews staff accounts before the first sign-in. You will get an email once it is approved.',
+        );
+        return;
+      }
+
       // Registration never returns a session — account is `pending` until
       // email verification. Surface what to do next without an error tone.
       final verifyUrl = data['verifyUrl'] as String?;
@@ -181,8 +192,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _logout() async {
+    // The stored refresh token is what the server revokes; the in-memory
+    // session may already be gone, so read storage rather than state.
+    final stored = await _api.storage.read();
     try {
-      await _api.logout();
+      await _api.logout(refreshToken: stored?.refreshToken);
     } catch (_) {
       // best effort
     }

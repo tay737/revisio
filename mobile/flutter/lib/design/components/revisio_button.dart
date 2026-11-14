@@ -32,7 +32,7 @@ class RevisioButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final effective = enabled && !loading;
     return AnimatedContainer(
-      duration: PressTokens.duration,
+      duration: context.reduceMotion ? Duration.zero : PressTokens.duration,
       curve: EaseTokens.snap,
       transform: Matrix4.translationValues(
         0,
@@ -84,7 +84,7 @@ class RevisioGoodButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = context.goodStrong;
     return AnimatedContainer(
-      duration: PressTokens.duration,
+      duration: context.reduceMotion ? Duration.zero : PressTokens.duration,
       curve: EaseTokens.snap,
       transform: Matrix4.translationValues(
         0,
@@ -163,39 +163,6 @@ class RevisioGhostButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
       child: child,
-    );
-  }
-}
-
-/// Icon button — 40x40 pill.
-class RevisioIconButton extends StatelessWidget {
-  final VoidCallback? onPressed;
-  final IconData icon;
-  final bool enabled;
-
-  const RevisioIconButton({
-    super.key,
-    required this.onPressed,
-    required this.icon,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: OutlinedButton(
-        onPressed: enabled ? onPressed : null,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: context.foreground,
-          backgroundColor: context.secondary,
-          side: BorderSide(color: context.border),
-          shape: const StadiumBorder(),
-          padding: EdgeInsets.zero,
-        ),
-        child: Icon(icon, size: 20),
-      ),
     );
   }
 }

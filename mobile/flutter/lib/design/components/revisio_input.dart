@@ -6,6 +6,7 @@ library revisio.design.components.revisio_input;
 
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../revisio_icons.dart';
 
 /// A labelled field with a leading glyph, mirroring AuthForm's `Field`.
 ///
@@ -14,7 +15,7 @@ class RevisioField extends StatelessWidget {
   final String label;
   final Widget child;
   final String? errorText;
-  final IconData? icon;
+  final String? icon;
 
   const RevisioField({
     super.key,
@@ -48,7 +49,7 @@ class RevisioField extends StatelessWidget {
               Positioned(
                 left: 14,
                 top: 12,
-                child: Icon(icon, size: 17, color: context.mutedForeground),
+                child: RevisioIcon(icon!, size: 17, color: context.mutedForeground),
               ),
           ],
         ),
@@ -199,8 +200,8 @@ class _RevisioPasswordInputState extends State<RevisioPasswordInput> {
             filled: true,
             fillColor: context.card,
             suffixIcon: IconButton(
-              icon: Icon(
-                _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              icon: RevisioIcon(
+                _obscure ? 'eyeOff' : 'eye',
                 size: 20,
                 color: context.mutedForeground,
               ),
@@ -213,7 +214,7 @@ class _RevisioPasswordInputState extends State<RevisioPasswordInput> {
         Positioned(
           left: 14,
           top: 12,
-          child: Icon(Icons.lock_outline, size: 17, color: context.mutedForeground),
+          child: RevisioIcon('secure', size: 17, color: context.mutedForeground),
         ),
       ],
     );

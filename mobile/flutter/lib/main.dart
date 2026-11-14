@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'app_router.dart';
 import 'design/design.dart';
 
 void main() {
-  runApp(const RevisioApp());
+  runApp(const ProviderScope(child: RevisioApp()));
 }
 
-class RevisioApp extends StatelessWidget {
+class RevisioApp extends ConsumerWidget {
   const RevisioApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'Revisio',
       theme: lightTheme(),
       darkTheme: darkTheme(),
       themeMode: ThemeMode.system,
-      routerConfig: goRouter,
+      routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
     );
   }
