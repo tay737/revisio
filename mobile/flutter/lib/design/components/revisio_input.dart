@@ -99,7 +99,7 @@ class RevisioTextInput extends StatelessWidget {
     this.enabled = true,
     this.readOnly = false,
     this.maxLength,
-    this.maxLines,
+    this.maxLines = 1,
     this.focusNode,
     this.validator,
     this.onChanged,
