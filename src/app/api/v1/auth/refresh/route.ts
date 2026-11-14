@@ -10,6 +10,9 @@ export const POST = route(async (req: NextRequest) => {
   const body = await req.json().catch(() => ({}));
   const raw = cookieToken || (body as { refreshToken?: string }).refreshToken;
   if (!raw) throw new ApiError(401, 'no_refresh', 'No refresh token.');
+  // Native clients opt in here too: the rotation hands back a new refresh
+  // token, and they need it in the body (they cannot read the cookie).
+  const nativeClient = (body as { client?: string } | null)?.client === 'native';
 
   const rotated = await consumeRefreshToken(raw);
   if (!rotated) throw new ApiError(401, 'invalid_refresh', 'Refresh token invalid or expired.');
@@ -23,5 +26,9 @@ export const POST = route(async (req: NextRequest) => {
   const { user } = rotated;
   const accessToken = await signAccessToken(user);
   await setRefreshCookie(rotated.nextRaw);
-  return ok({ accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  return ok({
+    accessToken,
+    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    ...(nativeClient ? { refreshToken: rotated.nextRaw } : {}),
+  });
 });
