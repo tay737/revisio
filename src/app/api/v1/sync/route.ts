@@ -12,10 +12,13 @@ export const maxDuration = 60;
  *   GET /api/v1/sync?action=status → pending events per side (developer only)
  *   GET /api/v1/sync?action=run    → explicit drain, developer session
  *
- * The Vercel cron (see vercel.json) hits this path every minute with the
- * `CRON_SECRET` bearer token — the default action is `run`, so the cron needs
- * no query string — and the reviews route also kicks the drain after each
- * submitted review, so the schedule is the backstop, not the only heartbeat.
+ * The Vercel cron (see vercel.json) hits this path on its schedule — daily at
+ * `0 3 * * *`, the most frequent cron the Hobby plan allows (Pro could run
+ * `* * * * *`) — with the `CRON_SECRET` bearer token. The default action is
+ * `run`, so the cron needs no query string. The reviews route also kicks the
+ * drain after each submitted review (held open by `waitUntil`), so the
+ * schedule is the backstop, not the only heartbeat; for sub-daily freshness
+ * on Hobby, point an external scheduler at this path with the same bearer.
  * A browser session may run it too, but only a developer's — the endpoint can
  * move arbitrary rows between databases.
  *
