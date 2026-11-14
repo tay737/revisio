@@ -1,0 +1,7 @@
+appId: app.revisio.revisio
+---
+# Post-login landing check. Assumes already signed in.
+- launchApp
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 15000

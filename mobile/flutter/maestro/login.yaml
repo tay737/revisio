@@ -1,0 +1,15 @@
+appId: app.revisio.revisio
+---
+# Signs in as the throwaway e2e probe and asserts the signed-in tab bar.
+# Requires network. Run: maestro test --device <serial> login.yaml
+- launchApp
+- tapOn: "I have an account"
+- tapOn: "you@example.com"
+- inputText: "e2e-probe@revisio.probe"
+- tapOn: "Your password"
+- inputText: "revisio-e2e-probe"
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Today|Review|Learn|Rank|Settings"
+    timeout: 20000

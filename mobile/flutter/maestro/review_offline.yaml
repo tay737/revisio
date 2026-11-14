@@ -1,0 +1,31 @@
+appId: app.revisio.revisio
+---
+# Offline review pass. Preconditions:
+#   1. Probe account owns due cards and the offline pack is cached
+#      (open Today once while online so offlinePackSyncProvider refreshes).
+#   2. Airplane mode BEFORE running: adb shell svc wifi disable && svc data disable
+# The tab bar exposes no stable text selector for Maestro (accessibilityText
+# carries "Review\nTab 2 of 5"), so the Review tab is tapped by point on the
+# 1080x2400 emulator layout. After this flow, re-enable network and relaunch —
+# the outbox drains on Today mount; verify server-side in review_logs.
+- tapOn:
+    point: "324,2232"
+- extendedWaitUntil:
+    visible: "Check"
+    timeout: 20000
+- tapOn: "Your answer"
+- inputText: "Paris"
+- tapOn: "Check"
+- extendedWaitUntil:
+    visible: ".*Saved.*"
+    timeout: 20000
+- tapOn: "Next card"
+- extendedWaitUntil:
+    visible: "Check"
+    timeout: 15000
+- tapOn: "Your answer"
+- inputText: "100"
+- tapOn: "Check"
+- extendedWaitUntil:
+    visible: ".*Saved.*"
+    timeout: 15000
