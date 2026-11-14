@@ -16,25 +16,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { buttonVariants } from '@/lib/button-variants';
+import { EDUCATION_LEVELS, educationLevelLabel, type EducationLevel } from '@/lib/education-levels';
 
 type Role = 'student' | 'teacher';
-type StepKey = 'role' | 'account' | 'profile' | 'subjects' | 'review';
+type StepKey = 'role' | 'study' | 'account' | 'profile' | 'review';
 type Subject = { id: string; name: string };
 
 const STEP_TITLES: Record<StepKey, { label: string; title: string }> = {
   role: { label: 'Role', title: 'How will you use Revisio?' },
+  study: { label: 'Study', title: 'What are you studying?' },
   account: { label: 'Account', title: 'Create your sign-in' },
   profile: { label: 'About you', title: 'A little about you' },
-  subjects: { label: 'Subjects', title: 'What are you studying?' },
   review: { label: 'Review', title: 'Check and create' },
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** The steps a role walks through. Teachers skip subjects and a class code. */
+/**
+ * The steps a role walks through. Motivation is highest before the friction:
+ * a learner names what they study before being asked for an email and password.
+ * Teachers skip the study step and a class code.
+ */
 function stepsFor(role: Role): StepKey[] {
   return role === 'student'
-    ? ['role', 'account', 'profile', 'subjects', 'review']
+    ? ['role', 'study', 'account', 'profile', 'review']
     : ['role', 'account', 'profile', 'review'];
 }
 
@@ -67,6 +72,7 @@ export default function RegisterWizard() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [note, setNote] = useState('');
+  const [level, setLevel] = useState<EducationLevel | ''>('');
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [classCode, setClassCode] = useState('');
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -78,6 +84,8 @@ export default function RegisterWizard() {
   const mounted = useRef(false);
 
   const steps = useMemo(() => stepsFor(role), [role]);
+  /** Where a step sits for this role, so the review screen's links cannot drift. */
+  const at = (key: StepKey) => steps.indexOf(key);
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const isLast = stepIndex === steps.length - 1;
   const underConsentAge = isUnderAge(dateOfBirth);
@@ -154,6 +162,7 @@ export default function RegisterWizard() {
         note: student ? undefined : note,
         subjectIds: student ? subjectIds : undefined,
         classCode: student && classCode ? classCode : undefined,
+        level: student && level ? level : undefined,
         dateOfBirth: student ? dateOfBirth : undefined,
         ageConsent: student && underConsentAge ? guardianConsent : undefined,
       });
@@ -415,8 +424,31 @@ export default function RegisterWizard() {
                 </div>
               )}
 
-              {step === 'subjects' && (
+              {step === 'study' && (
                 <>
+                  <div>
+                    <Label>Level</Label>
+                    <div className="mt-1.5 flex flex-wrap gap-2" role="group" aria-label="Your level">
+                      {EDUCATION_LEVELS.map((option) => {
+                        const on = level === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => setLevel(on ? '' : option.id)}
+                            className={cn('chip transition-colors duration-150', on && 'chip-active')}
+                          >
+                            {on && <Icon name="correct" size={13} />}
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="t-caption mt-2 text-muted-foreground">
+                      Optional, and never shown on your public profile.
+                    </p>
+                  </div>
                   <div>
                     <Label>Subjects</Label>
                     {subjects.length > 0 ? (
@@ -457,22 +489,33 @@ export default function RegisterWizard() {
 
               {step === 'review' && (
                 <dl className="divide-y divide-border rounded-2xl border border-border">
-                  <ReviewRow label="Role" value={role === 'student' ? 'Student' : 'Teacher'} onEdit={() => goTo(0)} />
-                  <ReviewRow label="Name" value={name.trim()} onEdit={() => goTo(1)} />
-                  <ReviewRow label="Email" value={email.trim()} onEdit={() => goTo(1)} />
-                  {role === 'student' ? (
+                  <ReviewRow label="Role" value={role === 'student' ? 'Student' : 'Teacher'} onEdit={() => goTo(at('role'))} />
+                  {role === 'student' && (
                     <>
-                      <ReviewRow label="Date of birth" value={dateOfBirth} onEdit={() => goTo(2)} />
+                      <ReviewRow
+                        label="Level"
+                        value={level ? (educationLevelLabel(level) ?? level) : 'Not chosen'}
+                        onEdit={() => goTo(at('study'))}
+                      />
                       <ReviewRow
                         label="Subjects"
                         value={subjectNames.length ? subjectNames.join(', ') : 'None yet'}
-                        onEdit={() => goTo(3)}
+                        onEdit={() => goTo(at('study'))}
                       />
-                      {classCode && <ReviewRow label="Class code" value={classCode} onEdit={() => goTo(3)} />}
+                      {classCode && (
+                        <ReviewRow label="Class code" value={classCode} onEdit={() => goTo(at('study'))} />
+                      )}
                     </>
-                  ) : (
-                    note.trim() && <ReviewRow label="Reason" value={note.trim()} onEdit={() => goTo(2)} />
                   )}
+                  <ReviewRow label="Name" value={name.trim()} onEdit={() => goTo(at('account'))} />
+                  <ReviewRow label="Email" value={email.trim()} onEdit={() => goTo(at('account'))} />
+                  {role === 'student'
+                    ? dateOfBirth && (
+                        <ReviewRow label="Date of birth" value={dateOfBirth} onEdit={() => goTo(at('profile'))} />
+                      )
+                    : note.trim() && (
+                        <ReviewRow label="Reason" value={note.trim()} onEdit={() => goTo(at('profile'))} />
+                      )}
                 </dl>
               )}
 
