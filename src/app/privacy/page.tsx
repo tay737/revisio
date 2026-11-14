@@ -75,11 +75,6 @@ const SECTIONS = [
             <li>Your email address, which is your login and where account mail goes.</li>
             <li>Your name, and optionally a display name, username, bio and pronouns.</li>
             <li>
-              Your education level (GCSE, A-level, IB, university or other),
-              where it is provided when the account is created. It is never
-              shown on your public profile.
-            </li>
-            <li>
               Your date of birth, used once at registration to decide whether a
               guardian must consent. We keep it only for accounts registered
               under 13, where it is the basis of that consent. For anyone 13 or
@@ -458,8 +453,8 @@ const SECTIONS = [
           <li>Every session and refresh token, and every unused email token.</li>
           <li>Your subject enrolments, card-level scheduling, streak, achievements and any pending role request.</li>
           <li>
-            Your name, display name, username, bio, pronouns, education level,
-            two-factor secret and recovery codes, and your saved consent record.
+            Your name, display name, username, bio, pronouns, two-factor secret
+            and recovery codes, and your saved consent record.
           </li>
           <li>
             The avatar and banner images you uploaded, including the stored
@@ -515,6 +510,14 @@ const SECTIONS = [
           devices. The categories, what each one would cover, and how to refuse
           them are in the <Link href="/cookie-policy">Cookie Policy</Link>. You
           can change your mind at any time in Settings.
+        </p>
+        <p>
+          The Service also keeps a small cache on your device so the app shell
+          and its static files load when you are offline. It stores only public
+          files: the offline page, the manifest, the icons, and the JavaScript
+          and CSS bundles the app is built from. It never stores your account
+          data, your progress, your answers or anything you have typed, and it
+          is cleared when you sign out or the app updates.
         </p>
       </>
     ),

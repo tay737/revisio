@@ -52,12 +52,6 @@ export const users = pgTable('users', {
   // account fields the child owns and is cleared when the account is.
   ageConsent: boolean('age_consent').notNull().default(false),
   dateOfBirth: text('date_of_birth'),
-  /**
-   * The level named at sign-up (`lib/education-levels.ts`). Nullable: staff and
-   * every pre-0013 account were never asked, and "not asked" must stay distinct
-   * from any answer.
-   */
-  educationLevel: text('education_level'),
   prefs: jsonb('prefs')
     .$type<{ noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean }>()
     .notNull()
