@@ -301,9 +301,9 @@ try {
   check(await absentEventually(blockedPage.getByRole('region', { name: 'Cookie consent' })), 'storage failure does not trap the visitor');
   await blockedStorageContext.close();
 
-  // Registration is a multi-step wizard. DOB and guardian consent live on the
-  // "About you" step, reached only after the role and account steps, and a
-  // teacher never sees them.
+  // Registration is a multi-step wizard. The study step (level and subjects)
+  // comes straight after the role, then the account, then "About you" with DOB
+  // and guardian consent, and a teacher never sees the study or DOB steps.
   const registerContext = await makeContext(browser);
   const registerPage = await registerContext.newPage();
   await watchPage(registerPage);
@@ -325,6 +325,17 @@ try {
   await registerPage.getByRole('button', { name: 'Student' }).click();
   await registerPage.getByRole('button', { name: 'Continue' }).click();
   await registerPage.locator('fieldset').waitFor({ state: 'detached' });
+  // Study before account: the level and subjects are asked while motivation is
+  // highest, and the email form only after that investment.
+  await registerPage.locator('#level-group').waitFor();
+  check(await absentEventually(registerPage.locator('#name')), 'the study step is asked before the account step');
+  await registerPage.getByRole('button', { name: 'GCSE' }).click();
+  check(
+    (await registerPage.getByRole('button', { name: 'GCSE' }).getAttribute('aria-pressed')) === 'true',
+    'choosing a level records the choice',
+  );
+  await registerPage.getByRole('button', { name: 'Continue' }).click();
+  await registerPage.locator('#level-group').waitFor({ state: 'detached' });
   await registerPage.locator('#name').waitFor();
   await waitForHydration(registerPage, '#name');
   await registerPage.locator('#name').fill('Wizard Probe');
@@ -343,6 +354,9 @@ try {
   await registerPage.locator('#name').waitFor();
   await registerPage.getByRole('button', { name: 'Back' }).click();
   await registerPage.locator('#name').waitFor({ state: 'detached' });
+  await registerPage.locator('#level-group').waitFor();
+  await registerPage.getByRole('button', { name: 'Back' }).click();
+  await registerPage.locator('#level-group').waitFor({ state: 'detached' });
   await registerPage.getByRole('button', { name: 'Teacher' }).waitFor();
   await registerPage.getByRole('button', { name: 'Teacher' }).click();
   await registerPage.getByRole('button', { name: 'Continue' }).click();
