@@ -117,7 +117,7 @@ export default function LearnPage() {
               <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
                 <Link
                   href={`/learn/${s.id}`}
-                  className="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                 >
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary">
                     <Icon name="topic" size={18} />

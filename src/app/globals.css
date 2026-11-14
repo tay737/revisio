@@ -71,7 +71,7 @@
   --good-strong: #3d7d00; /* moss, darkened — the btn-good fill; white needs ≥4.5:1 (axe) */
   --good-soft: #d7ffb8; /* sea-sponge — the correct-answer wash */
   --streak: #ff9600; /* fox        — the day streak, nothing else */
-  --streak-pressed: #c96a00; /* fox, darkened — streak as text/icon on light */
+  --streak-pressed: #a05a00; /* fox, darkened — streak as text/icon on light; ≥4.5:1 on white */
   --gold: #ffc800; /* bee        — trophies, promotions, achievements */
   --gold-ink: #8a6200; /* bee, darkened — gold as text/icon on light (axe) */
   --info: #1cb0f6; /* macaw      — notes and reference material */

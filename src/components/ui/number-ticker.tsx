@@ -63,7 +63,11 @@ export function NumberTicker({
     <span
       ref={ref}
       className={cn(
-        "inline-block tracking-wider text-black tabular-nums dark:text-white",
+        // text-foreground, not text-black/dark:text-white: the band scope
+        // (.tile-dark) remaps --foreground to white, so tickers inside the
+        // rank band come out light without a hardcoded pair that only the
+        // .dark class can flip.
+        "inline-block tracking-wider text-foreground tabular-nums",
         className
       )}
       {...props}
