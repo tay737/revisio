@@ -48,7 +48,7 @@ const QUEUE = [
 
 const FACTS: { value: string; short: string; label: string }[] = [
   { value: '10 min', short: 'a day', label: 'a day' },
-  { value: '30', short: 'rungs', label: 'rungs, never reset' },
+  { value: '30', short: 'rungs', label: 'rungs, ten tiers' },
   { value: 'Free', short: 'to start', label: 'to start' },
 ];
 
@@ -216,8 +216,9 @@ export default function LandingPage() {
               <p className="t-eyebrow">The ladder</p>
               <h2 className="t-display mt-3 max-w-md">A record of what stuck.</h2>
               <p className="mt-4 max-w-lg t-body leading-relaxed text-muted-foreground">
-                Thirty rungs across ten tiers, earned from everything you have ever reviewed. They
-                never reset. Each week you are seated in a lobby, and the top of the table moves up.
+                Thirty rungs across ten tiers, climbed on the reviews you make inside a season. A
+                new season runs the ladder again, and the rank you finish on is kept in your record.
+                Each week you are seated in a lobby, and the top of the table moves up.
               </p>
 
               <div className="mt-7 grid grid-cols-3 gap-4 border-t border-border pt-5">
@@ -230,8 +231,8 @@ export default function LandingPage() {
                   <p className="t-fine mt-0.5 text-muted-foreground">Tiers</p>
                 </div>
                 <div>
-                  <p className="t-num-sm">Never</p>
-                  <p className="t-fine mt-0.5 text-muted-foreground">Resets</p>
+                  <p className="t-num-sm">Kept</p>
+                  <p className="t-fine mt-0.5 text-muted-foreground">Season rank</p>
                 </div>
               </div>
 

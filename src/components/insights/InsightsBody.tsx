@@ -84,7 +84,7 @@ function tierOf(level: number): SrsTier {
 }
 
 export function when(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const d = new Date(iso).getTime();
   const diff = Date.now() - d;
   const mins = Math.round(Math.abs(diff) / 60_000);
@@ -110,7 +110,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
         <OverviewStat label="Reviews" value={data.overview.totalReviews} note={`${data.overview.monthReviews} in 30d`} />
         <OverviewStat
           label="Accuracy"
-          value={data.overview.correctPct === null ? '—' : `${data.overview.correctPct}%`}
+          value={data.overview.correctPct === null ? '–' : `${data.overview.correctPct}%`}
           note={data.overview.monthCorrectPct === null ? 'no answers yet' : `${data.overview.monthCorrectPct}% in 30d`}
           alarm={data.overview.correctPct !== null && data.overview.correctPct < 60}
         />

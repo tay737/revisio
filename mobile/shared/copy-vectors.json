@@ -607,7 +607,7 @@
       "expected": {
         "form": "sharp",
         "label": "Sharp",
-        "detail": "100% today — this is your best gear."
+        "detail": "100% today. This is your best gear."
       }
     },
     {
@@ -616,7 +616,7 @@
       "expected": {
         "form": "sharp",
         "label": "Sharp",
-        "detail": "90% today — this is your best gear."
+        "detail": "90% today. This is your best gear."
       }
     },
     {

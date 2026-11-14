@@ -18,7 +18,7 @@ import { badgeVariants } from '@/components/ui/badge';
 // └─────────────────────────────────────────────────────────────────────────┘
 
 export const metadata = {
-  title: 'Cookie Policy — Revisio',
+  title: 'Cookie Policy · Revisio',
   description:
     'What cookies and similar technologies Revisio uses, why, and how you can control them.',
 };

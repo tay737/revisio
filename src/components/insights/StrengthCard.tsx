@@ -61,7 +61,7 @@ export function StrengthCard({
         <span className="num t-caption font-semibold text-muted-foreground">
           {totalCards === 0
             ? 'no cards yet'
-            : `avg level ${avgLevel ?? '—'} of 12`}
+            : `avg level ${avgLevel ?? '–'} of 12`}
         </span>
       </div>
 

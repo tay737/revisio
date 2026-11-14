@@ -331,7 +331,7 @@ export type Form = 'sharp' | 'steady' | 'shaky' | 'unknown';
 export function formFor(reviewed: number, correct: number): { form: Form; label: string; detail: string } {
   if (reviewed < 4) return { form: 'unknown', label: 'No read yet', detail: 'Four reviews is enough to call your form.' };
   const accuracy = correct / reviewed;
-  if (accuracy >= 0.9) return { form: 'sharp', label: 'Sharp', detail: `${Math.round(accuracy * 100)}% today — this is your best gear.` };
+  if (accuracy >= 0.9) return { form: 'sharp', label: 'Sharp', detail: `${Math.round(accuracy * 100)}% today. This is your best gear.` };
   if (accuracy >= 0.7) return { form: 'steady', label: 'Steady', detail: `${Math.round(accuracy * 100)}% today. Solid, unspectacular, fine.` };
   return { form: 'shaky', label: 'Shaky', detail: `${Math.round(accuracy * 100)}% today. Slow down and read the whole clue.` };
 }

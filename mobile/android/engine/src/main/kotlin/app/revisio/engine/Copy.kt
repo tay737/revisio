@@ -102,7 +102,7 @@ object Copy {
         val accuracy = correct.toDouble() / reviewed
         val pct = (accuracy * 100).roundToInt()
         return when {
-            accuracy >= 0.9 -> FormRead("sharp", "Sharp", "$pct% today — this is your best gear.")
+            accuracy >= 0.9 -> FormRead("sharp", "Sharp", "$pct% today. This is your best gear.")
             accuracy >= 0.7 -> FormRead("steady", "Steady", "$pct% today. Solid, unspectacular, fine.")
             else -> FormRead("shaky", "Shaky", "$pct% today. Slow down and read the whole clue.")
         }
