@@ -302,6 +302,46 @@ async function main() {
     );
   }
 
+  // ── settings writes' read side: consent, classes, version, transcript ────
+  const consent = await call('/api/v1/consent');
+  check('GET /consent answers with the record and its stamp', consent.status === 200 && present(consent.body, 'consent') && present(consent.body, 'decidedAt'), consent.body);
+
+  const myClasses = await call('/api/v1/classes/join');
+  check('GET /classes/join answers with a classes list', myClasses.status === 200 && arr(myClasses.body, 'classes'), myClasses.body);
+
+  const version = await call('/api/v1/version');
+  check(
+    'GET /version carries what the launch check compares',
+    version.status === 200 && str(version.body, 'latest') && present(version.body, 'build') && present(version.body, 'minBuild'),
+    version.body,
+  );
+
+  const transcript = await call('/api/v1/exports?format=json');
+  check(
+    'GET /exports?format=json answers with the transcript shape',
+    transcript.status === 200 && arr(transcript.body, 'topics') && present(transcript.body, 'student.email') && arr(transcript.body, 'examAttempts'),
+    Object.keys(transcript.body ?? {}),
+  );
+
+  const insights = await call('/api/v1/insights');
+  check(
+    'GET /insights answers with the overview a stats screen reads',
+    insights.status === 200 && present(insights.body, 'overview.totalReviews') && present(insights.body, 'overview.dueCount') && arr(insights.body, 'srsLevels'),
+    Object.keys(insights.body ?? {}),
+  );
+
+  const seasons = await call('/api/v1/seasons');
+  check(
+    'GET /seasons answers with the season, the learner line and the board',
+    seasons.status === 200 &&
+      present(seasons.body, 'season.number') &&
+      present(seasons.body, 'mine.rank') &&
+      arr(seasons.body, 'rewards') &&
+      arr(seasons.body, 'board') &&
+      arr(seasons.body, 'history'),
+    Object.keys(seasons.body ?? {}),
+  );
+
   console.log(
     failures === 0
       ? '\nThe native clients and the server agree on the contract.'

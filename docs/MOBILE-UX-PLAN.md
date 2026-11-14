@@ -106,7 +106,7 @@ When the profile slice opens, the upload flow must:
 
 ## 9. Field-naming contract (full-stack)
 
-The phone decodes silently — a renamed field becomes a default and a screen says "0 questions" instead of erroring. Full-stack keeps field names stable and documents per-route spelling (e.g. `/content` sends `cards`/`lessons`, `/cram` sends `cardCount`/`lessonCount`). Unifying those touches web consumers mid-flight, so document both and add both to the API verification walk. Every NEW route ships with its field walk before merge. Auth route names are stable and documented in `docs/MOBILE-AUTH-API.md`. Rate limiting: show the 429 message and a retry affordance, never a silent retry loop.
+The phone decodes silently — a renamed field becomes a default and a screen says "0 questions" instead of erroring. Full-stack keeps field names stable and documents per-route spelling (e.g. `/content` sends `cards`/`lessons`, `/cram` sends `cardCount`/`lessonCount`). Unifying those touches web consumers mid-flight, so document both and add both to the API verification walk. Every NEW route ships with its field walk before merge. Auth route names are stable and documented in `docs/MOBILE-AUTH-API.md`; the signed-in surface (review writes, settings writes, seasons, exports, version) is documented in `docs/MOBILE-DATA-API.md` and its read side is walked by `verify:native:api`. Rate limiting: show the 429 message and a retry affordance, never a silent retry loop.
 
 ## 10. Accessibility
 
