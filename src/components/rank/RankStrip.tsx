@@ -106,7 +106,7 @@ export function RankStrip({
                   isLastDay: season.daysLeft <= 1,
                 })
               : placing
-                ? `Placement — ${placement.done} of ${placement.target} reviews before you hold a rank.`
+                ? `Placement: ${placement.done} of ${placement.target} reviews before you hold a rank.`
                 : rank.isApex
                   ? 'Top of the ladder. Holding it is the hard part.'
                   : `${rank.remaining} RP to the next rung · about ${reviewsForRp(rank.remaining)} reviews.`}

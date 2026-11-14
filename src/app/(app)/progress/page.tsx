@@ -353,7 +353,7 @@ function RankPage() {
               </span>
             </div>
             <p className="mt-1 t-caption text-muted-foreground">
-              Permanent — a rank can slip, these cannot.
+              Permanent. A rank can slip; these cannot.
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {ranked?.achievements.map((a, i) => (
@@ -393,7 +393,7 @@ function RankPage() {
       <Card as="section">
         <h2 className="t-tagline">Transcript</h2>
         <p className="mt-1 t-caption text-muted-foreground">
-          Your full history — share it with a teacher, or keep it.
+          Your full history. Share it with a teacher, or keep it.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button type="button" onClick={() => exportAs('csv')} variant="secondary" size="sm" className="gap-2">

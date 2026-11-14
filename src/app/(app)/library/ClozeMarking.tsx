@@ -207,7 +207,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="typo-threshold">
-              Typo strictness — {policy.typoThreshold ?? DEFAULT_CLOZE_POLICY.typoThreshold}
+              Typo strictness: {policy.typoThreshold ?? DEFAULT_CLOZE_POLICY.typoThreshold}
             </Label>
             <input
               id="typo-threshold"

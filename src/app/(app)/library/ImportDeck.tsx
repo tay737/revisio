@@ -141,7 +141,7 @@ export function ImportDeck({
             {topics.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
-                {t.cardCount !== undefined ? ` — ${t.cardCount} questions, ${t.lessonCount ?? 0} note ${(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}` : ''}
+                {t.cardCount !== undefined ? ` · ${t.cardCount} questions, ${t.lessonCount ?? 0} note ${(t.lessonCount ?? 0) === 1 ? 'set' : 'sets'}` : ''}
               </option>
             ))}
           </NativeSelect>

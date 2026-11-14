@@ -46,7 +46,7 @@ function validateCards(input: CardInput[] | undefined) {
       if (!c.answers?.some((a) => a.trim())) throw new ApiError(400, 'bad_request', `${at}: a fill-the-blank needs at least one accepted answer.`);
     } else if (c.kind === 'flashcard') {
       if (!c.prompt?.trim()) throw new ApiError(400, 'bad_request', `${at}: a flashcard needs a prompt.`);
-      if (!c.answers?.some((a) => a.trim())) throw new ApiError(400, 'bad_request', `${at}: a flashcard needs its answer — send it as answers: ["…"].`);
+      if (!c.answers?.some((a) => a.trim())) throw new ApiError(400, 'bad_request', `${at}: a flashcard needs its answer. Send it as answers: ["…"].`);
     } else if (c.kind === 'mcq') {
       const options = c.options ?? [];
       if (options.length < 2) throw new ApiError(400, 'bad_request', `${at}: a multiple-choice question needs at least two options.`);

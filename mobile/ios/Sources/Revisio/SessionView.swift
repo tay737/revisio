@@ -281,7 +281,7 @@ private struct FeedbackPanel: View {
         case .correct:
             return ("Correct", colors.good, "correct")
         case .caseOnly, .punctuationOnly, .caseAndPunctuation:
-            return ("Correct — check your spelling", colors.good, "correct")
+            return ("Correct. Check your spelling", colors.good, "correct")
         case .nearMiss:
             return ("Nearly there", colors.streak, "due")
         case .wrong:

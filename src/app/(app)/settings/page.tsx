@@ -208,7 +208,7 @@ function SettingsBody({
     setError('');
     try {
       await api.post('/api/v1/me/email', { password: emailPassword, newEmail });
-      setNote(`Check ${newEmail} — the link to confirm arrives by email.`);
+      setNote(`Check ${newEmail}. The link to confirm arrives by email.`);
       setEmailPassword('');
       setNewEmail('');
     } catch (e) {

@@ -107,7 +107,7 @@ export function MergeTopics({
             {topics.map((t) => (
               <option key={t.id} value={t.id} disabled={t.id === target}>
                 {t.name}
-                {t.cardCount !== undefined ? ` — ${t.cardCount} questions` : ''}
+                {t.cardCount !== undefined ? ` · ${t.cardCount} questions` : ''}
               </option>
             ))}
           </NativeSelect>
@@ -128,7 +128,7 @@ export function MergeTopics({
             {topics.map((t) => (
               <option key={t.id} value={t.id} disabled={t.id === source}>
                 {t.name}
-                {t.lessonCount !== undefined ? ` — ${t.lessonCount} note ${t.lessonCount === 1 ? 'set' : 'sets'}` : ''}
+                {t.lessonCount !== undefined ? ` · ${t.lessonCount} note ${t.lessonCount === 1 ? 'set' : 'sets'}` : ''}
               </option>
             ))}
           </NativeSelect>

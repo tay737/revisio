@@ -293,7 +293,7 @@ function TierProgress({
                   !isCurrent && 'text-muted-foreground',
                 )}
                 style={isCurrent ? { color: metal } : undefined}
-                title={cleared ? `${tierName(t.tier)} — cleared` : tierName(t.tier)}
+                title={cleared ? `${tierName(t.tier)} · cleared` : tierName(t.tier)}
               >
                 {tierName(t.tier)}
               </p>
@@ -451,7 +451,7 @@ function SeasonBoard({
 
       {mine.position > board.length && (
         <p className="mt-3 t-caption text-muted-foreground">
-          You are {mine.position} in the season — outside the top {board.length}, and climbing.
+          You are {mine.position} in the season, outside the top {board.length} and climbing.
         </p>
       )}
     </Card>
@@ -490,7 +490,7 @@ function Showcase({
 
       {history.length === 0 ? (
         <p className="mt-4 t-caption leading-relaxed text-muted-foreground">
-          Nothing to show yet — no season has closed since your first ten reviews. When one does, the rank
+          Nothing to show yet. No season has closed since your first ten reviews. When one does, the rank
           you hold on its last day is recorded here with the reward that tier earns.
         </p>
       ) : (
@@ -552,8 +552,7 @@ function YourRecord({ lifetimeRank, totalXp }: { lifetimeRank: Rank; totalXp: nu
         </span>
       </header>
       <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
-        Every review you have ever done, run through the same ladder. It is not your rank — that resets
-        each season — but it is the one number that only ever goes up.
+        Every review you have ever done, run through the same ladder. It is not your rank, which resets each season, but it is the one number that only ever goes up.
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-border px-4 py-3.5">
         <RankCrest rank={lifetimeRank} size={48} showProgress={false} animate={false} />
@@ -582,8 +581,7 @@ function SeasonRewards({
     <Card as="section">
       <h3 className="t-tagline">Season rewards</h3>
       <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
-        Paid on the tier you finish in, not the division — so a season never ends one rung short of the
-        next tier for nothing.
+        Paid on the tier you finish in, not the division, so a season never ends one rung short of the next tier for nothing.
       </p>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">
         {rewards.map((row) => (

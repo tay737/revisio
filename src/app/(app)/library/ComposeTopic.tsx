@@ -227,7 +227,7 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
                     placeholder="One option per line"
                   />
                   <Label htmlFor={`correct-${i}`}>
-                    Correct option — count from 0
+                    Correct option (count from 0)
                   </Label>
                   <Input
                     id={`correct-${i}`}

@@ -331,7 +331,7 @@ private fun FeedbackPanel(feedback: Feedback) {
     val (label, tone, icon) = when (verdict?.feedbackKind) {
         FeedbackKind.CORRECT -> Triple("Correct", Good, RevisioIcons.correct)
         FeedbackKind.CASE_ONLY, FeedbackKind.PUNCTUATION_ONLY, FeedbackKind.CASE_AND_PUNCTUATION ->
-            Triple("Correct — check your spelling", Good, RevisioIcons.correct)
+            Triple("Correct. Check your spelling", Good, RevisioIcons.correct)
         FeedbackKind.NEAR_MISS -> Triple("Nearly there", Warn, RevisioIcons.due)
         FeedbackKind.WRONG -> Triple("Not quite", Bad, RevisioIcons.close)
         null -> Triple("Saved", Warn, RevisioIcons.clock)

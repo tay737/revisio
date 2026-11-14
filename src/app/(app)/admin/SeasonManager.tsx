@@ -243,7 +243,7 @@ export function SeasonManager() {
         {rows.length === 0 && (
           <p className="t-caption leading-relaxed text-muted-foreground">
             No seasons configured. Until one exists the app falls back to a fixed ninety-day schedule from
-            5 January 2026, so the rank still works — it just cannot be moved.
+            5 January 2026, so the rank still works. It just cannot be moved.
           </p>
         )}
         {rows.map((row) => {
@@ -475,8 +475,7 @@ function SeasonEditor({
           <span className="t-caption-s block">Count XP earned before this season</span>
           <span className="t-fine mt-0.5 block text-muted-foreground">
             On, a learner&apos;s rank for this season is everything they have ever earned, so editing the
-            start date cannot take their progress away. Off, XP only counts from the start date onward —
-            which is what makes a new season a reset. Right for season 1; wrong for every season after it.
+            start date cannot take their progress away. Off, XP only counts from the start date onward, which is what makes a new season a reset. Right for season 1; wrong for every season after it.
           </span>
         </span>
       </label>

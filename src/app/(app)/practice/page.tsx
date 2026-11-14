@@ -461,7 +461,7 @@ export default function PracticePage() {
                 </div>
                 <div>
                   <Label htmlFor="practice-count">
-                    Questions — {count}
+                    Questions: {count}
                   </Label>
                   <input id="practice-count" type="range" min={5} max={30} step={5} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
                 </div>

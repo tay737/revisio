@@ -346,7 +346,7 @@ export default function AdminPage() {
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
           The windows every learner&apos;s rank is measured inside. Open the next one, stretch this one over
-          a holiday, rename it, or pay a different reward — the rank follows whatever these say.
+          a holiday, rename it, or pay a different reward. The rank follows whatever these say.
         </p>
         <div className="mt-5">
           <SeasonManager />
@@ -423,8 +423,7 @@ export default function AdminPage() {
       <Card as="section">
         <h2 className="t-strong">Cloze marking</h2>
         <p className="t-caption mt-1 text-muted-foreground">
-          How strictly fill-the-blank answers are marked across the platform. A similar-but-wrong answer stays wrong —
-          the learner is warned how close it was. Teachers can override this per subject or topic.
+          How strictly fill-the-blank answers are marked across the platform. A similar-but-wrong answer stays wrong, and the learner is warned how close it was. Teachers can override this per subject or topic.
         </p>
         <div className="mt-5">
           <ClozeMarking isDeveloper />
@@ -536,7 +535,7 @@ export default function AdminPage() {
       <Card as="section">
         <h2 className="t-strong">Profile badges</h2>
         <p className="t-caption mt-1 text-muted-foreground">
-          Chips that ride beside the role badge on a profile — a {'<3'}, an Alpha Tester, whatever you mint.
+          Chips that ride beside the role badge on a profile: a {'<3'}, an Alpha Tester, whatever you mint.
           Grant them per user below; deleting one removes it from every profile wearing it.
         </p>
 
@@ -564,7 +563,7 @@ export default function AdminPage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Input
             className="max-w-[180px]"
-            placeholder="Label — e.g. <3"
+            placeholder="Label, e.g. <3"
             value={badgeLabel}
             maxLength={24}
             onChange={(e) => setBadgeLabel(e.target.value)}
@@ -851,7 +850,7 @@ export default function AdminPage() {
           <Badge variant="chip">{data?.classes.length ?? 0} on the platform</Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
-          Every class with its owner and code. Rename, retune owner or subject, remove members — teachers manage their own from Teaching.
+          Every class with its owner and code. Rename, retune owner or subject, remove members. Teachers manage their own from Teaching.
         </p>
         {(data?.classes.length ?? 0) === 0 ? (
           <p className="t-caption mt-3 text-muted-foreground">No classes exist yet.</p>

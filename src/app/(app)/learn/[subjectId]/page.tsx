@@ -134,7 +134,7 @@ export default function SubjectScreen() {
                 Specification
               </span>
               <span className="t-caption mt-0.5 block text-muted-foreground">
-                {specCount} references across {topics.length} topics — from the notes themselves
+                {specCount} references across {topics.length} topics, taken from the notes themselves
               </span>
             </span>
             <motion.span
@@ -192,7 +192,7 @@ export default function SubjectScreen() {
         )}
         {query && orderedTopics.length === 0 && topics.length > 0 && (
           <p className="t-caption text-muted-foreground">
-            Nothing matches “{query}” —{' '}
+            Nothing matches “{query}”.{' '}
             <button type="button" className="underline underline-offset-4" onClick={() => setQuery('')}>
               clear the search
             </button>

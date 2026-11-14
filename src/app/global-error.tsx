@@ -36,7 +36,7 @@ export default function GlobalError({
           >
             <h1 style={{ fontSize: '19px', fontWeight: 700, margin: 0 }}>Something went wrong on our side</h1>
             <p style={{ fontSize: '14px', color: '#5e5e5e', lineHeight: 1.5, margin: '8px 0 0' }}>
-              Your work is safe — nothing was lost. Try again in a moment.
+              Your work is safe and nothing was lost. Try again in a moment.
             </p>
             <button
               onClick={reset}

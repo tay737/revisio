@@ -301,7 +301,7 @@ export default function ExamPage() {
 
           <div>
             <Label htmlFor="exam-count">
-              Questions — {count}
+              Questions: {count}
             </Label>
             <input
               id="exam-count"
@@ -447,7 +447,7 @@ export default function ExamPage() {
                   <div key={row.ao} className="inset px-3 py-2">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="t-caption font-semibold">
-                        {row.ao} — {guide?.label ?? 'Assessment objective'}
+                        {row.ao} · {guide?.label ?? 'Assessment objective'}
                       </span>
                       <span className="t-caption-s tabular-nums text-muted-foreground">
                         {row.awarded}/{row.available} · {row.percentage}%
@@ -482,7 +482,7 @@ export default function ExamPage() {
           <h2 className="t-strong">Real papers &amp; mark schemes</h2>
           <p className="t-caption mt-1 text-muted-foreground">
             The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide
-            there is — read it beside the notes.
+            there is. Read it beside the notes.
           </p>
           <div className="mt-3 space-y-2">
             {info.papers.map((p) => {
@@ -623,7 +623,7 @@ function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number
               <div key={a.ao} className="inset px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="t-caption font-semibold">
-                    {a.ao} — {guide?.label ?? 'Assessment objective'}
+                    {a.ao} · {guide?.label ?? 'Assessment objective'}
                   </span>
                   <span className="t-caption-s shrink-0 tabular-nums text-muted-foreground">
                     {a.marks} {a.marks === 1 ? 'mark' : 'marks'}
@@ -635,8 +635,7 @@ function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number
           })}
           {d.qwcMarks > 0 && (
             <p className="t-caption text-muted-foreground">
-              Plus {d.qwcMarks} QWC {d.qwcMarks === 1 ? 'mark' : 'marks'} for quality of written communication — clear
-              structure, controlled grammar, and the subject's technical terms used properly.
+              Plus {d.qwcMarks} QWC {d.qwcMarks === 1 ? 'mark' : 'marks'} for quality of written communication: clear structure, controlled grammar, and the subject's technical terms used properly.
             </p>
           )}
         </div>

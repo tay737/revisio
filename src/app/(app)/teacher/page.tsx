@@ -456,7 +456,7 @@ export default function TeacherPage() {
                     onClick={() =>
                       post(
                         { action: 'set_topic_visibility', topicId: t.id, visibility: live ? 'private' : 'public' },
-                        live ? `${t.name} withdrawn.` : `${t.name} is live — questions included.`,
+                        live ? `${t.name} withdrawn.` : `${t.name} is live, questions included.`,
                       ).then(reloadTopics)
                     }
                   >

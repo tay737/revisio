@@ -95,7 +95,7 @@ export default function LibraryPage() {
       const res = await api.patch<{ cards: number; lessons: number }>('/api/v1/content', { topicId: topic.id, visibility });
       say(
         visibility === 'public'
-          ? `“${topic.name}” is public — ${res.cards} ${res.cards === 1 ? 'question' : 'questions'} went with it.`
+          ? `“${topic.name}” is public. ${res.cards} ${res.cards === 1 ? 'question' : 'questions'} went with it.`
           : `“${topic.name}” is private again.`,
       );
       load();
@@ -282,8 +282,7 @@ export default function LibraryPage() {
           <Card>
             <h2 className="t-strong">Generate fill-the-blank questions</h2>
             <p className="t-caption mt-1 text-muted-foreground">
-              Proposals come from this topic's own notes, ranked by how well they test recall. You approve each one —
-              nothing is added without you. Importing is unchanged.
+              Proposals come from this topic's own notes, ranked by how well they test recall. You approve each one, and nothing is added without you. Importing is unchanged.
             </p>
             <div className="mt-5">
               <GenerateCloze
@@ -299,7 +298,7 @@ export default function LibraryPage() {
           <Card>
             <h2 className="t-strong">Maths practice sets</h2>
             <p className="t-caption mt-1 text-muted-foreground">
-              Pin generator concepts to a topic. Questions are generated fresh at practice time — every student can meet different numbers, forever.
+              Pin generator concepts to a topic. Questions are generated fresh at practice time, so every student can meet different numbers forever.
             </p>
             <div className="mt-5">
               <MathsSets topics={topics.map((t) => ({ id: t.id, name: t.name, subjectId: t.subjectId }))} onDone={say} />
