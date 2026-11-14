@@ -42,6 +42,33 @@ are shared student surfaces already covered by `audit:app`).
 
 ---
 
+## Verification update, 14 Nov (frontend delivery `9c487b4`, re-audit on production)
+
+`npm run audit:staff` re-run against the deployed build — report
+`artifacts/staff-audit/2026-11-14T13-53-13/report.json` — plus a DOM probe that
+isolated the residual overflow element:
+
+- **SF2 closed.** axe `color-contrast` 4 → 0 on `/admin` at 1440 light, 1440 dark
+  and 390. The ×N count now uses `text-background/60` and the remove control
+  renders outside the inverted chip.
+- **SF3 closed.** `smallTargets: []` on `/staff/login` and `/staff/register` at
+  both viewports — the logo anchor holds 44px.
+- **SF4 closed.** No small target on the range input; the shared
+  `input[type='range']` rule now gives a 44px hit area with the 6px track painted
+  as a centred gradient.
+- **SF1 partially closed.** `/admin` @390 overflow dropped +229px → +33px
+  (`scrollWidth` 423 vs 390). The flag-description `break-all` worked; the
+  residual is the new badge row: the `span.flex.items-center.gap-1.5` group
+  (chip + "Remove badge …" ghost button, ~316–386px, atomic) cannot wrap inside
+  the 316px card row. Returned to frontend with the fix spec (`flex-wrap` on the
+  group and/or a shorter visible label). Acceptance: `scrollWidth ===
+  clientWidth` at 390, axe still clean.
+- One expected-conflict 409 (`create_subject` "UX Audit Subject" already exists)
+  was logged; `teacher/page.tsx:122` surfaces it in the bad `Notice` — correct
+  error UX, fixture artifact only.
+
+---
+
 ## 1. Summary
 
 The staff surfaces are in better shape than the student app was at the start of
