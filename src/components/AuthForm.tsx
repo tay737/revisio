@@ -298,11 +298,16 @@ export function Field({
   icon,
   label,
   htmlFor,
+  error,
+  errorId,
   children,
 }: {
   icon: IconName;
   label: string;
   htmlFor: string;
+  /** The server-named problem for this control, rendered beneath it. */
+  error?: string;
+  errorId?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -316,6 +321,11 @@ export function Field({
         </span>
         {children}
       </div>
+      {error && (
+        <p id={errorId} role="alert" className="t-fine mt-1.5 font-medium text-destructive-ink">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
