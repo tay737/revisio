@@ -133,7 +133,7 @@ struct RankView: View {
                                 .foregroundStyle(colors.mutedForeground)
                         }
 
-                        Text("Rank comes from XP earned this season, and resets when the season does. The weekly lobby only decides where you sit inside your tier — a bad week costs you position, not progress.")
+                        Text("Rank comes from XP earned this season, and resets when the season does. The weekly lobby only decides where you sit inside your tier, and a bad week costs you position, not progress.")
                             .font(.system(size: 12))
                             .foregroundStyle(colors.mutedForeground)
                             .fixedSize(horizontal: false, vertical: true)
@@ -263,7 +263,7 @@ struct RankView: View {
                                 .foregroundStyle(colors.mutedForeground)
                         }
                         Spacer().frame(height: 4)
-                        Text("Permanent — a rank can slip, these cannot.")
+                        Text("Permanent. A rank can slip; these cannot.")
                             .font(.system(size: 13))
                             .foregroundStyle(colors.mutedForeground)
                         Spacer().frame(height: 14)
@@ -280,7 +280,7 @@ struct RankView: View {
                             Text(
                                 model.online
                                     ? "Loading your rank…"
-                                    : "Your rank needs a connection — it is computed from your XP this season."
+                                    : "Your rank needs a connection. It is computed from your XP this season."
                             )
                             .font(Type.caption.font)
                             .foregroundStyle(colors.mutedForeground)

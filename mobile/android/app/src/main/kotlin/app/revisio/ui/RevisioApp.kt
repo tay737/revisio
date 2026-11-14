@@ -205,7 +205,7 @@ private fun UpdateBanner(state: UiState, onDismiss: () -> Unit) {
                 )
                 Text(
                     if (required) {
-                        "Version ${update.latest} is required — older builds can no longer be guaranteed to work."
+                        "Version ${update.latest} is required. Older builds can no longer be guaranteed to work."
                     } else {
                         "Version ${update.latest} is out. You can keep studying either way."
                     },
@@ -633,9 +633,9 @@ private fun AuthScreen(state: UiState, viewModel: RevisioViewModel, topInset: Dp
             Spacer(Modifier.height(0.dp))
             Text(
                 if (mode == AuthMode.Login)
-                    "No account yet? Create one — or study offline; your session and today's cards are kept on this device."
+                    "No account yet? Create one, or study offline. Your session and today's cards are kept on this device."
                 else
-                    "Already registered? Sign in — then keep studying offline.",
+                    "Already registered? Sign in, then keep studying offline.",
                 style = Type.caption.style(Muted),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
@@ -700,7 +700,7 @@ private fun AuthCard(
             when (outcome) {
                 is RevisioViewModel.SignInOutcome.MfaRequired -> {
                     mfaStage = true
-                    info = "Enter the six-digit code from your authenticator app — or one of your recovery codes."
+                    info = "Enter the six-digit code from your authenticator app, or one of your recovery codes."
                 }
                 is RevisioViewModel.SignInOutcome.Failed -> {
                     // An unverified address is a different door: the offer to
@@ -715,7 +715,7 @@ private fun AuthCard(
 
     val title = if (mode == AuthMode.Login) "Welcome back" else "Create your account"
     val subtitle = if (mode == AuthMode.Login) "Your queue is where you left it."
-    else "Choose your subjects now — you can change them later."
+    else "Choose your subjects now. You can change them later."
 
     Column {
         Text(title, style = Type.tagline.style(Ink))

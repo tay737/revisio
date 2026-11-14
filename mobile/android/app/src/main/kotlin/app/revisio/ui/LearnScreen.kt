@@ -63,7 +63,7 @@ fun LearnScreen(state: UiState, viewModel: RevisioViewModel) {
                     Icon(RevisioIcons.learn, size = 16, tint = Muted)
                     Spacer(Modifier.size(10.dp))
                     Text(
-                        if (!state.online) "Learn needs a connection once — the catalogue is not cached on this device. Today's review still works offline."
+                        if (!state.online) "Learn needs a connection once. The catalogue is not cached on this device. Today's review still works offline."
                         else "Nothing published yet. Ask a teacher to publish a subject, or create your own in My content on the web.",
                         style = Type.caption.style(Muted),
                     )

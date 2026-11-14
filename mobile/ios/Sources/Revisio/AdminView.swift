@@ -107,7 +107,7 @@ struct AdminView: View {
                     ForEach(pending) { request in
                         Hairline()
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("\(request.name) — \(request.roleRequested)")
+                            Text("\(request.name) · \(request.roleRequested)")
                                 .font(Type.captionS.font)
                                 .foregroundStyle(colors.foreground)
                             Text(request.email)

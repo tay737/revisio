@@ -48,7 +48,7 @@ struct RankStripBand: View {
 
     private var blurb: String {
         if placement.placing {
-            return "Placement — \(placement.done) of \(placement.target) reviews before you hold a rank."
+            return "Placement: \(placement.done) of \(placement.target) reviews before you hold a rank."
         }
         if rank.isApex { return "Top of the ladder. Holding it is the hard part." }
         return "\(rank.remaining) RP to the next rung · about \(RankLadder.reviewsForRp(rank.remaining)) reviews."

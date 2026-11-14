@@ -289,7 +289,7 @@ private fun PracticeSummary(state: UiState, viewModel: RevisioViewModel) {
 
         Spacer(Modifier.height(16.dp))
         Text(
-            "These never touched your schedule — practice only earns XP.",
+            "These never touched your schedule. Practice only earns XP.",
             style = Type.fine.style(Muted),
             textAlign = TextAlign.Center,
         )

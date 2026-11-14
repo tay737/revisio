@@ -103,7 +103,7 @@ struct TeachingView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if model.myTopics.isEmpty {
                     Spacer().frame(height: 10)
-                    Text("Nothing written yet — start in the Library.")
+                    Text("Nothing written yet. Start in the Library.")
                         .font(Type.fine.font)
                         .foregroundStyle(colors.mutedForeground)
                 } else {
@@ -153,7 +153,7 @@ private struct NewClassForm: View {
                 if let first = subjects.first {
                     body["subjectId"] = subjectId.isEmpty ? first.id : subjectId
                 }
-                model.staffAction(admin: false, body, okMsg: "Class created — share the join code.")
+                model.staffAction(admin: false, body, okMsg: "Class created. Share the join code.")
                 name = ""
             }
         }
@@ -398,7 +398,7 @@ private struct TopicPublishRow: View {
                         "topicId": topic.id,
                         "visibility": live ? "private" : "public",
                     ],
-                    okMsg: live ? "\(topic.name) withdrawn." : "\(topic.name) is live — questions included."
+                    okMsg: live ? "\(topic.name) withdrawn." : "\(topic.name) is live, questions included."
                 )
             }
         }
@@ -522,7 +522,7 @@ private struct ProgressOverviewCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 ProgressStat(
                     label: "Accuracy",
-                    value: overview.correctPct.map { "\($0)%" } ?? "—",
+                    value: overview.correctPct.map { "\($0)%" } ?? "–",
                     note: overview.monthCorrectPct.map { "\($0)% in 30d" } ?? "no answers yet",
                     tint: (overview.correctPct ?? 100) < 60 ? colors.destructive : nil
                 )
@@ -639,7 +639,7 @@ private struct ProgressStrugglingCard: View {
                 .foregroundStyle(colors.foreground)
             Spacer().frame(height: 10)
             if progress.struggling.isEmpty {
-                Text("No misses in the last 30 days — or nothing studied yet.")
+                Text("No misses in the last 30 days, or nothing studied yet.")
                     .font(Type.caption.font)
                     .foregroundStyle(colors.mutedForeground)
                     .fixedSize(horizontal: false, vertical: true)
@@ -793,7 +793,7 @@ private struct ProgressCardStrengthCard: View {
                             .lineLimit(1)
                         }
                         Spacer(minLength: 0)
-                        Text(card.dueAt.map { isDue($0) ? "due now" : whenLabel($0) } ?? "—")
+                        Text(card.dueAt.map { isDue($0) ? "due now" : whenLabel($0) } ?? "–")
                             .font(Type.fine.font)
                             .foregroundStyle(colors.mutedForeground)
                     }
@@ -823,10 +823,10 @@ private struct ProgressCardStrengthCard: View {
     }
 }
 
-// The web's relative-time line: "5m ago", "in 2h", "—" when there is nothing.
+// The web's relative-time line: "5m ago", "in 2h", "–" when there is nothing.
 private func whenLabel(_ iso: String?) -> String {
-    guard let iso, !iso.isEmpty else { return "—" }
-    guard let then = progressDate(iso)?.timeIntervalSince1970 else { return "—" }
+    guard let iso, !iso.isEmpty else { return "–" }
+    guard let then = progressDate(iso)?.timeIntervalSince1970 else { return "–" }
     let diff = Date().timeIntervalSince1970 - then
     let mins = Int(abs(diff) / 60)
     let label: String

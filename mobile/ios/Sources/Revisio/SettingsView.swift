@@ -293,7 +293,7 @@ struct SettingsView: View {
                 Spacer().frame(height: 4)
                 Text(
                     handle.isEmpty
-                        ? "How you appear on your public profile — pick a username to get an address."
+                        ? "How you appear on your public profile. Pick a username to get an address."
                         : "How you appear on your public profile /u/\(handle)."
                 )
                 .font(Type.caption.font)
@@ -358,7 +358,7 @@ struct SettingsView: View {
                         get: { username },
                         set: { username = $0.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" } }
                     ),
-                    hint: problem ?? (handle.isEmpty ? "Optional — letters, numbers, hyphens." : "Your profile: /u/\(handle)"),
+                    hint: problem ?? (handle.isEmpty ? "Optional: letters, numbers, hyphens." : "Your profile: /u/\(handle)"),
                     bad: problem != nil
                 )
                 Spacer().frame(height: 14)
@@ -389,7 +389,7 @@ struct SettingsView: View {
                 Spacer().frame(height: 8)
                 SettingsField(
                     label: "Pronouns",
-                    placeholder: "Optional — anything you want to be called by",
+                    placeholder: "Optional: anything you want to be called by",
                     value: Binding(get: { pronouns }, set: { pronouns = String($0.prefix(pronounMax)) })
                 )
                 Spacer().frame(height: 4)
@@ -400,7 +400,7 @@ struct SettingsView: View {
                 Text(
                     me.profileVisibility.pronouns
                         ? "Shown on your public profile beside your name."
-                        : "Private for now — visitors will not see it. Switch Pronouns on under Privacy below."
+                        : "Private for now. Visitors will not see it. Switch Pronouns on under Privacy below."
                 )
                 .font(Type.fine.font)
                 .foregroundStyle(colors.mutedForeground)
@@ -483,7 +483,7 @@ struct SettingsView: View {
                     .font(Type.strong.font)
                     .foregroundStyle(colors.foreground)
                 Spacer().frame(height: 4)
-                Text("Signed in as \(me.email)\(me.status != "active" ? " — email not verified yet." : ".")")
+                Text("Signed in as \(me.email)\(me.status != "active" ? ". Email not verified yet." : ".")")
                     .font(Type.caption.font)
                     .foregroundStyle(colors.mutedForeground)
                     .fixedSize(horizontal: false, vertical: true)
@@ -543,7 +543,7 @@ struct SettingsView: View {
                         // pretending to be a control.
                         Text(
                             me.totpEnabled
-                                ? "Two-factor is on. Manage it on the web — enrolment needs a QR scan."
+                                ? "Two-factor is on. Manage it on the web; enrolment needs a QR scan."
                                 : "Two-factor is off. Enrol on the web, in Settings → Security."
                         )
                         .font(Type.caption.font)

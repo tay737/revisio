@@ -114,7 +114,7 @@ fun AdminScreen(state: UiState, viewModel: RevisioViewModel) {
                 pending.forEachIndexed { index, request ->
                     if (index > 0) Hairline()
                     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                        Text("${request.name} — ${request.roleRequested}", style = Type.captionS.style(Ink))
+                        Text("${request.name} · ${request.roleRequested}", style = Type.captionS.style(Ink))
                         Text(request.email, style = Type.fine.style(Muted))
                         request.note.takeIf { it.isNotBlank() }?.let {
                             Spacer(Modifier.height(4.dp))

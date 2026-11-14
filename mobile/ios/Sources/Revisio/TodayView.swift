@@ -267,7 +267,7 @@ struct TodayView: View {
                     Text(
                         home.reviewedToday > 0
                             ? "\(Int((Double(home.correctToday) / Double(home.reviewedToday) * 100).rounded()))%"
-                            : "—"
+                            : "–"
                     )
                     .font(Type.strong.font)
                     .foregroundStyle(colors.foreground)

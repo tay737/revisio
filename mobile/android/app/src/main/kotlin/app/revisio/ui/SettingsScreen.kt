@@ -246,7 +246,7 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
             if (handle.isNotBlank()) {
                 "How you appear on your public profile /u/$handle."
             } else {
-                "How you appear on your public profile — pick a username to get an address."
+                "How you appear on your public profile. Pick a username to get an address."
             },
             style = Type.caption.style(Muted),
         )
@@ -316,7 +316,7 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
             onChange = { username = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '-' || c == '_' } },
             placeholder = "Optional",
             hint = problem
-                ?: if (handle.isNotBlank()) "Your profile: /u/$handle" else "Optional — letters, numbers, hyphens.",
+                ?: if (handle.isNotBlank()) "Your profile: /u/$handle" else "Optional: letters, numbers, hyphens.",
             bad = problem != null,
         )
         Spacer(Modifier.height(14.dp))
@@ -353,11 +353,11 @@ private fun ProfileCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
             label = "Pronouns",
             value = pronouns,
             onChange = { if (it.length <= PRONOUN_MAX) pronouns = it },
-            placeholder = "Optional — anything you want to be called by",
+            placeholder = "Optional: anything you want to be called by",
             hint = if (me.profileVisibility.pronouns) {
                 "Shown on your public profile beside your name."
             } else {
-                "Private for now — visitors will not see it. Switch Pronouns on under Privacy below."
+                "Private for now. Visitors will not see it. Switch Pronouns on under Privacy below."
             },
             imeAction = ImeAction.Default,
         )
@@ -567,7 +567,7 @@ private fun AccountCard(me: MeDetail, state: UiState, viewModel: RevisioViewMode
         Text("Account", style = Type.strong.style(Ink))
         Spacer(Modifier.height(4.dp))
         Text(
-            "Signed in as ${me.email}" + if (me.status != "active") " — email not verified yet." else ".",
+            "Signed in as ${me.email}" + if (me.status != "active") ". Email not verified yet." else ".",
             style = Type.caption.style(Muted),
         )
 
@@ -620,7 +620,7 @@ private fun SecurityCard(me: MeDetail, state: UiState, viewModel: RevisioViewMod
                 Spacer(Modifier.height(4.dp))
                 Text(
                     if (me.totpEnabled)
-                        "Two-factor is on. Manage it on the web — enrolment needs a QR scan."
+                        "Two-factor is on. Manage it on the web; enrolment needs a QR scan."
                     else
                         "Two-factor is off. Enrol on the web, in Settings → Security.",
                     style = Type.caption.style(Muted),

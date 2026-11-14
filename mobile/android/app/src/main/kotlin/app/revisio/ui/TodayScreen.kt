@@ -290,7 +290,7 @@ fun TodayScreen(state: UiState, viewModel: RevisioViewModel) {
                         if (home.reviewedToday > 0) {
                             "${Math.round((home.correctToday.toDouble() / home.reviewedToday) * 100)}%"
                         } else {
-                            "—"
+                            "–"
                         },
                         style = Type.strong.style(Ink),
                     )
