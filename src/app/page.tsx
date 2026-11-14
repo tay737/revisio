@@ -176,8 +176,7 @@ export default function LandingPage() {
                 </span>
                 <h3 className="t-display-sm mt-5">A queue that builds itself</h3>
                 <p className="mt-2 max-w-sm t-caption text-muted-foreground">
-                  Due the day before you would forget. Nothing to plan, nothing to sort. Open it and
-                  the next right card is already waiting.
+                  Due the day before you would forget. Open it and the next card is already waiting.
                 </p>
 
                 {/* The demo's actual cards, not a decorative heatmap. */}
