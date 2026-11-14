@@ -41,8 +41,23 @@ Landed by the frontend lane; audited against the findings above:
 - **F12 (duplicate theme toggle)**: closed. Removed from `TopBar`; Sidebar keeps the one desktop toggle.
 - **F13 (system radii/lip)**: closed. `rounded-lg` + `transition-colors`.
 - **F1 (education level)**: closed end to end. Field dropped from wizard/register/me/deletion/schema; migration `0015` drops the column on both DBs.
-- **F4 (tap targets)** and **F11 (PWA gate)**: remain open — not in this commit's scope.
+- **F4 (tap targets)** and **F11 (PWA gate)**: closed. `1a5b640` raised the shell/dashboard controls to the 44px floor at every width; `e078480` fixed the SW assertion (same-origin controller + separate app-worker check). See the production gate run below.
 - `tsc --noEmit` clean; production build passes.
+
+---
+
+## Verification update, 14 Nov (production gate re-run, `87d47dd` live)
+
+Re-ran the three gates against `https://revisio-srs.vercel.app`:
+
+- `npm run e2e:public-ux` (production): **104 checks passed, 0 axe violation instances**, 2 stubbed API calls, 0 non-GET. F11's SW assertion no longer fails on production.
+- `npm run e2e:smoke` (production): **26 passed, 0 failed, 0 skipped, 0 findings**.
+- `npm run audit:app` (production): **24 screens, 0 FAIL, 0 WARN, 0 axe, 0 page findings**. `typeScale: []` everywhere; `smallTargets: []` at 390 (all controls >= 44px on touch).
+
+Residual finding:
+
+- **F15. Desktop-only controls still sit below the 44px house floor (36px)** — `/progress` tabs (Rank / This week / XP / Strength, 36px), `/library` action buttons (Topics / Write / Import / Generate / Maths / Class, 36px), `/settings` "Review account deletion" (38px). Evidence: `audit:app` report `artifacts/app-audit/2026-11-14T12-30-49/report.json`, `smallTargets` at viewport 1440 only; at 390 the same controls are 44px and `smallTargets` is empty. Source: browser. What: the house floor was applied at every width for the shell/dashboard controls (`1a5b640`) but not for these; the spec says ">= 44px tall on touch", so this is a desktop consistency deviation, not a WCAG 2.5.8 failure (36px > 24px). Why: `UI-SYSTEM.md` §10. Fix: raise these controls to 44px at desktop too, or accept and record the exception. Severity 1, Effort S, Confidence Certain.
+- **F15 closed** by `cd340df` ("Hold the 44px floor on desktop tabs and the danger button"): the `sm:min-h-9` desktop exception is gone from the tab trigger in `src/components/ui/tabs.tsx`, and `.btn-danger` joined the 44px floor list in `src/app/globals.css`. Verified on the deployed build: `audit:app` against `https://revisio-srs.vercel.app` (`AUDIT_ONLY=/progress,/library,/settings`, report `artifacts/app-audit/2026-11-14T13-13-53/report.json`) — 6 screens, `smallTargets: []` at 1440 and 390, 0 FAIL, 0 WARN, 0 axe, 0 page findings.
 
 ---
 
