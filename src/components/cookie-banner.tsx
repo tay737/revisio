@@ -264,7 +264,10 @@ export function CookieConsentBanner() {
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button variant="primary"
+            {/* Accept and reject carry the same variant on purpose: the privacy
+                policy says refusing is as easy as accepting, and a filled
+                primary next to a quiet secondary makes the opposite claim. */}
+            <Button variant="secondary"
               type="button"
               onClick={() => void commit(applyConsentChange(saved, Object.fromEntries(NON_ESSENTIAL.map(({ key }) => [key, true]))))}
             >
@@ -368,7 +371,5 @@ const NON_ESSENTIAL: ConsentChoice[] = [
   { key: 'marketing', label: 'Marketing', description: purposeLine('marketing'), required: false },
   { key: 'notifications', label: 'Notifications', description: purposeLine('notifications'), required: false },
   { key: 'research', label: 'Research', description: purposeLine('research'), required: false },
-  { key: 'school', label: 'School / account data', description: purposeLine('school'), required: false },
-  { key: 'profile', label: 'Profile fields', description: purposeLine('profile'), required: false },
 ];
 
