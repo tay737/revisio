@@ -7,9 +7,12 @@
 library revisio.services.api_client;
 
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../engine/models.dart';
 
 const String kBaseUrl = String.fromEnvironment(
   'REVISIO_API_BASE_URL',
@@ -277,10 +280,17 @@ class RevisioApi {
     return response.data?['verified'] == true;
   }
 
-  /// Log out — revokes all refresh tokens server-side.
-  Future<void> logout() async {
+  /// Log out — revokes this device's refresh token server-side when the
+  /// contract's `{"refreshToken"}` body is sent (7066fc5); best-effort either
+  /// way since local storage is cleared regardless.
+  Future<void> logout({String? refreshToken}) async {
     try {
-      await _request(() => _dio.post('/api/v1/auth/logout'));
+      await _request(
+        () => _dio.post(
+          '/api/v1/auth/logout',
+          data: {if (refreshToken != null && refreshToken.isNotEmpty) 'refreshToken': refreshToken},
+        ),
+      );
     } catch (_) {
       // Best-effort; local token is cleared regardless.
     }
@@ -293,6 +303,398 @@ class RevisioApi {
     );
     final subjects = (response.data?['subjects'] as List?) ?? [];
     return subjects.cast<Map<String, dynamic>>();
+  }
+
+  // ── signed-in reads (docs/MOBILE-DATA-API.md) ────────────────────────────
+
+  Future<MeDetail> me() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/me'),
+    );
+    return MeDetail.fromJson(response.data ?? {});
+  }
+
+  Future<List<QueueCard>> queueToday({int limit = 20}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/queue/today',
+        queryParameters: {'limit': limit},
+      ),
+    );
+    return ((response.data?['queue'] as List?) ?? [])
+        .map((c) => QueueCard.fromJson(c as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<OfflinePack> offlinePack({int limit = 20}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/offline/pack',
+        queryParameters: {'limit': limit},
+      ),
+    );
+    return OfflinePack.fromJson(response.data ?? {});
+  }
+
+  Future<List<Subject>> subjects() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/subjects'),
+    );
+    return ((response.data?['subjects'] as List?) ?? [])
+        .map((s) => Subject.fromJson(s as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Topics for one subject (`/content` spelling: cards/lessons).
+  Future<List<Topic>> content({required String subjectId}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/content',
+        queryParameters: {'subjectId': subjectId},
+      ),
+    );
+    return ((response.data?['topics'] as List?) ?? [])
+        .map((t) => Topic.fromJson(t as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<Lesson>> lessons({required String topicId}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/lessons',
+        queryParameters: {'topicId': topicId},
+      ),
+    );
+    return ((response.data?['lessons'] as List?) ?? [])
+        .map((l) => Lesson.fromJson(l as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// `GET /learn` — a topic's unseen batch plus its notes.
+  Future<FirstExposure> learn({required String topicId, int batch = 10}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/learn',
+        queryParameters: {'topicId': topicId, 'batch': batch},
+      ),
+    );
+    return FirstExposure.fromJson(response.data ?? {});
+  }
+
+  /// Cram topic picker (`/cram` spelling: cardCount/lessonCount).
+  Future<List<Topic>> cramTopics() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/cram'),
+    );
+    return ((response.data?['topics'] as List?) ?? [])
+        .map((t) => Topic.fromJson(t as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CramSession> cramSession({
+    required List<String> topicIds,
+    int maxPerTopic = 20,
+    String noteDensity = 'detailed',
+  }) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/cram',
+        data: {
+          'topicIds': topicIds,
+          'maxPerTopic': maxPerTopic,
+          'noteDensity': noteDensity,
+        },
+      ),
+    );
+    return CramSession.fromJson(response.data ?? {});
+  }
+
+  Future<GamificationPayload> gamification({String scope = 'weekly'}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/gamification',
+        queryParameters: {'scope': scope},
+      ),
+    );
+    return GamificationPayload.fromJson(response.data ?? {});
+  }
+
+  Future<Map<String, dynamic>> seasons() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/seasons'),
+    );
+    return response.data ?? {};
+  }
+
+  Future<Map<String, dynamic>> consent() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/consent'),
+    );
+    return response.data ?? {};
+  }
+
+  Future<Map<String, dynamic>> myClasses() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/classes/join'),
+    );
+    return response.data ?? {};
+  }
+
+  /// Launch check — unauthenticated, no rate-limit concerns.
+  Future<Map<String, dynamic>> version() async {
+    final response = await _request(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/version'),
+    );
+    return response.data ?? {};
+  }
+
+  /// `GET /api/v1/insights` — own-progress payload for a stats surface.
+  Future<Map<String, dynamic>> insights() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/insights'),
+    );
+    return response.data ?? {};
+  }
+
+  // ── the review write ────────────────────────────────────────────────────
+
+  /// The only write the review loop makes. The server re-grades: its verdict
+  /// is authoritative and replaces any local preview.
+  Future<Map<String, dynamic>> submitReview({
+    required String cardId,
+    String? answer,
+    String? selectedOptionId,
+    int? durationMs,
+    String mode = 'daily',
+    String? sessionId,
+  }) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/reviews',
+        data: {
+          'cardId': cardId,
+          if (answer != null) 'answer': answer,
+          if (selectedOptionId != null) 'selectedOptionId': selectedOptionId,
+          if (durationMs != null) 'durationMs': durationMs,
+          'mode': mode,
+          if (sessionId != null) 'sessionId': sessionId,
+        },
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  // ── settings writes ─────────────────────────────────────────────────────
+
+  /// `PATCH /me` — identity, profile and preferences through one door.
+  /// Send only what changed; absent keys keep their stored value.
+  Future<bool> patchMe(Map<String, dynamic> patch) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>('/api/v1/me', data: patch),
+    );
+    return response.data?['updated'] == true;
+  }
+
+  /// Enrol in a subject (idempotent). Un-enrolment is web-only for v1.
+  Future<bool> enrollSubject(String subjectId) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/subjects',
+        data: {'subjectId': subjectId},
+      ),
+    );
+    return response.data?['enrolled'] == true;
+  }
+
+  /// `PATCH /consent` — the server stamps `decidedAt` itself.
+  Future<Map<String, dynamic>> patchConsent(Map<String, dynamic> choices) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>(
+        '/api/v1/consent',
+        data: {'choices': choices},
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// Join a class by its six-character code.
+  Future<Map<String, dynamic>> joinClass(String code) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/classes/join',
+        data: {'code': code},
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /me/email` — a *request*, not a write: the address moves only when
+  /// the link mailed to the new address is clicked.
+  Future<bool> changeEmail({required String password, required String newEmail}) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/email',
+        data: {'password': password, 'newEmail': newEmail},
+      ),
+    );
+    return response.data?['pending'] == true;
+  }
+
+  /// `POST /me/password` — revokes EVERY refresh token, this device included.
+  /// The caller must clear local state and route to login afterwards.
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/password',
+        data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+      ),
+    );
+    return response.data?['changed'] == true;
+  }
+
+  /// Step 1 of the two-step deletion challenge — returns the confirmation
+  /// token and the server's message to show verbatim.
+  Future<Map<String, dynamic>> requestDataDeletion() async {
+    final response = await authenticated(
+      () => _dio.delete<Map<String, dynamic>>('/api/v1/data-deletion'),
+    );
+    return response.data ?? {};
+  }
+
+  /// Step 2 — repeats DELETE with the confirmation header.
+  /// `403 deletion_confirmation_expired` → start over at step 1.
+  Future<Map<String, dynamic>> confirmDataDeletion(String confirmationToken) async {
+    final response = await authenticated(
+      () => _dio.delete<Map<String, dynamic>>(
+        '/api/v1/data-deletion',
+        options: Options(headers: {'x-data-deletion-confirm': confirmationToken}),
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// `GET /consent` — the consent record lives here, not in `/me`.
+  Future<Map<String, dynamic>> getConsent() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/consent'),
+    );
+    return response.data ?? {};
+  }
+
+  /// `PATCH /consent` — send only changed keys; `essential` is always true
+  /// server-side. The server stamps `decidedAt` itself.
+  Future<Map<String, dynamic>> updateConsent(Map<String, dynamic> choices) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>(
+        '/api/v1/consent',
+        data: {'choices': choices},
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// The joined-class list behind the join-code field.
+  Future<List<Map<String, dynamic>>> myClassesList() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/classes/join'),
+    );
+    return ((response.data?['classes'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// `GET /version` — launch check, unauthenticated.
+  Future<Map<String, dynamic>> appVersion() async {
+    final response = await _request(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/version'),
+    );
+    return response.data ?? {};
+  }
+
+  // ── profile media (docs/MOBILE-MEDIA-API.md) ─────────────────────────────
+
+  /// presign → raw PUT → confirm, in one call. Returns the app-proxied URL.
+  /// `503 storage_unconfigured` propagates as ApiError — callers degrade to
+  /// the colour+symbol avatar. `400 upload_missing`/`415` are retried once
+  /// with a fresh presign, per the contract.
+  Future<String> uploadAvatar({
+    required String kind, // 'avatar' | 'banner'
+    required List<int> bytes,
+    required String contentType,
+  }) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final presign = await authenticated(
+        () => _dio.post<Map<String, dynamic>>(
+          '/api/v1/media',
+          data: {
+            'action': 'presign',
+            'kind': kind,
+            'contentType': contentType,
+            'sizeBytes': bytes.length,
+          },
+        ),
+      );
+      final key = presign.data?['key'] as String?;
+      final url = presign.data?['url'] as String?;
+      if (key == null || url == null) {
+        throw ApiError(status: 0, code: 'bad_response', message: 'The upload could not be prepared.');
+      }
+
+      // The presigned PUT carries no auth — a bare client, not the session one.
+      await Dio().put<void>(
+        url,
+        data: bytes,
+        options: Options(
+          contentType: contentType,
+          headers: {'Content-Type': contentType},
+        ),
+      );
+
+      try {
+        final confirm = await authenticated(
+          () => _dio.post<Map<String, dynamic>>(
+            '/api/v1/media',
+            data: {
+              'action': 'confirm',
+              'kind': kind,
+              'key': key,
+              'contentType': contentType,
+              'sizeBytes': bytes.length,
+            },
+          ),
+        );
+        return confirm.data?['url'] as String? ?? '';
+      } on ApiError catch (e) {
+        // upload_missing → the PUT did not land; re-presign and retry once.
+        if (e.code == 'upload_missing' && attempt == 0) continue;
+        rethrow;
+      }
+    }
+    throw ApiError(status: 0, code: 'upload_failed', message: 'The upload could not be confirmed.');
+  }
+
+  /// Clear the avatar/banner pointer server-side.
+  Future<void> removeAvatar({required String kind}) async {
+    await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/media',
+        data: {'action': 'remove', 'kind': kind},
+      ),
+    );
+  }
+
+  /// Transcript download. `csv` returns text/csv with an attachment header —
+  /// fetch to a file and hand to the OS share sheet.
+  Future<Uint8List> exportTranscript({String format = 'csv'}) async {
+    final response = await authenticated(
+      () => _dio.get<List<int>>(
+        '/api/v1/exports',
+        queryParameters: {'format': format},
+        options: Options(responseType: ResponseType.bytes),
+      ),
+    );
+    return Uint8List.fromList(response.data ?? const []);
   }
 
   // ── authenticated helpers ───────────────────────────────────────────────

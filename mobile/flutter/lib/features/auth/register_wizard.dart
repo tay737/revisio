@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../design/design.dart';
 import '../auth/auth_provider.dart';
+import '../../design/revisio_icons.dart';
 
 enum WizardStep { role, study, account, profile, review }
 
@@ -592,7 +593,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
         const SizedBox(height: 8),
         RevisioField(
           label: 'Full name',
-          icon: Icons.person_outline,
+          icon: 'person',
           errorText: _fieldError == 'name' ? _fieldErrorText : null,
           child: RevisioTextInput(
             controller: _name,
@@ -605,7 +606,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
         const SizedBox(height: 20),
         RevisioField(
           label: 'Email',
-          icon: Icons.mail_outline,
+          icon: 'mail',
           errorText: _fieldError == 'email' ? _fieldErrorText : null,
           child: RevisioTextInput(
             controller: _email,
@@ -618,7 +619,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
         const SizedBox(height: 20),
         RevisioField(
           label: 'Password',
-          icon: Icons.lock_outline,
+          icon: 'secure',
           errorText: _fieldError == 'password' ? _fieldErrorText : null,
           child: RevisioPasswordInput(
             controller: _password,
@@ -643,7 +644,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
         if (_isStudent) ...[
           RevisioField(
             label: 'Your date of birth',
-            icon: Icons.cake_outlined,
+            icon: 'person',
             errorText: _fieldError == 'dateOfBirth' ? _fieldErrorText : null,
             child: RevisioTextInput(
               controller: _dob,
@@ -849,8 +850,8 @@ class _RoleChoice extends StatelessWidget {
                 color: selected ? context.primary : context.card,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                selected ? Icons.check : value == 'student' ? Icons.person : Icons.school,
+              child: RevisioIcon(
+                selected ? 'correct' : value == 'student' ? 'person' : 'class',
                 color: selected ? context.primaryForeground : context.foreground,
                 size: 20,
               ),
@@ -885,7 +886,7 @@ class _RoleChoice extends StatelessWidget {
                   color: context.primary,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check, size: 12, color: Colors.white),
+                child: const RevisioIcon('correct', size: 12, color: Colors.white),
               ),
           ],
         ),

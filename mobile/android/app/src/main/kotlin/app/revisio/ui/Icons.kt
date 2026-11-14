@@ -41,6 +41,10 @@ private fun buildIcons(): List<Pair<String, List<String>>> = listOf(
         "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8",
         "M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
     ),
+    "back" to listOf(
+        "m12 19-7-7 7-7",
+        "M19 12H5",
+    ),
     "review" to listOf(
         "m2 9 3-3 3 3",
         "M13 18H7a2 2 0 0 1-2-2V6",
@@ -181,6 +185,16 @@ private fun buildIcons(): List<Pair<String, List<String>>> = listOf(
         "M21 3v5h-5",
         "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16",
         "M8 16H3v5",
+    ),
+    "eye" to listOf(
+        "M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0",
+        "M 9 12 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0 Z",
+    ),
+    "eyeOff" to listOf(
+        "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49",
+        "M14.084 14.158a3 3 0 0 1-4.242-4.242",
+        "M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143",
+        "m2 2 20 20",
     ),
     "add" to listOf(
         "M5 12h14",
@@ -375,6 +389,18 @@ private fun buildIcons(): List<Pair<String, List<String>>> = listOf(
         "M12 18h.01",
         "M8 18h.01",
     ),
+    "offline" to listOf(
+        "M10.94 5.274A7 7 0 0 1 15.71 10h1.79a4.5 4.5 0 0 1 4.222 6.057",
+        "M18.796 18.81A4.5 4.5 0 0 1 17.5 19H9A7 7 0 0 1 5.79 5.78",
+        "m2 2 20 20",
+    ),
+    "photo" to listOf(
+        "M16 5h6",
+        "M19 2v6",
+        "M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5",
+        "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21",
+        "M 7 9 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0 Z",
+    ),
     "filter" to listOf(
         "M2 5h20",
         "M6 12h12",
@@ -386,6 +412,10 @@ private fun buildIcons(): List<Pair<String, List<String>>> = listOf(
 object RevisioIcons {
     val dashboard: ImageVector by lazy {
         icon("dashboard", 1.75f, *geometry.getValue("dashboard").toTypedArray())
+    }
+
+    val back: ImageVector by lazy {
+        icon("back", 1.75f, *geometry.getValue("back").toTypedArray())
     }
 
     val review: ImageVector by lazy {
@@ -506,6 +536,14 @@ object RevisioIcons {
 
     val rotate: ImageVector by lazy {
         icon("rotate", 1.75f, *geometry.getValue("rotate").toTypedArray())
+    }
+
+    val eye: ImageVector by lazy {
+        icon("eye", 1.75f, *geometry.getValue("eye").toTypedArray())
+    }
+
+    val eyeOff: ImageVector by lazy {
+        icon("eyeOff", 1.75f, *geometry.getValue("eyeOff").toTypedArray())
     }
 
     val add: ImageVector by lazy {
@@ -644,6 +682,14 @@ object RevisioIcons {
         icon("practice", 1.75f, *geometry.getValue("practice").toTypedArray())
     }
 
+    val offline: ImageVector by lazy {
+        icon("offline", 1.75f, *geometry.getValue("offline").toTypedArray())
+    }
+
+    val photo: ImageVector by lazy {
+        icon("photo", 1.75f, *geometry.getValue("photo").toTypedArray())
+    }
+
     val filter: ImageVector by lazy {
         icon("filter", 1.75f, *geometry.getValue("filter").toTypedArray())
     }
@@ -662,6 +708,10 @@ object RevisioIcons {
 object RevisioIconsActive {
     val dashboard: ImageVector by lazy {
         icon("dashboard", 2.3f, *RevisioIcons.geometry.getValue("dashboard").toTypedArray())
+    }
+
+    val back: ImageVector by lazy {
+        icon("back", 2.3f, *RevisioIcons.geometry.getValue("back").toTypedArray())
     }
 
     val review: ImageVector by lazy {
@@ -782,6 +832,14 @@ object RevisioIconsActive {
 
     val rotate: ImageVector by lazy {
         icon("rotate", 2.3f, *RevisioIcons.geometry.getValue("rotate").toTypedArray())
+    }
+
+    val eye: ImageVector by lazy {
+        icon("eye", 2.3f, *RevisioIcons.geometry.getValue("eye").toTypedArray())
+    }
+
+    val eyeOff: ImageVector by lazy {
+        icon("eyeOff", 2.3f, *RevisioIcons.geometry.getValue("eyeOff").toTypedArray())
     }
 
     val add: ImageVector by lazy {
@@ -918,6 +976,14 @@ object RevisioIconsActive {
 
     val practice: ImageVector by lazy {
         icon("practice", 2.3f, *RevisioIcons.geometry.getValue("practice").toTypedArray())
+    }
+
+    val offline: ImageVector by lazy {
+        icon("offline", 2.3f, *RevisioIcons.geometry.getValue("offline").toTypedArray())
+    }
+
+    val photo: ImageVector by lazy {
+        icon("photo", 2.3f, *RevisioIcons.geometry.getValue("photo").toTypedArray())
     }
 
     val filter: ImageVector by lazy {

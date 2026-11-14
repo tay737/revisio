@@ -211,6 +211,9 @@ ThemeData darkTheme() {
 /// Convenience color getters so components never import the palettes directly.
 /// The active scheme is resolved from `Theme.of(context).colorScheme`.
 extension SchemeColors on BuildContext {
+  /// The OS "reduce motion" accessibility setting. Server-side
+  /// `prefs.reducedMotion` is a separate preference layered on top by callers.
+  bool get reduceMotion => MediaQuery.disableAnimationsOf(this);
   Brightness get brightness => Theme.of(this).brightness;
   Color get background => Theme.of(this).colorScheme.surfaceContainerLowest;
   Color get foreground => Theme.of(this).colorScheme.onBackground;
