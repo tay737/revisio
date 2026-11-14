@@ -19,13 +19,16 @@ import { Button } from '@/components/ui/button';
 export function InlineConfirm({
   label,
   icon,
+  ariaLabel,
   title,
   message,
   confirmLabel = 'Delete',
   onConfirm,
 }: {
-  /** The closed control's label. */
+  /** The closed control's visible label. */
   label: string;
+  /** Accessible name override for when the visible label is shortened. */
+  ariaLabel?: string;
   icon?: React.ComponentProps<typeof Icon>['name'];
   /** The consequence sentence — what happens, stated before the ask. */
   title: string;
@@ -44,6 +47,7 @@ export function InlineConfirm({
         className="gap-1.5 text-destructive-ink"
         onClick={() => setOpen(true)}
         aria-expanded={open}
+        aria-label={ariaLabel}
       >
         {icon && <Icon name={icon} size={14} />}
         {label}

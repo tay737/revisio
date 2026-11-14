@@ -542,14 +542,16 @@ export default function AdminPage() {
         {data?.badges.length ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {data.badges.map((b) => (
-              <span key={b.id} className="flex items-center gap-1.5">
+              <span key={b.id} className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="chip-active" className="gap-2">
                   {b.icon && <Icon name={b.icon as never} size={12} />}
                   {b.label}
                   <span className="num t-fine text-background/60">×{b.grants}</span>
                 </Badge>
                 <InlineConfirm
-                  label={`Remove badge ${b.label}`}
+                  label="Remove"
+                  icon="remove"
+                  ariaLabel={`Remove badge ${b.label}`}
                   title={`Remove badge “${b.label}”?`}
                   message={`It disappears from all ${b.grants} profile(s) wearing it.`}
                   confirmLabel="Remove"
