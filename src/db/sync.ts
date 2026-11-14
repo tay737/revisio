@@ -453,7 +453,14 @@ export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap
     }
     if (events.length === 0) break;
 
-    await applyEventBatch(from, to, events, pkMap);
+    try {
+      await applyEventBatch(from, to, events, pkMap, deadline);
+    } catch (e) {
+      // Budget exhausted mid-batch: committed passes already landed (replayed
+      // idempotently next run) and this batch's source events stay queued.
+      if ((e as Error).name === 'SyncBudgetExceeded') break;
+      throw e;
+    }
 
     const seqs = events.map((e) => Number(e.seq));
     const fromClient2 = await from.pool.connect();
@@ -499,15 +506,35 @@ const DRAIN_BUDGET_MS = Number(process.env.NEON_DRAIN_BUDGET_MS ?? 25_000);
  * lands whole or not at all, and per-event savepoints let FK-stranded rows be
  * parked and retried without aborting the pass.
  *
- * Self-healing: an INSERT/UPDATE that still fails after every pass is checked
- * against the *source*. If the row no longer exists there, the event is an
+ * Self-healing: an INSERT/UPDATE whose source row no longer exists is an
  * orphan — its parent (e.g. a deleted test user) is gone on both sides, so it
- * can never apply and would otherwise stall the whole queue forever. The
- * target is converged with a DELETE by pk and the event is consumed; only
- * events whose source row still exists raise and fail the run.
+ * can never apply and would otherwise stall the whole queue forever. Orphans
+ * are proven *before* the passes (one SELECT per table for the whole batch —
+ * discovering them only after four failed passes costs ~0.5s per event, which
+ * let a 2,001-orphan backlog outrun maxDuration in QA's load test), converged
+ * on the target with a DELETE by pk, and consumed. The same check repeats
+ * after the passes for rows deleted mid-drain; anything whose source row
+ * still exists raises and fails the run.
  */
-async function applyEventBatch(from: SyncDb, to: SyncDb, events: SyncEvent[], pkMap: PrimaryKeyMap): Promise<void> {
-  const ordered = [...events].sort((a, b) => {
+async function applyEventBatch(
+  from: SyncDb,
+  to: SyncDb,
+  events: SyncEvent[],
+  pkMap: PrimaryKeyMap,
+  deadline = Number.POSITIVE_INFINITY,
+): Promise<void> {
+  const { live, orphans } = await partitionOrphans(from, events, pkMap);
+  if (orphans.length > 0) {
+    await convergeDroppedRows(to, orphans, pkMap);
+    await deleteConsumedEvents(from, orphans);
+    console.warn(
+      `[sync] dropped ${orphans.length} orphaned event(s) for ${to.label} before applying: ` +
+        orphans.slice(0, 5).map((e) => `${e.table_name} ${e.op} ${e.pk}`).join('; '),
+    );
+  }
+  if (live.length === 0) return;
+
+  const ordered = [...live].sort((a, b) => {
     const ia = REPLICATED_TABLES.indexOf(a.table_name as (typeof REPLICATED_TABLES)[number]);
     const ib = REPLICATED_TABLES.indexOf(b.table_name as (typeof REPLICATED_TABLES)[number]);
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
@@ -515,13 +542,16 @@ async function applyEventBatch(from: SyncDb, to: SyncDb, events: SyncEvent[], pk
 
   let pending = ordered;
   for (let pass = 0; pass < REORDER_PASSES; pass += 1) {
+    if (Date.now() > deadline) throw syncBudgetError(to);
     const failed: typeof pending = [];
     const toClient = await to.pool.connect();
     try {
       await toClient.query('BEGIN');
       await toClient.query("SELECT set_config('app.sync_replicated', 'on', true)");
       let savepoint = 0;
+      let i = 0;
       for (const event of pending) {
+        if ((++i & 127) === 0 && Date.now() > deadline) throw syncBudgetError(to);
         const name = `ev_${savepoint++}`;
         try {
           await toClient.query(`SAVEPOINT ${name}`);
@@ -550,28 +580,20 @@ async function applyEventBatch(from: SyncDb, to: SyncDb, events: SyncEvent[], pk
     pending = failed;
   }
 
-  // Passes exhausted. Partition the survivors: orphans (source row gone) are
-  // converged and consumed here so they can never stall the queue again;
-  // anything whose source row still exists is a genuine conflict and fails
-  // the run as before.
-  const orphans: SyncEvent[] = [];
-  const stuck: SyncEvent[] = [];
-  const fromClient = await from.pool.connect();
-  try {
-    for (const event of pending) {
-      if (event.op !== 'DELETE' && (await sourceRowMissing(fromClient, event, pkMap))) orphans.push(event);
-      else stuck.push(event);
-    }
-  } finally {
-    fromClient.release();
-  }
+  // Passes exhausted. Partition the survivors: orphans (source row gone —
+  // deleted mid-drain) are converged and consumed here so they can never
+  // stall the queue again; anything whose source row still exists is a
+  // genuine conflict and fails the run as before.
+  const late = await partitionOrphans(from, pending, pkMap);
+  const lateOrphans = late.orphans;
+  const stuck = late.live;
 
-  if (orphans.length > 0) {
-    await convergeDroppedRows(to, orphans, pkMap);
-    await deleteConsumedEvents(from, orphans);
+  if (lateOrphans.length > 0) {
+    await convergeDroppedRows(to, lateOrphans, pkMap);
+    await deleteConsumedEvents(from, lateOrphans);
     console.warn(
-      `[sync] dropped ${orphans.length} orphaned event(s) for ${to.label}: ` +
-        orphans.slice(0, 5).map((e) => `${e.table_name} ${e.op} ${e.pk}`).join('; '),
+      `[sync] dropped ${lateOrphans.length} orphaned event(s) for ${to.label}: ` +
+        lateOrphans.slice(0, 5).map((e) => `${e.table_name} ${e.op} ${e.pk}`).join('; '),
     );
   }
   if (stuck.length > 0) {
@@ -597,26 +619,110 @@ function pkPredicate(def: TableDef, values: string[]): string {
   return def.pkCols.map((c, i) => `"${c}" = '${values[i].replace(/'/g, "''")}'`).join(' AND ');
 }
 
-/**
- * True when an INSERT/UPDATE event's row no longer exists on the source —
- * the orphan case (parent deleted after capture, row deleted before its own
- * DELETE event drained). Returns false on any doubt: a failed lookup or an
- * unparseable pk means "not proven orphaned", so the event stays stuck and
- * the run still fails loudly rather than silently dropping live data.
- */
-async function sourceRowMissing(
-  client: import('pg').PoolClient,
-  event: SyncEvent,
-  pkMap: PrimaryKeyMap,
-): Promise<boolean> {
+/** Error name drainEvents recognises as "stop cleanly, resume next run". */
+function syncBudgetError(to: SyncDb): Error {
+  const e = new Error(`sync: drain budget exhausted during batch to ${to.label}; remaining events retry next run`);
+  e.name = 'SyncBudgetExceeded';
+  return e;
+}
+
+/** Canonical pk key for membership tests — bare value for single pks, JSON array text for composites. */
+function eventPkKey(event: SyncEvent, def: TableDef): string | null {
   try {
-    const def = tableDef(event.table_name, pkMap);
     const values = pkValues(event, def);
-    const res = await client.query(`SELECT 1 FROM "${event.table_name}" WHERE ${pkPredicate(def, values)} LIMIT 1`);
-    return res.rows.length === 0;
+    return def.pkCols.length === 1 ? values[0] : JSON.stringify(values);
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * Which of a batch's INSERT/UPDATE pks still exist on the source — one query
+ * per table for the whole batch. `::text` on both sides keeps uuid/int pk
+ * columns comparable to the event log's text without literal-cast failures.
+ */
+async function existingRowKeys(
+  client: import('pg').PoolClient,
+  table: string,
+  def: TableDef,
+  events: SyncEvent[],
+): Promise<Set<string>> {
+  const usable = events
+    .map((e) => ({ e, key: eventPkKey(e, def) }))
+    .filter((x): x is { e: SyncEvent; key: string } => x.key !== null);
+  const found = new Set<string>();
+  if (usable.length === 0) return found;
+
+  if (def.pkCols.length === 1) {
+    const col = def.pkCols[0];
+    const res = await client.query(
+      `SELECT "${col}"::text AS k FROM "${table}" WHERE "${col}"::text = ANY($1::text[])`,
+      [[...new Set(usable.map((x) => x.key))]],
+    );
+    for (const row of res.rows) found.add(String(row.k));
+    return found;
+  }
+
+  const perCol = def.pkCols.map((_, i) => [
+    ...new Set(usable.map((x) => (JSON.parse(x.key) as string[])[i])),
+  ]);
+  const res = await client.query(
+    `SELECT ${def.pkCols.map((c) => `"${c}"::text`).join(', ')} FROM "${table}" ` +
+      `WHERE (${def.pkCols.map((c) => `"${c}"::text`).join(', ')}) IN ` +
+      `(SELECT * FROM unnest(${def.pkCols.map((_, i) => `$${i + 1}::text[]`).join(', ')}))`,
+    perCol,
+  );
+  for (const row of res.rows) found.add(JSON.stringify(def.pkCols.map((c) => String(row[c]))));
+  return found;
+}
+
+/**
+ * Split events into proven orphans (INSERT/UPDATE whose row no longer exists
+ * on the source — can never apply) and everything else. DELETEs are always
+ * live: a tombstone either applies or fails on real dependents, which must
+ * stay loud. Any lookup failure leaves the table's events live — doubt
+ * resolves toward retrying, never toward dropping.
+ */
+async function partitionOrphans(
+  from: SyncDb,
+  events: SyncEvent[],
+  pkMap: PrimaryKeyMap,
+): Promise<{ live: SyncEvent[]; orphans: SyncEvent[] }> {
+  const live: SyncEvent[] = [];
+  const orphans: SyncEvent[] = [];
+  const byTable = new Map<string, SyncEvent[]>();
+  for (const e of events) {
+    if (e.op === 'DELETE') {
+      live.push(e);
+      continue;
+    }
+    const list = byTable.get(e.table_name);
+    if (list) list.push(e);
+    else byTable.set(e.table_name, [e]);
+  }
+
+  const client = await from.pool.connect();
+  try {
+    for (const [table, evs] of byTable) {
+      let def: TableDef | null = null;
+      let found: Set<string> | null = null;
+      try {
+        def = tableDef(table, pkMap);
+        found = await existingRowKeys(client, table, def, evs);
+      } catch {
+        def = null;
+        found = null;
+      }
+      for (const e of evs) {
+        const key = found && def ? eventPkKey(e, def) : null;
+        if (found && key !== null && !found.has(key)) orphans.push(e);
+        else live.push(e);
+      }
+    }
+  } finally {
+    client.release();
+  }
+  return { live, orphans };
 }
 
 /**
