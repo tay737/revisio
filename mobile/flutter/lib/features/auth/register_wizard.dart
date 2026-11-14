@@ -50,6 +50,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _classCodeController = TextEditingController();
+  final _noteController = TextEditingController();
 
   // Profile
   final _dob = TextEditingController();
@@ -60,9 +61,10 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
 
   // Study
   List<Map<String, dynamic>> _subjects = [];
+  bool _subjectsLoading = true;
+  bool _subjectsFailed = false;
   List<String> _subjectIds = [];
   String _classCode = '';
-  String _note = '';
 
   bool _loading = false;
   String? _error;
@@ -76,6 +78,28 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
     _classCodeController.addListener(() {
       _classCode = _classCodeController.text.toUpperCase();
     });
+    _loadSubjects();
+  }
+
+  Future<void> _loadSubjects() async {
+    setState(() {
+      _subjectsLoading = true;
+      _subjectsFailed = false;
+    });
+    try {
+      final subjects = await ref.read(apiClientProvider).publicSubjects();
+      if (!mounted) return;
+      setState(() {
+        _subjects = subjects;
+        _subjectsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _subjectsLoading = false;
+        _subjectsFailed = true;
+      });
+    }
   }
 
   @override
@@ -87,6 +111,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
     _emailFocus.dispose();
     _passwordFocus.dispose();
     _classCodeController.dispose();
+    _noteController.dispose();
     _dob.dispose();
     _dobFocus.dispose();
     super.dispose();
@@ -285,7 +310,7 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
       password: _password.text,
       name: _name.text.trim(),
       role: _isStudent ? 'student' : 'teacher',
-      note: _isStudent ? null : _note.trim(),
+      note: _isStudent ? null : _noteController.text.trim(),
       subjectIds: _isStudent ? _subjectIds : null,
       classCode: _isStudent && _classCode.isNotEmpty ? _classCode : null,
       dateOfBirth: _isStudent ? _dateOfBirth : null,
@@ -477,48 +502,62 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
         const SizedBox(height: 8),
         Text('Subjects', style: TypeScale.label.copyWith(color: context.mutedForeground)),
         const SizedBox(height: 8),
-        FutureBuilder<List<Map<String, dynamic>>>(
-          future: ref.read(apiClientProvider).publicSubjects(),
-          builder: (context, snapshot) {
-            final subjects = snapshot.data ?? [];
-            if (subjects.isEmpty) {
-              return Text(
-                'No subjects are published yet. You can choose them later.',
-                style: TypeScale.caption.copyWith(color: context.mutedForeground),
+        if (_subjectsLoading)
+          Text(
+            'Loading subjects…',
+            style: TypeScale.caption.copyWith(color: context.mutedForeground),
+          )
+        else if (_subjectsFailed)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Subjects did not load. Check your connection and try again.',
+                  style: TypeScale.caption.copyWith(color: context.mutedForeground),
+                ),
+              ),
+              TextButton(
+                onPressed: _loadSubjects,
+                child: const Text('Retry'),
+              ),
+            ],
+          )
+        else if (_subjects.isEmpty)
+          Text(
+            'No subjects are published yet. You can choose them later.',
+            style: TypeScale.caption.copyWith(color: context.mutedForeground),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _subjects.map((s) {
+              final id = s['id'] as String;
+              final name = s['name'] as String;
+              final on = _subjectIds.contains(id);
+              return FilterChip(
+                label: Text(name),
+                selected: on,
+                onSelected: (_) => setState(() {
+                  if (on) {
+                    _subjectIds.remove(id);
+                  } else {
+                    if (_subjectIds.length >= 12) return;
+                    _subjectIds.add(id);
+                  }
+                }),
+                selectedColor: context.primary,
+                checkmarkColor: context.primaryForeground,
+                backgroundColor: context.card,
+                side: BorderSide(color: on ? context.primary : context.border),
+                labelStyle: TextStyle(
+                  color: on ? context.primaryForeground : context.foreground,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               );
-            }
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: subjects.map((s) {
-                final id = s['id'] as String;
-                final name = s['name'] as String;
-                final on = _subjectIds.contains(id);
-                return FilterChip(
-                  label: Text(name),
-                  selected: on,
-                  onSelected: (_) => setState(() {
-                    if (on) {
-                      _subjectIds.remove(id);
-                    } else {
-                      if (_subjectIds.length >= 12) return;
-                      _subjectIds.add(id);
-                    }
-                  }),
-                  selectedColor: context.primary,
-                  checkmarkColor: context.primaryForeground,
-                  backgroundColor: context.card,
-                  side: BorderSide(color: on ? context.primary : context.border),
-                  labelStyle: TextStyle(
-                    color: on ? context.primaryForeground : context.foreground,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
+            }).toList(),
+          ),
         if (_fieldError == 'subjectIds' && _fieldErrorText?.isNotEmpty == true) ...[
           const SizedBox(height: 8),
           Text(
@@ -601,44 +640,62 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        RevisioField(
-          label: 'Your date of birth',
-          icon: Icons.cake_outlined,
-          errorText: _fieldError == 'dateOfBirth' ? _fieldErrorText : null,
-          child: RevisioTextInput(
-            controller: _dob,
-            focusNode: _dobFocus,
-            placeholder: 'YYYY-MM-DD',
-            keyboardType: TextInputType.datetime,
-            onChanged: (value) {
-              final v = value.trim();
-              setState(() => _dateOfBirth = v.isEmpty ? null : v);
-            },
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                firstDate: DateTime(1900),
-                lastDate: DateTime.now(),
-              );
-              if (picked != null && mounted) {
-                final iso = picked.toIso8601String().substring(0, 10);
-                setState(() {
-                  _dob.text = iso;
-                  _dateOfBirth = iso;
-                });
-              }
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (_dateOfBirth != null) ...[
-          Text(
-            _requiresGuardianConsent
-                ? 'A parent or legal guardian must complete this registration.'
-                : 'We use this only to check whether guardian consent is required.',
-            style: TypeScale.caption.copyWith(color: context.mutedForeground),
+        if (_isStudent) ...[
+          RevisioField(
+            label: 'Your date of birth',
+            icon: Icons.cake_outlined,
+            errorText: _fieldError == 'dateOfBirth' ? _fieldErrorText : null,
+            child: RevisioTextInput(
+              controller: _dob,
+              focusNode: _dobFocus,
+              placeholder: 'YYYY-MM-DD',
+              keyboardType: TextInputType.datetime,
+              onChanged: (value) {
+                final v = value.trim();
+                setState(() => _dateOfBirth = v.isEmpty ? null : v);
+              },
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(1900),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null && mounted) {
+                  final iso = picked.toIso8601String().substring(0, 10);
+                  setState(() {
+                    _dob.text = iso;
+                    _dateOfBirth = iso;
+                  });
+                }
+              },
+            ),
           ),
           const SizedBox(height: 8),
+          if (_dateOfBirth != null) ...[
+            Text(
+              _requiresGuardianConsent
+                  ? 'A parent or legal guardian must complete this registration.'
+                  : 'We use this only to check whether guardian consent is required.',
+              style: TypeScale.caption.copyWith(color: context.mutedForeground),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ] else ...[
+          RevisioField(
+            label: 'Why do you need a staff account?',
+            errorText: _fieldError == 'note' ? _fieldErrorText : null,
+            child: RevisioTextInput(
+              controller: _noteController,
+              placeholder: 'Team, role, what you need access to…',
+              maxLines: 3,
+              maxLength: 500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Optional — staff accounts are reviewed before they are activated.',
+            style: TypeScale.caption.copyWith(color: context.mutedForeground),
+          ),
         ],
         if (_requiresGuardianConsent) ...[
           Container(
@@ -731,10 +788,10 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
             value: _dateOfBirth!,
             onEdit: () => _goTo(WizardStep.profile),
           ),
-        if (!_isStudent && _note.trim().isNotEmpty)
+        if (!_isStudent && _noteController.text.trim().isNotEmpty)
           _ReviewRow(
             label: 'Reason',
-            value: _note.trim(),
+            value: _noteController.text.trim(),
             onEdit: () => _goTo(WizardStep.profile),
           ),
       ],
