@@ -85,16 +85,57 @@ function tierOf(level: number): SrsTier {
 
 export function when(iso: string | null | undefined): string {
   if (!iso) return '–';
-  const d = new Date(iso).getTime();
-  const diff = Date.now() - d;
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
   const mins = Math.round(Math.abs(diff) / 60_000);
+  // Past a day, "37d ago" is less useful than the date itself.
+  if (mins >= 60 * 24) {
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString(undefined, sameYear
+      ? { day: 'numeric', month: 'short' }
+      : { day: 'numeric', month: 'short', year: 'numeric' });
+  }
   const label =
     mins < 1 ? 'now' :
     mins < 60 ? `${mins}m` :
-    mins < 60 * 24 ? `${Math.round(mins / 60)}h` :
-    mins < 60 * 24 * 30 ? `${Math.round(mins / (60 * 24))}d` :
-    `${Math.round(mins / (60 * 24 * 30))}mo`;
+    `${Math.round(mins / 60)}h`;
   return diff < 0 ? `in ${label}` : `${label} ago`;
+}
+
+/**
+ * Text that truncates to one line until tapped or focused-opened — the full
+ * string must be reachable without a hover tooltip, which touch and keyboard
+ * users never get. Short strings render plain; only genuinely long ones earn
+ * a tab stop.
+ */
+function ExpandableText({
+  text,
+  className,
+  openClassName,
+}: {
+  text: string;
+  className?: string;
+  /** Overrides applied while expanded (e.g. a wider cap for the answer chip). */
+  openClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  if (text.length <= 48) {
+    return <span className={cn('block truncate', className)}>{text}</span>;
+  }
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={() => setOpen((v) => !v)}
+      className={cn(
+        'min-w-0 max-w-full text-left',
+        className,
+        open ? (openClassName ?? 'whitespace-pre-wrap break-words') : 'truncate',
+      )}
+    >
+      {text}
+    </button>
+  );
 }
 
 export function InsightsBody({ data, self = false }: { data: StudentProgress; self?: boolean }) {
@@ -115,7 +156,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
           alarm={data.overview.correctPct !== null && data.overview.correctPct < 60}
         />
         <OverviewStat label="Streak" value={`${data.overview.streak}d`} note={`best ${data.overview.bestStreak}d`} />
-        <OverviewStat label="Due now" value={data.overview.dueCount} note={`${data.overview.totalCards} cards`} alarm={data.overview.dueCount > 0} />
+        <OverviewStat label="Due now" value={data.overview.dueCount} note={`${data.overview.totalCards} cards`} />
       </section>
 
       {/* ── SRS strength ladder ──────────────────────────────────────────── */}
@@ -212,17 +253,17 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                     <Icon name={r.correct === null ? 'clock' : r.correct ? 'correct' : 'close'} size={13} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate t-caption font-medium">
-                      {r.prompt ?? '(no text)'}
-                    </div>
+                    <ExpandableText text={r.prompt ?? '(no text)'} className="t-caption font-medium" />
                     <div className="t-fine truncate text-muted-foreground">
                       {r.topicName} · {when(r.reviewedAt)} · {r.mode}
                     </div>
                   </div>
                   {r.userAnswer !== null && r.userAnswer !== '' && (
-                    <code className="max-w-[40%] shrink-0 truncate rounded bg-secondary px-1.5 py-0.5 t-fine" title={`${self ? 'Your' : 'Their'} answer: ${r.userAnswer}`}>
-                      {r.userAnswer}
-                    </code>
+                    <ExpandableText
+                      text={r.userAnswer}
+                      className="shrink-0 rounded bg-secondary px-1.5 py-0.5 t-fine max-w-[40%]"
+                      openClassName="max-w-[65%] whitespace-pre-wrap break-all"
+                    />
                   )}
                 </div>
               </li>
@@ -252,7 +293,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                   {c.srsLevel}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate t-caption font-medium">{c.prompt ?? '(no text)'}</div>
+                  <ExpandableText text={c.prompt ?? '(no text)'} className="t-caption font-medium" />
                   <div className="t-fine truncate text-muted-foreground">
                     {c.topicName} · {c.srsLabel}
                     {c.lapses > 0 && <span className="text-destructive-ink"> · {c.lapses} lapse{c.lapses === 1 ? '' : 's'}</span>}

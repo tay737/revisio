@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { Icon } from '@/components/ui/icons';
@@ -92,7 +92,13 @@ export default function AdminPage() {
   const [classPickerFor, setClassPickerFor] = useState<string | null>(null);
   const [classRenameTo, setClassRenameTo] = useState<Record<string, string>>({});
   /** Whose progress sheet is open — developers may inspect any account. */
-  const [progressFor, setProgressFor] = useState<{ id: string; name: string } | null>(null);
+  const [progressFor, setProgressFor] = useState<{ id: string; name: string; siblings?: { id: string; name: string }[] } | null>(null);
+  /** Name/email filter for the users table. */
+  const [userFilter, setUserFilter] = useState('');
+  /** Per-user badges/classes management, disclosed one row at a time. */
+  const [manageFor, setManageFor] = useState<string | null>(null);
+  /** Uncommitted role picks — a select alone must not retier an account. */
+  const [roleDraft, setRoleDraft] = useState<Record<string, string>>({});
 
   const load = () =>
     api
@@ -134,6 +140,10 @@ export default function AdminPage() {
 
   const pendingApprovals = data?.approvals.filter((a) => a.status === 'pending') ?? [];
   const enabledFlags = data?.flags.filter((f) => f.enabled).length ?? 0;
+  const userQuery = userFilter.trim().toLowerCase();
+  const visibleUsers = (data?.users ?? []).filter(
+    (u) => !userQuery || u.name.toLowerCase().includes(userQuery) || u.email.toLowerCase().includes(userQuery),
+  );
 
   return (
     <div className="space-y-6">
@@ -611,10 +621,21 @@ export default function AdminPage() {
 
       {/* ── Users ────────────────────────────────────────────────────────── */}
       <Card as="section">
-        <h2 className="t-strong">Users</h2>
-        <p className="t-caption mt-1 text-muted-foreground">
-          {data?.users.length ?? 0} accounts. Suspending revokes access immediately; nothing is deleted.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="t-strong">Users</h2>
+            <p className="t-caption mt-1 text-muted-foreground">
+              {data?.users.length ?? 0} accounts. Suspending revokes access immediately; nothing is deleted.
+            </p>
+          </div>
+          <Input
+            className="sm:max-w-[240px]"
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            placeholder="Filter by name or email"
+            aria-label="Filter users"
+          />
+        </div>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left">
             <caption className="sr-only">All user accounts with role, status and two-factor state</caption>
@@ -622,229 +643,293 @@ export default function AdminPage() {
               <tr className="t-eyebrow">
                 <th scope="col" className="pb-2 pr-3 font-semibold">User</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Role</th>
-                <th scope="col" className="pb-2 pr-3 font-semibold">Badges</th>
-                <th scope="col" className="pb-2 pr-3 font-semibold">Classes</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">Status</th>
                 <th scope="col" className="pb-2 pr-3 font-semibold">2FA</th>
                 <th scope="col" className="pb-2 font-semibold" />
               </tr>
             </thead>
             <tbody>
-              {data?.users.map((u) => (
-                <tr key={u.id} className="border-t border-border/60">
-                  <td className="py-3 pr-3">
-                    <div className="t-strong">{u.name}</div>
-                    <div className="t-fine text-muted-foreground">{u.email}</div>
-                  </td>
-                  <td className="py-3 pr-3">
-                    {/* The action existed in the API with no way to reach it. */}
-                    <NativeSelect
-                      className="max-w-[130px] capitalize"
-                      value={u.role}
-                      aria-label={`Role for ${u.name}`}
-                      onChange={(e) => act({ action: 'set_user_role', userId: u.id, role: e.target.value }, `${u.name} is now ${e.target.value}.`)}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </td>
-                  <td className="py-3 pr-3">
-                    {(() => {
-                      const worn = data?.userBadges.filter((g) => g.userId === u.id) ?? [];
-                      const open = badgePickerFor === u.id;
-                      return (
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {worn.map((g) => {
-                              const b = data?.badges.find((x) => x.id === g.badgeId);
-                              if (!b) return null;
-                              return (
-                                <Button variant="chipActive"
-                                  key={g.badgeId}
-                                  type="button"
-                                  title={`Revoke "${b.label}"`}
-                                  className="gap-1"
-                                  onClick={() => act({ action: 'revoke_badge', userId: u.id, badgeId: b.id }, `Badge "${b.label}" revoked from ${u.name}.`)}
-                                >
-                                  {b.label}
-                                  <Icon name="close" size={10} />
-                                </Button>
-                              );
-                            })}
-                            <Button variant="chip"
+              {visibleUsers.map((u) => {
+                const badgeOpen = badgePickerFor === u.id;
+                const classOpen = classPickerFor === u.id;
+                const worn = data?.userBadges.filter((g) => g.userId === u.id) ?? [];
+                const inClasses = data?.classes.filter((c) => c.members.some((m) => m.userId === u.id)) ?? [];
+                const rolePending = roleDraft[u.id];
+                const managing = manageFor === u.id;
+                return (
+                  <Fragment key={u.id}>
+                    <tr className="border-t border-border/60">
+                      <td className="py-3 pr-3">
+                        <div className="t-strong">{u.name}</div>
+                        <div className="t-fine text-muted-foreground">{u.email}</div>
+                      </td>
+                      <td className="py-3 pr-3">
+                        {/* The action existed in the API with no way to reach it —
+                            and a bare select fired it on one stray change, so the
+                            pick now waits for an explicit Save. */}
+                        <NativeSelect
+                          className="max-w-[130px] capitalize"
+                          value={rolePending ?? u.role}
+                          aria-label={`Role for ${u.name}`}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setRoleDraft((prev) => {
+                              const draft = { ...prev };
+                              if (next === u.role) delete draft[u.id];
+                              else draft[u.id] = next;
+                              return draft;
+                            });
+                          }}
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                        {rolePending && rolePending !== u.role && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <Button
                               type="button"
-                              aria-label={`Badges for ${u.name}`}
-                              aria-expanded={open}
-                              className="gap-1"
-                              onClick={() => setBadgePickerFor(open ? null : u.id)}
+                              variant="ghost" size="sm" className="shrink-0"
+                              onClick={() => {
+                                const role = rolePending;
+                                setRoleDraft((prev) => {
+                                  const draft = { ...prev };
+                                  delete draft[u.id];
+                                  return draft;
+                                });
+                                void act({ action: 'set_user_role', userId: u.id, role }, `${u.name} is now ${role}.`);
+                              }}
                             >
-                              <Icon name={open ? 'collapse' : 'add'} size={10} />
+                              Save role
                             </Button>
+                            <span className="t-fine text-muted-foreground">
+                              {rolePending === 'developer'
+                                ? 'Developer gets admin access.'
+                                : rolePending === 'teacher'
+                                  ? 'Can create and run classes.'
+                                  : 'Loses staff access.'}
+                            </span>
                           </div>
-                          {open && (
-                            <div className="inset space-y-2 rounded-md p-2.5">
-                              <div className="flex flex-wrap gap-1">
-                                {(data?.badges.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">Mint a badge first.</span>}
-                                {data?.badges.filter((b) => !worn.some((g) => g.badgeId === b.id)).map((b) => (
-                                  <Button variant="chip"
-                                    key={b.id}
-                                    type="button"
-                                    className="gap-1"
-                                    onClick={() => act({ action: 'grant_badge', userId: u.id, badgeId: b.id }, `"${b.label}" granted to ${u.name}.`)}
-                                  >
-                                    <Icon name="add" size={10} />
-                                    {b.label}
-                                  </Button>
-                                ))}
-                              </div>
-                              {(data?.manualAchievements.length ?? 0) > 0 && (
-                                <div className="flex flex-wrap gap-1 border-t border-border/60 pt-2">
-                                  {data!.manualAchievements.map((a) => {
-                                    const held = data?.userAchievements.some((g) => g.userId === u.id && g.achievementId === a.id);
+                        )}
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={`chip ${
+                            u.status === 'active' ? 'chip-active' : u.status === 'suspended' ? 'border-destructive/50 text-destructive-ink' : ''
+                          }`}
+                        >
+                          {u.status === 'pending' && !u.emailVerifiedAt ? 'unverified' : u.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className="flex items-center gap-1.5">
+                          <Icon
+                            name={u.totpEnabled ? 'secure' : 'close'}
+                            size={16}
+                            className={u.totpEnabled ? 'text-good-strong' : 'text-muted-foreground'}
+                          />
+                          <span className="t-fine text-muted-foreground">{u.totpEnabled ? 'On' : 'Off'}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setProgressFor({ id: u.id, name: u.name, siblings: visibleUsers.map((x) => ({ id: x.id, name: x.name })) })}
+                            aria-label={`View progress for ${u.name}`}
+                          >
+                            Progress
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            aria-expanded={managing}
+                            onClick={() => setManageFor(managing ? null : u.id)}
+                          >
+                            <Icon name={managing ? 'collapse' : 'expand'} size={13} className="mr-1" />
+                            Manage
+                          </Button>
+                          {!u.emailVerifiedAt && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => act({ action: 'verify_user_email', userId: u.id }, `${u.name}'s email marked verified.`)}
+                            >
+                              Verify email
+                            </Button>
+                          )}
+                          <InlineConfirm
+                            label="Sign out everywhere"
+                            title={`Sign ${u.name} out of every device?`}
+                            message="They can sign back in."
+                            confirmLabel="Sign out"
+                            onConfirm={() => act({ action: 'revoke_sessions', userId: u.id }, `${u.name} signed out everywhere.`)}
+                          />
+                          <InlineConfirm
+                            label={u.status === 'suspended' ? 'Activate' : 'Suspend'}
+                            title={u.status === 'suspended' ? `Reactivate ${u.name}?` : `Suspend ${u.name}?`}
+                            message={u.status === 'suspended' ? 'They can sign in again.' : 'They lose access immediately; nothing is deleted.'}
+                            confirmLabel={u.status === 'suspended' ? 'Activate' : 'Suspend'}
+                            onConfirm={() =>
+                              act(
+                                {
+                                  action: u.status === 'suspended' ? 'activate_user' : 'suspend_user',
+                                  userId: u.id,
+                                },
+                                `${u.name} ${u.status === 'suspended' ? 'reactivated' : 'suspended'}.`,
+                              )
+                            }
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                    {managing && (
+                      <tr className="border-t border-border/60">
+                        <td colSpan={5} className="px-3 py-3">
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            {/* Badges — worn chips display state; removing one
+                                confirms, same as everywhere else on this page. */}
+                            <div>
+                              <span className="t-eyebrow">Badges</span>
+                              <div className="mt-2 flex flex-col gap-1.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {worn.map((g) => {
+                                    const b = data?.badges.find((x) => x.id === g.badgeId);
+                                    if (!b) return null;
                                     return (
-                                      <button
-                                        key={a.id}
-                                        type="button"
-                                        disabled={held}
-                                        title={a.description}
-                                        className={`chip gap-1 ${held ? 'chip-active' : ''}`}
-                                        onClick={() => act({ action: 'grant_achievement', userId: u.id, achievementId: a.id }, `${a.name} granted to ${u.name}.`)}
-                                      >
-                                        {held ? <Icon name="reviewed" size={10} /> : <Icon name="add" size={10} />}
-                                        {a.name}
-                                      </button>
+                                      <span key={g.badgeId} className="flex items-center gap-1">
+                                        <span className="chip chip-active gap-1">{b.label}</span>
+                                        <InlineConfirm
+                                          label="Remove"
+                                          icon="remove"
+                                          ariaLabel={`Revoke badge ${b.label} from ${u.name}`}
+                                          title={`Revoke "${b.label}" from ${u.name}?`}
+                                          message="It disappears from their profile."
+                                          confirmLabel="Revoke"
+                                          onConfirm={() => act({ action: 'revoke_badge', userId: u.id, badgeId: b.id }, `Badge "${b.label}" revoked from ${u.name}.`)}
+                                        />
+                                      </span>
                                     );
                                   })}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </td>
-                  <td className="py-3 pr-3">
-                    {(() => {
-                      // Membership chips behave exactly like the badge chips
-                      // beside them: click a chip to remove, open the picker
-                      // to add. Only classes the account is not in are listed.
-                      const inClasses = data?.classes.filter((c) => c.members.some((m) => m.userId === u.id)) ?? [];
-                      const open = classPickerFor === u.id;
-                      return (
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {inClasses.map((c) => (
-                              <Button variant="chipActive"
-                                key={c.id}
-                                type="button"
-                                title={`Remove ${u.name} from ${c.name}`}
-                                className="gap-1"
-                                onClick={() => act({ action: 'remove_class_member', classId: c.id, userId: u.id }, `${u.name} removed from ${c.name}.`)}
-                              >
-                                {c.name}
-                                <Icon name="close" size={10} />
-                              </Button>
-                            ))}
-                            <Button variant="chip"
-                              type="button"
-                              aria-label={`Classes for ${u.name}`}
-                              aria-expanded={open}
-                              className="gap-1"
-                              onClick={() => setClassPickerFor(open ? null : u.id)}
-                            >
-                              <Icon name={open ? 'collapse' : 'add'} size={10} />
-                            </Button>
-                          </div>
-                          {open && (
-                            <div className="inset flex flex-wrap gap-1 rounded-md p-2.5">
-                              {(data?.classes.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">No classes exist yet — a teacher can create one.</span>}
-                              {data?.classes
-                                .filter((c) => !c.members.some((m) => m.userId === u.id))
-                                .map((c) => (
                                   <Button variant="chip"
-                                    key={c.id}
                                     type="button"
-                                    title={`${c.teacherName} · code ${c.joinCode}`}
+                                    aria-label={`Badges for ${u.name}`}
+                                    aria-expanded={badgeOpen}
                                     className="gap-1"
-                                    onClick={() => act({ action: 'add_class_member', classId: c.id, userId: u.id }, `${u.name} added to ${c.name}.`)}
+                                    onClick={() => setBadgePickerFor(badgeOpen ? null : u.id)}
                                   >
-                                    <Icon name="class" size={10} />
-                                    {c.name}
+                                    <Icon name={badgeOpen ? 'collapse' : 'add'} size={10} />
                                   </Button>
-                                ))}
+                                </div>
+                                {badgeOpen && (
+                                  <div className="inset space-y-2 rounded-md p-2.5">
+                                    <div className="flex flex-wrap gap-1">
+                                      {(data?.badges.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">Mint a badge first.</span>}
+                                      {data?.badges.filter((b) => !worn.some((g) => g.badgeId === b.id)).map((b) => (
+                                        <Button variant="chip"
+                                          key={b.id}
+                                          type="button"
+                                          className="gap-1"
+                                          onClick={() => act({ action: 'grant_badge', userId: u.id, badgeId: b.id }, `"${b.label}" granted to ${u.name}.`)}
+                                        >
+                                          <Icon name="add" size={10} />
+                                          {b.label}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                    {(data?.manualAchievements.length ?? 0) > 0 && (
+                                      <div className="flex flex-wrap gap-1 border-t border-border/60 pt-2">
+                                        {data!.manualAchievements.map((a) => {
+                                          const held = data?.userAchievements.some((g) => g.userId === u.id && g.achievementId === a.id);
+                                          return (
+                                            <button
+                                              key={a.id}
+                                              type="button"
+                                              aria-disabled={held}
+                                              title={held ? `${a.name} — already granted` : a.description}
+                                              className={`chip gap-1 ${held ? 'chip-active' : ''}`}
+                                              onClick={() => {
+                                                if (held) return;
+                                                act({ action: 'grant_achievement', userId: u.id, achievementId: a.id }, `${a.name} granted to ${u.name}.`);
+                                              }}
+                                            >
+                                              {held ? <Icon name="reviewed" size={10} /> : <Icon name="add" size={10} />}
+                                              {a.name}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </td>
-                  <td className="py-3 pr-3">
-                    <span
-                      className={`chip ${
-                        u.status === 'active' ? 'chip-active' : u.status === 'suspended' ? 'border-destructive/50 text-destructive-ink' : ''
-                      }`}
-                    >
-                      {u.status === 'pending' && !u.emailVerifiedAt ? 'unverified' : u.status}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-3">
-                    <Icon
-                      name={u.totpEnabled ? 'secure' : 'close'}
-                      size={16}
-                      className={u.totpEnabled ? 'text-good-strong' : 'text-muted-foreground'}
-                    />
-                  </td>
-                  <td className="py-3 text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setProgressFor({ id: u.id, name: u.name })}
-                        aria-label={`View progress for ${u.name}`}
-                      >
-                        Progress
-                      </Button>
-                      {!u.emailVerifiedAt && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => act({ action: 'verify_user_email', userId: u.id }, `${u.name}'s email marked verified.`)}
-                        >
-                          Verify email
-                        </Button>
-                      )}
-                      <InlineConfirm
-                        label="Sign out everywhere"
-                        title={`Sign ${u.name} out of every device?`}
-                        message="They can sign back in."
-                        confirmLabel="Sign out"
-                        onConfirm={() => act({ action: 'revoke_sessions', userId: u.id }, `${u.name} signed out everywhere.`)}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() =>
-                          act(
-                            {
-                              action: u.status === 'suspended' ? 'activate_user' : 'suspend_user',
-                              userId: u.id,
-                            },
-                            `${u.name} ${u.status === 'suspended' ? 'reactivated' : 'suspended'}.`,
-                          )
-                        }
-                      >
-                        {u.status === 'suspended' ? 'Activate' : 'Suspend'}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                            {/* Classes — same grammar: chips display, removal confirms. */}
+                            <div>
+                              <span className="t-eyebrow">Classes</span>
+                              <div className="mt-2 flex flex-col gap-1.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {inClasses.map((c) => (
+                                    <span key={c.id} className="flex items-center gap-1">
+                                      <span className="chip chip-active gap-1">{c.name}</span>
+                                      <InlineConfirm
+                                        label="Remove"
+                                        icon="remove"
+                                        ariaLabel={`Remove ${u.name} from ${c.name}`}
+                                        title={`Remove ${u.name} from ${c.name}?`}
+                                        message="They can rejoin with the join code."
+                                        confirmLabel="Remove"
+                                        onConfirm={() => act({ action: 'remove_class_member', classId: c.id, userId: u.id }, `${u.name} removed from ${c.name}.`)}
+                                      />
+                                    </span>
+                                  ))}
+                                  <Button variant="chip"
+                                    type="button"
+                                    aria-label={`Classes for ${u.name}`}
+                                    aria-expanded={classOpen}
+                                    className="gap-1"
+                                    onClick={() => setClassPickerFor(classOpen ? null : u.id)}
+                                  >
+                                    <Icon name={classOpen ? 'collapse' : 'add'} size={10} />
+                                  </Button>
+                                </div>
+                                {classOpen && (
+                                  <div className="inset flex flex-wrap gap-1 rounded-md p-2.5">
+                                    {(data?.classes.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">No classes exist yet — a teacher can create one.</span>}
+                                    {data?.classes
+                                      .filter((c) => !c.members.some((m) => m.userId === u.id))
+                                      .map((c) => (
+                                        <Button variant="chip"
+                                          key={c.id}
+                                          type="button"
+                                          title={`${c.teacherName} · code ${c.joinCode}`}
+                                          className="gap-1"
+                                          onClick={() => act({ action: 'add_class_member', classId: c.id, userId: u.id }, `${u.name} added to ${c.name}.`)}
+                                        >
+                                          <Icon name="class" size={10} />
+                                          {c.name}
+                                        </Button>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
+        {userQuery && visibleUsers.length === 0 && (
+          <p className="t-caption mt-3 text-muted-foreground">No accounts match “{userFilter.trim()}”.</p>
+        )}
       </Card>
 
       {/* ── Classes (all of them, any owner) ────────────────────────────── */}
@@ -961,20 +1046,22 @@ export default function AdminPage() {
                   </NativeSelect>
                 </div>
 
-                {/* Roster — same chip grammar as the Users table. */}
+                {/* Roster — chips display membership; removal confirms. */}
                 {c.members.length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                     {c.members.map((m) => (
-                      <Button variant="chip"
-                        key={m.userId}
-                        type="button"
-                        title={`Remove ${m.name} from ${c.name}`}
-                        className="gap-1"
-                        onClick={() => act({ action: 'remove_class_member', classId: c.id, userId: m.userId }, `${m.name} removed from ${c.name}.`)}
-                      >
-                        {m.name}
-                        <Icon name="close" size={10} />
-                      </Button>
+                      <span key={m.userId} className="flex items-center gap-1">
+                        <span className="chip gap-1">{m.name}</span>
+                        <InlineConfirm
+                          label="Remove"
+                          icon="close"
+                          ariaLabel={`Remove ${m.name} from ${c.name}`}
+                          title={`Remove ${m.name} from ${c.name}?`}
+                          message="They can rejoin with the code."
+                          confirmLabel="Remove"
+                          onConfirm={() => act({ action: 'remove_class_member', classId: c.id, userId: m.userId }, `${m.name} removed from ${c.name}.`)}
+                        />
+                      </span>
                     ))}
                   </div>
                 )}
@@ -1008,6 +1095,8 @@ export default function AdminPage() {
         <StudentProgressPanel
           userId={progressFor.id}
           name={progressFor.name}
+          siblings={progressFor.siblings}
+          onNavigate={(u) => setProgressFor({ ...u, siblings: progressFor.siblings })}
           onClose={() => setProgressFor(null)}
         />
       )}

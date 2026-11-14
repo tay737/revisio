@@ -60,7 +60,7 @@ export default function TeacherPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   /** Whose progress sheet is open — roster names open the shared staff panel. */
-  const [progressFor, setProgressFor] = useState<{ id: string; name: string } | null>(null);
+  const [progressFor, setProgressFor] = useState<{ id: string; name: string; siblings?: { id: string; name: string }[] } | null>(null);
 
   const copyCode = async (classId: string, code: string) => {
     try {
@@ -361,7 +361,7 @@ export default function TeacherPage() {
                         hover underline, so the row stays quiet. */}
                     <button
                       type="button"
-                      onClick={() => setProgressFor({ id: r.userId, name: r.name })}
+                      onClick={() => setProgressFor({ id: r.userId, name: r.name, siblings: c.roster.map((x) => ({ id: x.userId, name: x.name })) })}
                       aria-label={`View progress for ${r.name}`}
                       title="View progress"
                       className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-primary"
@@ -499,6 +499,8 @@ export default function TeacherPage() {
         <StudentProgressPanel
           userId={progressFor.id}
           name={progressFor.name}
+          siblings={progressFor.siblings}
+          onNavigate={(u) => setProgressFor({ ...u, siblings: progressFor.siblings })}
           onClose={() => setProgressFor(null)}
         />
       )}
