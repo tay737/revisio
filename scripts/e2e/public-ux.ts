@@ -301,15 +301,16 @@ try {
   check(await absentEventually(blockedPage.getByRole('region', { name: 'Cookie consent' })), 'storage failure does not trap the visitor');
   await blockedStorageContext.close();
 
-  // Registration is a multi-step wizard. The study step (level and subjects)
-  // comes straight after the role, then the account, then "About you" with DOB
-  // and guardian consent, and a teacher never sees the study or DOB steps.
+  // Registration is a multi-step wizard. The study step (subjects and an
+  // optional class code) comes straight after the role, then the account, then
+  // "About you" with DOB and guardian consent, and a teacher never sees the
+  // study or DOB steps.
   const registerContext = await makeContext(browser);
   const registerPage = await registerContext.newPage();
   await watchPage(registerPage);
   await registerPage.goto(new URL('/register', baseUrl).toString(), { waitUntil: 'domcontentloaded' });
   await registerPage.getByRole('button', { name: 'Student' }).waitFor();
-  check(await absentEventually(registerPage.getByLabel('Learner’s date of birth')), 'the first wizard step collects no date of birth');
+  check(await absentEventually(registerPage.getByLabel('Your date of birth')), 'the first wizard step collects no date of birth');
   // The banner mounts from the client bundle, so it has to be waited for before
   // it is dismissed — a bare `count()` reads "no banner" on an unhydrated page
   // and the panel then covers the registration controls the checks click.
@@ -325,17 +326,13 @@ try {
   await registerPage.getByRole('button', { name: 'Student' }).click();
   await registerPage.getByRole('button', { name: 'Continue' }).click();
   await registerPage.locator('fieldset').waitFor({ state: 'detached' });
-  // Study before account: the level and subjects are asked while motivation is
-  // highest, and the email form only after that investment.
-  await registerPage.locator('#level-group').waitFor();
+  // Study before account: subjects are asked while motivation is highest, and
+  // the email form only after that investment. The study step's own field is
+  // the optional class code, so it marks the step without assuming a level.
+  await registerPage.locator('#classCode').waitFor();
   check(await absentEventually(registerPage.locator('#name')), 'the study step is asked before the account step');
-  await registerPage.getByRole('button', { name: 'GCSE' }).click();
-  check(
-    (await registerPage.getByRole('button', { name: 'GCSE' }).getAttribute('aria-pressed')) === 'true',
-    'choosing a level records the choice',
-  );
   await registerPage.getByRole('button', { name: 'Continue' }).click();
-  await registerPage.locator('#level-group').waitFor({ state: 'detached' });
+  await registerPage.locator('#classCode').waitFor({ state: 'detached' });
   await registerPage.locator('#name').waitFor();
   await waitForHydration(registerPage, '#name');
   await registerPage.locator('#name').fill('Wizard Probe');
@@ -343,20 +340,20 @@ try {
   await registerPage.locator('#password').fill('correct-horse-battery');
   await registerPage.getByRole('button', { name: 'Continue' }).click();
   await registerPage.locator('#name').waitFor({ state: 'detached' });
-  await registerPage.getByLabel('Learner’s date of birth').waitFor();
+  await registerPage.getByLabel('Your date of birth').waitFor();
   await waitForHydration(registerPage, '#dateOfBirth');
-  await registerPage.getByLabel('Learner’s date of birth').fill('2015-01-01');
-  check(await registerPage.getByLabel('Learner’s date of birth').getAttribute('required') !== null, 'learner registration requires a date of birth');
-  check(await presentEventually(registerPage.getByRole('checkbox', { name: /I am the parent or legal guardian/i })) === 1, 'under-13 registration presents guardian attestation');
+  await registerPage.getByLabel('Your date of birth').fill('2015-01-01');
+  check(await registerPage.getByLabel('Your date of birth').getAttribute('required') !== null, 'learner registration requires a date of birth');
+  check(await presentEventually(registerPage.getByRole('checkbox', { name: /I am this learner/i })) === 1, 'under-13 registration presents guardian attestation');
   // Back to the role step, then choose teacher: the About-you step has no DOB.
   await registerPage.getByRole('button', { name: 'Back' }).click();
   await registerPage.locator('#dateOfBirth').waitFor({ state: 'detached' });
   await registerPage.locator('#name').waitFor();
   await registerPage.getByRole('button', { name: 'Back' }).click();
   await registerPage.locator('#name').waitFor({ state: 'detached' });
-  await registerPage.locator('#level-group').waitFor();
+  await registerPage.locator('#classCode').waitFor();
   await registerPage.getByRole('button', { name: 'Back' }).click();
-  await registerPage.locator('#level-group').waitFor({ state: 'detached' });
+  await registerPage.locator('#classCode').waitFor({ state: 'detached' });
   await registerPage.getByRole('button', { name: 'Teacher' }).waitFor();
   await registerPage.getByRole('button', { name: 'Teacher' }).click();
   await registerPage.getByRole('button', { name: 'Continue' }).click();
@@ -365,7 +362,7 @@ try {
   await registerPage.getByRole('button', { name: 'Continue' }).click();
   await registerPage.locator('#name').waitFor({ state: 'detached' });
   await registerPage.locator('#note').waitFor();
-  check(await absentEventually(registerPage.getByLabel('Learner’s date of birth')), 'teacher registration does not collect a learner date of birth');
+  check(await absentEventually(registerPage.getByLabel('Your date of birth')), 'teacher registration does not collect a learner date of birth');
   await registerContext.close();
 
   // Public, auth, legal and not-found routes: expected status, semantics, runtime.
