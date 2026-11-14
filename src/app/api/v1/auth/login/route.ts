@@ -11,6 +11,11 @@ export const POST = route(async (req: NextRequest) => {
   const { email, password, totp, recoveryCode } = (body ?? {}) as {
     email?: string; password?: string; totp?: string; recoveryCode?: string;
   };
+  // Native clients (Flutter, the current Kotlin/Swift apps) cannot use the
+  // httpOnly refresh cookie, so they opt in with `client: 'native'` and get the
+  // rotating refresh token back in the body instead. Web keeps the cookie-only
+  // posture: the token never enters JS-reachable storage there.
+  const nativeClient = (body as { client?: string } | null)?.client === 'native';
   if (!email || !password) throw new ApiError(400, 'bad_request', 'Email and password are required.');
 
   // ── rate limits, before any bcrypt work ──────────────────────────────────
@@ -59,5 +64,8 @@ export const POST = route(async (req: NextRequest) => {
   return ok({
     accessToken,
     user: { id: user.id, email: user.email, name: user.name, role: user.role, status: user.status, totpEnabled: user.totpEnabled },
+    // Only the client that asked for it gets the raw refresh token in the
+    // body (see the `client: 'native'` note above).
+    ...(nativeClient ? { refreshToken: refresh } : {}),
   });
 });
