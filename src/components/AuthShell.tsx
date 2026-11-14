@@ -33,7 +33,7 @@ export function AuthShell({
           every region and axe reports the whole band as unlandmarked content. */}
       <header className="band tile-dark relative px-5 pt-safe">
         <div className="relative mx-auto flex w-full max-w-md items-center justify-between pt-5">
-          <Link href="/" className="-my-1 flex items-center gap-2.5 py-1">
+          <Link href="/" className="-my-1 flex min-h-11 items-center gap-2.5 py-1">
             <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground t-caption font-bold text-background">
               R
             </span>
