@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
-import { api } from '@/lib/api';
+import { api, ApiClientError } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/Notice';
@@ -77,6 +77,9 @@ export default function RegisterWizard() {
   const [classCode, setClassCode] = useState('');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [error, setError] = useState('');
+  // A problem the server pinned to one control, rendered beneath that control
+  // instead of at the bottom of the step.
+  const [fieldError, setFieldError] = useState<{ field: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ message: string; devLink?: string } | null>(null);
 
@@ -122,8 +125,17 @@ export default function RegisterWizard() {
     return null;
   };
 
+  /** The step that owns a server-named field, so its message is on screen. */
+  const stepForField = (field: string): StepKey | null => {
+    if (field === 'level') return 'study';
+    if (field === 'dateOfBirth' || field === 'ageConsent') return 'profile';
+    if (field === 'name' || field === 'email' || field === 'password') return 'account';
+    return null;
+  };
+
   const goTo = (index: number) => {
     setError('');
+    setFieldError(null);
     setDirection(index > stepIndex ? 1 : -1);
     setStepIndex(index);
   };
@@ -175,7 +187,20 @@ export default function RegisterWizard() {
           : { message: 'Account created. Check your inbox for the verification link, then sign in.' },
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong on our side. Try again in a moment.');
+      if (err instanceof ApiClientError && err.field) {
+        const owner = stepForField(err.field);
+        setFieldError({ field: err.field, message: err.message });
+        setError('');
+        if (owner) goTo(at(owner));
+        // The control may mount with the step, so wait for that paint.
+        requestAnimationFrame(() => {
+          const id = err.field === 'ageConsent' ? 'guardianConsent' : err.field!;
+          const target = document.getElementById(id) ?? document.getElementById('level-group') ?? headingRef.current;
+          target?.focus();
+        });
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong on our side. Try again in a moment.');
+      }
     } finally {
       setBusy(false);
     }
@@ -301,7 +326,13 @@ export default function RegisterWizard() {
 
               {step === 'account' && (
                 <>
-                  <Field icon="person" label="Full name" htmlFor="name">
+                  <Field
+                    icon="person"
+                    label="Full name"
+                    htmlFor="name"
+                    error={fieldError?.field === 'name' ? fieldError.message : undefined}
+                    errorId="name-error"
+                  >
                     <Input
                       id="name"
                       className="pl-11"
@@ -310,9 +341,17 @@ export default function RegisterWizard() {
                       required
                       autoComplete="name"
                       placeholder="Ada Lovelace"
+                      aria-invalid={fieldError?.field === 'name' || undefined}
+                      aria-describedby={fieldError?.field === 'name' ? 'name-error' : undefined}
                     />
                   </Field>
-                  <Field icon="mail" label="Email" htmlFor="email">
+                  <Field
+                    icon="mail"
+                    label="Email"
+                    htmlFor="email"
+                    error={fieldError?.field === 'email' ? fieldError.message : undefined}
+                    errorId="email-error"
+                  >
                     <Input
                       id="email"
                       type="email"
@@ -324,10 +363,18 @@ export default function RegisterWizard() {
                       spellCheck={false}
                       autoCapitalize="none"
                       placeholder="you@school.edu"
+                      aria-invalid={fieldError?.field === 'email' || undefined}
+                      aria-describedby={fieldError?.field === 'email' ? 'email-error' : undefined}
                     />
                   </Field>
                   <div>
-                    <Field icon="secure" label="Password" htmlFor="password">
+                    <Field
+                      icon="secure"
+                      label="Password"
+                      htmlFor="password"
+                      error={fieldError?.field === 'password' ? fieldError.message : undefined}
+                      errorId="password-error"
+                    >
                       <Input
                         id="password"
                         type="password"
@@ -338,7 +385,10 @@ export default function RegisterWizard() {
                         minLength={8}
                         autoComplete="new-password"
                         placeholder="At least 8 characters"
-                        aria-describedby="password-strength"
+                        aria-invalid={fieldError?.field === 'password' || undefined}
+                        aria-describedby={
+                          fieldError?.field === 'password' ? 'password-strength password-error' : 'password-strength'
+                        }
                       />
                     </Field>
                     <div className="mt-2 flex items-center gap-2" id="password-strength" aria-live="polite">
@@ -361,7 +411,13 @@ export default function RegisterWizard() {
 
               {step === 'profile' && role === 'student' && (
                 <>
-                  <Field icon="person" label="Learner’s date of birth" htmlFor="dateOfBirth">
+                  <Field
+                    icon="person"
+                    label="Learner’s date of birth"
+                    htmlFor="dateOfBirth"
+                    error={fieldError?.field === 'dateOfBirth' ? fieldError.message : undefined}
+                    errorId="dateOfBirth-error"
+                  >
                     <Input
                       id="dateOfBirth"
                       type="date"
@@ -374,7 +430,12 @@ export default function RegisterWizard() {
                       }}
                       required
                       autoComplete="bday"
-                      aria-describedby="age-consent-hint"
+                      aria-invalid={fieldError?.field === 'dateOfBirth' || undefined}
+                      aria-describedby={
+                        fieldError?.field === 'dateOfBirth'
+                          ? 'age-consent-hint dateOfBirth-error'
+                          : 'age-consent-hint'
+                      }
                     />
                   </Field>
                   <p id="age-consent-hint" className="t-fine text-muted-foreground">
@@ -393,6 +454,7 @@ export default function RegisterWizard() {
                         className="flex min-h-11 items-start gap-3 rounded-xl border border-border p-3"
                       >
                         <input
+                          id="guardianConsent"
                           type="checkbox"
                           className="mt-1 h-5 w-5 shrink-0"
                           checked={guardianConsent}
@@ -428,7 +490,14 @@ export default function RegisterWizard() {
                 <>
                   <div>
                     <Label>Level</Label>
-                    <div className="mt-1.5 flex flex-wrap gap-2" role="group" aria-label="Your level">
+                    <div
+                      id="level-group"
+                      role="group"
+                      aria-label="Your level"
+                      tabIndex={-1}
+                      aria-describedby={fieldError?.field === 'level' ? 'level-error' : undefined}
+                      className="mt-1.5 flex flex-wrap gap-2 outline-none"
+                    >
                       {EDUCATION_LEVELS.map((option) => {
                         const on = level === option.id;
                         return (
@@ -445,6 +514,11 @@ export default function RegisterWizard() {
                         );
                       })}
                     </div>
+                    {fieldError?.field === 'level' && (
+                      <p id="level-error" role="alert" className="t-fine mt-1.5 font-medium text-destructive-ink">
+                        {fieldError.message}
+                      </p>
+                    )}
                     <p className="t-caption mt-2 text-muted-foreground">
                       Optional, and never shown on your public profile.
                     </p>
