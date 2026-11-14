@@ -56,11 +56,11 @@ export function openers(snap: Pick<LearnerSnapshot, 'due' | 'streak' | 'level' |
     lines.push(`${snap.due} ${snap.due === 1 ? 'card is' : 'cards are'} waiting`);
     lines.push(`Let's clear today's queue`);
   } else {
-    lines.push(`Nothing is due — you're ahead`);
-    lines.push(`Want to get ahead instead?`);
+    lines.push(`Nothing is due today`);
+    lines.push(`Want to work ahead?`);
   }
   if (snap.streak >= 2) lines.push(`Day ${snap.streak} of your streak`);
-  if (snap.level > 1) lines.push(`Level ${snap.level} — keep it moving`);
+  if (snap.level > 1) lines.push(`Level ${snap.level}`);
   const subject = snap.subjects[0];
   if (subject) lines.push(`Back to ${subject}?`);
   return lines.length > 0 ? Array.from(new Set(lines)) : ["Let's get started"];
@@ -70,15 +70,15 @@ export function openers(snap: Pick<LearnerSnapshot, 'due' | 'streak' | 'level' |
 export function sessionSummary(correct: number, total: number): string {
   if (total === 0) return 'No cards answered yet.';
   const pct = Math.round((correct / total) * 100);
-  if (pct === 100) return `${correct} for ${total}. Every one of them.`;
-  if (pct >= 80) return `${correct} for ${total} — that's the recall we want.`;
-  if (pct >= 50) return `${correct} for ${total}. The misses are the useful part.`;
-  return `${correct} for ${total}. Worth a pass over the notes before the next run.`;
+  if (pct === 100) return `${correct} for ${total}. Nothing to redo.`;
+  if (pct >= 80) return `${correct} for ${total}. ${total - correct} to look at again.`;
+  if (pct >= 50) return `${correct} for ${total}. Read the notes before the next run.`;
+  return `${correct} for ${total}. Go back to the notes; this set is not settled yet.`;
 }
 
 /** Empty-state copy that hands the learner a next action rather than a shrug. */
 export function emptyQueueLine(due: number, streak: number): string {
-  if (due === 0 && streak > 0) return `Your schedule is clear and your ${streak}-day streak is safe. Anything you do now is a head start.`;
+  if (due === 0 && streak > 0) return `Your schedule is clear and your ${streak}-day streak is safe. Anything you review now comes off tomorrow.`;
   return 'Your schedule is clear. Cram a topic, read ahead, or come back tomorrow.';
 }
 
@@ -129,7 +129,7 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
   if (totalXp <= 0 && reviewed === 0) {
     return {
       tone: 'welcome',
-      line: `Nothing here yet, ${firstName(snap.name)} — which is the good part. Ten minutes on the first topic and the scheduler starts working for you tonight.`,
+      line: `Nothing here yet, ${firstName(snap.name)}. Ten minutes on one topic is enough to start.`,
       action: { label: 'Pick a topic', href: '/library' },
     };
   }
@@ -138,7 +138,7 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
   if (streak === 0 && bestStreak >= 3 && reviewed === 0) {
     return {
       tone: 'returning',
-      line: `You had ${bestStreak} days going. Nothing is lost — the queue has held your place, and it only takes today to start the next run.`,
+      line: `You had ${bestStreak} days going. Your queue kept your place, so today starts the next run.`,
       action: { label: 'Resume where you left off', href: due > 0 ? '/review' : '/learn' },
     };
   }
@@ -149,8 +149,8 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
     return {
       tone: clean ? 'praise' : 'open',
       line: clean
-        ? `${reviewed} for ${reviewed}. That is a clean sheet, and it${rank ? ` is why you are holding${rank}` : ''}.`
-        : `${reviewed} answered and the queue is clear${rank ? ` — still${rank}` : ''}. Days like this are what hold a rank together.`,
+        ? `${reviewed} for ${reviewed}.${rank ? ` Still${rank}.` : ''}`
+        : `${reviewed} answered and the queue is clear.${rank ? ` Still${rank}.` : ''}`,
       action: { label: 'See the ladder', href: '/progress' },
     };
   }
@@ -159,7 +159,7 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
   if (reviewed > 0 && due > 0) {
     return {
       tone: 'momentum',
-      line: `${reviewed} down, ${due} to go. You are faster on these than you were at the start.`,
+      line: `${reviewed} down, ${due} to go.`,
       action: { label: 'Carry on', href: '/review' },
     };
   }
@@ -170,8 +170,10 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
     return {
       tone: 'nudge',
       line: late
-        ? `${due} cards are due. Five of them would keep ${streak > 0 ? `day ${streak}` : 'the streak algorithm'} happy — the rest can wait for tomorrow.`
-        : `${due} cards due, and nothing in there you have not seen before. Worth doing while they are still easy.`,
+        ? due === 1
+          ? 'One card is due. It will take a minute.'
+          : `${due} cards are due. A few now, the rest tomorrow.`
+        : `${due} cards are due. All of them are cards you have already seen.`,
       action: { label: 'Start the queue', href: '/review' },
     };
   }
@@ -179,7 +181,7 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
   // 6 — nothing due and nothing done: an invitation, not a reprimand.
   return {
     tone: 'open',
-    line: 'Nothing is due, which means today is optional — the best kind. Get ahead on a topic, or protect the rank with a quick cram.',
+    line: 'Nothing is due. Get ahead on a topic, or leave it until tomorrow.',
     action: { label: 'Get ahead', href: '/learn' },
   };
 }
@@ -201,10 +203,10 @@ export function lobbyLine(input: {
     return `We are still placing you. A few more reviews and we will seat you in a ${rankLabel} lobby.`;
   }
   if (zone === 'promotion') {
-    return `${position} of ${size} — you are inside the promotion zone. ${days}; holding this seat moves you up a rung.`;
+    return `${position} of ${size}. You are inside the promotion zone. ${days}; holding this seat moves you up a rung.`;
   }
   if (zone === 'demotion') {
-    return `${position} of ${size} — that is the demotion band. One session pulls you clear of it.`;
+    return `${position} of ${size}. That is the demotion band, and one session pulls you clear of it.`;
   }
-  return `${position} of ${size} — safe, and close enough to the promotion band to take it. ${days}.`;
+  return `${position} of ${size}. Safe, and close enough to the promotion band to take it. ${days}.`;
 }

@@ -750,7 +750,7 @@
     background: transparent;
     color: var(--muted-foreground);
     border: 1px solid var(--border);
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 16px;
     font-size: 14px;
   }
@@ -882,14 +882,16 @@
     color: var(--foreground);
     font-size: 13px;
     font-weight: 500;
-    /* A chip carrying a long topic name is wider than a 390px phone. Wrapping
-       beats a horizontal scrollbar the learner cannot explain. */
+    /* A chip carrying a long topic name is wider than a 390px phone. This block
+       used to declare `white-space: normal` and then `nowrap` two rules later,
+       so the wrapping described in the comment never happened and a picker
+       chip pushed /cram and /exam 135-146px sideways at 390. A short label
+       still sits on one line because it fits; only a label wider than the row
+       wraps inside the pill. `overflow-wrap: anywhere` covers a single
+       unbroken word, which has no space to wrap at. */
     max-width: 100%;
     white-space: normal;
-    /* A chip is a single token, never a paragraph. Without this a two-word
-       label on a narrow screen wraps inside the pill and turns it into a
-       circle of stacked words. */
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
   /* Thumb rule: on a touch viewport the chip is a primary control (Cram and
      Exam topic pickers are rows of them), so it earns the 44px target. Desktop
@@ -1134,36 +1136,33 @@
 
      A chip and a tab are the app's densest controls: topic pickers stack forty
      of them, and the Rank tabs sit four across a 390px phone. They are 30-36px
-     tall by construction, which is fine for a mouse and below the 44px floor the
-     UI system promises for a thumb. Rather than fatten every desktop list, the
-     floor is applied only where the input is a finger — the same trade the
-     button family already makes (`.btn-ghost`, `.btn-sm`). */
-  @media (max-width: 639px) {
-    /* The floor, applied at the end of the cascade: `.btn-sm` declared 36px
-       *after* the old mobile rule, so the rule lost and Follow buttons shipped
-       at 36px on a phone. One late block covers every control family. */
-    .chip,
-    .segment,
-    .btn-sm,
-    .btn-icon,
-    [role='tab'],
-    [role='switch'],
-    [data-slot='switch'],
-    main button,
-    main [role='button'],
-    button[aria-pressed] {
-      min-height: 44px;
-    }
-    button[aria-pressed] {
-      min-width: 44px;
-    }
-    /* A switch is a 28px track inside a 44px hit area — the visual stays
-       right and the thumb still gets the target the system promises. */
-    [role='switch'],
-    [data-slot='switch'] {
-      display: inline-flex;
-      align-items: center;
-    }
+     tall by construction, which is below the 44px floor the UI system promises.
+     The floor used to apply only under 640px, on the theory that a mouse does
+     not need it — but `audit:app` measures at 1440 too and reported ten
+     undersized controls on the dashboard, so the rule now holds at every width.
+     It is applied at the end of the cascade: `.btn-sm` is declared 36px earlier
+     in this file, so a rule placed before it would lose. */
+  .chip,
+  .segment,
+  .btn-sm,
+  .btn-icon,
+  [role='tab'],
+  [role='switch'],
+  [data-slot='switch'],
+  main button,
+  main [role='button'],
+  button[aria-pressed] {
+    min-height: 44px;
+  }
+  button[aria-pressed] {
+    min-width: 44px;
+  }
+  /* A switch is a 28px track inside a 44px hit area — the visual stays
+     right and the thumb still gets the target the system promises. */
+  [role='switch'],
+  [data-slot='switch'] {
+    display: inline-flex;
+    align-items: center;
   }
 
   /* A past paper's markdown can hold a wide table or a code block. It scrolls
@@ -1317,5 +1316,19 @@ html[data-magicui-theme-vt='active'] ::view-transition-new(root) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch targets for standalone actions set in small type. Unlayered on purpose:
+   an earlier attempt sat in the components layer, where a utility or a flex
+   parent could still collapse the link to its text height — which is how
+   "Manage" and "Pick a topic" shipped at 20px on a phone. A link inside a
+   sentence is prose and stays exempt. */
+@media (max-width: 639px) {
+  main a[class*='t-caption']:not(p a),
+  main a[class*='t-fine']:not(p a) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
 }

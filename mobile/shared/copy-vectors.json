@@ -785,22 +785,22 @@
     {
       "correct": 3,
       "total": 3,
-      "expected": "3 for 3. Every one of them."
+      "expected": "3 for 3. Nothing to redo."
     },
     {
       "correct": 4,
       "total": 5,
-      "expected": "4 for 5 — that's the recall we want."
+      "expected": "4 for 5. 1 to look at again."
     },
     {
       "correct": 1,
       "total": 2,
-      "expected": "1 for 2. The misses are the useful part."
+      "expected": "1 for 2. Read the notes before the next run."
     },
     {
       "correct": 1,
       "total": 4,
-      "expected": "1 for 4. Worth a pass over the notes before the next run."
+      "expected": "1 for 4. Go back to the notes; this set is not settled yet."
     }
   ],
   "emptyQueueLine": [
@@ -812,7 +812,7 @@
     {
       "due": 0,
       "streak": 4,
-      "expected": "Your schedule is clear and your 4-day streak is safe. Anything you do now is a head start."
+      "expected": "Your schedule is clear and your 4-day streak is safe. Anything you review now comes off tomorrow."
     },
     {
       "due": 3,
@@ -827,8 +827,8 @@
       "level": 1,
       "subject": null,
       "expected": [
-        "Nothing is due — you're ahead",
-        "Want to get ahead instead?"
+        "Nothing is due today",
+        "Want to work ahead?"
       ]
     },
     {
@@ -851,7 +851,7 @@
         "7 cards are waiting",
         "Let's clear today's queue",
         "Day 12 of your streak",
-        "Level 9 — keep it moving",
+        "Level 9",
         "Back to Chemistry?"
       ]
     },
@@ -861,10 +861,10 @@
       "level": 2,
       "subject": null,
       "expected": [
-        "Nothing is due — you're ahead",
-        "Want to get ahead instead?",
+        "Nothing is due today",
+        "Want to work ahead?",
         "Day 3 of your streak",
-        "Level 2 — keep it moving"
+        "Level 2"
       ]
     }
   ],
@@ -883,7 +883,7 @@
       "size": 30,
       "daysLeft": 1,
       "rankLabel": "Silver II",
-      "expected": "3 of 30 — you are inside the promotion zone. Today is the last day; holding this seat moves you up a rung."
+      "expected": "3 of 30. You are inside the promotion zone. Today is the last day; holding this seat moves you up a rung."
     },
     {
       "zone": "demotion",
@@ -891,7 +891,7 @@
       "size": 30,
       "daysLeft": 2,
       "rankLabel": "Silver II",
-      "expected": "28 of 30 — that is the demotion band. One session pulls you clear of it."
+      "expected": "28 of 30. That is the demotion band, and one session pulls you clear of it."
     },
     {
       "zone": "safe",
@@ -899,7 +899,7 @@
       "size": 30,
       "daysLeft": 6,
       "rankLabel": "Bronze I",
-      "expected": "14 of 30 — safe, and close enough to the promotion band to take it. 6 days left."
+      "expected": "14 of 30. Safe, and close enough to the promotion band to take it. 6 days left."
     }
   ],
   "companionFor": [
@@ -917,7 +917,7 @@
       },
       "expected": {
         "tone": "welcome",
-        "line": "Nothing here yet, Smoke — which is the good part. Ten minutes on the first topic and the scheduler starts working for you tonight.",
+        "line": "Nothing here yet, Smoke. Ten minutes on one topic is enough to start.",
         "actionLabel": "Pick a topic"
       }
     },
@@ -935,7 +935,7 @@
       },
       "expected": {
         "tone": "returning",
-        "line": "You had 6 days going. Nothing is lost — the queue has held your place, and it only takes today to start the next run.",
+        "line": "You had 6 days going. Your queue kept your place, so today starts the next run.",
         "actionLabel": "Resume where you left off"
       }
     },
@@ -954,7 +954,7 @@
       },
       "expected": {
         "tone": "praise",
-        "line": "5 for 5. That is a clean sheet, and it is why you are holding Silver II.",
+        "line": "5 for 5. Still Silver II.",
         "actionLabel": "See the ladder"
       }
     },
@@ -973,7 +973,7 @@
       },
       "expected": {
         "tone": "open",
-        "line": "8 answered and the queue is clear — still Silver II. Days like this are what hold a rank together.",
+        "line": "8 answered and the queue is clear. Still Silver II.",
         "actionLabel": "See the ladder"
       }
     },
@@ -992,7 +992,7 @@
       },
       "expected": {
         "tone": "momentum",
-        "line": "4 down, 6 to go. You are faster on these than you were at the start.",
+        "line": "4 down, 6 to go.",
         "actionLabel": "Carry on"
       }
     },
@@ -1010,7 +1010,7 @@
       },
       "expected": {
         "tone": "nudge",
-        "line": "9 cards due, and nothing in there you have not seen before. Worth doing while they are still easy.",
+        "line": "9 cards are due. All of them are cards you have already seen.",
         "actionLabel": "Start the queue"
       }
     },
@@ -1028,7 +1028,7 @@
       },
       "expected": {
         "tone": "nudge",
-        "line": "9 cards are due. Five of them would keep day 5 happy — the rest can wait for tomorrow.",
+        "line": "9 cards are due. A few now, the rest tomorrow.",
         "actionLabel": "Start the queue"
       }
     },
@@ -1046,7 +1046,7 @@
       },
       "expected": {
         "tone": "nudge",
-        "line": "9 cards are due. Five of them would keep the streak algorithm happy — the rest can wait for tomorrow.",
+        "line": "9 cards are due. A few now, the rest tomorrow.",
         "actionLabel": "Start the queue"
       }
     },
@@ -1064,7 +1064,7 @@
       },
       "expected": {
         "tone": "open",
-        "line": "Nothing is due, which means today is optional — the best kind. Get ahead on a topic, or protect the rank with a quick cram.",
+        "line": "Nothing is due. Get ahead on a topic, or leave it until tomorrow.",
         "actionLabel": "Get ahead"
       }
     }

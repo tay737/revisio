@@ -83,7 +83,7 @@ export function Companion({
         >
           <Link
             href={read.action.href}
-            className="inline-flex items-center gap-1.5 t-caption font-semibold underline underline-offset-4 transition-opacity duration-150 hover:opacity-70"
+            className="inline-flex min-h-11 items-center gap-1.5 t-caption font-semibold underline underline-offset-4 transition-opacity duration-150 hover:opacity-70"
           >
             {read.action.label}
             <Icon name="next" size={14} />

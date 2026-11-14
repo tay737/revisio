@@ -64,12 +64,12 @@ const AO_EXPLAINER: Record<string, { label: string; description: string }> = {
   AO1: {
     label: 'Knowledge & understanding',
     description:
-      'Recall marks. Awarded for stating accurate facts, definitions and terms — naming the thing correctly. No context needed: a correct fact is a mark even in isolation.',
+      'Recall marks. Awarded for stating accurate facts, definitions and terms, naming the thing correctly. No context needed: a correct fact is a mark even in isolation.',
   },
   AO2: {
     label: 'Application',
     description:
-      'Application marks. Awarded for using knowledge in the scenario given — the answer must refer to the context (the club, the college, the data), not just state general theory.',
+      'Application marks. Awarded for using knowledge in the scenario given. The answer must refer to the context (the club, the college, the data), not state general theory on its own.',
   },
   AO3: {
     label: 'Analysis & evaluation',
@@ -96,17 +96,17 @@ function aoDirective(profile: { ao: string; percentage: number }[]): string {
   const strongest = sorted[sorted.length - 1];
   const label = (ao: string) => AO_EXPLAINER[ao]?.label.toLowerCase() ?? ao;
   if (sorted.length > 1 && weakest.percentage === strongest.percentage) {
-    return 'Every objective scored the same — revise the questions you lost, whatever kind of mark they were.';
+    return 'Every objective scored the same. Revise the questions you lost, whatever kind of mark they were.';
   }
   if (weakest.percentage >= strongest.percentage - 10) {
     return `Marks are spread evenly across objectives. Revise from the per-question breakdown below.`;
   }
-  return `Your weakest objective is ${weakest.ao} (${label(weakest.ao)}) at ${weakest.percentage}% — ${
+  return `Your weakest objective is ${weakest.ao} (${label(weakest.ao)}) at ${weakest.percentage}%. ${
     weakest.ao === 'AO1'
-      ? 're-read the notes for the facts and definitions you were expected to state.'
+      ? 'Re-read the notes for the facts and definitions you were expected to state.'
       : weakest.ao === 'AO2'
-        ? 'practise tying your answers to the scenario — every point should name the business, person or data in the question.'
-        : 'practise finishing answers with a reasoned judgement: weigh both sides, then decide.'
+        ? 'Practise tying your answers to the scenario. Every point should name the business, person or data in the question.'
+        : 'Practise finishing answers with a reasoned judgement: weigh both sides, then decide.'
   }`;
 }
 
@@ -314,7 +314,7 @@ export default function ExamPage() {
             />
             <p className="t-caption mt-1.5 text-muted-foreground">
               {info.questionsAvailable === 0
-                ? 'No exam questions have been uploaded yet — ask your teacher, or check back soon.'
+                ? 'No exam questions have been uploaded yet. Ask your teacher, or check back soon.'
                 : `${info.questionsAvailable} ${info.questionsAvailable === 1 ? 'question is' : 'questions are'} available across your topics.`}
             </p>
           </div>

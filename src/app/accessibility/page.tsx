@@ -20,7 +20,7 @@ export default function AccessibilityPage() {
 
       <section aria-labelledby="commitment">
         <h2 id="commitment" className="t-display-sm">Our aim</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+        <p className="mt-2 t-caption leading-relaxed text-foreground/90">
           We aim to make Revisio usable by as many learners as possible and use WCAG 2.2 AA as our design target.
           This is a target, not a claim of full conformance or independent certification.
         </p>
@@ -28,7 +28,7 @@ export default function AccessibilityPage() {
 
       <section aria-labelledby="what-we-test">
         <h2 id="what-we-test" className="t-display-sm">What we test</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+        <p className="mt-2 t-caption leading-relaxed text-foreground/90">
           Automated checks use axe-core on selected public and application screens. Browser checks cover route rendering,
           headings, keyboard skip links, narrow viewports and selected consent and service-worker behavior.
           Automated tools do not establish conformance: they cannot assess every content, device, assistive-technology,
@@ -38,7 +38,7 @@ export default function AccessibilityPage() {
 
       <section aria-labelledby="known-limitations">
         <h2 id="known-limitations" className="t-display-sm">Known limitations</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+        <p className="mt-2 t-caption leading-relaxed text-foreground/90">
           Some complex study and data visualisations may not yet offer an equivalent non-visual presentation.
           This statement does not mean every page or feature has been individually verified against every WCAG criterion.
           We are continuing to identify and address barriers.
@@ -47,7 +47,7 @@ export default function AccessibilityPage() {
 
       <section aria-labelledby="contact">
         <h2 id="contact" className="t-display-sm">Tell us about a barrier</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+        <p className="mt-2 t-caption leading-relaxed text-foreground/90">
           If something makes Revisio difficult to use, email{' '}
           <Link className="underline underline-offset-4" href="mailto:tayyab@outlook.jp">tayyab@outlook.jp</Link>.
           Tell us which page you were using, what you were trying to do, and what device or assistive technology you use
@@ -55,7 +55,7 @@ export default function AccessibilityPage() {
         </p>
       </section>
 
-      <footer className="border-t border-border pt-5 text-[14px] text-muted-foreground">
+      <footer className="border-t border-border pt-5 t-caption text-muted-foreground">
         <Link href="/privacy" className="underline underline-offset-4">Read our privacy policy</Link>
       </footer>
     </main>

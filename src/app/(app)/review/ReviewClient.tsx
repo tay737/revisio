@@ -652,7 +652,7 @@ export default function ReviewClient() {
               </span>
             </div>
 
-            <div className="mt-5 t-display-sm font-bold leading-[1.35] sm:text-[22px]">
+            <div className="mt-5 t-display-sm font-bold leading-[1.35]">
               {card.kind === 'cloze' && (
                 <ClozePrompt
                   text={card.textWithBlank ?? ''}
@@ -747,7 +747,7 @@ export default function ReviewClient() {
                   className="mt-3"
                   disabled={!input.trim() || busy}
                 >
-                  {busy ? 'Marking…' : autoMark ? 'Correct — press Enter' : 'Check'}
+                  {busy ? 'Marking…' : autoMark ? 'Correct, press Enter' : 'Check'}
                 </Button>
                 <p className="mt-2 text-center t-fine text-muted-foreground">
                   {card.kind === 'cloze'
@@ -1008,7 +1008,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
         >
           <Icon name={good ? 'correct' : 'close'} size={16} strokeWidth={3} />
         </span>
-        {good ? (softened ? 'Correct — with a nudge' : 'Correct') : 'Not quite'}
+        {good ? (softened ? 'Correct, with a nudge' : 'Correct') : 'Not quite'}
         {result.xpAwarded > 0 && (
           <span className="num ml-auto t-caption font-semibold text-good-strong">
             +{result.xpAwarded} XP

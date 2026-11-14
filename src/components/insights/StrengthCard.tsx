@@ -111,7 +111,7 @@ export function StrengthCard({
         <p className="t-caption text-muted-foreground">
           What you keep missing, and every answer as it was graded.
         </p>
-        <Link href="/progress" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'shrink-0 gap-1.5')}>
+        <Link href="/progress" className={cn(buttonVariants({ variant: 'ghost' }), 'shrink-0 gap-1.5')}>
           Insights
         </Link>
       </div>

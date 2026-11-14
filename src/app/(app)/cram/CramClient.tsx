@@ -264,7 +264,7 @@ export default function CramClient() {
                 <span className="t-caption truncate text-muted-foreground">{card.topicName}</span>
               </div>
 
-              <div className="mt-5 text-[21px] font-normal leading-[1.4]">
+              <div className="mt-5 t-display-sm font-normal leading-[1.4]">
                 {card.kind === 'cloze' && (card.textWithBlank ?? '').replace('____', '______')}
                 {card.kind === 'flashcard' && card.prompt}
                 {card.kind === 'mcq' && card.question}

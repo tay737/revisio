@@ -134,14 +134,14 @@ export default function CookiePolicyPage() {
       <div className="space-y-10">
         <section id="what-are-cookies" className="scroll-mt-24">
           <h2 className="t-strong">1. What cookies are</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+          <p className="mt-2 t-caption leading-relaxed text-foreground/90">
             A cookie is a small text file that a website saves on your device so
             the Service can remember your actions and preferences. We also use
             similar technologies: local storage for your consent choice, your
             preference settings and the offline cache. These are covered by the
             same limits described in this policy.
           </p>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+          <p className="mt-2 t-caption leading-relaxed text-foreground/90">
             <em>First-party</em> cookies are set by us. <em>Third-party</em>{' '}
             cookies are set by a provider we use to run the Service. No
             third-party cookie is set today: email delivery is the only provider
@@ -154,7 +154,7 @@ export default function CookiePolicyPage() {
 
         <section id="categories" className="scroll-mt-24">
           <h2 className="t-strong">2. Categories of cookie we use</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+          <p className="mt-2 t-caption leading-relaxed text-foreground/90">
             We only use cookies that are necessary for the Service, or that you
             have explicitly consented to. Each category below gives its purpose
             and what applies to it. Several of these are account settings rather
@@ -170,7 +170,7 @@ export default function CookiePolicyPage() {
                   <p className="t-fine mt-0.5 text-muted-foreground">{cat.purpose}</p>
                   <p className="t-fine mt-1">{cat.note}</p>
                 </div>
-                <span className="t-fine shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">{cat.id}</span>
+                <span className="t-micro shrink-0 uppercase tracking-wide text-muted-foreground">{cat.id}</span>
               </div>
             ))}
           </div>
@@ -180,20 +180,20 @@ export default function CookiePolicyPage() {
           <h2 className="t-strong">3. How to refuse or manage cookies</h2>
           <Markdown
             text={HOW_TO_REFUSE}
-            className="mt-2 rounded-lg border border-border bg-card p-4 text-[15px]"
+            className="mt-2 rounded-lg border border-border bg-card p-4 t-caption"
           />
         </section>
 
         <section id="no-consent" className="scroll-mt-24">
           <h2 className="t-strong">4. What happens if you do not consent</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+          <p className="mt-2 t-caption leading-relaxed text-foreground/90">
             If you decline, the Service still works. Your reviews are scheduled,
             your progress is kept and you can learn as normal. What you do not get
             is anything that depends on permission you have not given: product
             updates and promotional email, non-essential notifications, and
             anonymised research use of your data.
           </p>
-          <p className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+          <p className="mt-2 t-caption leading-relaxed text-foreground/90">
             We do not use a soft opt-in or implied consent for anything beyond
             essential cookies, and we never make a non-essential cookie a
             condition of using the Service. The switches under Privacy in
@@ -203,7 +203,7 @@ export default function CookiePolicyPage() {
 
         <section id="update" className="scroll-mt-24">
           <h2 className="t-strong">5. How we keep this policy up to date</h2>
-          <Markdown text={HOW_WE_KEEP_IT_CURRENT} className="mt-2 text-[15px]" />
+          <Markdown text={HOW_WE_KEEP_IT_CURRENT} className="mt-2 t-caption" />
         </section>
       </div>
 

@@ -183,7 +183,7 @@ export default function DashboardPage() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <h2 className="t-strong">Your subjects</h2>
-            <Link href="/library" className="t-caption font-medium underline underline-offset-4">
+            <Link href="/library" className="inline-flex min-h-11 items-center t-caption font-medium underline underline-offset-4">
               Manage
             </Link>
           </div>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
             // fills the queue), not in the authoring tool.
             <p className="mt-2 t-caption text-muted-foreground">
               Follow a subject and your queue fills itself.{' '}
-              <Link href="/learn" className="text-foreground underline underline-offset-4">
+              <Link href="/learn" className="inline-flex min-h-11 items-center text-foreground underline underline-offset-4">
                 Find one
               </Link>
             </p>

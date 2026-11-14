@@ -107,7 +107,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
           </p>
         </div>
         <div>
-          <Label htmlFor="gen-count">How many — {count}</Label>
+          <Label htmlFor="gen-count">How many: {count}</Label>
           <input
             id="gen-count"
             type="range"

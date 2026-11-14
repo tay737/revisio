@@ -156,7 +156,7 @@ export function ComposeTopic({ subjects, onCreated }: { subjects: Subject[]; onC
             className="min-h-[70px]"
             value={lesson.summaryMd}
             onChange={(e) => setLesson({ ...lesson, summaryMd: e.target.value })}
-            placeholder="Summary — the version cram shows you"
+            placeholder="Summary: the version cram shows you"
           />
           <Input
             value={lesson.specRefs}

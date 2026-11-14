@@ -197,7 +197,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
               </div>
             </div>
             <div>
-              <Label htmlFor="maths-count">Default questions — {count}</Label>
+              <Label htmlFor="maths-count">Default questions: {count}</Label>
               <input id="maths-count" type="range" min={5} max={30} step={5} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
             </div>
           </div>

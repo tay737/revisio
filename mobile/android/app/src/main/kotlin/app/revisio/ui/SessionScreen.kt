@@ -201,7 +201,7 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
                     // A cloze the learner has already typed correctly reads like
                     // the web's: the mark is made, the press only continues.
                     PillButton(
-                        text = if (autoMark) "Correct — press Enter" else "Check",
+                        text = if (autoMark) "Correct, press Enter" else "Check",
                         onClick = { viewModel.submit(advanceOnCorrect = true) },
                         tone = PillTone.Good,
                         enabled = inputReady(card, state.answer, state.selection),

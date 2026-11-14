@@ -74,7 +74,7 @@ export function TopBar({
           </Badge>
           <Link
             href="/review"
-            className={cn(badgeVariants({ variant: 'chip' }), 'num')}
+            className={cn(badgeVariants({ variant: 'chip' }), 'num min-h-11 px-3')}
             title={`${due} cards due today`}
             aria-label={`${due} cards due today`}
           >
@@ -97,7 +97,7 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Link href="/review" className={cn(badgeVariants({ variant: 'chip' }), 'num')} title={`${due} cards due today`}>
+          <Link href="/review" className={cn(badgeVariants({ variant: 'chip' }), 'num min-h-11 px-3')} title={`${due} cards due today`}>
             <Icon
               name="review"
               size={14}
@@ -115,7 +115,7 @@ export function TopBar({
             {streak}
             <span className="text-muted-foreground">day streak</span>
           </Badge>
-          <ThemeToggle className="h-9 w-9" />
+          <ThemeToggle className="h-11 w-11" />
         </div>
       </div>
 
