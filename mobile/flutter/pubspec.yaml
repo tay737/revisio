@@ -2,7 +2,7 @@ name: revisio
 description: "Revisio — spaced repetition for GCSE, A-level and university."
 publish_to: 'none'
 
-version: 2.0.0+2
+version: 1.0.0-alpha.10+10000
 
 environment:
   sdk: ^3.14.0
