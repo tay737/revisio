@@ -161,7 +161,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
         <h3 className="t-tagline">Struggling with</h3>
         {data.struggling.length === 0 ? (
           <p className="t-caption mt-2 text-muted-foreground">
-            No misses in the last 30 days — or nothing studied yet.
+            No misses in the last 30 days, or nothing studied yet.
           </p>
         ) : (
           <>

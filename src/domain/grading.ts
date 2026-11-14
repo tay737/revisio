@@ -117,7 +117,7 @@ export function gradeClozeWithPolicy(
       correct: true,
       feedbackKind: 'case_only',
       matchedAnswerId: caseInsensitive.id,
-      note: 'Correct — mind your capitalisation.',
+      note: 'Correct. Mind your capitalisation.',
     };
   }
 
@@ -130,7 +130,7 @@ export function gradeClozeWithPolicy(
       correct: true,
       feedbackKind: 'punctuation_only',
       matchedAnswerId: punctInsensitive.id,
-      note: 'Correct — check your punctuation.',
+      note: 'Correct. Check your punctuation.',
     };
   }
 
@@ -143,7 +143,7 @@ export function gradeClozeWithPolicy(
       correct: true,
       feedbackKind: 'case_and_punctuation',
       matchedAnswerId: loose.id,
-      note: 'Correct — check capitalisation and punctuation.',
+      note: 'Correct. Check capitalisation and punctuation.',
     };
   }
 
@@ -164,7 +164,7 @@ export function gradeClozeWithPolicy(
       return {
         correct: false,
         feedbackKind: 'wrong',
-        note: `Right word, wrong form — the answer is written as “${relation.matchedText}”.`,
+        note: `Right word, wrong form. The answer is written as “${relation.matchedText}”.`,
         similarity: { relation: 'inflection', matchedAnswer: relation.matchedText },
       };
     }
@@ -180,7 +180,7 @@ export function gradeClozeWithPolicy(
       return {
         correct: false,
         feedbackKind: 'wrong',
-        note: `Nearly the answer, but not it — the blank wants “${relation.matchedText}”. Spelling is part of the recall.`,
+        note: `Nearly the answer, but not it. The blank wants “${relation.matchedText}”. Spelling is part of the recall.`,
         similarity: { relation: 'typo', matchedAnswer: relation.matchedText },
       };
     }
@@ -249,7 +249,7 @@ export function gradeFlashcard(
       matchedAnswerId: rules.id,
       matchedPhrases,
       missedPhrases,
-      note: `Good start — also include: ${missedOptional.slice(0, 3).map((k) => k.phrase).join(', ')}.`,
+      note: `Good start. Also include: ${missedOptional.slice(0, 3).map((k) => k.phrase).join(', ')}.`,
     };
   }
 
@@ -262,7 +262,7 @@ export function gradeFlashcard(
     // The matched and missed points are rendered from the lists above and the
     // right answer arrives as `modelAnswer`, so the note says only how it went.
     // Naming them again here printed the same sentences three times on one card.
-    note: requiredOk ? 'Close — some required points were missing.' : 'Some required points were missing.',
+    note: requiredOk ? 'Close. Some required points were missing.' : 'Some required points were missing.',
   };
 }
 
@@ -271,5 +271,5 @@ export function gradeFlashcard(
 export function gradeMcq(selectedOptionId: string | null, correctOptionId: string): Verdict {
   if (!selectedOptionId) return { correct: false, feedbackKind: 'wrong', note: 'No selection made.' };
   if (selectedOptionId === correctOptionId) return { correct: true, feedbackKind: 'correct' };
-  return { correct: false, feedbackKind: 'wrong', note: 'Incorrect — one attempt only.' };
+  return { correct: false, feedbackKind: 'wrong', note: 'Incorrect. One attempt only.' };
 }

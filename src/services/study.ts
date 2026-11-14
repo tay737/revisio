@@ -569,7 +569,7 @@ export async function submitExam(userId: string, topicIds: string[], submission:
       if (correct) score += q.marks;
       detail.push({
         questionId: q.id, userAnswer: sub.selectedOptionId ?? '', awarded: correct ? q.marks : 0, marks: q.marks,
-        correct, feedback: correct ? 'Correct.' : 'Incorrect — the mark scheme shows where the marks were.',
+        correct, feedback: correct ? 'Correct.' : 'Incorrect. The mark scheme shows where the marks were.',
         questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
         markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
         matchedPhrases: [], missedPhrases: [],

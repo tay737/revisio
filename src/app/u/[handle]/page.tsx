@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: { handle: string } 
   if (!profile) return { title: 'Profile · Revisio' };
   const display = profile.nickname || profile.name || profile.username || 'Learner';
   return {
-    title: `${display} — Revisio`,
+    title: `${display} · Revisio`,
     description: profile.bio ?? `${display} is studying on Revisio.`,
   };
 }

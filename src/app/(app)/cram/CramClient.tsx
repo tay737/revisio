@@ -415,7 +415,7 @@ export default function CramClient() {
 
           <div>
             <Label htmlFor="max-per-topic">
-              Questions per topic — {maxPerTopic}
+              Questions per topic: {maxPerTopic}
             </Label>
             <input
               id="max-per-topic"

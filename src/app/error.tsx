@@ -41,7 +41,7 @@ export default function ErrorPage({
           </span>
           <h1 className="t-tagline mt-4">Something went wrong on our side</h1>
           <p className="t-caption mt-2 text-muted-foreground">
-            Your work is safe — nothing was lost. Give it a moment and try again.
+            Your work is safe and nothing was lost. Give it a moment and try again.
           </p>
 
           <div className="mt-6 flex flex-col gap-2">

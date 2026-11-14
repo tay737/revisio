@@ -59,13 +59,13 @@ public enum Grading {
         if let match = accepted.first(where: { lowercase($0.text) == lowercase(user) }) {
             return Verdict(
                 correct: true, feedbackKind: .caseOnly, matchedAnswerId: match.id,
-                note: "Correct — mind your capitalisation."
+                note: "Correct. Mind your capitalisation."
             )
         }
         if let match = accepted.first(where: { stripPunctuation(lowercase($0.text)) == stripPunctuation(lowercase(user)) }) {
             return Verdict(
                 correct: true, feedbackKind: .punctuationOnly, matchedAnswerId: match.id,
-                note: "Correct — check your punctuation."
+                note: "Correct. Check your punctuation."
             )
         }
         if let match = accepted.first(where: {
@@ -73,7 +73,7 @@ public enum Grading {
         }) {
             return Verdict(
                 correct: true, feedbackKind: .caseAndPunctuation, matchedAnswerId: match.id,
-                note: "Correct — check capitalisation and punctuation."
+                note: "Correct. Check capitalisation and punctuation."
             )
         }
         return Verdict(correct: false, feedbackKind: .wrong)
@@ -127,7 +127,7 @@ public enum Grading {
             let missing = missedOptional.prefix(3).map(\.phrase).joined(separator: ", ")
             return Verdict(
                 correct: false, feedbackKind: .nearMiss, matchedAnswerId: rules.id,
-                note: "Good start — also include: \(missing).",
+                note: "Good start. Also include: \(missing).",
                 matchedPhrases: matchedPhrases, missedPhrases: missedPhrases
             )
         }
@@ -146,7 +146,7 @@ public enum Grading {
             return Verdict(correct: false, feedbackKind: .wrong, note: "No selection made.")
         }
         if selected == correctOptionId { return Verdict(correct: true, feedbackKind: .correct) }
-        return Verdict(correct: false, feedbackKind: .wrong, note: "Incorrect — one attempt only.")
+        return Verdict(correct: false, feedbackKind: .wrong, note: "Incorrect. One attempt only.")
     }
 
     // ── offline preview ─────────────────────────────────────────────────────

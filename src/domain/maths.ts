@@ -743,7 +743,7 @@ const BASE_CONCEPTS: Concept[] = [
           prompt: `Solve: x² + ${-value} = 0. What are the solutions?`,
           expected: { kind: 'text', accept: ['no real solutions', 'none', 'no solutions', 'no solution'] },
           display,
-          solution: `x² = ${-value} would need a negative square — impossible, so there are no real solutions.`,
+          solution: `x² = ${-value} would need a negative square, which is impossible, so there are no real solutions.`,
           distractors: [`${k} or ${-k}`, '0', `${k}`],
         };
       },
@@ -974,7 +974,7 @@ const BASE_CONCEPTS: Concept[] = [
     id: 'mean',
     name: 'Averages',
     category: 'Statistics',
-    description: 'Mean, median and mode — and reversing the mean.',
+    description: 'Mean, median and mode, and reversing the mean.',
     marks: [1, 2, 3],
     gen: {
       easy: (r) => {
@@ -1084,7 +1084,7 @@ const CM_CONCEPTS: Concept[] = [
     id: 'cm-percent-original',
     name: 'Reverse percentage',
     category: 'Number',
-    description: 'Find the original after a percentage change — divide by the multiplier (F2.5).',
+    description: 'Find the original after a percentage change: divide by the multiplier (F2.5).',
     marks: [1, 2, 3],
     gen: {
       easy: (r) => {
@@ -1143,7 +1143,7 @@ const CM_CONCEPTS: Concept[] = [
           years += 1;
         }
         return numDraft(`£${p} is invested at ${rate}% compound interest a year. After how many whole years does the balance first exceed £${fmt(target)}?`, years,
-          `Each year multiplies by ${(1 + rate / 100).toFixed(2)}: $${Array.from({ length: years }, (_, i) => fmt(p * (1 + rate / 100) ** (i + 1))).join(', ')}… — first above £${fmt(target)} after ${years} years.`,
+          `Each year multiplies by ${(1 + rate / 100).toFixed(2)}: $${Array.from({ length: years }, (_, i) => fmt(p * (1 + rate / 100) ** (i + 1))).join(', ')}…. First above £${fmt(target)} after ${years} years.`,
           [years - 1, years + 1, Math.ceil(Math.log2(target / p))], years, 'years');
       },
     },
@@ -1283,7 +1283,7 @@ const CM_CONCEPTS: Concept[] = [
           prompt: `A department has 130 sales, 58 admin and 9 management staff. The owner picks two staff from each area for a survey of ${n} questions. What is the main flaw? (type: "not stratified" or "unrepresentative")`,
           expected: { kind: 'text', accept: ['not stratified', 'unrepresentative', 'not representative'] },
           display: 'unrepresentative',
-          solution: `Two from each area over-samples management (${2}/9 = 22% of the sample but 9/197 ≈ 5% of the staff). A stratified sample would take each area's share of 197. The flaw is that the sample is unrepresentative — quota-style picking ignores group sizes.`,
+          solution: `Two from each area over-samples management (${2}/9 = 22% of the sample but 9/197 ≈ 5% of the staff). A stratified sample would take each area's share of 197. The flaw is that the sample is unrepresentative: quota-style picking ignores group sizes.`,
           distractors: ['sample too small', 'not random enough', 'questions too few'],
         };
       },
@@ -1324,7 +1324,7 @@ const CM_CONCEPTS: Concept[] = [
     id: 'cm-expected-value',
     name: 'Expected value',
     category: 'Statistics',
-    description: 'Probability-weighted average of outcomes — the long-run mean (R7.1, R10.2).',
+    description: 'Probability-weighted average of outcomes, the long-run mean (R7.1, R10.2).',
     marks: [2, 3, 4],
     gen: {
       easy: (r) => {
@@ -1338,7 +1338,7 @@ const CM_CONCEPTS: Concept[] = [
         const expectedLoss = cover * p;
         const evOfPolicy = expectedLoss - premium;
         return numDraft(`Insurance costs £${premium} a year against a £${cover} event with probability ${p}. Expected value of the policy to the buyer (loss negative, pounds)?`, evOfPolicy,
-          `Expected payout = ${cover} × ${p} = £${fmt(expectedLoss)}. Value = ${fmt(expectedLoss)} − ${premium} = £${fmt(evOfPolicy)} — negative, which is why insurers exist.`,
+          `Expected payout = ${cover} × ${p} = £${fmt(expectedLoss)}. Value = ${fmt(expectedLoss)} − ${premium} = £${fmt(evOfPolicy)}, a negative number. That gap is why insurers exist.`,
           [expectedLoss, premium, cover - premium], evOfPolicy);      },
       hard: (r) => {
         const pFail = 0.2, loss = r.pick([5000, 7000, 10000]), premium = r.pick([400, 500, 600]);
@@ -1397,7 +1397,7 @@ const CM_CONCEPTS: Concept[] = [
         const path1 = a + b, path2 = a + c + d;
         const duration = Math.max(path1, path2);
         return numDraft(`A runs ${a} days; then the work splits: B (${b} days) or C (${c} days) then D (${d} days). Project duration?`, duration,
-          `Path A–B: ${path1} days. Path A–C–D: ${path2} days. The longest is ${duration} — that is the duration; the shorter path carries float.`,
+          `Path A–B: ${path1} days. Path A–C–D: ${path2} days. The longest is ${duration}, which is the duration; the shorter path carries float.`,
           [Math.min(path1, path2), path1 + path2, duration + a], duration, 'days');
       },
       hard: (r) => {

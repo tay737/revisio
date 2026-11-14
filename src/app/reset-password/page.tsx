@@ -114,7 +114,7 @@ function ResetPasswordInner() {
             </form>
 
             <p className="t-caption mt-5 text-muted-foreground">
-              Your work — streak, XP, schedule — is untouched. Only the password changes.
+              Your work (streak, XP, schedule) is untouched. Only the password changes.
             </p>
           </>
         )}

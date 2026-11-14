@@ -73,7 +73,7 @@
         "correct": true,
         "feedbackKind": "case_only",
         "matchedAnswerId": "a1",
-        "note": "Correct — mind your capitalisation."
+        "note": "Correct. Mind your capitalisation."
       }
     },
     {
@@ -98,7 +98,7 @@
         "correct": true,
         "feedbackKind": "punctuation_only",
         "matchedAnswerId": "a1",
-        "note": "Correct — check your punctuation."
+        "note": "Correct. Check your punctuation."
       }
     },
     {
@@ -123,7 +123,7 @@
         "correct": true,
         "feedbackKind": "punctuation_only",
         "matchedAnswerId": "a1",
-        "note": "Correct — check your punctuation."
+        "note": "Correct. Check your punctuation."
       }
     },
     {
@@ -143,7 +143,7 @@
         "correct": true,
         "feedbackKind": "case_and_punctuation",
         "matchedAnswerId": "a3",
-        "note": "Correct — check capitalisation and punctuation."
+        "note": "Correct. Check capitalisation and punctuation."
       }
     },
     {
@@ -356,7 +356,7 @@
           "cristae",
           "matrix"
         ],
-        "note": "Good start — also include: cristae, matrix."
+        "note": "Good start. Also include: cristae, matrix."
       }
     },
     {
@@ -541,7 +541,7 @@
       "expected": {
         "correct": false,
         "feedbackKind": "wrong",
-        "note": "Incorrect — one attempt only."
+        "note": "Incorrect. One attempt only."
       }
     },
     {

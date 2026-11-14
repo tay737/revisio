@@ -830,8 +830,8 @@ function FirstExposureReport({
 
       <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-muted-foreground">
         {remaining === 0
-          ? `You have met all ${session.progress.total} questions in “${session.topic.name}”. They now come back on their own schedule — you do not need to chase them.`
-          : `${met} of ${session.progress.total} met in “${session.topic.name}”. ${remaining} still to meet — they will keep.`}
+          ? `You have met all ${session.progress.total} questions in “${session.topic.name}”. They now come back on their own schedule, so you do not need to chase them.`
+          : `${met} of ${session.progress.total} met in “${session.topic.name}”. ${remaining} still to meet. They will keep.`}
       </p>
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -917,7 +917,7 @@ function SessionReport({
       <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-muted-foreground">
         {change?.promoted
           ? change.tierChanged
-            ? `${correct} of ${done} correct — and that carried you into a new tier. Everything above this is harder, and worth more.`
+            ? `${correct} of ${done} correct, and that carried you into a new tier. Everything above this is harder, and worth more.`
             : `${correct} of ${done} correct, and the crest moved with it.`
           : sessionSummary(correct, done)}
       </p>

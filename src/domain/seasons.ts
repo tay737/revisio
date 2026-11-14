@@ -369,6 +369,6 @@ export function seasonLine({
 }): string {
   if (isLastDay) return 'Last day. Whatever you are holding now is what you keep.';
   if (!placed) return 'Ten reviews and you are placed for this season.';
-  if (daysLeft <= 7) return `${daysLeft} days left — you are ${rankLabel} going into the final week.`;
+  if (daysLeft <= 7) return `${daysLeft} days left. You are ${rankLabel} going into the final week.`;
   return `${daysLeft} days left. You are ${rankLabel}.`;
 }

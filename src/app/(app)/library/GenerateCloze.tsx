@@ -73,7 +73,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
       onDone(
         d.inserted === keepers.length
           ? `${d.inserted} ${d.inserted === 1 ? 'question' : 'questions'} added to “${picked?.name}”.`
-          : `${d.inserted} added — ${keepers.length - d.inserted} were already in the topic and were skipped.`,
+          : `${d.inserted} added. ${keepers.length - d.inserted} were already in the topic and were skipped.`,
       );
       setProposals(null);
     } catch (e) {

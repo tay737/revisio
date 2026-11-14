@@ -51,7 +51,7 @@ object Grading {
                 true,
                 FeedbackKind.CASE_ONLY,
                 matchedAnswerId = it.id,
-                note = "Correct — mind your capitalisation.",
+                note = "Correct. Mind your capitalisation.",
             )
         }
         accepted.firstOrNull { stripPunctuation(lowercase(it.text)) == stripPunctuation(lowercase(user)) }?.let {
@@ -59,7 +59,7 @@ object Grading {
                 true,
                 FeedbackKind.PUNCTUATION_ONLY,
                 matchedAnswerId = it.id,
-                note = "Correct — check your punctuation.",
+                note = "Correct. Check your punctuation.",
             )
         }
         accepted.firstOrNull {
@@ -69,7 +69,7 @@ object Grading {
                 true,
                 FeedbackKind.CASE_AND_PUNCTUATION,
                 matchedAnswerId = it.id,
-                note = "Correct — check capitalisation and punctuation.",
+                note = "Correct. Check capitalisation and punctuation.",
             )
         }
         return Verdict(false, FeedbackKind.WRONG)
@@ -134,7 +134,7 @@ object Grading {
                 matchedAnswerId = rules.id,
                 matchedPhrases = matchedPhrases,
                 missedPhrases = missedPhrases,
-                note = "Good start — also include: ${missedOptional.take(3).joinToString(", ") { it.phrase }}.",
+                note = "Good start. Also include: ${missedOptional.take(3).joinToString(", ") { it.phrase }}.",
             )
         }
 
@@ -153,7 +153,7 @@ object Grading {
     fun gradeMcq(selectedOptionId: String?, correctOptionId: String): Verdict {
         if (selectedOptionId.isNullOrEmpty()) return Verdict(false, FeedbackKind.WRONG, note = "No selection made.")
         if (selectedOptionId == correctOptionId) return Verdict(true, FeedbackKind.CORRECT)
-        return Verdict(false, FeedbackKind.WRONG, note = "Incorrect — one attempt only.")
+        return Verdict(false, FeedbackKind.WRONG, note = "Incorrect. One attempt only.")
     }
 
     // ── offline preview ─────────────────────────────────────────────────────

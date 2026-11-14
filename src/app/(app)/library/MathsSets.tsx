@@ -105,7 +105,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
     <div className="space-y-5">
       {subjects.length === 0 ? (
         <p className="t-caption text-muted-foreground">
-          No subject has maths practice yet — a developer switches it on per subject in Admin.
+          No subject has maths practice yet. A developer switches it on per subject in Admin.
         </p>
       ) : (
         <form onSubmit={submit} className="space-y-4">

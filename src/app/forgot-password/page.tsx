@@ -54,8 +54,7 @@ export default function ForgotPasswordPage() {
             <h1 className="t-title">Check your inbox</h1>
             <p className="t-caption mt-2 text-muted-foreground">{phase.message}</p>
             <p className="t-caption mt-2 text-muted-foreground">
-              Haven&apos;t received it? Check your spam folder, then try again — requests are
-              limited to a few per address.
+              Haven&apos;t received it? Check your spam folder, then try again. Requests are limited to a few per address.
             </p>
             <Button variant="secondary"
               type="button"
@@ -100,7 +99,7 @@ export default function ForgotPasswordPage() {
             </form>
 
             <p className="t-caption mt-5 text-muted-foreground">
-              Two-factor stays on when you reset — your authenticator keeps guarding the account.
+              Two-factor stays on when you reset. Your authenticator keeps guarding the account.
             </p>
           </>
         )}

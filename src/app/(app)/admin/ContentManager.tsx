@@ -73,7 +73,7 @@ export function ContentManager() {
       const res = await api.patch<{ cards: number; lessons: number }>('/api/v1/content', { topicId, visibility });
       await load();
       if (open?.topic.id === topicId) await openTopic(topicId);
-      setNote(visibility === 'public' ? `Published — ${res.cards} questions went with it.` : 'Withdrawn.');
+      setNote(visibility === 'public' ? `Published. ${res.cards} questions went with it.` : 'Withdrawn.');
     }, '');
 
   /* ── topic ── */
