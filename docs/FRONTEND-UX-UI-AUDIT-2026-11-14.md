@@ -17,11 +17,13 @@ Evidence runs:
 | `information_schema` | Supabase primary and Neon mirror, 14 Nov 00:34 | `education_level` present on both; F2 was real when first measured and is now closed |
 | source grep | `src/app`, `src/components` | 241 inline `text-[Npx]` occurrences (F3) |
 
+Verification update, 14 Nov (QA, `agent-1794615490496-xyodob`, production `revisio-srs.vercel.app` on `63bd22d`): `e2e:smoke` 26 passed, 0 failed, 0 skipped, 0 findings; no settings bounce and no 401 refresh storm observed, so F14 is closed on the live build. `audit:app` reported 24 screens, 0 FAIL, 0 WARN, 0 axe, 0 page findings on production; `e2e:public-ux` 105 checks with 0 axe (these measure type scale, tap targets, overflow and a11y, not copy voice). QA confirmed the registration flow now collects `level` and sends it, the API validates/stores it, `/api/v1/me` returns `educationLevel`, and the study step renders (`RegisterWizard.tsx:501`), so the DPO condition on F1 is met end to end; F6–F10 remain open copy defects. QA noted their sign-off rests on the project's own browser suites and direct code/database checks (QA tester delegation timed out/offline), recorded rather than hidden.
+
 Not assessed, and why: dark mode (no fresh render); screen-reader output (no AT
-available, so accessibility claims rest on the accessibility tree and axe); the
-remaining signed-in screens against a local build, because the first local run
-died on a cold Next compile rather than on a product error. The deployed
-signed-in surface is now covered: `audit:app` walked 24 screens on 14 Nov.
+available, so accessibility claims rest on the accessibility tree and axe). The
+earlier local `audit:app` run died on a cold Next compile rather than on a
+product error; deployed signed-in coverage and the production smoke re-run above
+supersede that limitation for the checks they cover.
 
 ---
 
@@ -94,17 +96,15 @@ ships. Those rulings are now folded into F1 and F10 below.
 
 Severity: 4 catastrophe, 3 major, 2 minor, 1 cosmetic.
 
-### F1. The wizard never asks for the education level, and the step order is not the specified one
+### F1. Registration collects the education level, but the step copy and label spec are not fully settled
 
-- Screen: `/register` (all steps)
-- Source: code, `src/components/RegisterWizard.tsx` lines 26 to 37 and 139 to 158
-- Evidence: `STEP_TITLES` holds role, account, profile, subjects, review. `stepsFor('student')` returns `['role','account','profile','subjects','review']`. The submit payload sends `dateOfBirth`, `subjectIds`, `classCode` and no `level`. Meanwhile `src/app/api/v1/auth/register/route.ts:45` accepts `level`, `isEducationLevel` validates it, and `src/db/schema.ts:60` declares the column.
-- What: the one signal the review called "the single most useful signal the product can collect at sign-up" is collected nowhere, and subjects come after the account instead of with the level.
-- Why: `ONBOARDING-REVIEW.md` §4.2 ("Role → what you study (level + subjects) → account → about you → confirm"); `UI-SYSTEM.md` §8.6.
-- Fix: add `level` to `StepKey` and `STEP_TITLES`, put it with subjects as one "What you study" step immediately after role, send `level` in the submit body, and show it in the review list.
-- Reader versus purpose: `/api/v1/me` returns `educationLevel` (`src/app/api/v1/me/route.ts:94`), so the value is transported, but no feature consumes it. Full-Stack confirmed that split (a reader, no author), which is why the hold is in the harmless direction: a stored null is the state today.
-- DPO condition (`docs/PRIVACY-REVIEW-2026-11-14.md` §7.2): nothing in `src` consumes the level yet, so either a feature uses it in this release or the question waits. No consent switch cures a field collected for no purpose. It must also stay out of `getPublicProfile`: the visibility map has no key for it, and an absent key means public, so adding it to the payload would publish every learner's level at once. This is the one item the DPO would hold the release on.
-- Severity 3, Effort M, Confidence Certain.
+- Screen: `/register`
+- Source: code, verified against `src/components/RegisterWizard.tsx` at `63bd22d` and QA's production checks
+- Evidence (current): `stepsFor('student')` returns `['role','study','account','profile','review']`, so study (level and subjects) comes before the account step. The submit sends `level: student && level ? level : undefined` (`RegisterWizard.tsx:177`), `src/app/api/v1/auth/register/route.ts` validates with `isEducationLevel` and stores it, `/api/v1/me` returns `educationLevel` (`route.ts:94`), and the level control renders at `RegisterWizard.tsx:501`. QA verified this end to end on production (14 Nov).
+- What changed: the original defect — level never asked for, never sent, and subjects after the account step — is resolved. The DPO condition is met: the level is collected, stored and returned by a real consumer path rather than held for no purpose, and it remains out of `getPublicProfile` (no visibility key, so adding it there would publish every learner's level).
+- What remains: the study/account/profile/review headings are still questions or phrased copies (`"How will you use Revisio?"`, `"What are you studying?"`, `"A little about you"`, `"Check and create"`) rather than the noun labels named in the spec (tracked in F6), and Q3 is still open on which exact label set is canonical.
+- Why: `ONBOARDING-REVIEW.md` §4.2; `UI-SYSTEM.md` §8.6 and §9.
+- Severity 1 now for the remaining copy/label alignment (was 3), Effort S, Confidence Certain for the current state; High for the canonical-label choice (Q3).
 
 ### F2. `education_level` was missing from production (closed 14 Nov)
 
@@ -226,35 +226,35 @@ Severity: 4 catastrophe, 3 major, 2 minor, 1 cosmetic.
 - Fix: `rounded-lg`, `.t-body` and `.t-caption`, and drop the inline scale transitions.
 - Severity 2, Effort S, Confidence Certain.
 
-### F14. The deployed build signs a learner out on every reload
+### F14. The deployed build signed a learner out on every reload (closed on production 14 Nov)
 
-- Screen: all 24 signed-in screens, production
-- Source: browser plus protocol check
-- Evidence: `audit:app` against `https://revisio-srs.vercel.app` reports `session-lost` on 24 of 24 screens, each reading "a reload of /dashboard landed on /login". Its own `/dashboard` capture is the login page (`h1 Welcome back`, `h2 Cookies on Revisio`). `e2e:smoke` failed the same way twice: `/review` rendered the sign-in form. Protocol check on the same host: `POST /api/v1/auth/login` returns 200 and `Set-Cookie: srs_refresh=…`; `POST /api/v1/auth/refresh` with that cookie returns 200 and a new token. The server and the cookie are healthy.
-- What: the client never asks for a refresh on a cold load. `git show HEAD:src/lib/api.ts` gates it on `if (res.status === 401 && !init.retry && accessToken)` at line 73, confirmed by Full-Stack against HEAD. The access token lives in memory only, so after a reload there is no token, no refresh attempt, a 401 from `/api/v1/me`, and a bounce to `/login` while the valid cookie sits unused. The working tree already contains the fix, which refreshes for every non-auth 401; that is also why local runs pass and production fails.
-- Why: the app's own comment in `lib/api.ts` describes the intended behaviour ("a cold page load … the httpOnly refresh cookie is the only thing left of the session"), and Nielsen H1/H3: a refresh looks like a silent sign-out, and the learner has no way to tell a lapsed session from a broken app.
-- Fix: ship `src/lib/api.ts` with the next deploy, then run `e2e:smoke` against production, which is the check that caught it.
-- Severity 4 for the deployed build, Effort S, Confidence Certain.
+- Screen: all signed-in screens, production (as measured 14 Nov 00:xx)
+- Source: browser, protocol check, source, and QA production verification
+- Original evidence: `audit:app` against `https://revisio-srs.vercel.app` reported `session-lost` on 24 of 24 screens, each reading "a reload of /dashboard landed on /login". `e2e:smoke` failed twice with `/review` rendering the sign-in form. Protocol check showed `POST /api/v1/auth/login` returned 200 with `Set-Cookie: srs_refresh=…` and `POST /api/v1/auth/refresh` with that cookie returned 200, so the server and cookie were healthy.
+- Cause: the client never asked for a refresh on a cold load. The access token lives in memory only, so after a reload there was no token, no refresh attempt, a 401 from `/api/v1/me`, and a bounce to `/login` while the valid cookie sat unused. The fix refreshes for every non-auth 401 (`src/lib/api.ts:90`, `accessToken || !isAuthEndpoint`, leaving auth endpoints' own 401s alone).
+- Verification (QA, 14 Nov, `63bd22d` on production): `e2e:smoke` 26 passed, 0 failed, 0 skipped, 0 findings; no settings bounce and no 401 refresh storm observed.
+- Status: closed on the live build.
+- Severity 0 now (was 4 on the deployed build at first measure), Effort done, Confidence Certain.
 
 ---
 
 ## 5. Risks
 
-- R1. Deploying without the `src/lib/api.ts` fix keeps every learner signed out on reload (F14). No work is lost, but a learner who refreshes mid-session is thrown back to sign-in, which reads as a broken product.
+- R1. (Cleared on production 14 Nov.) F14's cold-load sign-out is closed on the live build (`63bd22d`, smoke 26/0). Keep production smoke in the release routine because this class of regression is silent to local runs.
 - R2. The undersized targets and missing per-field errors leave WCAG 2.2 AA unmet in the app, which matters for the EAA audience (public sector and education buyers increasingly ask).
-- R3. Half-landed onboarding (F1) means the product collects less than the schema and API already support, so the release notes would overstate what registration asks for.
+- R3. (Reduced.) Registration now collects, stores and returns the education level, so the earlier "collects less than the schema supports" gap is closed; step labels and copy (F1 remainder, F6–F10) still understate the intended clarity of the flow.
 - R4. A gate that fails on correct behaviour (F11) trains the team to ignore red runs, which is how the next real regression ships.
-- R5. Collecting the education level before any feature consumes it is data held for no purpose (UK GDPR Art 5(1)(c)). The DPO has made this the one condition for shipping the level question at all.
+- R5. (Satisfied for this revision, per QA.) The DPO condition is met end to end: the level is collected and consumed/returned rather than held for no purpose, and it remains out of `getPublicProfile`. Any future change that stops using it, or exposes it publicly, reopens this risk.
 - R6. Consent-surface and account-deletion findings (the DPO's P1-3, P2-4 and P3-5) live in `docs/PRIVACY-REVIEW-2026-11-14.md` and are deliberately not restated here. This audit did not test consent surfaces, so a copy would claim coverage it does not have and give one finding two sources of truth.
 
 ## 6. Actions
 
-- A1. Ship the `src/lib/api.ts` cold-load refresh fix with the next deploy, confirm it with `e2e:smoke` against production, and commit the two untracked migrations that were applied by hand: `0013_users_education_level.sql` and `0014_media_assets_delete_failed.sql` (owner: full-stack, F14, F2 and the DPO's P1-3, blocks release).
-- A2. Wizard: add level, reorder to role, what you study, account, about you, confirm; send `level` (owner: frontend, F1).
+- A1. (Done in source and on production for F14; migrations applied.) `0013_users_education_level.sql` and `0014_media_assets_delete_failed.sql` are committed/tracked and applied to both databases, and `src/lib/api.ts`'s cold-load refresh fix is live on `63bd22d` with production smoke 26/0 confirming F14 closed. Keep smoke as the acceptance check for future auth/session changes.
+- A2. (Substantially done.) Level collection, storage, `/api/v1/me` exposure and the study-before-account step are in place; align remaining wizard labels/copy to the canonical spec (Q3) and close the F1 copy remainder together with F6.
 - A3. Wizard: per-field error slots and focus to first failure (owner: frontend, F5).
 - A4. App shell: 44px targets for icon buttons, chips and inline links; remove the duplicate theme toggle (owner: frontend, F4, F12).
 - A5. Type sweep: replace `text-[Npx]` with `.t-*`, landing and app (owner: frontend, F3, F13).
-- A6. Copy pass: headings as nouns, placeholder, DOB label, consent sentence, success state (owner: frontend, F6 to F10).
+- A6. Copy pass: headings as nouns, placeholder, DOB label, consent sentence, success state (owner: frontend, F6 to F10). **Still open per QA** (copy voice, not covered by type/tap/a11y gates).
 - A7. Fix the PWA gate assertion (owner: frontend, F11).
 - A8. Re-run `e2e:public-ux`, `audit:app`, `e2e:smoke`, `typecheck`, `build` after the changes, then QA.
 
