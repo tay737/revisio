@@ -92,7 +92,7 @@ fun RankStrip(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     when {
-                        placing -> "Placement — ${placement.done} of ${placement.target} reviews before you hold a rank."
+                        placing -> "Placement: ${placement.done} of ${placement.target} reviews before you hold a rank."
                         rank.isApex -> "Top of the ladder. Holding it is the hard part."
                         else -> "${rank.remaining} RP to the next rung · about ${RankLadder.reviewsForRp(rank.remaining)} reviews."
                     },

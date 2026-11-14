@@ -96,7 +96,7 @@ struct ExamView: View {
                     .font(Type.strong.font)
                     .foregroundStyle(colors.foreground)
                 Spacer().frame(height: 4)
-                Text("The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide there is — read it beside the notes.")
+                Text("The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide there is. Read it beside the notes.")
                     .font(Type.fine.font)
                     .foregroundStyle(colors.mutedForeground)
                     .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +127,7 @@ struct ExamView: View {
                             Text("\(ExamScore.text(attempt.score)) / \(ExamScore.text(attempt.maxScore))")
                                 .font(Type.strong.font)
                                 .foregroundStyle(colors.foreground)
-                            Text(String(attempt.createdAt?.prefix(10) ?? "—"))
+                            Text(String(attempt.createdAt?.prefix(10) ?? "–"))
                                 .font(Type.fine.font)
                                 .foregroundStyle(colors.mutedForeground)
                         }
@@ -176,7 +176,7 @@ struct ExamView: View {
                 model.submitExam()
             }
             Spacer().frame(height: 8)
-            Text("The mark scheme is applied when you hand in — the paper never carried it.")
+            Text("The mark scheme is applied when you hand in. The paper never carried it.")
                 .font(Type.fine.font)
                 .foregroundStyle(colors.mutedForeground)
                 .fixedSize(horizontal: false, vertical: true)
@@ -310,7 +310,7 @@ struct ExamView: View {
                     ForEach(profile, id: \.ao) { row in
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
-                                Text("\(row.ao) — \(AoGuide.label(row.ao))")
+                                Text("\(row.ao) · \(AoGuide.label(row.ao))")
                                     .font(Type.captionS.font)
                                     .foregroundStyle(colors.foreground)
                                 Spacer(minLength: 0)
@@ -359,9 +359,9 @@ enum AoGuide {
     static func description(_ ao: String) -> String? {
         switch ao {
         case "AO1":
-            return "Recall marks. Awarded for stating accurate facts, definitions and terms — naming the thing correctly. No context needed: a correct fact is a mark even in isolation."
+            return "Recall marks. Awarded for stating accurate facts, definitions and terms, and naming the thing correctly. No context needed: a correct fact is a mark even in isolation."
         case "AO2":
-            return "Application marks. Awarded for using knowledge in the scenario given — the answer must refer to the context (the club, the college, the data), not just state general theory."
+            return "Application marks. Awarded for using knowledge in the scenario given, so the answer must refer to the context (the club, the college, the data), not just state general theory."
         case "AO3":
             return "Reasoning marks. Awarded for chains of reasoning: weighing options, drawing conclusions, making justified judgements. \"This means… therefore… which affects the business because…\""
         default: return nil
@@ -375,7 +375,7 @@ enum AoGuide {
         let sorted = profile.sorted { $0.percentage < $1.percentage }
         guard let weakest = sorted.first, let strongest = sorted.last else { return "" }
         if sorted.count > 1 && weakest.percentage == strongest.percentage {
-            return "Every objective scored the same — revise the questions you lost, whatever kind of mark they were."
+            return "Every objective scored the same. Revise the questions you lost, whatever kind of mark they were."
         }
         if weakest.percentage >= strongest.percentage - 10 {
             return "Marks are spread evenly across objectives. Revise from the per-question breakdown below."
@@ -383,10 +383,10 @@ enum AoGuide {
         let tail: String
         switch weakest.ao {
         case "AO1": tail = "re-read the notes for the facts and definitions you were expected to state."
-        case "AO2": tail = "practise tying your answers to the scenario — every point should name the business, person or data in the question."
+        case "AO2": tail = "practise tying your answers to the scenario, so every point names the business, person or data in the question."
         default: tail = "practise finishing answers with a reasoned judgement: weigh both sides, then decide."
         }
-        return "Your weakest objective is \(weakest.ao) (\(label(weakest.ao).lowercased())) at \(weakest.percentage)% — \(tail)"
+        return "Your weakest objective is \(weakest.ao) (\(label(weakest.ao).lowercased())) at \(weakest.percentage)%: \(tail)"
     }
 }
 
@@ -398,7 +398,7 @@ struct AoSplitRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("\(split.ao) — \(AoGuide.label(split.ao))")
+                Text("\(split.ao) · \(AoGuide.label(split.ao))")
                     .font(Type.captionS.font)
                     .foregroundStyle(colors.foreground)
                 Spacer(minLength: 0)
@@ -484,7 +484,7 @@ struct MarkedQuestionCard: View {
                     if (line.qwcMarks ?? 0) > 0 {
                         Spacer().frame(height: 4)
                         Text(
-                            "Plus \(line.qwcMarks ?? 0) QWC \((line.qwcMarks ?? 0) == 1 ? "mark" : "marks") for quality of written communication — clear structure, controlled grammar, and the subject's technical terms used properly."
+                            "Plus \(line.qwcMarks ?? 0) QWC \((line.qwcMarks ?? 0) == 1 ? "mark" : "marks") for quality of written communication: clear structure, controlled grammar, and the subject's technical terms used properly."
                         )
                         .font(Type.fine.font)
                         .foregroundStyle(colors.mutedForeground)
@@ -532,7 +532,7 @@ struct MarkedQuestionCard: View {
                         Text("YOUR ANSWER")
                             .font(Type.micro.font)
                             .foregroundStyle(colors.mutedForeground)
-                        Text(line.userAnswer.isEmpty ? "—" : line.userAnswer)
+                        Text(line.userAnswer.isEmpty ? "–" : line.userAnswer)
                             .font(Type.fine.font)
                             .foregroundStyle(colors.foreground)
                     }

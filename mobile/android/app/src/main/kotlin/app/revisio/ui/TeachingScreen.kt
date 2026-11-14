@@ -114,7 +114,7 @@ fun TeachingScreen(state: UiState, viewModel: RevisioViewModel) {
             Text("Staff topics go public immediately, and the questions inside go with them.", style = Type.fine.style(Muted))
             if (state.myTopics.isEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                Text("Nothing written yet — start in the Library.", style = Type.fine.style(Muted))
+                Text("Nothing written yet. Start in the Library.", style = Type.fine.style(Muted))
             } else {
                 Spacer(Modifier.height(10.dp))
                 state.myTopics.forEachIndexed { topicIndex, topic ->
@@ -160,7 +160,7 @@ private fun NewClassCard(state: UiState, viewModel: RevisioViewModel, subjects: 
                         if (subjectId.isNotBlank()) put("subjectId", subjectId)
                         else subjects.firstOrNull()?.let { put("subjectId", it.first) }
                     },
-                    okMsg = "Class created — share the join code.",
+                    okMsg = "Class created. Share the join code.",
                 )
                 name = ""
             },
@@ -431,7 +431,7 @@ private fun TopicPublishRow(state: UiState, viewModel: RevisioViewModel, topic: 
                         put("topicId", topic.id)
                         put("visibility", if (live) "private" else "public")
                     },
-                    okMsg = if (live) "${topic.name} withdrawn." else "${topic.name} is live — questions included.",
+                    okMsg = if (live) "${topic.name} withdrawn." else "${topic.name} is live, questions included.",
                 )
             },
             tone = if (live) PillTone.Ghost else PillTone.Secondary,
@@ -548,7 +548,7 @@ private fun OverviewCard(data: StudentProgress) {
             Box(modifier = Modifier.weight(1f)) {
                 ProgressStat(
                     "Accuracy",
-                    o.correctPct?.let { "$it%" } ?: "—",
+                    o.correctPct?.let { "$it%" } ?: "–",
                     o.monthCorrectPct?.let { "$it% in 30d" } ?: "no answers yet",
                     tint = if ((o.correctPct ?: 100) < 60) Bad else null,
                 )
@@ -619,7 +619,7 @@ private fun StrugglingCard(data: StudentProgress) {
         Text("Struggling with", style = Type.strong.style(Ink))
         Spacer(Modifier.height(10.dp))
         if (data.struggling.isEmpty()) {
-            Text("No misses in the last 30 days — or nothing studied yet.", style = Type.caption.style(Muted))
+            Text("No misses in the last 30 days, or nothing studied yet.", style = Type.caption.style(Muted))
         } else {
             data.struggling.forEachIndexed { index, topic ->
                 if (index > 0) Hairline()
@@ -767,11 +767,11 @@ private fun CardStrengthsCard(data: StudentProgress, showAll: Boolean, onToggle:
     }
 }
 
-/** The web's relative-time line: "5m ago", "in 2h", "—" when there is nothing. */
+/** The web's relative-time line: "5m ago", "in 2h", "–" when there is nothing. */
 internal fun whenLabel(iso: String?): String {
-    if (iso == null || iso.isEmpty()) return "—"
+    if (iso == null || iso.isEmpty()) return "–"
     val then = runCatching { java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli() }.getOrNull()
-        ?: return "—"
+        ?: return "–"
     val diff = System.currentTimeMillis() - then
     val mins = Math.abs(diff) / 60_000
     val label = when {

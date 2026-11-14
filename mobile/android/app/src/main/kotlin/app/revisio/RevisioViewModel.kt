@@ -66,7 +66,7 @@ import java.io.File
  * learner why they are suddenly signing in again.
  */
 private const val SESSION_ENDED = "Your session has ended. Sign in again."
-private const val OFFLINE_NOTE = "You're offline — this needs a connection."
+private const val OFFLINE_NOTE = "You're offline. This needs a connection."
 private const val SERVER_BUSY = "We could not reach the server just now. Try that again in a moment."
 
 /**
@@ -791,7 +791,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun uploadImage(kind: String, bytes: ByteArray, contentType: String) {
         if (bytes.size > 5 * 1024 * 1024) {
-            _state.update { it.copy(settingsError = "That image is over 5 MB — pick a smaller one.", settingsNote = null) }
+            _state.update { it.copy(settingsError = "That image is over 5 MB. Pick a smaller one.", settingsNote = null) }
             return
         }
         _state.update { it.copy(savingProfile = true, settingsError = null, settingsNote = null) }
@@ -902,7 +902,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             block = { api.requestEmailChange(it, password, address) },
             onResult = {
                 _state.update {
-                    it.copy(savingEmail = false, settingsNote = "Check $address — the link to confirm arrives by email.")
+                    it.copy(savingEmail = false, settingsNote = "Check $address. The link to confirm arrives by email.")
                 }
             },
             onFailure = { note -> _state.update { it.copy(savingEmail = false, settingsError = note) } },

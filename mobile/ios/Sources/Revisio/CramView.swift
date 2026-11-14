@@ -21,7 +21,7 @@ struct CramView: View {
                 Spacer().frame(height: 20)
                 ScreenTitle(title: "Cram", eyebrow: "Practice")
                 Spacer().frame(height: 6)
-                Text("Practice without touching the schedule — nothing you cram is re-scheduled.")
+                Text("Practice without touching the schedule. Nothing you cram is re-scheduled.")
                     .font(Type.caption.font)
                     .foregroundStyle(colors.mutedForeground)
                 Spacer().frame(height: 20)

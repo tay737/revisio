@@ -43,7 +43,7 @@ fun CramScreen(state: UiState, viewModel: RevisioViewModel) {
         ScreenTitle("Cram", eyebrow = "Practice")
         Spacer(Modifier.height(6.dp))
         Text(
-            "Practice without touching the schedule — nothing you cram is re-scheduled.",
+            "Practice without touching the schedule. Nothing you cram is re-scheduled.",
             style = Type.caption.style(Muted),
         )
         Spacer(Modifier.height(20.dp))

@@ -77,7 +77,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                         Spacer(Modifier.width(10.dp))
                         Text(
                             if (state.online) "Loading your rank…"
-                            else "Your rank needs a connection — it is computed from your XP this season.",
+                            else "Your rank needs a connection. It is computed from your XP this season.",
                             style = Type.caption.style(Muted),
                         )
                     }
@@ -199,7 +199,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                 }
                 item {
                     Text(
-                        "Rank comes from XP earned this season, and resets when the season does. The weekly lobby only decides where you sit inside your tier — a bad week costs you position, not progress.",
+                        "Rank comes from XP earned this season, and resets when the season does. The weekly lobby only decides where you sit inside your tier, and a bad week costs you position, not progress.",
                         style = Type.label.copy(size = 12, uppercase = false).style(Muted),
                         modifier = Modifier.padding(horizontal = 4.dp),
                     )
@@ -329,7 +329,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                Text("Permanent — a rank can slip, these cannot.", style = Type.label.copy(size = 13, uppercase = false).style(Muted))
+                Text("Permanent. A rank can slip; these cannot.", style = Type.label.copy(size = 13, uppercase = false).style(Muted))
                 Spacer(Modifier.height(14.dp))
                 for ((index, achievement) in ranked.achievements.withIndex()) {
                     if (index > 0) Spacer(Modifier.height(8.dp))

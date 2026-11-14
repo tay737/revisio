@@ -40,7 +40,7 @@ struct LearnView: View {
                             Text(
                                 model.online
                                     ? "Nothing published yet. Ask a teacher to publish a subject, or create your own in My content on the web."
-                                    : "Learn needs a connection once — the catalogue is not cached on this device. Today's review still works offline."
+                                    : "Learn needs a connection once. The catalogue is not cached on this device. Today's review still works offline."
                             )
                             .font(Type.caption.font)
                             .foregroundStyle(colors.mutedForeground)

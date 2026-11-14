@@ -74,8 +74,8 @@ private fun aoLabel(ao: String): String = when (ao) {
 }
 
 private fun aoDescription(ao: String): String = when (ao) {
-    "AO1" -> "Recall marks. Awarded for stating accurate facts, definitions and terms — naming the thing correctly. No context needed: a correct fact is a mark even in isolation."
-    "AO2" -> "Application marks. Awarded for using knowledge in the scenario given — the answer must refer to the context (the club, the college, the data), not just state general theory."
+    "AO1" -> "Recall marks. Awarded for stating accurate facts, definitions and terms, and naming the thing correctly. No context needed: a correct fact is a mark even in isolation."
+    "AO2" -> "Application marks. Awarded for using knowledge in the scenario given, so the answer must refer to the context (the club, the college, the data), not just state general theory."
     "AO3" -> "Reasoning marks. Awarded for chains of reasoning: weighing options, drawing conclusions, making justified judgements. \"This means… therefore… which affects the business because…\""
     else -> ""
 }
@@ -92,17 +92,17 @@ private fun aoDirective(profile: List<AoRow>): String {
     val weakest = sorted.first()
     val strongest = sorted.last()
     if (sorted.size > 1 && weakest.percentage == strongest.percentage) {
-        return "Every objective scored the same — revise the questions you lost, whatever kind of mark they were."
+        return "Every objective scored the same. Revise the questions you lost, whatever kind of mark they were."
     }
     if (weakest.percentage >= strongest.percentage - 10) {
         return "Marks are spread evenly across objectives. Revise from the per-question breakdown below."
     }
     val tail = when (weakest.ao) {
         "AO1" -> "re-read the notes for the facts and definitions you were expected to state."
-        "AO2" -> "practise tying your answers to the scenario — every point should name the business, person or data in the question."
+        "AO2" -> "practise tying your answers to the scenario, so every point names the business, person or data in the question."
         else -> "practise finishing answers with a reasoned judgement: weigh both sides, then decide."
     }
-    return "Your weakest objective is ${weakest.ao} (${aoLabel(weakest.ao).lowercase()}) at ${weakest.percentage}% — $tail"
+    return "Your weakest objective is ${weakest.ao} (${aoLabel(weakest.ao).lowercase()}) at ${weakest.percentage}%: $tail"
 }
 
 // ── pick ─────────────────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ private fun ExamPick(state: UiState, viewModel: RevisioViewModel) {
             Text("Real papers & mark schemes", style = Type.strong.style(Ink))
             Spacer(Modifier.height(4.dp))
             Text(
-                "The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide there is — read it beside the notes.",
+                "The board's own documents, extracted from the originals. The mark scheme is the most honest revision guide there is. Read it beside the notes.",
                 style = Type.fine.style(Muted),
             )
             Spacer(Modifier.height(12.dp))
@@ -194,7 +194,7 @@ private fun ExamPick(state: UiState, viewModel: RevisioViewModel) {
                                 " / ${(attempt.maxScore / 2).toInt()}",
                             style = Type.strong.style(Ink),
                         )
-                        Text(attempt.createdAt?.take(10) ?: "—", style = Type.fine.style(Muted))
+                        Text(attempt.createdAt?.take(10) ?: "–", style = Type.fine.style(Muted))
                     }
                     Badge(
                         "${if (attempt.maxScore > 0) ((attempt.score / attempt.maxScore) * 100).toInt() else 0}%",
@@ -300,7 +300,7 @@ private fun ExamRun(state: UiState, viewModel: RevisioViewModel) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "The mark scheme is applied when you hand in — the paper never carried it.",
+            "The mark scheme is applied when you hand in. The paper never carried it.",
             style = Type.fine.style(Muted),
         )
         Spacer(Modifier.height(12.dp))
@@ -381,7 +381,7 @@ private fun AoSplitRow(split: AoSplit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "${split.ao} — ${aoLabel(split.ao)}",
+                "${split.ao} · ${aoLabel(split.ao)}",
                 style = Type.captionS.style(Ink),
                 modifier = Modifier.weight(1f),
             )
@@ -444,7 +444,7 @@ private fun ExamMarked(state: UiState, viewModel: RevisioViewModel) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "${row.ao} — ${aoLabel(row.ao)}",
+                            "${row.ao} · ${aoLabel(row.ao)}",
                             style = Type.captionS.style(Ink),
                             modifier = Modifier.weight(1f),
                         )
@@ -523,7 +523,7 @@ private fun MarkedQuestion(index: Int, line: ExamMark, state: UiState) {
             splits.forEach { AoSplitRow(it) }
             if (line.qwcMarks > 0) {
                 Text(
-                    "Plus ${line.qwcMarks} QWC ${if (line.qwcMarks == 1) "mark" else "marks"} for quality of written communication — clear structure, controlled grammar, and the subject's technical terms used properly.",
+                    "Plus ${line.qwcMarks} QWC ${if (line.qwcMarks == 1) "mark" else "marks"} for quality of written communication: clear structure, controlled grammar, and the subject's technical terms used properly.",
                     style = Type.fine.style(Muted),
                 )
             }
@@ -557,7 +557,7 @@ private fun MarkedQuestion(index: Int, line: ExamMark, state: UiState) {
                     Spacer(Modifier.height(8.dp))
                 }
                 Text("YOUR ANSWER", style = Type.micro.style(Muted))
-                Text(line.userAnswer.ifBlank { "—" }, style = Type.fine.style(Ink))
+                Text(line.userAnswer.ifBlank { "–" }, style = Type.fine.style(Ink))
             }
         }
     }

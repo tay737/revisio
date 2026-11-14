@@ -298,7 +298,7 @@ struct PracticeView: View {
             }
 
             Spacer().frame(height: 16)
-            Text("These never touched your schedule — practice only earns XP.")
+            Text("These never touched your schedule. Practice only earns XP.")
                 .font(Type.fine.font)
                 .foregroundStyle(colors.mutedForeground)
                 .multilineTextAlignment(.center)

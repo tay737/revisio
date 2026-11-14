@@ -20,7 +20,7 @@ let apiBase = "https://revisio-srs.vercel.app"
 /// why a learner is suddenly signing in again.
 ///
 private let sessionEndedCopy = "Your session has ended. Sign in again."
-private let offlineCopy = "You're offline — this needs a connection."
+private let offlineCopy = "You're offline. This needs a connection."
 private let serverBusyCopy = "We could not reach the server just now. Try that again in a moment."
 
 ///
@@ -1054,7 +1054,7 @@ final class AppModel: ObservableObject {
     /// Upload a profile image — the web's presign → PUT → confirm dance.
     func uploadImage(kind: String, bytes: Data, contentType: String) {
         guard bytes.count <= 5 * 1024 * 1024 else {
-            settingsError = "That image is over 5 MB — pick a smaller one."
+            settingsError = "That image is over 5 MB. Pick a smaller one."
             settingsNote = nil
             return
         }
@@ -1264,7 +1264,7 @@ final class AppModel: ObservableObject {
             onFailure: { self.savingEmail = false }
         ) { _ in
             self.savingEmail = false
-            self.settingsNote = "Check \(address) — the link to confirm arrives by email."
+            self.settingsNote = "Check \(address). The link to confirm arrives by email."
         }
     }
 
@@ -1782,7 +1782,7 @@ struct UpdateBanner: View {
                             .foregroundStyle(colors.foreground)
                         Text(
                             required
-                                ? "Version \(model.update.latest) is required — older builds can no longer be guaranteed to work."
+                                ? "Version \(model.update.latest) is required. Older builds can no longer be guaranteed to work."
                                 : "Version \(model.update.latest) is out. You can keep studying either way."
                         )
                         .font(Type.fine.font)
@@ -2110,7 +2110,7 @@ private struct AuthView: View {
                 .font(Type.tagline.font)
                 .foregroundStyle(colors.foreground)
             Spacer().frame(height: 6)
-            Text(mode == .login ? "Your queue is where you left it." : "Choose your subjects now — you can change them later.")
+            Text(mode == .login ? "Your queue is where you left it." : "Choose your subjects now. You can change them later.")
                 .font(Type.caption.font)
                 .foregroundStyle(colors.mutedForeground)
             Spacer().frame(height: 24)
@@ -2141,7 +2141,7 @@ private struct AuthView: View {
                         icon: "private", label: "Two-factor code", placeholder: "000000",
                         text: $totp, keyboard: .numberPad
                     )
-                    Text("From your authenticator app — or one of your recovery codes.")
+                    Text("From your authenticator app, or one of your recovery codes.")
                         .font(Type.fine.font)
                         .foregroundStyle(colors.mutedForeground)
                         .padding(.top, 6)
@@ -2297,7 +2297,7 @@ private struct AuthView: View {
                 if model.signedIn {
                     // Signed in — nothing else to say.
                 } else if model.mfaStage {
-                    info = "Enter the six-digit code from your authenticator app — or one of your recovery codes."
+                    info = "Enter the six-digit code from your authenticator app, or one of your recovery codes."
                 } else if model.message != nil {
                     unverifiedEmail = nil
                     error = model.message ?? "Sign in failed."
@@ -2331,8 +2331,8 @@ private struct AuthView: View {
         VStack(spacing: 0) {
             Text(
                 mode == .login
-                    ? "No account yet? Create one — or study offline; your session and today's cards are kept on this device."
-                    : "Already registered? Sign in — then keep studying offline."
+                    ? "No account yet? Create one, or study offline. Your session and today's cards are kept on this device."
+                    : "Already registered? Sign in, then keep studying offline."
             )
             .font(Type.caption.font)
             .foregroundStyle(colors.mutedForeground)
