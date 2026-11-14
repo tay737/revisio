@@ -56,7 +56,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-pill px-4 t-caption font-semibold whitespace-nowrap sm:min-h-9',
+        'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-pill px-4 t-caption font-semibold whitespace-nowrap',
         'text-muted-foreground transition-colors duration-150 hover:text-foreground',
         'data-active:bg-card data-active:text-foreground',
         'data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start',
