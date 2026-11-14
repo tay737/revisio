@@ -18,7 +18,7 @@ import { ApiError, ok, route, setRefreshCookie } from '@/services/api';
  */
 export const POST = route(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
-  const { token, password } = (body ?? {}) as { token?: string; password?: string };
+  const { token, password } = (body ?? {}) as { token?: string; password?: string; client?: string };
   if (!token) throw new ApiError(400, 'bad_request', 'That reset link is missing its token.');
   if (!password || password.length < 8) {
     throw new ApiError(400, 'weak_password', 'Password must be at least 8 characters.');
@@ -47,6 +47,9 @@ export const POST = route(async (req: NextRequest) => {
   return ok({
     accessToken,
     signedOutElsewhere: true,
+    // Same opt-in as login/refresh: native clients cannot read the cookie, so
+    // they get the fresh refresh token in the body and stay signed in.
+    ...(body?.client === 'native' ? { refreshToken: refresh } : {}),
     user: {
       id: user.id,
       email: user.email,

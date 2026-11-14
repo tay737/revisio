@@ -40,6 +40,10 @@ no origin, so no bucket configuration is required for native.
   abandoned upload never half-lands.
 - `403 not_yours` if `key` does not start with `u/<yourId>/` — always use the key the
   presign gave you, never a constructed one.
+- `400 upload_missing` if the PUT never landed — the server checks the object exists before
+  recording, so a confirm is only honest after a successful PUT. Re-presign and retry.
+- `415 bad_type` if `contentType` is outside the png/jpeg/gif whitelist; `400 bad_kind` for a
+  missing/invalid `kind`.
 - The server records the asset in the ledger and deletes the previous avatar/banner bytes.
 - Returns `{ url }` — the app-proxied public URL (see Serving).
 

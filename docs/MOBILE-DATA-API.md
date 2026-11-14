@@ -56,8 +56,8 @@ the card moved to. Errors: `400 bad_request` (no `cardId`), `401`, `404` unknown
 
 ## PATCH /api/v1/me — profile, privacy and preferences in one door
 
-All fields optional; send only what changed. Absent keys keep their stored value —
-`profileVisibility` **merges**, so sending one toggle cannot blank the other six.
+All fields optional; send only what changed. Both `profileVisibility` **and** `prefs` merge
+server-side — absent keys keep their stored value, so a partial write cannot blank the rest.
 
 ```json
 { "name": "...", "nickname": "...", "username": "...", "bio": "...",
@@ -139,6 +139,22 @@ season's reward → response carries the claim state; claim is idempotent.
 Own-progress payload for a stats surface: `{ student, overview{ totalReviews, totalCards,
 correctPct, monthCorrectPct, monthReviews, xp, streak, bestStreak, dueCount }, srsLevels[],
 distribution[], struggling[], upcomingReviews[] }`. All reads; nothing to write.
+
+## POST /api/v1/media — deltas on top of docs/MOBILE-MEDIA-API.md
+
+- `confirm` now verifies the object exists in the bucket before recording: a confirm without
+  a completed PUT answers `400 upload_missing` — re-presign, PUT, then confirm again. A
+  `contentType` outside the whitelist answers `415 bad_type`; a missing/invalid `kind` is
+  `400 bad_kind`.
+- `/api/v1/assets/<key>` 404s are plain text, not the JSON error shape — an image loader just
+  fails. Treat any non-200 as "render the colour+symbol fallback".
+
+## GET /api/v1/me — fields present but not for you
+
+`/me` carries a few keys no screen needs: `gamification.intoLevel`/`forNext`,
+`subjects[].slug`. Consent is NOT in `/me` — `GET /consent` is the source. There is no
+`pendingEmail` either, so "email change pending" cannot be read back; the confirmation screen
+lives in the mailbox.
 
 ## Spelling traps (recap from the field walk)
 

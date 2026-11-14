@@ -29,12 +29,14 @@ Responses:
 - `200 { "mfaRequired": true }` — account has TOTP; retry with `totp` (6 digits) or a
   `recoveryCode`.
 - `401 invalid_credentials` — wrong email or password.
+- `401 invalid_mfa` — the TOTP/recovery code was wrong. There is a **third** rate-limit
+  budget here, per-account on `totp` attempts: repeated wrong codes `429` even from one IP.
 - `403 suspended` / `403 email_unverified` — the second means the learner never clicked the
   verification link; offer resend (`PUT /auth/verify-email?resend=1`, see below) and a
   retry affordance, never a silent retry loop.
-- Rate limiting: attempts are counted **before** any password work, per IP and per email+IP.
-  A `429` tells the truth about the window; show the message and a retry affordance, never a
-  silent retry loop (a loop burns the same budget).
+- Rate limiting: attempts are counted **before** any password work, per IP and per email+IP
+  (plus the per-account TOTP wall above). A `429` tells the truth about the window; show the
+  message and a retry affordance, never a silent retry loop (a loop burns the same budget).
 
 Store the `refreshToken` in `flutter_secure_storage` (not shared prefs), the `accessToken` in
 memory only.
@@ -60,13 +62,29 @@ last step:
 {
   "email": "...", "password": "...", "name": "...",
   "role": "student",            // omit = student; "teacher"/"developer" go to a staff-approval queue
+  "requestedRole": "teacher",   // alias for `role` — the web staff form sends this one
   "dateOfBirth": "YYYY-MM-DD",  // learner-only, required, must not be in the future
   "ageConsent": true,           // ONLY when the server said so (see 403 below)
   "subjectIds": ["..."],        // optional, max 12
-  "classCode": "ABC123",        // optional
+  "classCode": "ABC123",        // optional — silently ignored when no class matches
   "note": "..."                 // staff role requests only
 }
 ```
+
+Server-side facts the wizard should know:
+
+- `dateOfBirth` is **retained only for under-13 learners**. For 13+ the server stores
+  `dateOfBirth: null` and `ageConsent` stays false — do not promise the app "remembers" an
+  adult's DOB; it does not, by design.
+- `classCode` has no error path: an unknown code simply joins nothing and the 201 carries no
+  signal. If the UI claims "joined class X", it must verify via `GET /classes/join` after
+  registering, or drop the claim.
+- Registration is rate-limited per IP (`registerIp`) — a `429` is possible on the submit step;
+  show the message and a retry affordance.
+- Staff requests (`role`/`requestedRole` = `teacher`/`developer`) always return
+  `role: "student"` + `status: "pending"` — the account exists but waits in the approval queue.
+  The response carries **`pendingApproval: true`** for those; show the approval-pending
+  message, not "check your inbox" (that one is for learners).
 
 Education level is NOT collected: removed from the server per the DPO's ruling (UK GDPR
 Art 5(1)(c) — no lawful basis, no feature consumed it). Do not show a level picker; a
@@ -84,7 +102,8 @@ Field errors (each arrives with a `field` key — mark that field, not the whole
 Success `201`:
 
 ```json
-{ "id", "email", "name", "role", "status": "pending",
+{ "id", "email", "name", "role": "student", "status": "pending",
+  "pendingApproval": true,                    // ONLY for teacher/developer requests
   "unavailableSubjects": ["..."]?,          // only when some subjectIds had vanished
   "verifyUrl": "/verify-email?token=..." }  // ONLY when the server has no mail provider (dev)
 ```
@@ -100,8 +119,15 @@ in dev responses, ask — that is a one-line change in the same file.
 
 ## POST /api/v1/auth/verify-email
 
-`{ "token": "..." }` → `200 { "verified": true }`; `400 invalid_token` when the link expired.
-`kind: "email_change"` is a settings flow, not onboarding.
+`{ "token": "...", "kind": "verify" | "email_change" }` → `200`.
+
+- `kind` **must be echoed from the link's query string** — email-change links arrive as
+  `/verify-email?token=..&kind=email_change`, and the token store is kind-scoped: posting an
+  `email_change` token without `kind` answers `400 invalid_token` even though the link is
+  valid. `verify` (and omitted `kind`) activates a new account → `{ "verified": true }`.
+- `email_change` → `{ "verified": true, "email": "<new address>" }`; errors `400 invalid_token`,
+  `409 conflict` (no change waiting), `409 email_taken` (address registered meanwhile — the
+  pending change is cancelled server-side).
 
 ## PUT /api/v1/auth/verify-email?resend=1
 
@@ -115,11 +141,31 @@ this resend plus a "I've verified — try again" button that simply retries the 
 `200 { "subjects": [{ "id", "name" }] }` — no auth. Powers the register wizard's subject
 picker; cache it for the session.
 
+## POST /api/v1/auth/password-reset + /confirm
+
+Forgot-password, two calls:
+
+1. `POST /api/v1/auth/password-reset` `{ "email" }` → always `200 { "sent", "message" }` —
+   neutral whether or not the address exists (no account oracle).
+2. `POST /api/v1/auth/password-reset/confirm` `{ "token", "password", "client": "native" }` →
+   `200 { "accessToken", "signedOutElsewhere": true, "user": {...} }` — **plus
+   `"refreshToken"` when `client: "native"`**, same opt-in as login. Every prior session is
+   revoked; the response signs the caller straight in. Errors: `400 invalid_token` (expired
+   or used — links are single-use), `400 weak_password`.
+
 ## POST /api/v1/auth/logout
 
-Requires the bearer access token. Server revokes every refresh token for the user. Flutter
-must also delete its stored refresh token locally — the server clear cannot reach
-`flutter_secure_storage`.
+Send the stored refresh token — `{ "refreshToken": "..." }` in the body for native (the
+cookie path is what web uses). The server revokes **that one token**; other devices'
+sessions survive (a password change is what signs everything out). Flutter must still
+delete its local copy — server revocation cannot reach `flutter_secure_storage`. Response
+`200 { "ok": true }` either way.
+
+## 2FA management (web-only for v1)
+
+`GET/POST/DELETE /api/v1/auth/2fa` exist (enrolment secret+URI, confirm code, disable) but
+the plan keeps enrolment on web — the phone shows 2FA state read-only and deep-links to
+`/settings`. Errors if ever called: `400 no_secret` / `invalid_code` / `not_enabled`.
 
 ## Authenticated calls
 
