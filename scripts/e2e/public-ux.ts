@@ -555,11 +555,18 @@ try {
     .then((handle) => handle.jsonValue() as Promise<string>)
     .catch(() => null);
   // The reloaded page re-registers the app's own /sw.js, which may take over
-  // from the probe; what matters is that some worker controls the page.
+  // from the probe; what matters is that some worker controls the page. Which
+  // one wins is a race the browser decides, so requiring /sw.js here failed a
+  // correct update whenever the probe — same scope, clients.claim() — arrived
+  // first. That is F11 in the audit: the assertion, not the product.
   check(
-    typeof controlledBy === 'string' && controlledBy.endsWith('/sw.js'),
-    `the page is controlled by an active worker after the update (controller: ${String(controlledBy)})`,
+    typeof controlledBy === 'string' && controlledBy.startsWith(new URL(baseUrl).origin),
+    `a same-origin worker controls the page after the update (controller: ${String(controlledBy)})`,
   );
+  const appWorkerActive = await pwaPage
+    .evaluate(`navigator.serviceWorker.getRegistration('/sw.js').then((registration) => !!(registration && registration.active))`)
+    .catch(() => false);
+  check(appWorkerActive === true, "the app's own worker is registered and active after the update");
   await pwaContext.close();
 
   // iOS has no install prompt; Safari users get the Add to Home Screen path.
