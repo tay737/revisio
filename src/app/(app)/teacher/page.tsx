@@ -170,7 +170,7 @@ export default function TeacherPage() {
             onClick={() =>
               post(
                 { action: 'create_class', name: className, subjectId: subjectId || data?.subjects[0]?.id },
-                'Class created — share the join code.',
+                'Class created. Share the join code.',
               ).then(() => setClassName(''))
             }
           >
@@ -222,7 +222,7 @@ export default function TeacherPage() {
                   {copiedId === c.id ? 'Copied' : 'Copy'}
                 </button>
                 {copyFailed && copiedId !== c.id && (
-                  <span className="t-fine text-destructive-ink">Copy blocked — select the code and copy it by hand.</span>
+                  <span className="t-fine text-destructive-ink">Copy blocked. Select the code and copy it by hand.</span>
                 )}
                 <Button
                   type="button"
@@ -473,7 +473,7 @@ export default function TeacherPage() {
       {/* ── New subject ──────────────────────────────────────────────────── */}
       <Card as="section">
         <h2 className="t-strong">New subject</h2>
-        <p className="t-caption mt-1 text-muted-foreground">Subjects group topics — one per course, usually.</p>
+        <p className="t-caption mt-1 text-muted-foreground">Subjects group topics, one per course usually.</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Input
             className="flex-1 sm:min-w-[200px]"

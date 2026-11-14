@@ -61,11 +61,11 @@ object Copy {
             lines += "$due ${if (due == 1) "card is" else "cards are"} waiting"
             lines += "Let's clear today's queue"
         } else {
-            lines += "Nothing is due — you're ahead"
-            lines += "Want to get ahead instead?"
+            lines += "Nothing is due today"
+            lines += "Want to work ahead?"
         }
         if (streak >= 2) lines += "Day $streak of your streak"
-        if (level > 1) lines += "Level $level — keep it moving"
+        if (level > 1) lines += "Level $level"
         if (subject != null) lines += "Back to $subject?"
         return lines.distinct().ifEmpty { listOf("Let's get started") }
     }
@@ -75,17 +75,17 @@ object Copy {
         if (total == 0) return "No cards answered yet."
         val pct = ((correct.toDouble() / total) * 100).roundToInt()
         return when {
-            pct == 100 -> "$correct for $total. Every one of them."
-            pct >= 80 -> "$correct for $total — that's the recall we want."
-            pct >= 50 -> "$correct for $total. The misses are the useful part."
-            else -> "$correct for $total. Worth a pass over the notes before the next run."
+            pct == 100 -> "$correct for $total. Nothing to redo."
+            pct >= 80 -> "$correct for $total. ${total - correct} to look at again."
+            pct >= 50 -> "$correct for $total. Read the notes before the next run."
+            else -> "$correct for $total. Go back to the notes; this set is not settled yet."
         }
     }
 
     /** Empty-state copy that hands the learner a next action rather than a shrug. */
     fun emptyQueueLine(due: Int, streak: Int): String {
         if (due == 0 && streak > 0) {
-            return "Your schedule is clear and your $streak-day streak is safe. Anything you do now is a head start."
+            return "Your schedule is clear and your $streak-day streak is safe. Anything you review now comes off tomorrow."
         }
         return "Your schedule is clear. Cram a topic, read ahead, or come back tomorrow."
     }
@@ -120,11 +120,11 @@ object Copy {
             "pending" ->
                 "We are still placing you. A few more reviews and we will seat you in a $rankLabel lobby."
             "promotion" ->
-                "$position of $size — you are inside the promotion zone. $days; holding this seat moves you up a rung."
+                "$position of $size. You are inside the promotion zone. $days; holding this seat moves you up a rung."
             "demotion" ->
-                "$position of $size — that is the demotion band. One session pulls you clear of it."
+                "$position of $size. That is the demotion band, and one session pulls you clear of it."
             else ->
-                "$position of $size — safe, and close enough to the promotion band to take it. $days."
+                "$position of $size. Safe, and close enough to the promotion band to take it. $days."
         }
     }
 
@@ -153,7 +153,7 @@ object Copy {
         if (totalXp <= 0 && reviewed == 0) {
             return CompanionRead(
                 "welcome",
-                "Nothing here yet, ${firstName(name)} — which is the good part. Ten minutes on the first topic and the scheduler starts working for you tonight.",
+                "Nothing here yet, ${firstName(name)}. Ten minutes on one topic is enough to start.",
                 "Pick a topic",
             )
         }
@@ -162,7 +162,7 @@ object Copy {
         if (streak == 0 && bestStreak >= 3 && reviewed == 0) {
             return CompanionRead(
                 "returning",
-                "You had $bestStreak days going. Nothing is lost — the queue has held your place, and it only takes today to start the next run.",
+                "You had $bestStreak days going. Your queue kept your place, so today starts the next run.",
                 "Resume where you left off",
             )
         }
@@ -173,9 +173,9 @@ object Copy {
             return CompanionRead(
                 if (clean) "praise" else "open",
                 if (clean) {
-                    "$reviewed for $reviewed. That is a clean sheet, and it${if (rank.isNotEmpty()) " is why you are holding$rank" else ""}."
+                    "$reviewed for $reviewed.${if (rank.isNotEmpty()) " Still$rank." else ""}"
                 } else {
-                    "$reviewed answered and the queue is clear${if (rank.isNotEmpty()) " — still$rank" else ""}. Days like this are what hold a rank together."
+                    "$reviewed answered and the queue is clear.${if (rank.isNotEmpty()) " Still$rank." else ""}"
                 },
                 "See the ladder",
             )
@@ -185,7 +185,7 @@ object Copy {
         if (reviewed > 0 && due > 0) {
             return CompanionRead(
                 "momentum",
-                "$reviewed down, $due to go. You are faster on these than you were at the start.",
+                "$reviewed down, $due to go.",
                 "Carry on",
             )
         }
@@ -196,9 +196,10 @@ object Copy {
             return CompanionRead(
                 "nudge",
                 if (late) {
-                    "$due cards are due. Five of them would keep ${if (streak > 0) "day $streak" else "the streak algorithm"} happy — the rest can wait for tomorrow."
+                    if (due == 1) "One card is due. It will take a minute."
+                    else "$due cards are due. A few now, the rest tomorrow."
                 } else {
-                    "$due cards due, and nothing in there you have not seen before. Worth doing while they are still easy."
+                    "$due cards are due. All of them are cards you have already seen."
                 },
                 "Start the queue",
             )
@@ -207,7 +208,7 @@ object Copy {
         // 6 — nothing due and nothing done: an invitation, not a reprimand.
         return CompanionRead(
             "open",
-            "Nothing is due, which means today is optional — the best kind. Get ahead on a topic, or protect the rank with a quick cram.",
+            "Nothing is due. Get ahead on a topic, or leave it until tomorrow.",
             "Get ahead",
         )
     }

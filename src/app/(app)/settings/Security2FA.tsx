@@ -91,7 +91,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
       await navigator.clipboard.writeText(recoveryCodes.join('\n'));
       setCopied(true);
     } catch {
-      setError('Copy was blocked — select the codes and copy them by hand.');
+      setError('Copy was blocked. Select the codes and copy them by hand.');
     }
   };
 
@@ -101,7 +101,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
       await navigator.clipboard.writeText(start.secret);
       setCopied(true);
     } catch {
-      setError('Copy was blocked — select the code and copy it by hand.');
+      setError('Copy was blocked. Select the code and copy it by hand.');
     }
   };
 
@@ -162,7 +162,7 @@ export function Security2FA({ enabled, onChanged }: { enabled: boolean; onChange
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary t-caption font-bold">1</span>
               <div>
                 <p className="t-caption-s">Scan this with your authenticator app</p>
-                <p className="t-fine mt-0.5 text-muted-foreground">Google Authenticator, 1Password, Authy — any TOTP app works.</p>
+                <p className="t-fine mt-0.5 text-muted-foreground">Google Authenticator, 1Password, Authy: any TOTP app works.</p>
                 <div className="mt-2 inline-block rounded-md bg-white p-2">
                   {/* A data URL QR — plain <img>, next/image is for remote optimisation. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}

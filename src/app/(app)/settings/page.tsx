@@ -280,14 +280,14 @@ function SettingsBody({
               /u/{me.username}
             </Link>
           ) : (
-            <span>— pick a username to get an address</span>
+            <span>(pick a username to get an address)</span>
           )}
           .
         </p>
 
         <div className="mt-3 flex items-center gap-2">
           <RoleBadge role={me.role} />
-          <span className="t-fine text-muted-foreground">Your account type — shown on your public profile.</span>
+          <span className="t-fine text-muted-foreground">Your account type. Shown on your public profile.</span>
         </div>
 
         <div className="mt-5">
@@ -415,7 +415,7 @@ function SettingsBody({
           <Field
             label="Username"
             htmlFor="set-username"
-            hint={usernameOk ? (username ? `Your profile: /u/${username.toLowerCase()}` : 'Optional — letters, numbers, hyphens.') : '3–20 characters: letters, numbers, hyphens, underscores.'}
+            hint={usernameOk ? (username ? `Your profile: /u/${username.toLowerCase()}` : 'Optional. Letters, numbers and hyphens.') : '3–20 characters: letters, numbers, hyphens, underscores.'}
             bad={!usernameOk}
           >
             <Input
@@ -454,7 +454,7 @@ function SettingsBody({
               value={pronouns}
               onChange={(e) => setPronouns(e.target.value)}
               maxLength={PRONOUN_MAX}
-              placeholder="Optional — anything you want to be called by"
+              placeholder="Optional. Anything you want to be called."
               aria-invalid={!!pronounProblem}
               aria-describedby="set-pronouns-hint"
             />
@@ -462,7 +462,7 @@ function SettingsBody({
               {pronounProblem ??
                 (vis.pronouns
                   ? 'Shown on your public profile beside your name.'
-                  : 'Private for now — visitors will not see it. Switch Pronouns on under Privacy below.')}
+                  : 'Private for now. Visitors will not see it. Switch Pronouns on under Privacy below.')}
             </p>
           </div>
         </div>
@@ -513,7 +513,7 @@ function SettingsBody({
         <h2 className="t-strong">Account</h2>
         <p className="t-caption mt-1 text-muted-foreground">
           Signed in as <span className="font-mono t-caption">{me.email}</span>
-          {me.status !== 'active' ? ' — email not verified yet.' : '.'}
+          {me.status !== 'active' ? ' (email not verified yet)' : '.'}
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="New email" htmlFor="set-email" hint="We email a confirmation link; the change happens when you click it.">

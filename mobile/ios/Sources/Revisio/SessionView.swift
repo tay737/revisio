@@ -245,7 +245,7 @@ struct SessionView: View {
                 card.key != nil &&
                 Grading.previewVerdict(card, answer: model.answer.trimmingCharacters(in: .whitespaces), selectedOptionId: nil)?.correct == true
             PillButton(
-                text: autoMark ? "Correct — press Enter" : "Check",
+                text: autoMark ? "Correct, press Enter" : "Check",
                 tone: .good,
                 enabled: inputReady(card),
                 large: true

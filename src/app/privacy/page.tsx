@@ -71,7 +71,7 @@ const SECTIONS = [
         </p>
         <section className="mt-3 border-l-2 border-border pl-3">
           <h3 className="t-caption-s mb-1">Account and profile</h3>
-          <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+          <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
             <li>Your email address, which is your login and where account mail goes.</li>
             <li>Your name, and optionally a display name, username, bio and pronouns.</li>
             <li>
@@ -102,7 +102,7 @@ const SECTIONS = [
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
           <h3 className="t-caption-s mb-1">Learning activity</h3>
-          <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+          <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
             <li>
               Each review: the card, the answer you typed, the verdict, how long
               you took and the rating you gave yourself.
@@ -121,7 +121,7 @@ const SECTIONS = [
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
           <h3 className="t-caption-s mb-1">Security and records</h3>
-          <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+          <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
             <li>
               Session records: refresh-token hashes with an expiry, and
               single-use token hashes for email verification and password reset.
@@ -268,7 +268,7 @@ const SECTIONS = [
             Three features show your data to someone else, and each one is under
             your control:
           </p>
-          <ul className="mt-1 list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+          <ul className="mt-1 list-disc pl-5 space-y-1 t-caption leading-relaxed">
             <li>
               Your public profile at <span className="font-mono">/u/</span> your
               username shows only the fields you switch on. Anyone with the
@@ -533,7 +533,7 @@ const SECTIONS = [
         </p>
         <section className="mt-3 border-l-2 border-border pl-3">
           <h3 className="t-caption-s mb-1">What that check is, and is not</h3>
-          <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+          <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
             <li>
               Registration asks for a date of birth and, where it puts the
               learner under 13, a ticked statement that the person completing
@@ -715,7 +715,7 @@ export default function PrivacyPage() {
         {SECTIONS.map((section) => (
           <section key={section.id} id={section.id} className="scroll-mt-24">
             <h2 className="t-strong">{section.title}</h2>
-            <div className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+            <div className="mt-2 t-caption leading-relaxed text-foreground/90">
               {section.content}
             </div>
           </section>

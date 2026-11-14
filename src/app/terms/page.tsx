@@ -88,7 +88,7 @@ const SECTIONS = [
           and email-change links all go there.
         </p>
         <p>You are responsible for:</p>
-        <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+        <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
           <li>keeping your password and any two-factor codes to yourself;</li>
           <li>everything done under your account; and</li>
           <li>using one account per person rather than sharing a login.</li>
@@ -116,7 +116,7 @@ const SECTIONS = [
           copies already in a backup.
         </p>
         <p>You confirm that:</p>
-        <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+        <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
           <li>the content is yours to upload, or you have permission to use it;</li>
           <li>it does not infringe anyone&apos;s copyright, trademark or other rights; and</li>
           <li>it does not break these terms or the law.</li>
@@ -161,7 +161,7 @@ const SECTIONS = [
     content: (
       <>
         <p className="mt-2">You must not:</p>
-        <ul className="list-disc pl-5 space-y-1 text-[14px] leading-relaxed">
+        <ul className="list-disc pl-5 space-y-1 t-caption leading-relaxed">
           <li>use the Service for anything unlawful, or to help someone else do something unlawful;</li>
           <li>try to reach data, systems or accounts you have not been given access to;</li>
           <li>submit content that is false, abusive, harassing or designed to harm another learner;</li>
@@ -400,7 +400,7 @@ export default function TermsPage() {
         {SECTIONS.map((section) => (
           <section key={section.id} id={section.id} className="scroll-mt-24">
             <h2 className="t-strong">{section.title}</h2>
-            <div className="mt-2 text-[15px] leading-relaxed text-foreground/90">
+            <div className="mt-2 t-caption leading-relaxed text-foreground/90">
               {section.content}
             </div>
           </section>

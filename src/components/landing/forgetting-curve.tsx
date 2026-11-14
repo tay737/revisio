@@ -73,7 +73,7 @@ export function ForgettingCurve() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="t-fine uppercase tracking-[0.08em] text-muted-foreground">Recall now</p>
-          <p className="num mt-1 text-[40px] font-bold leading-none" aria-live="polite">
+          <p className="num t-num mt-1 leading-none" aria-live="polite">
             {recallPct}%
           </p>
         </div>

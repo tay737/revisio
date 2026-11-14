@@ -400,7 +400,7 @@ export default function PracticePage() {
                   })}
                 </div>
                 <p className="t-caption mt-1.5 text-muted-foreground">
-                  {pickedTopics.size === 0 ? 'No topic selected — questions come from every concept.' : 'Question sets a teacher pinned to these topics are counted.'}
+                  {pickedTopics.size === 0 ? 'No topic selected. Questions come from every concept.' : 'Question sets a teacher pinned to these topics are counted.'}
                 </p>
               </div>
 
@@ -479,7 +479,7 @@ export default function PracticePage() {
       <Notice tone="bad">{error}</Notice>
 
       <p className="t-caption text-center text-muted-foreground">
-        Looking for your spaced reviews? That is <Link href="/review" className="text-foreground underline underline-offset-4">Review</Link> — practice here never changes it.
+        Looking for your spaced reviews? That is <Link href="/review" className="text-foreground underline underline-offset-4">Review</Link>. Practice here never changes it.
       </p>
     </div>
   );

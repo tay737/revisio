@@ -26,7 +26,7 @@ const buttonVariants = cva('btn [&_svg]:pointer-events-none [&_svg]:shrink-0', {
       chip: 'chip',
       chipActive: 'chip chip-active',
       chipSoft: 'chip chip-soft',
-      link: 'h-auto min-h-0 bg-transparent p-0 font-medium text-foreground underline-offset-4 hover:underline',
+      link: 'h-auto min-h-11 items-center bg-transparent p-0 font-medium text-foreground underline-offset-4 hover:underline sm:min-h-0',
     },
     size: {
       default: '',

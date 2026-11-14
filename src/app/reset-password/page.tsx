@@ -103,7 +103,7 @@ function ResetPasswordInner() {
               </div>
 
               {error && (
-                <p className="rounded-md bg-destructive/10 px-3 py-2.5 text-[14px] text-destructive-ink" role="alert">
+                <p className="rounded-md bg-destructive/10 px-3 py-2.5 t-caption text-destructive-ink" role="alert">
                   {error}
                 </p>
               )}
@@ -127,7 +127,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <p className="px-6 py-10 text-center text-[14px] text-muted-foreground" role="status">
+        <p className="px-6 py-10 text-center t-caption text-muted-foreground" role="status">
           Loading…
         </p>
       }

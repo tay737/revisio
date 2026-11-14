@@ -41,7 +41,7 @@ export function Sidebar({
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-border bg-background px-3 py-4 md:flex">
-      <Link href="/dashboard" className="mb-6 flex items-center gap-2.5 px-2">
+      <Link href="/dashboard" className="mb-6 flex min-h-11 items-center gap-2.5 px-2">
         <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground t-caption font-bold text-background">
           R
         </span>
@@ -114,19 +114,19 @@ export function Sidebar({
       </Link>
 
       <div className="mt-3 flex items-center gap-2.5 border-t border-border pt-3">
-        <Link href="/settings" className="shrink-0" aria-label="Profile and settings">
+        <Link href="/settings" className="grid h-11 w-11 shrink-0 place-items-center" aria-label="Profile and settings">
           <Avatar name={me.name} emoji={me.avatarEmoji} color={me.avatarColor} imageUrl={me.avatarUrl} size={36} />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="truncate t-caption font-semibold">{me.nickname?.trim() || me.name}</div>
           <div className="t-fine capitalize text-muted-foreground">{me.role}</div>
         </div>
-        <ThemeToggle className="h-9 w-9" />
+        <ThemeToggle className="h-11 w-11" />
         <Button variant="ghost"
           type="button"
           onClick={onSignOut}
           aria-label="Sign out"
-          className="h-9 w-9 !min-h-9 !px-0"
+          className="h-11 w-11 !min-h-11 !px-0"
         >
           <Icon name="signOut" size={16} />
         </Button>

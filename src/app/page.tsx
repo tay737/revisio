@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
  */
 
 const FEATURES: { icon: IconName; title: string; body: string }[] = [
-  { icon: 'notes', title: 'Notes behind every card', body: 'Read the topic, not just the answer.' },
+  { icon: 'notes', title: 'Notes behind every card', body: 'Every card links back to the note it came from.' },
   { icon: 'exam', title: 'Papers that mark like real ones', body: 'Per-question feedback against the scheme.' },
 ];
 
@@ -52,7 +52,7 @@ const FACTS: { value: string; short: string; label: string }[] = [
   { value: 'Free', short: 'to start', label: 'to start' },
 ];
 
-const COMPANION_LINE = 'Nothing is due — you are ahead.';
+const COMPANION_LINE = 'Nothing is due. You are ahead.';
 
 export default function LandingPage() {
   return (
@@ -64,21 +64,21 @@ export default function LandingPage() {
       {/* ── Nav bar ───────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background pt-safe">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-5 sm:px-8">
-          <Link href="/" className="-my-1 flex items-center gap-2.5 py-1">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground text-[13px] font-bold text-background">
+          <Link href="/" className="flex min-h-11 items-center gap-2.5">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-foreground t-caption font-bold text-background">
               R
             </span>
             <span className="t-tagline">Revisio</span>
           </Link>
 
           <nav className="ml-6 hidden items-center gap-1 md:flex">
-            <a href="#try" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+            <a href="#try" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
               Try it
             </a>
-            <a href="#how" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+            <a href="#how" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
               How it works
             </a>
-            <a href="#rank" className="rounded-pill px-3 py-2 text-[15px] font-medium text-muted-foreground hover:text-foreground">
+            <a href="#rank" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
               Rank
             </a>
           </nav>
@@ -150,7 +150,7 @@ export default function LandingPage() {
             <div>
               <p className="t-eyebrow">Memory, on a schedule</p>
               <h2 className="t-display mt-3 max-w-md">You forget on a curve. Reviews flatten it.</h2>
-              <p className="mt-4 max-w-md text-[16px] leading-relaxed text-muted-foreground">
+              <p className="mt-4 max-w-md t-body leading-relaxed text-muted-foreground">
                 Recall falls away fast, then slower. Each good review widens the next gap, so a fact
                 you revisited three times costs you less than one you crammed. Drag the slider and
                 see when Revisio brings a card back.
@@ -164,7 +164,7 @@ export default function LandingPage() {
         <TileBand tone="light" id="how" className="landing-section">
           <div>
             <h2 className="t-display max-w-sm">Three ways in.</h2>
-            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-muted-foreground">
+            <p className="mt-4 max-w-xl t-body leading-relaxed text-muted-foreground">
               A queue you do not have to plan, the note behind every card, and past papers marked
               the way the scheme marks them.
             </p>
@@ -175,7 +175,7 @@ export default function LandingPage() {
                   <Icon name="review" size={19} />
                 </span>
                 <h3 className="t-display-sm mt-5">A queue that builds itself</h3>
-                <p className="mt-2 max-w-sm text-[15px] text-muted-foreground">
+                <p className="mt-2 max-w-sm t-caption text-muted-foreground">
                   Due the day before you would forget. Nothing to plan, nothing to sort. Open it and
                   the next right card is already waiting.
                 </p>
@@ -187,7 +187,7 @@ export default function LandingPage() {
                     <ul className="mt-1 divide-y divide-border">
                       {QUEUE.map((item) => (
                         <li key={item.topic} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                          <span className="text-[14px] font-medium">{item.topic}</span>
+                          <span className="t-caption-s">{item.topic}</span>
                           <span className="t-fine text-muted-foreground">{item.kind}</span>
                         </li>
                       ))}
@@ -202,7 +202,7 @@ export default function LandingPage() {
                     <Icon name={feature.icon} size={19} />
                   </span>
                   <h3 className="t-display-sm mt-4">{feature.title}</h3>
-                  <p className="mt-1.5 text-[15px] text-muted-foreground">{feature.body}</p>
+                  <p className="mt-1.5 t-caption text-muted-foreground">{feature.body}</p>
                 </Card>
               ))}
             </div>
@@ -215,7 +215,7 @@ export default function LandingPage() {
             <div>
               <p className="t-eyebrow">The ladder</p>
               <h2 className="t-display mt-3 max-w-md">A record of what stuck.</h2>
-              <p className="mt-4 max-w-lg text-[16px] leading-relaxed text-muted-foreground">
+              <p className="mt-4 max-w-lg t-body leading-relaxed text-muted-foreground">
                 Thirty rungs across ten tiers, earned from everything you have ever reviewed. They
                 never reset. Each week you are seated in a lobby, and the top of the table moves up.
               </p>
@@ -238,8 +238,8 @@ export default function LandingPage() {
               <div className="mt-7 flex items-start gap-4 border-t border-border pt-5">
                 <RankCrest rank={rankFor(1500)} size={40} showProgress={false} animate={false} />
                 <div className="min-w-0">
-                  <p className="text-[16px] font-medium leading-snug">{COMPANION_LINE}</p>
-                  <p className="t-fine mt-1 text-muted-foreground">— one sentence, from your own numbers</p>
+                  <p className="t-body font-medium leading-snug">{COMPANION_LINE}</p>
+                  <p className="t-fine mt-1 text-muted-foreground">One sentence, built from your own numbers</p>
                 </div>
               </div>
             </div>
@@ -253,7 +253,7 @@ export default function LandingPage() {
                     className="flex min-w-0 flex-col items-center gap-2 rounded-lg border border-border px-1 py-4 sm:px-2"
                   >
                     <RankCrest rank={rung} size={i === 4 ? 40 : 34} showProgress={false} animate={false} />
-                    <span className="w-full truncate text-center text-[10px] font-bold uppercase tracking-[0.06em] sm:text-[11px]">
+                    <span className="w-full truncate text-center t-micro font-bold uppercase tracking-[0.06em]">
                       {rung.tier}
                     </span>
                   </div>
@@ -268,7 +268,7 @@ export default function LandingPage() {
           <div className="flex flex-1 flex-col">
             <div className="mx-auto my-auto max-w-2xl py-6 text-center">
               <h2 className="t-display">Start with one card today.</h2>
-              <p className="mx-auto mt-4 max-w-md text-[16px] text-muted-foreground">
+              <p className="mx-auto mt-4 max-w-md t-body text-muted-foreground">
                 Free to start. Five minutes is enough to begin the habit.
               </p>
               <div className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
@@ -285,7 +285,7 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-wrap items-center justify-between gap-6 border-t border-border pt-6">
               <div>
                 <span className="t-tagline">Revisio</span>
-                <p className="mt-1.5 max-w-sm text-[14px] text-muted-foreground">
+                <p className="mt-1.5 max-w-sm t-caption text-muted-foreground">
                   Built for students who actually have exams.
                 </p>
               </div>

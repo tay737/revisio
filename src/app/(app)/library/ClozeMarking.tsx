@@ -198,7 +198,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
         </div>
         <p className="t-caption mt-1.5 text-muted-foreground">
           {policy.mode === 'legacy'
-            ? 'A near-miss is simply wrong — no warning, exactly as marking works today.'
+            ? 'A near-miss counts as wrong, and there is no warning. That is how marking works today.'
             : 'A near-miss is still marked wrong, but the learner is told how close it was and shown the exact answer.'}
         </p>
       </div>
