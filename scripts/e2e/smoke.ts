@@ -117,6 +117,28 @@ try {
         const field = p.locator('#set-pronouns');
         const chip = p.getByRole('button', { name: 'they/them', exact: true });
 
+        // The probe keeps its pronouns between runs and the chip is a toggle:
+        // clicking one that is already active clears the field, so a second run
+        // asserted an empty field and then saved `null`. Wait for React to own
+        // the input (a value typed before hydration is discarded), then reset
+        // any leftover value *and save it* — Save is disabled unless the form
+        // differs from what is stored, so clearing without saving would leave
+        // the chip step with nothing to commit.
+        await p
+          .waitForFunction(
+            () => {
+              const input = document.getElementById('set-pronouns');
+              return !!input && Object.keys(input).some((k) => k.startsWith('__reactFiber$'));
+            },
+            undefined,
+            { timeout: 20_000 },
+          )
+          .catch(() => undefined);
+        if ((await field.inputValue()) !== '') {
+          await field.fill('');
+          await p.getByRole('button', { name: /Save profile/ }).click();
+          await p.getByText('Profile saved.').first().waitFor({ timeout: 20_000 });
+        }
         await chip.click();
         await suite.check('the chip fills the field', async () => (await field.inputValue()) === 'they/them', () => field.inputValue());
         await suite.check('the chip marks itself chosen', async () => (await chip.getAttribute('aria-pressed')) === 'true');
