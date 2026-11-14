@@ -341,6 +341,18 @@ by the registration wizard only; not a general-purpose tab bar.
 - Empty states say what will appear and the one action that fills it.
 - No exclamation marks, no "Oops", no "Let's", no congratulation in chrome.
 - Curly quotes and apostrophes; no straight quotes in rendered copy.
+- No em dash in any rendered text, including document titles. Use a period, a
+  comma, a colon or parentheses.
+- An absent value is an en dash (–), never an em dash: it reads as "no value"
+  and keeps the prose rule above honest.
+- The label voice is `.t-eyebrow`: 12px, 700, 0.1em tracking, uppercase, and
+  only for a section's category line (one per screen). It is a label, not a
+  heading; a heading never wears it.
+- Icons are Lucide by house choice: one set, one 24px grid, one stroke weight,
+  reached through the semantic keys in `components/ui/icons.tsx`. A glyph is
+  chosen for the thing it names, never for the library's look.
+- The arrow on a primary action marks the next step in a flow ("Start free"
+  leads into registration). It is not applied to every button.
 
 ---
 

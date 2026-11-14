@@ -306,7 +306,7 @@ function TierProgress({
         <span className="flex items-center gap-1.5 t-caption text-muted-foreground">
           <Icon name="form" size={14} />
           Form
-          <strong className="font-semibold text-foreground">{form?.label ?? '—'}</strong>
+          <strong className="font-semibold text-foreground">{form?.label ?? '–'}</strong>
         </span>
         <span className="min-w-0 flex-1 t-caption text-muted-foreground">{form?.detail}</span>
       </div>

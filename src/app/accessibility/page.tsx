@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { LegalHeader } from '@/components/LegalHeader';
 
 export const metadata: Metadata = {
-  title: 'Accessibility — Revisio',
+  title: 'Accessibility · Revisio',
   description: 'Revisio’s accessibility aims, testing approach and how to report a barrier.',
 };
 

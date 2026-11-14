@@ -97,7 +97,7 @@ public enum Copy {
         let accuracy = Double(correct) / Double(reviewed)
         let pct = Int((accuracy * 100).rounded())
         if accuracy >= 0.9 {
-            return FormRead(form: "sharp", label: "Sharp", detail: "\(pct)% today — this is your best gear.")
+            return FormRead(form: "sharp", label: "Sharp", detail: "\(pct)% today. This is your best gear.")
         }
         if accuracy >= 0.7 {
             return FormRead(form: "steady", label: "Steady", detail: "\(pct)% today. Solid, unspectacular, fine.")

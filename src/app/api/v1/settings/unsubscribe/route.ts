@@ -112,6 +112,6 @@ export const POST = route(async (req: NextRequest) => {
   return page(
     'You are unsubscribed',
     `<p>We have turned off ${PURPOSES_STOPPED} for this account.</p>
-     <p>Messages about your account itself — verification, password resets — still arrive, and you can turn anything back on in <a href="/settings">your settings</a>.</p>`,
+     <p>Messages about your account itself (verification, password resets) still arrive, and you can turn anything back on in <a href="/settings">your settings</a>.</p>`,
   );
 });

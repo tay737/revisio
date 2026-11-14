@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
  */
 export async function generateMetadata({ params }: { params: { handle: string } }): Promise<Metadata> {
   const profile = await getPublicProfile(params.handle, null);
-  if (!profile) return { title: 'Profile — Revisio' };
+  if (!profile) return { title: 'Profile · Revisio' };
   const display = profile.nickname || profile.name || profile.username || 'Learner';
   return {
     title: `${display} — Revisio`,

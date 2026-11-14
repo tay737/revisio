@@ -84,7 +84,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           note,
         });
         if (data.pendingApproval) {
-          setInfo('Account created. A developer reviews staff accounts before the first sign-in — you will get an email once it is approved.');
+          setInfo('Account created. A developer reviews staff accounts before the first sign-in. You will get an email once it is approved.');
           return;
         }
         if (data.verifyUrl) {

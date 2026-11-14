@@ -14,7 +14,7 @@ import { badgeVariants } from '@/components/ui/badge';
 // └─────────────────────────────────────────────────────────────────────────┘
 
 export const metadata = {
-  title: 'Terms of Service — Revisio',
+  title: 'Terms of Service · Revisio',
   description:
     'Terms of use for Revisio: eligibility, your account, content and licensing, acceptable use, availability, liability and governing law.',
 };

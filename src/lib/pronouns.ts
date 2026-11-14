@@ -54,7 +54,7 @@ export function pronounsProblem(raw: string): string | null {
   for (const ch of value) {
     if (/[\p{L}\p{M}\p{N}]/u.test(ch)) continue;
     if (ALLOWED_PUNCTUATION.has(ch)) continue;
-    return 'Pronouns are letters and a few marks — slash, hyphen, comma, brackets.';
+    return 'Pronouns are letters and a few marks: slash, hyphen, comma, brackets.';
   }
   return null;
 }

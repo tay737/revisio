@@ -33,6 +33,6 @@ export const POST = route(async (req: NextRequest) => {
 
   return ok({
     ...result,
-    message: parts.length ? `Moved ${parts.join(' and ')}.` : 'Nothing to move — that topic was already empty.',
+    message: parts.length ? `Moved ${parts.join(' and ')}.` : 'Nothing to move. That topic was already empty.',
   });
 });

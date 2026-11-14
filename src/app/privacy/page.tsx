@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 // └─────────────────────────────────────────────────────────────────────────┘
 
 export const metadata = {
-  title: 'Privacy Policy — Revisio',
+  title: 'Privacy Policy · Revisio',
   description:
     'What Revisio collects, the lawful basis for each use, who processes it, how long it is kept and how to get it back or deleted.',
 };

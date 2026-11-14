@@ -263,7 +263,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
           {busy ? 'Saving…' : 'Save marking settings'}
         </Button>
         <span className="t-caption text-muted-foreground">
-          {scopeType === 'global' ? 'Applies everywhere a subject or topic does not override it.' : `Overrides the wider setting for ${target ?? '—'}.`}
+          {scopeType === 'global' ? 'Applies everywhere a subject or topic does not override it.' : `Overrides the wider setting for ${target ?? '–'}.`}
         </span>
       </div>
     </div>

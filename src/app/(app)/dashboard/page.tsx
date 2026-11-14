@@ -219,7 +219,7 @@ export default function DashboardPage() {
             <div>
               <dt className="t-fine text-muted-foreground">Accuracy today</dt>
               <dd className="t-strong num mt-0.5">
-                {accuracy === null ? '—' : `${accuracy}%`}
+                {accuracy === null ? '–' : `${accuracy}%`}
               </dd>
             </div>
           </dl>

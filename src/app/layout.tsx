@@ -26,7 +26,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Revisio — Learn it once',
+  title: 'Revisio: Learn it once',
   description: 'Spaced repetition, a daily queue and a rank worth defending.',
   manifest: '/manifest.webmanifest',
   applicationName: 'Revisio',

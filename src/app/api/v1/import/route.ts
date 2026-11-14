@@ -26,7 +26,7 @@ export const POST = route(async (req: NextRequest) => {
   const publish = String(form.get('publish') ?? '') === 'true';
 
   if (!(file instanceof File)) throw new ApiError(400, 'bad_request', 'Choose a file to import.');
-  if (file.size > MAX_BYTES) throw new ApiError(413, 'too_large', 'That file is over 5 MB — split it and import the parts.');
+  if (file.size > MAX_BYTES) throw new ApiError(413, 'too_large', 'That file is over 5 MB. Split it and import the parts.');
   if (!['csv', 'tsv', 'anki_tsv'].includes(kind)) throw new ApiError(400, 'bad_request', 'Choose CSV, TSV or Anki TSV.');
 
   const target: ImportTarget = topicId
