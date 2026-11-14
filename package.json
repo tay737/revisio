@@ -45,7 +45,8 @@
     "e2e:restore": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/restore.ts",
     "e2e:a11y": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/a11y.ts",
     "design:shots": "node scripts/design/shots.mjs",
-    "audit:app": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/app-audit.ts"
+    "audit:app": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/app-audit.ts",
+    "audit:staff": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/staff-audit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
