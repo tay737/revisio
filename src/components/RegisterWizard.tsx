@@ -214,7 +214,7 @@ export default function RegisterWizard() {
         // The control may mount with the step, so wait for that paint.
         requestAnimationFrame(() => {
           const id = err.field === 'ageConsent' ? 'guardianConsent' : err.field!;
-          const target = document.getElementById(id) ?? document.getElementById('level-group') ?? headingRef.current;
+          const target = document.getElementById(id) ?? headingRef.current;
           target?.focus();
         });
       } else {
