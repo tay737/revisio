@@ -146,7 +146,6 @@ export const DELETE = route(async (req: NextRequest) => {
       consent: {},
       ageConsent: false,
       dateOfBirth: null,
-      educationLevel: null,
       passwordHash: `deleted:${crypto.randomUUID()}`,
     }).where(eq(users.id, user.id));
   });

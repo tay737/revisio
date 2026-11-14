@@ -4,7 +4,7 @@ import { db } from '@/db/client';
 import { users, approvalRequests, userSubjects, subjects } from '@/db/schema';
 import { hashPassword, issueEmailToken } from '@/services/auth';
 import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
-import { isEducationLevel } from '@/lib/education-levels';
+// education-level collection removed (UK GDPR Art 5(1)(c)); see privacy review 7.2.
 import { sendVerificationEmail } from '@/services/email';
 import { ApiError, ok, route } from '@/services/api';
 import { takeRateLimitAttempt, clientIp } from '@/services/rate-limit';
@@ -16,11 +16,10 @@ export const POST = route(async (req: NextRequest) => {
   await takeRateLimitAttempt('registerIp', clientIp(req));
   const body = await req.json().catch(() => null);
   if (!body) throw new ApiError(400, 'bad_request', 'Invalid JSON body.');
-  const { email, password, name, role, requestedRole: requestedRoleInput, note, ageConsent, dateOfBirth, subjectIds, classCode, level } = body as {
+  const { email, password, name, role, requestedRole: requestedRoleInput, note, ageConsent, dateOfBirth, subjectIds, classCode } = body as {
     email?: string; password?: string; name?: string; role?: 'student' | 'teacher' | 'developer';
     requestedRole?: 'student' | 'teacher' | 'developer'; note?: string;
     ageConsent?: boolean; dateOfBirth?: string; subjectIds?: string[]; classCode?: string;
-    level?: string;
   };
 
   // Every rejection names the control it belongs under (`ApiError.field`), so
@@ -37,12 +36,9 @@ export const POST = route(async (req: NextRequest) => {
   }
   const learnerRegistration = !registrationRole || registrationRole === 'student';
 
-  // The level is learner-only and additive: a staff form that never sends it is
-  // valid, and an existing client that predates the field still registers.
-  if (learnerRegistration && level !== undefined && level !== null && !isEducationLevel(level)) {
-    throw new ApiError(400, 'bad_level', 'Pick the level you are studying at.', 'level');
-  }
-  const educationLevel = learnerRegistration && isEducationLevel(level) ? level : null;
+  // Education level collection removed (UK GDPR Art 5(1)(c)); no feature
+  // consumed the field, so there was no lawful basis for holding it. See
+  // privacy review 7.2 and the DPO's ruling.
 
   // All learner registrations need an honest DOB so the server, not the
   // browser, can decide whether guardian consent is required.
@@ -95,7 +91,6 @@ export const POST = route(async (req: NextRequest) => {
       // "no age gate applies" to `learnerMeetsAgeConsent`.
       ageConsent: underAge,
       dateOfBirth: underAge ? dateOfBirth ?? null : null,
-      educationLevel,
     })
     .returning();
 

@@ -411,3 +411,37 @@ The release is currently held on the reverse of that
 check the pair at the end, since nobody else owns both halves. QA has raised the
 same coupling with frontend as a release blocker and will not sign off while the
 policy describes a question the product never asks, which is the right call.
+
+---
+
+## 8. DPO follow-up (this session)
+
+The DPO re-examined the four open items and closed or re-routed them:
+
+- **P3-7 service-worker cache (closed).** §11 now names the PWA cache and what it
+  holds: only public files (offline page, manifest, icons, JS/CSS bundles), never
+  account data, progress, answers or typed input; cleared on sign-out or update.
+  `public/sw.js` was read to confirm the cache scope matches the wording.
+- **7.2 education level (resolved by removal).** No feature consumed the field, so
+  there was no lawful basis and no purpose (UK GDPR Art 5(1)(c)). Rather than
+  hold the release, the collection was removed: the level question, the submit
+  field, the `educationLevel` write in `register/route.ts`, the `/me` field, the
+  `useMe` type, the schema field, and the §2/§10 policy entries. `drizzle/0015_drop_education_level.sql`
+  drops the column; apply it to both databases **after** the code is deployed
+  (the currently deployed build still reads the column, so dropping first would
+  break it). `src/lib/education-levels.ts` is left in place so a future consumer
+  can re-wire the question without re-deriving the list.
+- **Under-13 registration (verified in code, not in a browser).** `isUnderAge()`
+  runs on the parsed body before insert and the request is refused with
+  `age_consent_required` when the check fails; `dateOfBirth` is written only when
+  `underAge` and `ageConsent` only when a guardian's consent was required. The
+  gate cannot be skipped from the browser. A full end-to-end browser run on a
+  throwaway account is still recommended and should be added to the smoke suite;
+  it was not performed in this session because no test database was available.
+- **Retention enforcement (residual risk, unchanged).** The only cron is the daily
+  sync drain; no job purges expired tokens, sessions or consent records beyond
+  their expiry stamps. §6's retention periods therefore remain statements about
+  expiry stamps rather than a deletion process. Recommended before the first real
+  cohort: either a scheduled purge or a documented manual procedure, plus a note
+  in the release checklist. No code change was made; this is a process gap, not
+  a defect in the erasure path.

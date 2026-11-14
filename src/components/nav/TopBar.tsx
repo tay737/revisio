@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { DUR, EASE } from '@/lib/motion';
 import { labelForPath } from '@/components/nav/routes';
 import { rankFor } from '@/domain/ranked';
@@ -115,7 +114,6 @@ export function TopBar({
             {streak}
             <span className="text-muted-foreground">day streak</span>
           </Badge>
-          <ThemeToggle className="h-11 w-11" />
         </div>
       </div>
 

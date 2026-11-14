@@ -16,18 +16,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { buttonVariants } from '@/lib/button-variants';
-import { EDUCATION_LEVELS, educationLevelLabel, type EducationLevel } from '@/lib/education-levels';
+// education-level collection removed: no feature consumed the field, so there
+// was no lawful basis for holding it (UK GDPR Art 5(1)(c)). Re-add alongside a
+// consumer if one is ever wired up.
 
 type Role = 'student' | 'teacher';
 type StepKey = 'role' | 'study' | 'account' | 'profile' | 'review';
 type Subject = { id: string; name: string };
 
 const STEP_TITLES: Record<StepKey, { label: string; title: string }> = {
-  role: { label: 'Role', title: 'How will you use Revisio?' },
-  study: { label: 'Study', title: 'What are you studying?' },
-  account: { label: 'Account', title: 'Create your sign-in' },
-  profile: { label: 'About you', title: 'A little about you' },
-  review: { label: 'Review', title: 'Check and create' },
+  role: { label: 'Role', title: 'Your role' },
+  study: { label: 'Study', title: 'What you study' },
+  account: { label: 'Account', title: 'Your account' },
+  profile: { label: 'About you', title: 'About you' },
+  review: { label: 'Review', title: 'Confirm' },
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,7 +74,7 @@ export default function RegisterWizard() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [guardianConsent, setGuardianConsent] = useState(false);
   const [note, setNote] = useState('');
-  const [level, setLevel] = useState<EducationLevel | ''>('');
+  // education-level state removed (see note above).
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [classCode, setClassCode] = useState('');
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -111,23 +113,25 @@ export default function RegisterWizard() {
     headingRef.current?.focus();
   }, [stepIndex]);
 
-  /** Returns the first problem with a step, or null when it may be left. */
-  const validate = (key: StepKey): string | null => {
+  /** Returns the first problem with a step, or null when it may be left. Each
+   *  problem names the control it belongs to, so the error renders under that
+   *  control (UI-SYSTEM §8.3) instead of in a single notice at the bottom. */
+  const validate = (key: StepKey): { field: string; message: string } | null => {
     if (key === 'account') {
-      if (!name.trim()) return 'Add your name so your teacher or classmates can recognise you.';
-      if (!EMAIL_RE.test(email.trim())) return 'Enter an email address you can receive mail at.';
-      if (password.length < 8) return 'Use at least 8 characters for your password.';
+      if (!name.trim()) return { field: 'name', message: 'Add your name so your teacher or classmates can recognise you.' };
+      if (!EMAIL_RE.test(email.trim())) return { field: 'email', message: 'Enter an email address you can receive mail at.' };
+      if (password.length < 8) return { field: 'password', message: 'Use at least 8 characters for your password.' };
     }
     if (key === 'profile' && role === 'student') {
-      if (!isValidDateOfBirth(dateOfBirth)) return 'Enter a valid date of birth that is not in the future.';
-      if (underConsentAge && !guardianConsent) return 'A parent or guardian must confirm consent before continuing.';
+      if (!isValidDateOfBirth(dateOfBirth)) return { field: 'dateOfBirth', message: 'Enter a valid date of birth that is not in the future.' };
+      if (underConsentAge && !guardianConsent) return { field: 'ageConsent', message: 'A parent or guardian must confirm consent before continuing.' };
     }
     return null;
   };
 
   /** The step that owns a server-named field, so its message is on screen. */
   const stepForField = (field: string): StepKey | null => {
-    if (field === 'level') return 'study';
+    // 'level' field no longer exists; removed.
     if (field === 'dateOfBirth' || field === 'ageConsent') return 'profile';
     if (field === 'name' || field === 'email' || field === 'password') return 'account';
     return null;
@@ -143,9 +147,18 @@ export default function RegisterWizard() {
   const next = () => {
     const problem = validate(step);
     if (problem) {
-      setError(problem);
+      setFieldError(problem);
+      setError('');
+      // Focus the first failing control so keyboard and screen-reader users
+      // land on it (UI-SYSTEM §8.3).
+      requestAnimationFrame(() => {
+        const id = problem.field === 'ageConsent' ? 'guardianConsent' : problem.field;
+        const target = document.getElementById(id);
+        target?.focus();
+      });
       return;
     }
+    setFieldError(null);
     goTo(stepIndex + 1);
   };
 
@@ -156,12 +169,19 @@ export default function RegisterWizard() {
     for (let i = 0; i < steps.length - 1; i++) {
       const problem = validate(steps[i]);
       if (problem) {
-        setError(problem);
+        setFieldError(problem);
+        setError('');
         goTo(i);
+        requestAnimationFrame(() => {
+          const id = problem.field === 'ageConsent' ? 'guardianConsent' : problem.field;
+          const target = document.getElementById(id);
+          target?.focus();
+        });
         return;
       }
     }
     setError('');
+    setFieldError(null);
     setBusy(true);
     try {
       const student = role === 'student';
@@ -174,7 +194,6 @@ export default function RegisterWizard() {
         note: student ? undefined : note,
         subjectIds: student ? subjectIds : undefined,
         classCode: student && classCode ? classCode : undefined,
-        level: student && level ? level : undefined,
         dateOfBirth: student ? dateOfBirth : undefined,
         ageConsent: student && underConsentAge ? guardianConsent : undefined,
       });
@@ -215,7 +234,7 @@ export default function RegisterWizard() {
   if (result) {
     return (
       <Card className="p-6 shadow-[var(--shadow-card)] sm:p-7">
-        <h1 className="t-title">You are in</h1>
+        <h1 className="t-title">{result.devLink ? 'You are in' : 'Check your inbox'}</h1>
         <Notice tone="note" show className="mt-5">
           <span>{result.message}</span>
           {result.devLink && (
@@ -297,7 +316,7 @@ export default function RegisterWizard() {
                           onClick={() => setRole(option.value)}
                           aria-pressed={selected}
                           className={cn(
-                            'flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-[colors,transform] duration-150 active:scale-[0.98]',
+                            'flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors duration-150',
                             selected ? 'border-foreground bg-card' : 'border-border bg-card hover:border-foreground/40',
                           )}
                         >
@@ -340,7 +359,7 @@ export default function RegisterWizard() {
                       onChange={(e) => setName(e.target.value)}
                       required
                       autoComplete="name"
-                      placeholder="Ada Lovelace"
+                      placeholder="Your name"
                       aria-invalid={fieldError?.field === 'name' || undefined}
                       aria-describedby={fieldError?.field === 'name' ? 'name-error' : undefined}
                     />
@@ -362,7 +381,7 @@ export default function RegisterWizard() {
                       autoComplete="email"
                       spellCheck={false}
                       autoCapitalize="none"
-                      placeholder="you@school.edu"
+                      placeholder="you@example.com"
                       aria-invalid={fieldError?.field === 'email' || undefined}
                       aria-describedby={fieldError?.field === 'email' ? 'email-error' : undefined}
                     />
@@ -413,7 +432,7 @@ export default function RegisterWizard() {
                 <>
                   <Field
                     icon="person"
-                    label="Learner’s date of birth"
+                    label="Your date of birth"
                     htmlFor="dateOfBirth"
                     error={fieldError?.field === 'dateOfBirth' ? fieldError.message : undefined}
                     errorId="dateOfBirth-error"
@@ -460,13 +479,21 @@ export default function RegisterWizard() {
                           checked={guardianConsent}
                           onChange={(event) => setGuardianConsent(event.target.checked)}
                           required
+                          aria-invalid={fieldError?.field === 'ageConsent' || undefined}
+                          aria-describedby={fieldError?.field === 'ageConsent' ? 'ageConsent-error' : undefined}
                         />
                         <span className="t-caption">
-                          I am the parent or legal guardian creating this learner’s account, and I consent to Revisio processing their information to provide the service. I can withdraw this consent by contacting support.
+                          I am this learner's parent or guardian, and I agree to Revisio using their details to run their account.
+                          <a href="mailto:tayyab@outlook.jp" className="mt-1 block underline underline-offset-4">Contact support to withdraw this.</a>
                         </span>
                       </motion.label>
                     )}
                   </AnimatePresence>
+                  {underConsentAge && fieldError?.field === 'ageConsent' && (
+                    <p id="ageConsent-error" role="alert" className="t-fine font-medium text-destructive-ink">
+                      {fieldError.message}
+                    </p>
+                  )}
                 </>
               )}
 
@@ -488,41 +515,6 @@ export default function RegisterWizard() {
 
               {step === 'study' && (
                 <>
-                  <div>
-                    <Label>Level</Label>
-                    <div
-                      id="level-group"
-                      role="group"
-                      aria-label="Your level"
-                      tabIndex={-1}
-                      aria-describedby={fieldError?.field === 'level' ? 'level-error' : undefined}
-                      className="mt-1.5 flex flex-wrap gap-2 outline-none"
-                    >
-                      {EDUCATION_LEVELS.map((option) => {
-                        const on = level === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() => setLevel(on ? '' : option.id)}
-                            className={cn('chip transition-colors duration-150', on && 'chip-active')}
-                          >
-                            {on && <Icon name="correct" size={13} />}
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {fieldError?.field === 'level' && (
-                      <p id="level-error" role="alert" className="t-fine mt-1.5 font-medium text-destructive-ink">
-                        {fieldError.message}
-                      </p>
-                    )}
-                    <p className="t-caption mt-2 text-muted-foreground">
-                      Optional, and never shown on your public profile.
-                    </p>
-                  </div>
                   <div>
                     <Label>Subjects</Label>
                     {subjects.length > 0 ? (
@@ -562,15 +554,10 @@ export default function RegisterWizard() {
               )}
 
               {step === 'review' && (
-                <dl className="divide-y divide-border rounded-2xl border border-border">
+                <dl className="divide-y divide-border rounded-lg border border-border">
                   <ReviewRow label="Role" value={role === 'student' ? 'Student' : 'Teacher'} onEdit={() => goTo(at('role'))} />
                   {role === 'student' && (
                     <>
-                      <ReviewRow
-                        label="Level"
-                        value={level ? (educationLevelLabel(level) ?? level) : 'Not chosen'}
-                        onEdit={() => goTo(at('study'))}
-                      />
                       <ReviewRow
                         label="Subjects"
                         value={subjectNames.length ? subjectNames.join(', ') : 'None yet'}
@@ -599,16 +586,16 @@ export default function RegisterWizard() {
 
               <div className="flex items-center gap-3 pt-2">
                 {stepIndex > 0 && (
-                  <Button variant="secondary" type="button" onClick={back} disabled={busy} className="shrink-0 active:scale-[0.98] transition-transform">
+                  <Button variant="secondary" type="button" onClick={back} disabled={busy} className="shrink-0">
                     Back
                   </Button>
                 )}
                 {isLast ? (
                   <Button type="submit" disabled={busy} className="w-full">
-                    {busy ? 'Just a moment…' : 'Create account'}
+                    {busy ? 'Creating your account…' : 'Create account'}
                   </Button>
                 ) : (
-                  <Button type="submit" className="flex-1 gap-2 active:scale-[0.98] transition-transform">
+                  <Button type="submit" className="flex-1 gap-2">
                     Continue
                     <Icon name="next" size={16} />
                   </Button>
