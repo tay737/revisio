@@ -216,7 +216,7 @@ const probe = await ensureProbeAccount();
 if (process.env.AUDIT_SERVE === '1') {
   // This sandbox removes .next between shell commands and kills a server left in
   // the background, so the audit owns its server: build, spawn, sweep, stop.
-  const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(SERVE_PORT)], {
+  const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(SERVE_PORT), '-H', '::'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
   });
