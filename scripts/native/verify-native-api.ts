@@ -342,6 +342,111 @@ async function main() {
     Object.keys(seasons.body ?? {}),
   );
 
+  // ── staff consoles: /teacher, /admin, /teacher/student, /content?mine=1 ──
+  // Read-only on purpose: the POST action envelopes mutate classes, users and
+  // content, and this suite's contract is "reads rather than writes". The
+  // fields asserted are the ones StaffModels.kt/.swift and the Flutter
+  // staff_models.dart actually decode — a rename fails here before it ships
+  // a silently-empty screen to three clients.
+  const role = me.body?.role;
+  if (role === 'teacher' || role === 'developer') {
+    const teacher = await call('/api/v1/teacher');
+    check('GET /teacher answers', teacher.status === 200, teacher.body);
+    check(
+      'GET /teacher carries classes with rosters and the subject list',
+      arr(teacher.body, 'classes') && arr(teacher.body, 'subjects'),
+      Object.keys(teacher.body ?? {}),
+    );
+    const tClass = teacher.body?.classes?.[0];
+    check(
+      'a teacher class carries id/name/joinCode and a roster list',
+      tClass == null || (str(tClass, 'id') && str(tClass, 'name') && str(tClass, 'joinCode') && arr(tClass, 'roster')),
+      tClass,
+    );
+    const rosterEntry = tClass?.roster?.[0];
+    check(
+      'a roster entry carries the week stats the console prints',
+      rosterEntry == null ||
+        (str(rosterEntry, 'userId') &&
+          present(rosterEntry, 'reviews7d') &&
+          present(rosterEntry, 'xp7d') &&
+          present(rosterEntry, 'streak') &&
+          present(rosterEntry, 'masteryPct')),
+      rosterEntry,
+    );
+
+    const mine = await call('/api/v1/content?mine=1');
+    check('GET /content?mine=1 answers with a topics list', mine.status === 200 && arr(mine.body, 'topics'), mine.body);
+    const myTopic = mine.body?.topics?.[0];
+    check(
+      'a my-topic carries id/name/visibility and both counts',
+      myTopic == null ||
+        (str(myTopic, 'id') &&
+          str(myTopic, 'name') &&
+          present(myTopic, 'visibility') &&
+          present(myTopic, 'cardCount') &&
+          present(myTopic, 'lessonCount')),
+      myTopic,
+    );
+
+    // The student-progress sheet needs a userId. A developer may open anyone,
+    // so the admin payload doubles as the roster of candidates; a teacher uses
+    // a member of their own class.
+    let studentId: string | undefined = rosterEntry?.userId;
+    if (role === 'developer') {
+      const admin = await call('/api/v1/admin');
+      check('GET /admin answers', admin.status === 200, admin.body);
+      for (const key of ['approvals', 'flags', 'users', 'pendingTopics', 'audit', 'subjects', 'badges', 'manualAchievements', 'classes']) {
+        check(`GET /admin carries ${key}[]`, arr(admin.body, key), Object.keys(admin.body ?? {}));
+      }
+      check(
+        'GET /admin carries contentStats and the algorithms list',
+        present(admin.body, 'contentStats.topics') &&
+          present(admin.body, 'contentStats.cards') &&
+          arr(admin.body, 'algorithms'),
+        admin.body?.contentStats,
+      );
+      const adminUser = admin.body?.users?.find((u: any) => u.id !== me.body?.id) ?? admin.body?.users?.[0];
+      studentId = studentId ?? adminUser?.id;
+      const aUser = admin.body?.users?.[0];
+      check(
+        'an admin user row carries id/email/role/status',
+        aUser == null || (str(aUser, 'id') && str(aUser, 'email') && str(aUser, 'role') && str(aUser, 'status')),
+        aUser,
+      );
+      const aClass = admin.body?.classes?.[0];
+      check(
+        'an admin class carries teacherName and a members list',
+        aClass == null || (str(aClass, 'id') && str(aClass, 'name') && str(aClass, 'teacherName') && arr(aClass, 'members')),
+        aClass,
+      );
+    } else {
+      // A teacher must NOT reach the developer console — the 403 is part of
+      // the contract the staff screens gate on.
+      const admin = await call('/api/v1/admin');
+      check('GET /admin refuses a teacher with 403', admin.status === 403, admin.status);
+    }
+
+    if (studentId) {
+      const student = await call(`/api/v1/teacher/student?userId=${encodeURIComponent(studentId)}`);
+      check('GET /teacher/student answers', student.status === 200, student.body);
+      check(
+        'the student payload carries who it is about and the overview strip',
+        str(student.body, 'student.id') &&
+          present(student.body, 'overview.totalReviews') &&
+          present(student.body, 'overview.dueCount'),
+        student.body?.student,
+      );
+      for (const key of ['srsLevels', 'distribution', 'struggling', 'topicHealth', 'recent', 'upcoming', 'subjects']) {
+        check(`the student payload carries ${key}[]`, arr(student.body, key), Object.keys(student.body ?? {}));
+      }
+    } else {
+      console.log('  ..   no student id available for /teacher/student (skipped)');
+    }
+  } else {
+    console.log(`  ..   role '${role}' is not staff — staff route checks skipped`);
+  }
+
   console.log(
     failures === 0
       ? '\nThe native clients and the server agree on the contract.'
