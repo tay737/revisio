@@ -6,6 +6,7 @@ library revisio.features.staff.staff_bits;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/components/components.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../engine/models.dart';
@@ -234,7 +235,28 @@ class StaffGate extends ConsumerWidget {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (_, __) => Scaffold(
         appBar: AppBar(),
-        body: const Center(child: Text('Your account could not be loaded.')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Your account could not be loaded.',
+                  style: TypeScale.body.copyWith(
+                    color: context.mutedForeground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                RevisioSecondaryButton(
+                  onPressed: () => ref.invalidate(meProvider),
+                  child: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       data: (m) {
         final allowed = admin ? staffCanAdmin(m.role) : staffCanTeach(m.role);
