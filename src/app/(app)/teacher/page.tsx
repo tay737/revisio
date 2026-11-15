@@ -357,8 +357,8 @@ export default function TeacherPage() {
               <ul className="mt-3 divide-y divide-border">
                 {c.roster.map((r) => (
                   <li key={r.userId} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3">
-                    {/* The name opens the progress sheet — the affordance is the
-                        hover underline, so the row stays quiet. */}
+                    {/* The name opens the progress sheet; the "Progress" tag is
+                        the persistent affordance (hover alone fails on touch). */}
                     <button
                       type="button"
                       onClick={() => setProgressFor({ id: r.userId, name: r.name, siblings: c.roster.map((x) => ({ id: x.userId, name: x.name })) })}
@@ -368,9 +368,12 @@ export default function TeacherPage() {
                     >
                       <div className="flex min-w-0 items-center gap-1">
                         <span className="truncate t-body font-semibold hover:underline">{r.name}</span>
-                        <Icon name="expand" size={12} className="shrink-0 text-muted-foreground" />
                       </div>
                       <div className="truncate t-fine text-muted-foreground">{r.email}</div>
+                      <span className="mt-1 inline-flex items-center gap-1 t-fine font-semibold text-foreground">
+                        <Icon name="expand" size={12} />
+                        Progress
+                      </span>
                     </button>
 
                     <div className="num flex items-center gap-3.5 t-caption text-muted-foreground">
@@ -386,8 +389,19 @@ export default function TeacherPage() {
                       <span>{r.xp7d} XP</span>
                     </div>
 
-                    <div className="flex w-full items-center gap-2.5 sm:w-44">
-                      <span className="meter h-1.5 flex-1">
+                    <div className="flex w-full items-center gap-2.5 sm:w-64">
+                      <span className="t-fine text-muted-foreground" aria-hidden>
+                        Mastery
+                      </span>
+                      <span
+                        className="meter h-1.5 min-w-8 flex-1"
+                        role="meter"
+                        aria-label="Mastery"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={Math.round(r.masteryPct)}
+                        aria-valuetext={`${Math.round(r.masteryPct)}%`}
+                      >
                         <motion.span
                           className="meter-fill block"
                           initial={{ width: 0 }}

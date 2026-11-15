@@ -87,6 +87,7 @@ export async function buildInsights(userId: string) {
         durationMs: reviewLogs.durationMs,
         reviewedAt: reviewLogs.reviewedAt,
         cardKind: cards.kind,
+        options: cards.options,
         prompt: sql<string | null>`coalesce(${cards.textWithBlank}, ${cards.prompt}, ${cards.question})`,
         topicName: topics.name,
         subjectName: subjects.name,
@@ -197,7 +198,11 @@ export async function buildInsights(userId: string) {
       mode: r.mode,
       rating: r.rating,
       correct: r.graded?.correct ?? null,
-      userAnswer: r.userAnswer,
+      // MCQ logs store the chosen option id; the staff view needs the words.
+      userAnswer:
+        r.cardKind === 'mcq' && r.userAnswer
+          ? (r.options ?? []).find((o) => o.id === r.userAnswer)?.text ?? r.userAnswer
+          : r.userAnswer,
       prompt: r.prompt,
       cardKind: r.cardKind,
       topicName: r.topicName,

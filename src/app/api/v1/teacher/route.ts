@@ -63,7 +63,7 @@ export const GET = route(async (req: NextRequest) => {
       ? db
           .select({
             userId: cardUserStates.userId,
-            pct: sql<number>`coalesce(avg(case when ${cardUserStates.stage} = 'mastered' then 100.0 when ${cardUserStates.stage} = 'review' then 70.0 when ${cardUserStates.stage} = 'learning' then 40.0 else 0 end), 0)::int`,
+            pct: sql<number>`coalesce(round(100.0 * sum(case when ${cardUserStates.stage} = 'mastered' then 1 else 0 end) / nullif(count(*), 0)), 0)::int`,
           })
           .from(cardUserStates)
           .where(inArray(cardUserStates.userId, memberIds))

@@ -94,7 +94,7 @@ export function StudentProgressPanel({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            {siblings && onNavigate && index >= 0 && (
+            {siblings && onNavigate && index >= 0 && list.length > 1 && (
               <>
                 <Button
                   variant="ghost"
