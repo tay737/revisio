@@ -1,0 +1,31 @@
+name: Sync drain ping
+
+# The Vercel cron in vercel.json only runs once a day (Hobby plan limit), so
+# non-review writes — admin edits, content imports — could sit in _sync_events
+# for up to ~24h before reaching the Neon replica the live site reads.
+# kickSync() covers review submissions; this workflow is the backstop for
+# everything else. It just calls the same endpoint the Vercel cron hits.
+#
+# Requires a repo secret named CRON_SECRET matching the production env var.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  drain:
+    name: Drain primary → mirror
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/v1/sync
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET" || { echo "CRON_SECRET repo secret is not set"; exit 1; }
+          curl -fsS --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://revisio-srs.vercel.app/api/v1/sync"
