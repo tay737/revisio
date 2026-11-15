@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_router.dart';
 import 'design/design.dart';
+import 'features/app/deep_links.dart';
+import 'features/auth/auth_provider.dart';
+import 'features/app/theme_mode.dart';
 import 'features/app/version_gate.dart';
 
 void main() {
@@ -18,9 +21,24 @@ class RevisioApp extends ConsumerStatefulWidget {
 
 class _RevisioAppState extends ConsumerState<RevisioApp> {
   bool _gateChecked = false;
+  late final DeepLinkHandler _links;
+
+  @override
+  void initState() {
+    super.initState();
+    _links = DeepLinkHandler(ref);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _links.start());
+  }
+
+  @override
+  void dispose() {
+    _links.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authProvider, (_, next) => _links.onAuthChanged(next));
     if (!_gateChecked) {
       _gateChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -32,7 +50,7 @@ class _RevisioAppState extends ConsumerState<RevisioApp> {
       title: 'Revisio',
       theme: lightTheme(),
       darkTheme: darkTheme(),
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
     );

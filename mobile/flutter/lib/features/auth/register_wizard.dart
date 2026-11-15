@@ -11,6 +11,7 @@ library revisio.features.auth.register_wizard;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../design/design.dart';
 import '../auth/auth_provider.dart';
 import '../../design/revisio_icons.dart';
@@ -210,8 +211,11 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
     try {
       final dob = DateTime.parse(_dateOfBirth!);
       final now = DateTime.now();
-      final age = now.year - dob.year -
-          (now.month < dob.month || (now.month == dob.month && now.day < dob.day)
+      final age =
+          now.year -
+          dob.year -
+          (now.month < dob.month ||
+                  (now.month == dob.month && now.day < dob.day)
               ? 1
               : 0);
       return age < 13;
@@ -315,7 +319,9 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
       subjectIds: _isStudent ? _subjectIds : null,
       classCode: _isStudent && _classCode.isNotEmpty ? _classCode : null,
       dateOfBirth: _isStudent ? _dateOfBirth : null,
-      ageConsent: _isStudent && _requiresGuardianConsent ? _guardianConsent : null,
+      ageConsent: _isStudent && _requiresGuardianConsent
+          ? _guardianConsent
+          : null,
     );
 
     setState(() => _loading = false);
@@ -381,7 +387,9 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 'Step ${_steps.indexOf(_step) + 1} of ${_steps.length} · ${_stepTitle.toUpperCase()}',
-                style: TypeScale.caption.copyWith(color: context.mutedForeground),
+                style: TypeScale.caption.copyWith(
+                  color: context.mutedForeground,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -393,7 +401,10 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
                   children: [
                     Text(
                       _stepHeading,
-                      style: TypeScale.display.copyWith(color: context.foreground, fontSize: 24),
+                      style: TypeScale.display.copyWith(
+                        color: context.foreground,
+                        fontSize: 24,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (_step == WizardStep.role) _buildRoleStep(),
@@ -403,11 +414,19 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
                     if (_step == WizardStep.review) _buildReviewStep(),
                     if (_success?.isNotEmpty == true) ...[
                       const SizedBox(height: 16),
-                      RevisioNotice(tone: NoticeTone.note, show: true, child: Text(_success!)),
+                      RevisioNotice(
+                        tone: NoticeTone.note,
+                        show: true,
+                        child: Text(_success!),
+                      ),
                     ],
                     if (_error?.isNotEmpty == true) ...[
                       const SizedBox(height: 16),
-                      RevisioNotice(tone: NoticeTone.bad, show: true, child: Text(_error!)),
+                      RevisioNotice(
+                        tone: NoticeTone.bad,
+                        show: true,
+                        child: Text(_error!),
+                      ),
                     ],
                     const SizedBox(height: 24),
                     Row(
@@ -418,21 +437,29 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
                               onPressed: _loading ? null : _back,
                               child: const Text(
                                 'Back',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ),
-                        if (_steps.indexOf(_step) > 0) const SizedBox(width: 12),
+                        if (_steps.indexOf(_step) > 0)
+                          const SizedBox(width: 12),
                         Expanded(
                           child: SizedBox(
                             height: kTouchTarget,
                             child: RevisioButton(
-                              onPressed: _loading ? null : (_isLast ? _submit : _next),
+                              onPressed: _loading
+                                  ? null
+                                  : (_isLast ? _submit : _next),
                               child: _loading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : Text(
                                       _isLast ? 'Create account' : 'Continue',
@@ -501,7 +528,10 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        Text('Subjects', style: TypeScale.label.copyWith(color: context.mutedForeground)),
+        Text(
+          'Subjects',
+          style: TypeScale.label.copyWith(color: context.mutedForeground),
+        ),
         const SizedBox(height: 8),
         if (_subjectsLoading)
           Text(
@@ -514,13 +544,12 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
               Expanded(
                 child: Text(
                   'Subjects did not load. Check your connection and try again.',
-                  style: TypeScale.caption.copyWith(color: context.mutedForeground),
+                  style: TypeScale.caption.copyWith(
+                    color: context.mutedForeground,
+                  ),
                 ),
               ),
-              TextButton(
-                onPressed: _loadSubjects,
-                child: const Text('Retry'),
-              ),
+              TextButton(onPressed: _loadSubjects, child: const Text('Retry')),
             ],
           )
         else if (_subjects.isEmpty)
@@ -559,11 +588,15 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
               );
             }).toList(),
           ),
-        if (_fieldError == 'subjectIds' && _fieldErrorText?.isNotEmpty == true) ...[
+        if (_fieldError == 'subjectIds' &&
+            _fieldErrorText?.isNotEmpty == true) ...[
           const SizedBox(height: 8),
           Text(
             _fieldErrorText!,
-            style: TypeScale.fine.copyWith(color: context.destructiveInk, height: 1.35),
+            style: TypeScale.fine.copyWith(
+              color: context.destructiveInk,
+              height: 1.35,
+            ),
           ),
         ],
         const SizedBox(height: 16),
@@ -723,7 +756,10 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
                 Expanded(
                   child: Text(
                     'I am this learner\'s parent or guardian, and I agree to Revisio using their details to run their account. Contact support to withdraw this.',
-                    style: TypeScale.caption.copyWith(color: context.foreground, height: 1.43),
+                    style: TypeScale.caption.copyWith(
+                      color: context.foreground,
+                      height: 1.43,
+                    ),
                   ),
                 ),
               ],
@@ -760,10 +796,15 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
           if (_subjectIds.isNotEmpty)
             _ReviewRow(
               label: 'Subjects',
-              value: _subjectIds.map((id) {
-                final s = _subjects.firstWhere((x) => x['id'] == id, orElse: () => {});
-                return s['name'] ?? id;
-              }).join(', '),
+              value: _subjectIds
+                  .map((id) {
+                    final s = _subjects.firstWhere(
+                      (x) => x['id'] == id,
+                      orElse: () => {},
+                    );
+                    return s['name'] ?? id;
+                  })
+                  .join(', '),
               onEdit: () => _goTo(WizardStep.study),
             ),
           if (_classCode.isNotEmpty)
@@ -808,7 +849,11 @@ class _RegisterWizardState extends ConsumerState<RegisterWizard> {
       RegExp(r'\d').hasMatch(pw),
       RegExp(r'[^A-Za-z0-9]').hasMatch(pw),
     ].where((e) => e).length;
-    return score >= 3 ? 'Strong' : score == 2 ? 'Good' : 'Fair';
+    return score >= 3
+        ? 'Strong'
+        : score == 2
+        ? 'Good'
+        : 'Fair';
   }
 }
 
@@ -851,8 +896,14 @@ class _RoleChoice extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: RevisioIcon(
-                selected ? 'correct' : value == 'student' ? 'person' : 'class',
-                color: selected ? context.primaryForeground : context.foreground,
+                selected
+                    ? 'correct'
+                    : value == 'student'
+                    ? 'person'
+                    : 'class',
+                color: selected
+                    ? context.primaryForeground
+                    : context.foreground,
                 size: 20,
               ),
             ),
@@ -873,7 +924,9 @@ class _RoleChoice extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     hint,
-                    style: TypeScale.caption.copyWith(color: context.mutedForeground),
+                    style: TypeScale.caption.copyWith(
+                      color: context.mutedForeground,
+                    ),
                   ),
                 ],
               ),
@@ -886,7 +939,11 @@ class _RoleChoice extends StatelessWidget {
                   color: context.primary,
                   shape: BoxShape.circle,
                 ),
-                child: const RevisioIcon('correct', size: 12, color: Colors.white),
+                child: const RevisioIcon(
+                  'correct',
+                  size: 12,
+                  color: Colors.white,
+                ),
               ),
           ],
         ),
@@ -900,16 +957,18 @@ class _ReviewRow extends StatelessWidget {
   final String value;
   final VoidCallback onEdit;
 
-  const _ReviewRow({required this.label, required this.value, required this.onEdit});
+  const _ReviewRow({
+    required this.label,
+    required this.value,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: context.border),
-        ),
+        border: Border(bottom: BorderSide(color: context.border)),
       ),
       child: Row(
         children: [
@@ -919,7 +978,9 @@ class _ReviewRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TypeScale.caption.copyWith(color: context.mutedForeground),
+                  style: TypeScale.caption.copyWith(
+                    color: context.mutedForeground,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(

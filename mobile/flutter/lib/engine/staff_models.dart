@@ -34,15 +34,15 @@ class RosterEntry {
   });
 
   factory RosterEntry.fromJson(Map<String, dynamic> json) => RosterEntry(
-        classId: json['classId'] as String? ?? '',
-        userId: json['userId'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        email: json['email'] as String? ?? '',
-        reviews7d: (json['reviews7d'] as num?)?.toInt() ?? 0,
-        xp7d: (json['xp7d'] as num?)?.toInt() ?? 0,
-        streak: (json['streak'] as num?)?.toInt() ?? 0,
-        masteryPct: (json['masteryPct'] as num?)?.toInt() ?? 0,
-      );
+    classId: json['classId'] as String? ?? '',
+    userId: json['userId'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    email: json['email'] as String? ?? '',
+    reviews7d: (json['reviews7d'] as num?)?.toInt() ?? 0,
+    xp7d: (json['xp7d'] as num?)?.toInt() ?? 0,
+    streak: (json['streak'] as num?)?.toInt() ?? 0,
+    masteryPct: (json['masteryPct'] as num?)?.toInt() ?? 0,
+  );
 }
 
 class TeacherClass {
@@ -61,14 +61,14 @@ class TeacherClass {
   });
 
   factory TeacherClass.fromJson(Map<String, dynamic> json) => TeacherClass(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        joinCode: json['joinCode'] as String? ?? '',
-        subjectId: json['subjectId'] as String? ?? '',
-        roster: ((json['roster'] as List?) ?? [])
-            .map((r) => RosterEntry.fromJson(r as Map<String, dynamic>))
-            .toList(),
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    joinCode: json['joinCode'] as String? ?? '',
+    subjectId: json['subjectId'] as String? ?? '',
+    roster: ((json['roster'] as List?) ?? [])
+        .map((r) => RosterEntry.fromJson(r as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 /// `GET /teacher` — my classes with per-student rosters, plus the subject list.
@@ -79,13 +79,13 @@ class TeacherPayload {
   const TeacherPayload({this.classes = const [], this.subjects = const []});
 
   factory TeacherPayload.fromJson(Map<String, dynamic> json) => TeacherPayload(
-        classes: ((json['classes'] as List?) ?? [])
-            .map((c) => TeacherClass.fromJson(c as Map<String, dynamic>))
-            .toList(),
-        subjects: ((json['subjects'] as List?) ?? [])
-            .map((s) => SubjectRef.fromJson(s as Map<String, dynamic>))
-            .toList(),
-      );
+    classes: ((json['classes'] as List?) ?? [])
+        .map((c) => TeacherClass.fromJson(c as Map<String, dynamic>))
+        .toList(),
+    subjects: ((json['subjects'] as List?) ?? [])
+        .map((s) => SubjectRef.fromJson(s as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 /// A topic this account may edit, as `/content?mine=1` sends it.
@@ -93,6 +93,9 @@ class MyTopic {
   final String id;
   final String name;
   final String visibility;
+  final String subjectId;
+  final String? subjectName;
+  final String description;
   final int? cardCount;
   final int? lessonCount;
 
@@ -100,17 +103,23 @@ class MyTopic {
     this.id = '',
     this.name = '',
     this.visibility = 'private',
+    this.subjectId = '',
+    this.subjectName,
+    this.description = '',
     this.cardCount,
     this.lessonCount,
   });
 
   factory MyTopic.fromJson(Map<String, dynamic> json) => MyTopic(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        visibility: json['visibility'] as String? ?? 'private',
-        cardCount: (json['cardCount'] as num?)?.toInt(),
-        lessonCount: (json['lessonCount'] as num?)?.toInt(),
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    visibility: json['visibility'] as String? ?? 'private',
+    subjectId: json['subjectId'] as String? ?? '',
+    subjectName: json['subjectName'] as String?,
+    description: json['description'] as String? ?? '',
+    cardCount: (json['cardCount'] as num?)?.toInt(),
+    lessonCount: (json['lessonCount'] as num?)?.toInt(),
+  );
 }
 
 class MyTopicsPayload {
@@ -118,7 +127,8 @@ class MyTopicsPayload {
 
   const MyTopicsPayload({this.topics = const []});
 
-  factory MyTopicsPayload.fromJson(Map<String, dynamic> json) => MyTopicsPayload(
+  factory MyTopicsPayload.fromJson(Map<String, dynamic> json) =>
+      MyTopicsPayload(
         topics: ((json['topics'] as List?) ?? [])
             .map((t) => MyTopic.fromJson(t as Map<String, dynamic>))
             .toList(),
@@ -139,9 +149,9 @@ class SrsLevelCount {
   const SrsLevelCount({this.level = 1, this.count = 0});
 
   factory SrsLevelCount.fromJson(Map<String, dynamic> json) => SrsLevelCount(
-        level: (json['level'] as num?)?.toInt() ?? 1,
-        count: (json['count'] as num?)?.toInt() ?? 0,
-      );
+    level: (json['level'] as num?)?.toInt() ?? 1,
+    count: (json['count'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// The overview strip: reviews, accuracy, streak, and what is due right now.
@@ -168,7 +178,8 @@ class StudentOverview {
     this.dueCount = 0,
   });
 
-  factory StudentOverview.fromJson(Map<String, dynamic> json) => StudentOverview(
+  factory StudentOverview.fromJson(Map<String, dynamic> json) =>
+      StudentOverview(
         totalReviews: (json['totalReviews'] as num?)?.toInt() ?? 0,
         totalCards: (json['totalCards'] as num?)?.toInt() ?? 0,
         correctPct: (json['correctPct'] as num?)?.toInt(),
@@ -213,7 +224,8 @@ class StudentCardStrength {
     this.lastReviewedAt,
   });
 
-  factory StudentCardStrength.fromJson(Map<String, dynamic> json) => StudentCardStrength(
+  factory StudentCardStrength.fromJson(Map<String, dynamic> json) =>
+      StudentCardStrength(
         cardId: json['cardId'] as String? ?? '',
         kind: json['kind'] as String? ?? '',
         prompt: json['prompt'] as String?,
@@ -246,7 +258,8 @@ class StrugglingTopic {
     this.lastMissedAt,
   });
 
-  factory StrugglingTopic.fromJson(Map<String, dynamic> json) => StrugglingTopic(
+  factory StrugglingTopic.fromJson(Map<String, dynamic> json) =>
+      StrugglingTopic(
         topicId: json['topicId'] as String? ?? '',
         topicName: json['topicName'] as String? ?? '',
         subjectName: json['subjectName'] as String? ?? '',
@@ -278,15 +291,15 @@ class TopicHealth {
   });
 
   factory TopicHealth.fromJson(Map<String, dynamic> json) => TopicHealth(
-        topicId: json['topicId'] as String? ?? '',
-        topicName: json['topicName'] as String? ?? '',
-        subjectName: json['subjectName'] as String? ?? '',
-        states: (json['states'] as num?)?.toInt() ?? 0,
-        mastered: (json['mastered'] as num?)?.toInt() ?? 0,
-        lapses: (json['lapses'] as num?)?.toInt() ?? 0,
-        masteryPct: (json['masteryPct'] as num?)?.toInt() ?? 0,
-        missCount: (json['missCount'] as num?)?.toInt() ?? 0,
-      );
+    topicId: json['topicId'] as String? ?? '',
+    topicName: json['topicName'] as String? ?? '',
+    subjectName: json['subjectName'] as String? ?? '',
+    states: (json['states'] as num?)?.toInt() ?? 0,
+    mastered: (json['mastered'] as num?)?.toInt() ?? 0,
+    lapses: (json['lapses'] as num?)?.toInt() ?? 0,
+    masteryPct: (json['masteryPct'] as num?)?.toInt() ?? 0,
+    missCount: (json['missCount'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// One of the last twenty answers, exactly as it was graded.
@@ -322,20 +335,20 @@ class RecentAnswer {
   });
 
   factory RecentAnswer.fromJson(Map<String, dynamic> json) => RecentAnswer(
-        id: json['id'] as String? ?? '',
-        cardId: json['cardId'] as String? ?? '',
-        mode: json['mode'] as String? ?? '',
-        rating: json['rating'] as String? ?? '',
-        correct: json['correct'] as bool?,
-        userAnswer: json['userAnswer'] as String?,
-        prompt: json['prompt'] as String?,
-        cardKind: json['cardKind'] as String? ?? '',
-        topicName: json['topicName'] as String? ?? '',
-        subjectName: json['subjectName'] as String? ?? '',
-        xpAwarded: (json['xpAwarded'] as num?)?.toInt() ?? 0,
-        durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
-        reviewedAt: json['reviewedAt'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    cardId: json['cardId'] as String? ?? '',
+    mode: json['mode'] as String? ?? '',
+    rating: json['rating'] as String? ?? '',
+    correct: json['correct'] as bool?,
+    userAnswer: json['userAnswer'] as String?,
+    prompt: json['prompt'] as String?,
+    cardKind: json['cardKind'] as String? ?? '',
+    topicName: json['topicName'] as String? ?? '',
+    subjectName: json['subjectName'] as String? ?? '',
+    xpAwarded: (json['xpAwarded'] as num?)?.toInt() ?? 0,
+    durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+    reviewedAt: json['reviewedAt'] as String?,
+  );
 }
 
 /// A card with the soonest due date — "coming up next".
@@ -359,14 +372,14 @@ class UpcomingCard {
   });
 
   factory UpcomingCard.fromJson(Map<String, dynamic> json) => UpcomingCard(
-        cardId: json['cardId'] as String? ?? '',
-        prompt: json['prompt'] as String?,
-        cardKind: json['cardKind'] as String? ?? '',
-        topicName: json['topicName'] as String? ?? '',
-        srsLevel: (json['srsLevel'] as num?)?.toInt() ?? 1,
-        srsLabel: json['srsLabel'] as String? ?? '',
-        dueAt: json['dueAt'] as String? ?? '',
-      );
+    cardId: json['cardId'] as String? ?? '',
+    prompt: json['prompt'] as String?,
+    cardKind: json['cardKind'] as String? ?? '',
+    topicName: json['topicName'] as String? ?? '',
+    srsLevel: (json['srsLevel'] as num?)?.toInt() ?? 1,
+    srsLabel: json['srsLabel'] as String? ?? '',
+    dueAt: json['dueAt'] as String? ?? '',
+  );
 }
 
 /// The learner the sheet is about.
@@ -383,7 +396,8 @@ class StudentProgressStudent {
     this.createdAt,
   });
 
-  factory StudentProgressStudent.fromJson(Map<String, dynamic> json) => StudentProgressStudent(
+  factory StudentProgressStudent.fromJson(Map<String, dynamic> json) =>
+      StudentProgressStudent(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
         email: json['email'] as String? ?? '',
@@ -415,11 +429,14 @@ class StudentProgress {
     this.subjects = const [],
   });
 
-  factory StudentProgress.fromJson(Map<String, dynamic> json) => StudentProgress(
+  factory StudentProgress.fromJson(Map<String, dynamic> json) =>
+      StudentProgress(
         student: StudentProgressStudent.fromJson(
-            (json['student'] as Map?)?.cast<String, dynamic>() ?? const {}),
+          (json['student'] as Map?)?.cast<String, dynamic>() ?? const {},
+        ),
         overview: StudentOverview.fromJson(
-            (json['overview'] as Map?)?.cast<String, dynamic>() ?? const {}),
+          (json['overview'] as Map?)?.cast<String, dynamic>() ?? const {},
+        ),
         srsLevels: ((json['srsLevels'] as List?) ?? [])
             .map((r) => SrsLevelCount.fromJson(r as Map<String, dynamic>))
             .toList(),
@@ -468,15 +485,15 @@ class AdminUser {
   });
 
   factory AdminUser.fromJson(Map<String, dynamic> json) => AdminUser(
-        id: json['id'] as String? ?? '',
-        email: json['email'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        role: json['role'] as String? ?? 'student',
-        status: json['status'] as String? ?? 'active',
-        emailVerifiedAt: json['emailVerifiedAt'] as String?,
-        totpEnabled: json['totpEnabled'] as bool? ?? false,
-        createdAt: json['createdAt'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    email: json['email'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    role: json['role'] as String? ?? 'student',
+    status: json['status'] as String? ?? 'active',
+    emailVerifiedAt: json['emailVerifiedAt'] as String?,
+    totpEnabled: json['totpEnabled'] as bool? ?? false,
+    createdAt: json['createdAt'] as String?,
+  );
 }
 
 class ApprovalRequest {
@@ -500,7 +517,8 @@ class ApprovalRequest {
     this.createdAt,
   });
 
-  factory ApprovalRequest.fromJson(Map<String, dynamic> json) => ApprovalRequest(
+  factory ApprovalRequest.fromJson(Map<String, dynamic> json) =>
+      ApprovalRequest(
         id: json['id'] as String? ?? '',
         userId: json['userId'] as String? ?? '',
         email: json['email'] as String? ?? '',
@@ -517,13 +535,17 @@ class FeatureFlag {
   final String description;
   final bool enabled;
 
-  const FeatureFlag({this.key = '', this.description = '', this.enabled = false});
+  const FeatureFlag({
+    this.key = '',
+    this.description = '',
+    this.enabled = false,
+  });
 
   factory FeatureFlag.fromJson(Map<String, dynamic> json) => FeatureFlag(
-        key: json['key'] as String? ?? '',
-        description: json['description'] as String? ?? '',
-        enabled: json['enabled'] as bool? ?? false,
-      );
+    key: json['key'] as String? ?? '',
+    description: json['description'] as String? ?? '',
+    enabled: json['enabled'] as bool? ?? false,
+  );
 }
 
 class PendingTopic {
@@ -532,14 +554,19 @@ class PendingTopic {
   final String subjectId;
   final String? createdAt;
 
-  const PendingTopic({this.id = '', this.name = '', this.subjectId = '', this.createdAt});
+  const PendingTopic({
+    this.id = '',
+    this.name = '',
+    this.subjectId = '',
+    this.createdAt,
+  });
 
   factory PendingTopic.fromJson(Map<String, dynamic> json) => PendingTopic(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        subjectId: json['subjectId'] as String? ?? '',
-        createdAt: json['createdAt'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    subjectId: json['subjectId'] as String? ?? '',
+    createdAt: json['createdAt'] as String?,
+  );
 }
 
 class AuditRow {
@@ -548,14 +575,19 @@ class AuditRow {
   final String target;
   final String? createdAt;
 
-  const AuditRow({this.id = '', this.action = '', this.target = '', this.createdAt});
+  const AuditRow({
+    this.id = '',
+    this.action = '',
+    this.target = '',
+    this.createdAt,
+  });
 
   factory AuditRow.fromJson(Map<String, dynamic> json) => AuditRow(
-        id: json['id'] as String? ?? '',
-        action: json['action'] as String? ?? '',
-        target: json['target'] as String? ?? '',
-        createdAt: json['createdAt'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    action: json['action'] as String? ?? '',
+    target: json['target'] as String? ?? '',
+    createdAt: json['createdAt'] as String?,
+  );
 }
 
 class AdminBadge {
@@ -574,12 +606,12 @@ class AdminBadge {
   });
 
   factory AdminBadge.fromJson(Map<String, dynamic> json) => AdminBadge(
-        id: json['id'] as String? ?? '',
-        slug: json['slug'] as String? ?? '',
-        label: json['label'] as String? ?? '',
-        icon: json['icon'] as String? ?? '',
-        color: json['color'] as String? ?? 'gold',
-      );
+    id: json['id'] as String? ?? '',
+    slug: json['slug'] as String? ?? '',
+    label: json['label'] as String? ?? '',
+    icon: json['icon'] as String? ?? '',
+    color: json['color'] as String? ?? 'gold',
+  );
 }
 
 class AdminAchievement {
@@ -589,7 +621,8 @@ class AdminAchievement {
 
   const AdminAchievement({this.id = '', this.name = '', this.description});
 
-  factory AdminAchievement.fromJson(Map<String, dynamic> json) => AdminAchievement(
+  factory AdminAchievement.fromJson(Map<String, dynamic> json) =>
+      AdminAchievement(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
         description: json['description'] as String?,
@@ -609,7 +642,8 @@ class AdminClassMember {
     this.email = '',
   });
 
-  factory AdminClassMember.fromJson(Map<String, dynamic> json) => AdminClassMember(
+  factory AdminClassMember.fromJson(Map<String, dynamic> json) =>
+      AdminClassMember(
         classId: json['classId'] as String? ?? '',
         userId: json['userId'] as String? ?? '',
         name: json['name'] as String? ?? '',
@@ -637,16 +671,16 @@ class AdminClass {
   });
 
   factory AdminClass.fromJson(Map<String, dynamic> json) => AdminClass(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        joinCode: json['joinCode'] as String? ?? '',
-        teacherId: json['teacherId'] as String? ?? '',
-        teacherName: json['teacherName'] as String? ?? '',
-        subjectId: json['subjectId'] as String? ?? '',
-        members: ((json['members'] as List?) ?? [])
-            .map((m) => AdminClassMember.fromJson(m as Map<String, dynamic>))
-            .toList(),
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    joinCode: json['joinCode'] as String? ?? '',
+    teacherId: json['teacherId'] as String? ?? '',
+    teacherName: json['teacherName'] as String? ?? '',
+    subjectId: json['subjectId'] as String? ?? '',
+    members: ((json['members'] as List?) ?? [])
+        .map((m) => AdminClassMember.fromJson(m as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class ContentStats {
@@ -667,13 +701,13 @@ class ContentStats {
   });
 
   factory ContentStats.fromJson(Map<String, dynamic> json) => ContentStats(
-        topics: (json['topics'] as num?)?.toInt() ?? 0,
-        publicTopics: (json['publicTopics'] as num?)?.toInt() ?? 0,
-        lessons: (json['lessons'] as num?)?.toInt() ?? 0,
-        cards: (json['cards'] as num?)?.toInt() ?? 0,
-        publicCards: (json['publicCards'] as num?)?.toInt() ?? 0,
-        emptyTopics: (json['emptyTopics'] as num?)?.toInt() ?? 0,
-      );
+    topics: (json['topics'] as num?)?.toInt() ?? 0,
+    publicTopics: (json['publicTopics'] as num?)?.toInt() ?? 0,
+    lessons: (json['lessons'] as num?)?.toInt() ?? 0,
+    cards: (json['cards'] as num?)?.toInt() ?? 0,
+    publicCards: (json['publicCards'] as num?)?.toInt() ?? 0,
+    emptyTopics: (json['emptyTopics'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// `GET /admin` — the whole console in one payload, developers only.
@@ -703,36 +737,37 @@ class AdminPayload {
   });
 
   factory AdminPayload.fromJson(Map<String, dynamic> json) => AdminPayload(
-        approvals: ((json['approvals'] as List?) ?? [])
-            .map((r) => ApprovalRequest.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        flags: ((json['flags'] as List?) ?? [])
-            .map((r) => FeatureFlag.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        users: ((json['users'] as List?) ?? [])
-            .map((r) => AdminUser.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        pendingTopics: ((json['pendingTopics'] as List?) ?? [])
-            .map((r) => PendingTopic.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        audit: ((json['audit'] as List?) ?? [])
-            .map((r) => AuditRow.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        contentStats: ContentStats.fromJson(
-            (json['contentStats'] as Map?)?.cast<String, dynamic>() ?? const {}),
-        subjects: ((json['subjects'] as List?) ?? [])
-            .map((s) => SubjectRef.fromJson(s as Map<String, dynamic>))
-            .toList(),
-        badges: ((json['badges'] as List?) ?? [])
-            .map((r) => AdminBadge.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        manualAchievements: ((json['manualAchievements'] as List?) ?? [])
-            .map((r) => AdminAchievement.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        classes: ((json['classes'] as List?) ?? [])
-            .map((r) => AdminClass.fromJson(r as Map<String, dynamic>))
-            .toList(),
-      );
+    approvals: ((json['approvals'] as List?) ?? [])
+        .map((r) => ApprovalRequest.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    flags: ((json['flags'] as List?) ?? [])
+        .map((r) => FeatureFlag.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    users: ((json['users'] as List?) ?? [])
+        .map((r) => AdminUser.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    pendingTopics: ((json['pendingTopics'] as List?) ?? [])
+        .map((r) => PendingTopic.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    audit: ((json['audit'] as List?) ?? [])
+        .map((r) => AuditRow.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    contentStats: ContentStats.fromJson(
+      (json['contentStats'] as Map?)?.cast<String, dynamic>() ?? const {},
+    ),
+    subjects: ((json['subjects'] as List?) ?? [])
+        .map((s) => SubjectRef.fromJson(s as Map<String, dynamic>))
+        .toList(),
+    badges: ((json['badges'] as List?) ?? [])
+        .map((r) => AdminBadge.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    manualAchievements: ((json['manualAchievements'] as List?) ?? [])
+        .map((r) => AdminAchievement.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    classes: ((json['classes'] as List?) ?? [])
+        .map((r) => AdminClass.fromJson(r as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 // ── the SRS ladder, for the strength card ───────────────────────────────────

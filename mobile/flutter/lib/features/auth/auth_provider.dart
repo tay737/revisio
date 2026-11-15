@@ -6,25 +6,32 @@
 library revisio.features.auth.auth_provider;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../services/api_client.dart';
 
 /// The current auth state.
 sealed class AuthState {}
+
 class AuthInitial extends AuthState {} // not yet loaded from storage
+
 class AuthLoading extends AuthState {} // restoring session
+
 class AuthAuthenticated extends AuthState {
   final AuthSession session;
   AuthAuthenticated({required this.session});
 }
+
 class AuthUnauthenticated extends AuthState {
   final String? reason; // why the session ended, if known
   AuthUnauthenticated({this.reason});
 }
+
 class AuthMfaRequired extends AuthState {
   final String email;
   final String password;
   AuthMfaRequired({required this.email, required this.password});
 }
+
 class AuthError extends AuthState {
   final String message;
   final String? code;
@@ -140,8 +147,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // src/components/AuthForm.tsx (copy parity).
       if (data['pendingApproval'] == true) {
         state = AuthRegistered(
-          message:
-              'Account created. A developer reviews staff accounts before the first sign-in. You will get an email once it is approved.',
+          message: 'Account created. A developer reviews staff accounts before the first sign-in. You will get an email once it is approved.',
         );
         return;
       }
@@ -165,7 +171,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> refreshSession() async {
     final current = state;
     if (current case AuthAuthenticated(:final session)) {
-      final outcome = await _api.refreshOutcome(refreshToken: session.refreshToken);
+      final outcome = await _api.refreshOutcome(
+        refreshToken: session.refreshToken,
+      );
       if (outcome is RefreshRenewed) {
         final updated = AuthSession(
           accessToken: outcome.accessToken,
@@ -178,7 +186,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       if (outcome is RefreshRejected) {
         await _logout();
-        state = AuthUnauthenticated(reason: 'Your session has ended. Sign in again.');
+        state = AuthUnauthenticated(
+          reason: 'Your session has ended. Sign in again.',
+        );
       }
       return false;
     }

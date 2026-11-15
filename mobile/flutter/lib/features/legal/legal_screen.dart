@@ -9,6 +9,7 @@ library revisio.features.legal.legal_screen;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../design/design.dart';
 import '../../services/api_client.dart';
 
@@ -30,9 +31,8 @@ class LegalScreen extends StatelessWidget {
     final uri = Uri.parse(_url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open $_url')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not open $_url')));
     }
   }
 
@@ -63,9 +63,9 @@ class LegalScreen extends StatelessWidget {
               InkWell(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: _url));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Link copied')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('Link copied')));
                 },
                 child: Text(
                   _url,
@@ -83,7 +83,10 @@ class LegalScreen extends StatelessWidget {
                   onPressed: () => _open(context),
                   child: Text(
                     'Open $title',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),

@@ -39,7 +39,9 @@ class ApiError implements Exception {
     final body = response.data;
     final error = body is Map ? body['error'] : null;
     final code = error is Map ? error['code'] ?? 'error' : 'error';
-    final message = error is Map ? error['message'] ?? 'Request failed.' : 'Request failed.';
+    final message = error is Map
+        ? error['message'] ?? 'Request failed.'
+        : 'Request failed.';
     final field = error is Map ? error['field'] as String? : null;
     return ApiError(
       status: response.statusCode ?? 0,
@@ -50,18 +52,23 @@ class ApiError implements Exception {
   }
 
   @override
-  String toString() => 'ApiError($status $code: $message${field != null ? ' [field=$field]' : ''})';
+  String toString() =>
+      'ApiError($status $code: $message${field != null ? ' [field=$field]' : ''})';
 }
 
 /// Result of a refresh attempt.
 sealed class RefreshOutcome {}
+
 class RefreshRenewed extends RefreshOutcome {
   final String accessToken;
   final String refreshToken;
   RefreshRenewed({required this.accessToken, required this.refreshToken});
 }
+
 class RefreshRejected extends RefreshOutcome {} // server said no — session over
-class RefreshUnavailable extends RefreshOutcome {} // offline / 5xx — keep session
+
+class RefreshUnavailable
+    extends RefreshOutcome {} // offline / 5xx — keep session
 
 /// Auth session persisted between launches.
 class AuthSession {
@@ -76,16 +83,16 @@ class AuthSession {
   });
 
   Map<String, dynamic> toJson() => {
-        'accessToken': accessToken,
-        'refreshToken': refreshToken,
-        'user': user,
-      };
+    'accessToken': accessToken,
+    'refreshToken': refreshToken,
+    'user': user,
+  };
 
   factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
-        accessToken: json['accessToken'] as String,
-        refreshToken: json['refreshToken'] as String,
-        user: (json['user'] as Map?)?.cast<String, dynamic>() ?? {},
-      );
+    accessToken: json['accessToken'] as String,
+    refreshToken: json['refreshToken'] as String,
+    user: (json['user'] as Map?)?.cast<String, dynamic>() ?? {},
+  );
 }
 
 /// Storage seam for the refresh token (flutter_secure_storage — never shared prefs).
@@ -93,7 +100,8 @@ class SessionStorage {
   static const _kKey = 'revisio_session';
   final FlutterSecureStorage _storage;
 
-  SessionStorage({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
+  SessionStorage({FlutterSecureStorage? storage})
+    : _storage = storage ?? const FlutterSecureStorage();
 
   Future<AuthSession?> read() async {
     final raw = await _storage.read(key: _kKey);
@@ -116,15 +124,17 @@ class SessionStorage {
 
 /// The one door to the backend for the Flutter app.
 class RevisioApi {
-  RevisioApi({
-    required this.storage,
-    Dio? client,
-  }) : _dio = client ?? Dio(BaseOptions(
-          baseUrl: kBaseUrl,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-          headers: {'Content-Type': 'application/json'},
-        )) {
+  RevisioApi({required this.storage, Dio? client})
+    : _dio =
+          client ??
+          Dio(
+            BaseOptions(
+              baseUrl: kBaseUrl,
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 15),
+              headers: {'Content-Type': 'application/json'},
+            ),
+          ) {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -183,10 +193,7 @@ class RevisioApi {
     final response = await _request(
       () => _dio.post<Map<String, dynamic>>(
         '/api/v1/auth/refresh',
-        data: {
-          'refreshToken': refreshToken,
-          'client': 'native',
-        },
+        data: {'refreshToken': refreshToken, 'client': 'native'},
       ),
     );
     return response.data!;
@@ -203,7 +210,10 @@ class RevisioApi {
       if (accessToken == null || rotatedRefreshToken == null) {
         return RefreshUnavailable();
       }
-      return RefreshRenewed(accessToken: accessToken, refreshToken: rotatedRefreshToken);
+      return RefreshRenewed(
+        accessToken: accessToken,
+        refreshToken: rotatedRefreshToken,
+      );
     } on ApiError catch (e) {
       if (e.status == 401 || e.status == 403) return RefreshRejected();
       return RefreshUnavailable();
@@ -289,7 +299,10 @@ class RevisioApi {
       await _request(
         () => _dio.post(
           '/api/v1/auth/logout',
-          data: {if (refreshToken != null && refreshToken.isNotEmpty) 'refreshToken': refreshToken},
+          data: {
+            if (refreshToken != null && refreshToken.isNotEmpty)
+              'refreshToken': refreshToken,
+          },
         ),
       );
     } catch (_) {
@@ -359,6 +372,25 @@ class RevisioApi {
         .toList();
   }
 
+  /// One topic's meta (`/content?topicId=` — the web topic screen's header
+  /// read). Returns null when the topic is not visible to this user.
+  Future<Topic?> contentTopic({required String topicId}) async {
+    try {
+      final response = await authenticated(
+        () => _dio.get<Map<String, dynamic>>(
+          '/api/v1/content',
+          queryParameters: {'topicId': topicId},
+        ),
+      );
+      final topic = response.data?['topic'];
+      if (topic is! Map<String, dynamic>) return null;
+      return Topic.fromJson(topic);
+    } on ApiError catch (e) {
+      if (e.status == 404) return null;
+      rethrow;
+    }
+  }
+
   Future<List<Lesson>> lessons({required String topicId}) async {
     final response = await authenticated(
       () => _dio.get<Map<String, dynamic>>(
@@ -423,6 +455,18 @@ class RevisioApi {
   Future<Map<String, dynamic>> seasons() async {
     final response = await authenticated(
       () => _dio.get<Map<String, dynamic>>('/api/v1/seasons'),
+    );
+    return response.data ?? {};
+  }
+
+  /// `PATCH /api/v1/seasons` — claim a finished season's showcase reward.
+  /// Returns the payload; `alreadyClaimed` distinguishes a repeat claim.
+  Future<Map<String, dynamic>> claimSeasonReward(int seasonNumber) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>(
+        '/api/v1/seasons',
+        data: {'seasonNumber': seasonNumber},
+      ),
     );
     return response.data ?? {};
   }
@@ -508,7 +552,9 @@ class RevisioApi {
   }
 
   /// `PATCH /consent` — the server stamps `decidedAt` itself.
-  Future<Map<String, dynamic>> patchConsent(Map<String, dynamic> choices) async {
+  Future<Map<String, dynamic>> patchConsent(
+    Map<String, dynamic> choices,
+  ) async {
     final response = await authenticated(
       () => _dio.patch<Map<String, dynamic>>(
         '/api/v1/consent',
@@ -531,7 +577,10 @@ class RevisioApi {
 
   /// `POST /me/email` — a *request*, not a write: the address moves only when
   /// the link mailed to the new address is clicked.
-  Future<bool> changeEmail({required String password, required String newEmail}) async {
+  Future<bool> changeEmail({
+    required String password,
+    required String newEmail,
+  }) async {
     final response = await authenticated(
       () => _dio.post<Map<String, dynamic>>(
         '/api/v1/me/email',
@@ -567,11 +616,15 @@ class RevisioApi {
 
   /// Step 2 — repeats DELETE with the confirmation header.
   /// `403 deletion_confirmation_expired` → start over at step 1.
-  Future<Map<String, dynamic>> confirmDataDeletion(String confirmationToken) async {
+  Future<Map<String, dynamic>> confirmDataDeletion(
+    String confirmationToken,
+  ) async {
     final response = await authenticated(
       () => _dio.delete<Map<String, dynamic>>(
         '/api/v1/data-deletion',
-        options: Options(headers: {'x-data-deletion-confirm': confirmationToken}),
+        options: Options(
+          headers: {'x-data-deletion-confirm': confirmationToken},
+        ),
       ),
     );
     return response.data ?? {};
@@ -587,7 +640,9 @@ class RevisioApi {
 
   /// `PATCH /consent` — send only changed keys; `essential` is always true
   /// server-side. The server stamps `decidedAt` itself.
-  Future<Map<String, dynamic>> updateConsent(Map<String, dynamic> choices) async {
+  Future<Map<String, dynamic>> updateConsent(
+    Map<String, dynamic> choices,
+  ) async {
     final response = await authenticated(
       () => _dio.patch<Map<String, dynamic>>(
         '/api/v1/consent',
@@ -602,7 +657,8 @@ class RevisioApi {
     final response = await authenticated(
       () => _dio.get<Map<String, dynamic>>('/api/v1/classes/join'),
     );
-    return ((response.data?['classes'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return ((response.data?['classes'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
   }
 
   /// `GET /version` — launch check, unauthenticated.
@@ -639,7 +695,11 @@ class RevisioApi {
       final key = presign.data?['key'] as String?;
       final url = presign.data?['url'] as String?;
       if (key == null || url == null) {
-        throw ApiError(status: 0, code: 'bad_response', message: 'The upload could not be prepared.');
+        throw ApiError(
+          status: 0,
+          code: 'bad_response',
+          message: 'The upload could not be prepared.',
+        );
       }
 
       // The presigned PUT carries no auth — a bare client, not the session one.
@@ -672,7 +732,11 @@ class RevisioApi {
         rethrow;
       }
     }
-    throw ApiError(status: 0, code: 'upload_failed', message: 'The upload could not be confirmed.');
+    throw ApiError(
+      status: 0,
+      code: 'upload_failed',
+      message: 'The upload could not be confirmed.',
+    );
   }
 
   /// Clear the avatar/banner pointer server-side.
@@ -720,6 +784,161 @@ class RevisioApi {
     return MyTopicsPayload.fromJson(response.data ?? {});
   }
 
+  // ── exam simulator (/exam) ───────────────────────────────────────────────
+
+  /// `GET /exam` — topics, questions available, stored papers, attempts.
+  Future<Map<String, dynamic>> examInfo() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/exam'),
+    );
+    return response.data ?? {};
+  }
+
+  /// `GET /exam?paperId=` — one stored board paper's markdown.
+  Future<Map<String, dynamic>> examPaper(String paperId) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/exam',
+        queryParameters: {'paperId': paperId},
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /exam` — build a paper (`topicIds` + `questionCount`) or submit
+  /// for marking (`topicIds` + `answers`).
+  Future<Map<String, dynamic>> examAction(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/exam', data: body),
+    );
+    return response.data ?? {};
+  }
+
+  // ── maths practice (/practice) ───────────────────────────────────────────
+
+  /// `GET /maths` — the global concept catalogue (no subject scope).
+  Future<Map<String, dynamic>> mathsConcepts() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/maths'),
+    );
+    return response.data ?? {};
+  }
+
+  /// `GET /maths?subjectId=` — concepts + pinned topics for the picker.
+  Future<Map<String, dynamic>> mathsCatalogue(String subjectId) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/maths',
+        queryParameters: {'subjectId': subjectId},
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /maths` — one action envelope: `start`, `mark` or `award_xp`.
+  Future<Map<String, dynamic>> mathsAction(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/maths', data: body),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /import` — multipart deck upload (CSV/TSV/Anki TSV) into an
+  /// existing topic or a new one. Returns created/failed/attached counts.
+  Future<Map<String, dynamic>> importDeck({
+    required List<int> bytes,
+    required String filename,
+    required String kind,
+    String? topicId,
+    String? topicName,
+    String? subjectId,
+    bool publish = false,
+  }) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+      'kind': kind,
+      if (topicId != null) 'topicId': topicId,
+      if (topicName != null) 'topicName': topicName,
+      if (subjectId != null) 'subjectId': subjectId,
+      if (publish) 'publish': 'true',
+    });
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/import', data: form),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /content` — write a topic with its lesson and card drafts
+  /// (the Library "Write a topic" form).
+  Future<Map<String, dynamic>> createContent(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/content', data: body),
+    );
+    return response.data ?? {};
+  }
+
+  /// `PATCH /content` — generic action envelope (generate_cloze,
+  /// insert_cloze, visibility changes).
+  Future<Map<String, dynamic>> contentAction(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>('/api/v1/content', data: body),
+    );
+    return response.data ?? {};
+  }
+
+  /// `DELETE /maths?setId=` — remove one authored practice set.
+  Future<void> mathsDeleteSet(String setId) async {
+    await authenticated(
+      () =>
+          _dio.delete<void>('/api/v1/maths', queryParameters: {'setId': setId}),
+    );
+  }
+
+  /// `GET /grading-policy` — cloze marking policy scopes + subjects/topics.
+  Future<Map<String, dynamic>> gradingPolicy() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/grading-policy'),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /grading-policy` — save a cloze marking policy at a scope.
+  Future<void> saveGradingPolicy(Map<String, dynamic> body) async {
+    await authenticated(
+      () => _dio.post<void>('/api/v1/grading-policy', data: body),
+    );
+  }
+
+  /// `PATCH /content` — publish or withdraw one topic (the Library page's
+  /// per-row toggle). Returns the affected counts for the notice.
+  Future<Map<String, dynamic>> setTopicVisibility({
+    required String topicId,
+    required String visibility,
+  }) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>(
+        '/api/v1/content',
+        data: {'topicId': topicId, 'visibility': visibility},
+      ),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /content/merge` — fold the source topic into the target.
+  Future<Map<String, dynamic>> mergeTopics({
+    required String sourceId,
+    required String targetId,
+    required bool publish,
+  }) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/content/merge',
+        data: {'sourceId': sourceId, 'targetId': targetId, 'publish': publish},
+      ),
+    );
+    return response.data ?? {};
+  }
+
   /// `GET /teacher/student?userId=…` — one learner's progress, for the staff
   /// sheet. A teacher may open anyone in their own classes; a developer may
   /// open anyone.
@@ -763,7 +982,9 @@ class RevisioApi {
   /// Perform an authenticated request with one refresh dance on 401.
   /// A transport failure during refresh keeps the stored session; only an
   /// explicit 401/403 refresh answer clears it.
-  Future<Response<T>> authenticated<T>(Future<Response<T>> Function() request) async {
+  Future<Response<T>> authenticated<T>(
+    Future<Response<T>> Function() request,
+  ) async {
     try {
       return await request();
     } on ApiError catch (e, st) {

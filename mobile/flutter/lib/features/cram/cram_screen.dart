@@ -49,8 +49,7 @@ class _CramScreenState extends ConsumerState<CramScreen> {
       setState(() {
         _topics = topics;
         final pre = widget.preselectedTopicId;
-        if (pre != null &&
-            topics.any((t) => t.id == pre && t.questions > 0)) {
+        if (pre != null && topics.any((t) => t.id == pre && t.questions > 0)) {
           _picked.add(pre);
         }
       });
@@ -77,7 +76,9 @@ class _CramScreenState extends ConsumerState<CramScreen> {
       _error = null;
     });
     try {
-      final session = await ref.read(apiClientProvider).cramSession(
+      final session = await ref
+          .read(apiClientProvider)
+          .cramSession(
             topicIds: _picked.toList(),
             maxPerTopic: _maxPerTopic.round(),
             noteDensity: _density,
@@ -91,7 +92,7 @@ class _CramScreenState extends ConsumerState<CramScreen> {
         return;
       }
       context.push(
-        '/review',
+        '/review/session',
         extra: ReviewSession(
           cards: session.queue,
           title: 'Cram',
@@ -101,9 +102,14 @@ class _CramScreenState extends ConsumerState<CramScreen> {
           noteDensityLabel: session.noteDensity,
         ),
       );
+      // The picker stays mounted under the pushed session — don't leave the
+      // button stuck on "Building your session…" when it is popped back to.
+      if (mounted) setState(() => _starting = false);
     } on ApiError catch (e) {
       setState(() {
-        _error = e.message.isNotEmpty ? e.message : 'We could not start that session.';
+        _error = e.message.isNotEmpty
+            ? e.message
+            : 'We could not start that session.';
         _starting = false;
       });
     } catch (_) {
@@ -128,22 +134,29 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                 children: [
                   Text(
                     'Extra practice. Your schedule stays put.',
-                    style: TypeScale.body.copyWith(color: context.mutedForeground),
+                    style: TypeScale.body.copyWith(
+                      color: context.mutedForeground,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _PanelCard(
                     title: 'Topics',
                     child: topics.every((t) => t.questions == 0)
-                        ? Text('No cram topics yet.',
-                            style: TypeScale.body.copyWith(color: context.mutedForeground))
+                        ? Text(
+                            'No cram topics yet.',
+                            style: TypeScale.body.copyWith(
+                              color: context.mutedForeground,
+                            ),
+                          )
                         : Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              for (final t in topics.where((t) => t.questions > 0))
+                              for (final t in topics.where(
+                                (t) => t.questions > 0,
+                              ))
                                 _TopicChip(
                                   name: t.name,
-                                  count: t.questions,
                                   selected: _picked.contains(t.id),
                                   onTap: () => setState(() {
                                     if (_picked.contains(t.id)) {
@@ -168,8 +181,9 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(
-                                      right: d == 'summary' ? 8 : 0,
-                                      left: d == 'detailed' ? 8 : 0),
+                                    right: d == 'summary' ? 8 : 0,
+                                    left: d == 'detailed' ? 8 : 0,
+                                  ),
                                   child: SizedBox(
                                     height: kTouchTarget,
                                     child: OutlinedButton(
@@ -183,12 +197,12 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                                             ? context.primaryForeground
                                             : context.foreground,
                                         side: BorderSide(
-                                            color: _density == d
-                                                ? context.primary
-                                                : context.border),
+                                          color: _density == d
+                                              ? context.primary
+                                              : context.border,
+                                        ),
                                       ),
-                                      child: Text(
-                                          d[0].toUpperCase() + d.substring(1)),
+                                      child: Text(d),
                                     ),
                                   ),
                                 ),
@@ -198,7 +212,9 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                         const SizedBox(height: 6),
                         Text(
                           'Summary notes are the ones to skim five minutes before the exam.',
-                          style: TypeScale.fine.copyWith(color: context.mutedForeground),
+                          style: TypeScale.fine.copyWith(
+                            color: context.mutedForeground,
+                          ),
                         ),
                       ],
                     ),
@@ -221,7 +237,9 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                           _picked.isEmpty
                               ? 'Pick at least one topic to begin.'
                               : 'Up to ${_picked.length * _maxPerTopic.round()} questions across ${_picked.length} ${_picked.length == 1 ? 'topic' : 'topics'}.',
-                          style: TypeScale.fine.copyWith(color: context.mutedForeground),
+                          style: TypeScale.fine.copyWith(
+                            color: context.mutedForeground,
+                          ),
                         ),
                       ],
                     ),
@@ -239,7 +257,11 @@ class _CramScreenState extends ConsumerState<CramScreen> {
                   RevisioButton(
                     enabled: !_starting && _picked.isNotEmpty,
                     onPressed: _starting ? null : _start,
-                    child: Text(_starting ? 'Building your session…' : 'Start cram session'),
+                    child: Text(
+                      _starting
+                          ? 'Building your session…'
+                          : 'Start cram session',
+                    ),
                   ),
                 ],
               ),
@@ -266,8 +288,10 @@ class _PanelCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title.toUpperCase(),
-              style: TypeScale.eyebrow.copyWith(color: context.mutedForeground)),
+          Text(
+            title.toUpperCase(),
+            style: TypeScale.eyebrow.copyWith(color: context.mutedForeground),
+          ),
           const SizedBox(height: 10),
           child,
         ],
@@ -279,13 +303,11 @@ class _PanelCard extends StatelessWidget {
 class _TopicChip extends StatelessWidget {
   const _TopicChip({
     required this.name,
-    required this.count,
     required this.selected,
     required this.onTap,
   });
 
   final String name;
-  final int count;
   final bool selected;
   final VoidCallback onTap;
 
@@ -300,29 +322,28 @@ class _TopicChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? context.primary : context.card,
           borderRadius: BorderRadius.circular(RadiusTokens.pill),
-          border: Border.all(color: selected ? context.primary : context.border),
+          border: Border.all(
+            color: selected ? context.primary : context.border,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selected) ...[
-              RevisioIcon('correct', size: 13, color: context.primaryForeground),
+              RevisioIcon(
+                'correct',
+                size: 13,
+                color: context.primaryForeground,
+              ),
               const SizedBox(width: 6),
             ],
             Text(
               name,
               style: TypeScale.body.copyWith(
-                color: selected ? context.primaryForeground : context.foreground,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: TypeScale.fine.copyWith(
                 color: selected
-                    ? context.primaryForeground.withOpacity(0.7)
-                    : context.mutedForeground,
+                    ? context.primaryForeground
+                    : context.foreground,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

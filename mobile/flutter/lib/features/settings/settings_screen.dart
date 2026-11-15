@@ -26,6 +26,9 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _name = TextEditingController();
+  final _nickname = TextEditingController();
+  final _username = TextEditingController();
+  final _pronouns = TextEditingController();
   final _bio = TextEditingController();
   final _classCode = TextEditingController();
   bool _saving = false;
@@ -36,6 +39,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _nickname.dispose();
+    _username.dispose();
+    _pronouns.dispose();
     _bio.dispose();
     _classCode.dispose();
     super.dispose();
@@ -45,6 +51,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (_seeded) return;
     _seeded = true;
     _name.text = me.name;
+    _nickname.text = me.nickname ?? '';
+    _username.text = me.username ?? '';
+    _pronouns.text = me.pronouns ?? '';
     _bio.text = me.bio ?? '';
   }
 
@@ -131,7 +140,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 _Section('Profile', [
                   RevisioField(
-                    label: 'Name',
+                    label: 'Full name',
                     child: RevisioTextInput(
                       controller: _name,
                       placeholder: 'Your name',
@@ -139,11 +148,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   RevisioField(
-                    label: 'Bio',
+                    label: 'Display name',
+                    child: RevisioTextInput(
+                      controller: _nickname,
+                      placeholder: 'Shown on your profile',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  RevisioField(
+                    label: 'Username',
+                    child: RevisioTextInput(
+                      controller: _username,
+                      placeholder: 'handle',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  RevisioField(
+                    label: 'About me',
                     child: RevisioTextInput(
                       controller: _bio,
-                      placeholder: 'A line about you',
+                      placeholder: 'A line or two, up to 240 characters',
                       maxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  RevisioField(
+                    label: 'Pronouns',
+                    child: RevisioTextInput(
+                      controller: _pronouns,
+                      placeholder: 'e.g. she/her',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -153,6 +186,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       enabled: !_saving,
                       onPressed: () => _patch({
                         'name': _name.text.trim(),
+                        'nickname': _nickname.text.trim(),
+                        'username': _username.text.trim(),
+                        'pronouns': _pronouns.text.trim(),
                         'bio': _bio.text.trim(),
                       }, ok: 'Profile saved.'),
                       child: const Text('Save profile'),
@@ -161,29 +197,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ]),
                 AppearancePanel(me: m),
                 _Section('Privacy', [
-                  _SwitchTile(
-                    title: 'Show on leaderboards',
-                    subtitle: m.leaderboardOptOut
-                        ? 'Hidden — opt back in'
-                        : 'Your name appears on boards',
-                    value: !m.leaderboardOptOut,
-                    onChanged: (v) => _patch({'leaderboardOptOut': !v}),
-                  ),
-                  for (final entry in {
-                    'name': 'Name',
-                    'nickname': 'Nickname',
-                    'bio': 'Bio',
-                    'pronouns': 'Pronouns',
-                    'subjects': 'Subjects',
-                    'stats': 'Stats',
-                    'achievements': 'Achievements',
-                  }.entries)
+                  for (final row in const [
+                    ('name', 'Full name', 'Your real name, as registered.'),
+                    (
+                      'nickname',
+                      'Display name',
+                      'The name your profile leads with.',
+                    ),
+                    ('bio', 'About me', 'Your short introduction.'),
+                    (
+                      'pronouns',
+                      'Pronouns',
+                      'The words you want to be referred to by.',
+                    ),
+                    ('subjects', 'Subjects', 'What you are studying.'),
+                    (
+                      'stats',
+                      'XP and rank',
+                      'Your level, XP, streak and review count.',
+                    ),
+                    (
+                      'achievements',
+                      'Achievements',
+                      'The badges you have earned.',
+                    ),
+                  ])
                     _SwitchTile(
-                      title: 'Profile: ${entry.value}',
-                      subtitle: null,
-                      value: _visibilityValue(m.profileVisibility, entry.key),
+                      title: row.$2,
+                      subtitle: row.$3,
+                      value: _visibilityValue(m.profileVisibility, row.$1),
                       onChanged: (v) => _patch({
-                        'profileVisibility': {entry.key: v},
+                        'profileVisibility': {row.$1: v},
                       }),
                     ),
                 ]),
@@ -196,6 +240,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   RevisioButton(
                     onPressed: _saving ? null : _signOut,
                     child: const Text('Sign out'),
+                  ),
+                ]),
+                const SecurityPanel(),
+                const ConsentPanel(),
+                const DataPanel(),
+                _Section('Preferences', [
+                  _SwitchTile(
+                    title: 'Detailed notes',
+                    subtitle: 'Full explanations beside each card',
+                    value: m.prefs.noteDensity == 'detailed',
+                    onChanged: (v) => _patch({
+                      'prefs': {'noteDensity': v ? 'detailed' : 'summary'},
+                    }),
+                  ),
+                  _SwitchTile(
+                    title: 'Reduced motion',
+                    subtitle: 'Calmer transitions',
+                    value: m.prefs.reducedMotion,
+                    onChanged: (v) => _patch({
+                      'prefs': {'reducedMotion': v},
+                    }),
+                  ),
+                  _SwitchTile(
+                    title: 'Leaderboard visibility',
+                    subtitle: m.leaderboardOptOut
+                        ? 'Hidden — opt back in'
+                        : 'Your name appears on boards',
+                    value: !m.leaderboardOptOut,
+                    onChanged: (v) => _patch({'leaderboardOptOut': !v}),
                   ),
                 ]),
                 _Section('Class', [
@@ -237,27 +310,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         route: '/admin',
                       ),
                   ]),
-                const SecurityPanel(),
-                const ConsentPanel(),
-                const DataPanel(),
-                _Section('Preferences', [
-                  _SwitchTile(
-                    title: 'Detailed notes',
-                    subtitle: 'Full explanations beside each card',
-                    value: m.prefs.noteDensity == 'detailed',
-                    onChanged: (v) => _patch({
-                      'prefs': {'noteDensity': v ? 'detailed' : 'summary'},
-                    }),
-                  ),
-                  _SwitchTile(
-                    title: 'Reduced motion',
-                    subtitle: 'Calmer transitions',
-                    value: m.prefs.reducedMotion,
-                    onChanged: (v) => _patch({
-                      'prefs': {'reducedMotion': v},
-                    }),
-                  ),
-                ]),
               ],
             );
           },

@@ -17,9 +17,9 @@ class CardOption {
   const CardOption({required this.id, required this.text});
 
   factory CardOption.fromJson(Map<String, dynamic> json) => CardOption(
-        id: json['id'] as String? ?? '',
-        text: json['text'] as String? ?? '',
-      );
+    id: json['id'] as String? ?? '',
+    text: json['text'] as String? ?? '',
+  );
 }
 
 /// The answer key that travels separately from the queue — only
@@ -32,12 +32,12 @@ class OfflineKey {
   const OfflineKey({required this.kind, this.accepted, this.correctOptionId});
 
   factory OfflineKey.fromJson(Map<String, dynamic> json) => OfflineKey(
-        kind: json['kind'] as String? ?? '',
-        accepted: (json['accepted'] as List?)
-            ?.map((a) => AcceptedAnswer.fromJson(a as Map<String, dynamic>))
-            .toList(),
-        correctOptionId: json['correctOptionId'] as String?,
-      );
+    kind: json['kind'] as String? ?? '',
+    accepted: (json['accepted'] as List?)
+        ?.map((a) => AcceptedAnswer.fromJson(a as Map<String, dynamic>))
+        .toList(),
+    correctOptionId: json['correctOptionId'] as String?,
+  );
 }
 
 class OfflineCard {
@@ -70,38 +70,38 @@ class OfflineCard {
   });
 
   factory OfflineCard.fromJson(Map<String, dynamic> json) => OfflineCard(
-        id: json['id'] as String? ?? '',
-        kind: json['kind'] as String? ?? '',
-        topicId: json['topicId'] as String? ?? '',
-        topicName: json['topicName'] as String? ?? '',
-        subjectId: json['subjectId'] as String? ?? '',
-        subjectName: json['subjectName'] as String? ?? '',
-        textWithBlank: json['textWithBlank'] as String?,
-        prompt: json['prompt'] as String?,
-        question: json['question'] as String?,
-        options: (json['options'] as List?)
-            ?.map((o) => CardOption.fromJson(o as Map<String, dynamic>))
-            .toList(),
-        stage: json['stage'] as String? ?? 'new',
-        key: json['key'] is Map<String, dynamic>
-            ? OfflineKey.fromJson(json['key'] as Map<String, dynamic>)
-            : const OfflineKey(kind: ''),
-      );
+    id: json['id'] as String? ?? '',
+    kind: json['kind'] as String? ?? '',
+    topicId: json['topicId'] as String? ?? '',
+    topicName: json['topicName'] as String? ?? '',
+    subjectId: json['subjectId'] as String? ?? '',
+    subjectName: json['subjectName'] as String? ?? '',
+    textWithBlank: json['textWithBlank'] as String?,
+    prompt: json['prompt'] as String?,
+    question: json['question'] as String?,
+    options: (json['options'] as List?)
+        ?.map((o) => CardOption.fromJson(o as Map<String, dynamic>))
+        .toList(),
+    stage: json['stage'] as String? ?? 'new',
+    key: json['key'] is Map<String, dynamic>
+        ? OfflineKey.fromJson(json['key'] as Map<String, dynamic>)
+        : const OfflineKey(kind: ''),
+  );
 
   QuizCard toQuizCard() => QuizCard(
-        id: id,
-        kind: kind,
-        topicId: topicId,
-        topicName: topicName,
-        subjectId: subjectId,
-        subjectName: subjectName,
-        textWithBlank: textWithBlank,
-        prompt: prompt,
-        question: question,
-        options: options,
-        stage: stage,
-        key: key,
-      );
+    id: id,
+    kind: kind,
+    topicId: topicId,
+    topicName: topicName,
+    subjectId: subjectId,
+    subjectName: subjectName,
+    textWithBlank: textWithBlank,
+    prompt: prompt,
+    question: question,
+    options: options,
+    stage: stage,
+    key: key,
+  );
 }
 
 class OfflinePack {
@@ -111,54 +111,58 @@ class OfflinePack {
   const OfflinePack({required this.cards, required this.builtAt});
 
   factory OfflinePack.fromJson(Map<String, dynamic> json) => OfflinePack(
-        cards: (json['cards'] as List? ?? [])
-            .map((c) => OfflineCard.fromJson(c as Map<String, dynamic>))
-            .toList(),
-        builtAt: json['builtAt'] as String? ?? '',
-      );
+    cards: (json['cards'] as List? ?? [])
+        .map((c) => OfflineCard.fromJson(c as Map<String, dynamic>))
+        .toList(),
+    builtAt: json['builtAt'] as String? ?? '',
+  );
 
   Map<String, dynamic> toJson() => {
-        'cards': cards.map((c) => c.toJson()).toList(),
-        'builtAt': builtAt,
-      };
+    'cards': cards.map((c) => c.toJson()).toList(),
+    'builtAt': builtAt,
+  };
 }
 
 extension on OfflineCard {
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'kind': kind,
-        'topicId': topicId,
-        'topicName': topicName,
-        'subjectId': subjectId,
-        'subjectName': subjectName,
-        if (textWithBlank != null) 'textWithBlank': textWithBlank,
-        if (prompt != null) 'prompt': prompt,
-        if (question != null) 'question': question,
-        if (options != null)
-          'options': options!.map((o) => {'id': o.id, 'text': o.text}).toList(),
-        'stage': stage,
-        'key': {
-          'kind': key.kind,
-          if (key.accepted != null)
-            'accepted': key.accepted!
-                .map((a) => {
-                      'id': a.id,
-                      'text': a.text,
-                      'isPrimary': a.isPrimary,
-                      if (a.keywords != null)
-                        'keywords': a.keywords!
-                            .map((k) => {
-                                  'required': k.isRequired,
-                                  'phrase': k.phrase,
-                                  if (k.synonyms != null) 'synonyms': k.synonyms,
-                                })
-                            .toList(),
-                      if (a.minPoints != null) 'minPoints': a.minPoints,
-                    })
-                .toList(),
-          if (key.correctOptionId != null) 'correctOptionId': key.correctOptionId,
-        },
-      };
+    'id': id,
+    'kind': kind,
+    'topicId': topicId,
+    'topicName': topicName,
+    'subjectId': subjectId,
+    'subjectName': subjectName,
+    if (textWithBlank != null) 'textWithBlank': textWithBlank,
+    if (prompt != null) 'prompt': prompt,
+    if (question != null) 'question': question,
+    if (options != null)
+      'options': options!.map((o) => {'id': o.id, 'text': o.text}).toList(),
+    'stage': stage,
+    'key': {
+      'kind': key.kind,
+      if (key.accepted != null)
+        'accepted': key.accepted!
+            .map(
+              (a) => {
+                'id': a.id,
+                'text': a.text,
+                'isPrimary': a.isPrimary,
+                if (a.keywords != null)
+                  'keywords': a.keywords!
+                      .map(
+                        (k) => {
+                          'required': k.isRequired,
+                          'phrase': k.phrase,
+                          if (k.synonyms != null) 'synonyms': k.synonyms,
+                        },
+                      )
+                      .toList(),
+                if (a.minPoints != null) 'minPoints': a.minPoints,
+              },
+            )
+            .toList(),
+      if (key.correctOptionId != null) 'correctOptionId': key.correctOptionId,
+    },
+  };
 }
 
 /// A review the server has not seen yet. Append-only, so replaying is safe.
@@ -184,26 +188,26 @@ class PendingReview {
   });
 
   factory PendingReview.fromJson(Map<String, dynamic> json) => PendingReview(
-        id: json['id'] as String? ?? '',
-        cardId: json['cardId'] as String? ?? '',
-        answer: json['answer'] as String?,
-        selectedOptionId: json['selectedOptionId'] as String?,
-        durationMs: json['durationMs'] as int? ?? 0,
-        mode: json['mode'] as String? ?? 'daily',
-        sessionId: json['sessionId'] as String?,
-        queuedAt: json['queuedAt'] as String? ?? '',
-      );
+    id: json['id'] as String? ?? '',
+    cardId: json['cardId'] as String? ?? '',
+    answer: json['answer'] as String?,
+    selectedOptionId: json['selectedOptionId'] as String?,
+    durationMs: json['durationMs'] as int? ?? 0,
+    mode: json['mode'] as String? ?? 'daily',
+    sessionId: json['sessionId'] as String?,
+    queuedAt: json['queuedAt'] as String? ?? '',
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'cardId': cardId,
-        if (answer != null) 'answer': answer,
-        if (selectedOptionId != null) 'selectedOptionId': selectedOptionId,
-        'durationMs': durationMs,
-        'mode': mode,
-        if (sessionId != null) 'sessionId': sessionId,
-        'queuedAt': queuedAt,
-      };
+    'id': id,
+    'cardId': cardId,
+    if (answer != null) 'answer': answer,
+    if (selectedOptionId != null) 'selectedOptionId': selectedOptionId,
+    'durationMs': durationMs,
+    'mode': mode,
+    if (sessionId != null) 'sessionId': sessionId,
+    'queuedAt': queuedAt,
+  };
 }
 
 // ── the catalogue ───────────────────────────────────────────────────────────
@@ -228,14 +232,14 @@ class Subject {
   });
 
   factory Subject.fromJson(Map<String, dynamic> json) => Subject(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        slug: json['slug'] as String?,
-        description: json['description'] as String?,
-        enrolled: json['enrolled'] == true,
-        mathsEnabled: json['mathsEnabled'] == true,
-        topicCount: json['topicCount'] as int? ?? 0,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    slug: json['slug'] as String?,
+    description: json['description'] as String?,
+    enrolled: json['enrolled'] == true,
+    mathsEnabled: json['mathsEnabled'] == true,
+    topicCount: json['topicCount'] as int? ?? 0,
+  );
 }
 
 class Topic {
@@ -250,6 +254,9 @@ class Topic {
   final int? cardCount;
   final int? lessonCount;
 
+  /// Spec references declared by the topic's lessons (`/content?subjectId=`).
+  final List<String> specRefs;
+
   const Topic({
     required this.id,
     required this.name,
@@ -260,6 +267,7 @@ class Topic {
     this.lessons,
     this.cardCount,
     this.lessonCount,
+    this.specRefs = const [],
   });
 
   /// Questions in this topic, whichever route sent it.
@@ -269,16 +277,19 @@ class Topic {
   int get notes => lessonCount ?? lessons ?? 0;
 
   factory Topic.fromJson(Map<String, dynamic> json) => Topic(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String?,
-        subjectId: json['subjectId'] as String?,
-        visibility: json['visibility'] as String?,
-        cards: json['cards'] as int?,
-        lessons: json['lessons'] as int?,
-        cardCount: json['cardCount'] as int?,
-        lessonCount: json['lessonCount'] as int?,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String?,
+    subjectId: json['subjectId'] as String?,
+    visibility: json['visibility'] as String?,
+    cards: json['cards'] as int?,
+    lessons: json['lessons'] as int?,
+    cardCount: json['cardCount'] as int?,
+    lessonCount: json['lessonCount'] as int?,
+    specRefs: (json['specRefs'] as List? ?? [])
+        .map((r) => r.toString())
+        .toList(),
+  );
 }
 
 class Lesson {
@@ -297,12 +308,12 @@ class Lesson {
   });
 
   factory Lesson.fromJson(Map<String, dynamic> json) => Lesson(
-        id: json['id'] as String? ?? '',
-        title: json['title'] as String? ?? '',
-        detailedMd: json['detailedMd'] as String?,
-        summaryMd: json['summaryMd'] as String?,
-        specRefs: json['specRefs'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    detailedMd: json['detailedMd'] as String?,
+    summaryMd: json['summaryMd'] as String?,
+    specRefs: json['specRefs'] as String?,
+  );
 }
 
 /// A patch of notes, from any of the three routes that carry them.
@@ -326,14 +337,14 @@ class Note {
   });
 
   factory Note.fromJson(Map<String, dynamic> json) => Note(
-        id: json['id'] as String?,
-        topicId: json['topicId'] as String?,
-        title: json['title'] as String? ?? '',
-        detailedMd: json['detailedMd'] as String?,
-        summaryMd: json['summaryMd'] as String?,
-        contentMd: json['contentMd'] as String?,
-        specRefs: json['specRefs'] as String?,
-      );
+    id: json['id'] as String?,
+    topicId: json['topicId'] as String?,
+    title: json['title'] as String? ?? '',
+    detailedMd: json['detailedMd'] as String?,
+    summaryMd: json['summaryMd'] as String?,
+    contentMd: json['contentMd'] as String?,
+    specRefs: json['specRefs'] as String?,
+  );
 
   /// The prose to show at the chosen density, falling back to what exists.
   String body({bool summary = false}) {
@@ -381,58 +392,58 @@ class QueueCard {
   });
 
   factory QueueCard.fromJson(Map<String, dynamic> json) => QueueCard(
-        id: json['id'] as String? ?? '',
-        kind: json['kind'] as String? ?? '',
-        topicId: json['topicId'] as String? ?? '',
-        topicName: json['topicName'] as String? ?? '',
-        subjectId: json['subjectId'] as String? ?? '',
-        subjectName: json['subjectName'] as String? ?? '',
-        textWithBlank: json['textWithBlank'] as String?,
-        prompt: json['prompt'] as String?,
-        question: json['question'] as String?,
-        options: (json['options'] as List?)
-            ?.map((o) => CardOption.fromJson(o as Map<String, dynamic>))
-            .toList(),
-        stage: json['stage'] as String? ?? 'new',
-      );
+    id: json['id'] as String? ?? '',
+    kind: json['kind'] as String? ?? '',
+    topicId: json['topicId'] as String? ?? '',
+    topicName: json['topicName'] as String? ?? '',
+    subjectId: json['subjectId'] as String? ?? '',
+    subjectName: json['subjectName'] as String? ?? '',
+    textWithBlank: json['textWithBlank'] as String?,
+    prompt: json['prompt'] as String?,
+    question: json['question'] as String?,
+    options: (json['options'] as List?)
+        ?.map((o) => CardOption.fromJson(o as Map<String, dynamic>))
+        .toList(),
+    stage: json['stage'] as String? ?? 'new',
+  );
 
   /// A cached offline card promoted back into a queue card for review.
   /// The grading `key` stays behind — the server re-grades on submit anyway.
   factory QueueCard.fromOfflineCard(OfflineCard c) => QueueCard(
-        id: c.id,
-        kind: c.kind,
-        topicId: c.topicId,
-        topicName: c.topicName,
-        subjectId: c.subjectId,
-        subjectName: c.subjectName,
-        textWithBlank: c.textWithBlank,
-        prompt: c.prompt,
-        question: c.question,
-        options: c.options,
-        stage: c.stage,
-      );
+    id: c.id,
+    kind: c.kind,
+    topicId: c.topicId,
+    topicName: c.topicName,
+    subjectId: c.subjectId,
+    subjectName: c.subjectName,
+    textWithBlank: c.textWithBlank,
+    prompt: c.prompt,
+    question: c.question,
+    options: c.options,
+    stage: c.stage,
+  );
 
   /// The text the learner is answering, or a nothing-left-to-say fallback.
   String get promptText => switch (kind) {
-        'cloze' => textWithBlank ?? 'Fill in the blank',
-        'flashcard' => prompt ?? 'Recall the answer',
-        _ => question ?? 'Choose the best answer',
-      };
+    'cloze' => textWithBlank ?? 'Fill in the blank',
+    'flashcard' => prompt ?? 'Recall the answer',
+    _ => question ?? 'Choose the best answer',
+  };
 
   QuizCard toQuizCard() => QuizCard(
-        id: id,
-        kind: kind,
-        topicId: topicId,
-        topicName: topicName,
-        subjectId: subjectId,
-        subjectName: subjectName,
-        textWithBlank: textWithBlank,
-        prompt: prompt,
-        question: question,
-        options: options,
-        stage: stage,
-        key: null,
-      );
+    id: id,
+    kind: kind,
+    topicId: topicId,
+    topicName: topicName,
+    subjectId: subjectId,
+    subjectName: subjectName,
+    textWithBlank: textWithBlank,
+    prompt: prompt,
+    question: question,
+    options: options,
+    stage: stage,
+    key: null,
+  );
 }
 
 /// The one card the review surface renders, wherever it came from.
@@ -469,10 +480,10 @@ class QuizCard {
   bool get canMarkLocally => key != null;
 
   String get promptText => switch (kind) {
-        'cloze' => textWithBlank ?? 'Fill in the blank',
-        'flashcard' => prompt ?? 'Recall the answer',
-        _ => question ?? 'Choose the best answer',
-      };
+    'cloze' => textWithBlank ?? 'Fill in the blank',
+    'flashcard' => prompt ?? 'Recall the answer',
+    _ => question ?? 'Choose the best answer',
+  };
 }
 
 // ── sessions ────────────────────────────────────────────────────────────────
@@ -493,12 +504,12 @@ class ExposureTopic {
   });
 
   factory ExposureTopic.fromJson(Map<String, dynamic> json) => ExposureTopic(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String?,
-        subjectId: json['subjectId'] as String?,
-        subjectName: json['subjectName'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String?,
+    subjectId: json['subjectId'] as String?,
+    subjectName: json['subjectName'] as String?,
+  );
 }
 
 class ExposureProgress {
@@ -508,7 +519,8 @@ class ExposureProgress {
 
   const ExposureProgress({this.met = 0, this.total = 0, this.remaining = 0});
 
-  factory ExposureProgress.fromJson(Map<String, dynamic> json) => ExposureProgress(
+  factory ExposureProgress.fromJson(Map<String, dynamic> json) =>
+      ExposureProgress(
         met: json['met'] as int? ?? 0,
         total: json['total'] as int? ?? 0,
         remaining: json['remaining'] as int? ?? 0,
@@ -530,19 +542,19 @@ class FirstExposure {
   });
 
   factory FirstExposure.fromJson(Map<String, dynamic> json) => FirstExposure(
-        topic: json['topic'] is Map<String, dynamic>
-            ? ExposureTopic.fromJson(json['topic'] as Map<String, dynamic>)
-            : const ExposureTopic(id: '', name: ''),
-        notes: (json['notes'] as List? ?? [])
-            .map((n) => Note.fromJson(n as Map<String, dynamic>))
-            .toList(),
-        batch: (json['batch'] as List? ?? [])
-            .map((c) => QueueCard.fromJson(c as Map<String, dynamic>))
-            .toList(),
-        progress: json['progress'] is Map<String, dynamic>
-            ? ExposureProgress.fromJson(json['progress'] as Map<String, dynamic>)
-            : const ExposureProgress(),
-      );
+    topic: json['topic'] is Map<String, dynamic>
+        ? ExposureTopic.fromJson(json['topic'] as Map<String, dynamic>)
+        : const ExposureTopic(id: '', name: ''),
+    notes: (json['notes'] as List? ?? [])
+        .map((n) => Note.fromJson(n as Map<String, dynamic>))
+        .toList(),
+    batch: (json['batch'] as List? ?? [])
+        .map((c) => QueueCard.fromJson(c as Map<String, dynamic>))
+        .toList(),
+    progress: json['progress'] is Map<String, dynamic>
+        ? ExposureProgress.fromJson(json['progress'] as Map<String, dynamic>)
+        : const ExposureProgress(),
+  );
 }
 
 class CramSession {
@@ -559,15 +571,15 @@ class CramSession {
   });
 
   factory CramSession.fromJson(Map<String, dynamic> json) => CramSession(
-        sessionId: json['sessionId'] as String? ?? '',
-        noteDensity: json['noteDensity'] as String? ?? 'detailed',
-        notes: (json['notes'] as List? ?? [])
-            .map((n) => Note.fromJson(n as Map<String, dynamic>))
-            .toList(),
-        queue: (json['queue'] as List? ?? [])
-            .map((c) => QueueCard.fromJson(c as Map<String, dynamic>))
-            .toList(),
-      );
+    sessionId: json['sessionId'] as String? ?? '',
+    noteDensity: json['noteDensity'] as String? ?? 'detailed',
+    notes: (json['notes'] as List? ?? [])
+        .map((n) => Note.fromJson(n as Map<String, dynamic>))
+        .toList(),
+    queue: (json['queue'] as List? ?? [])
+        .map((c) => QueueCard.fromJson(c as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 // ── rank, lobby and achievements ────────────────────────────────────────────
@@ -578,14 +590,19 @@ class Placement {
   final int target;
   final int percent;
 
-  const Placement({this.placing = true, this.done = 0, this.target = 10, this.percent = 0});
+  const Placement({
+    this.placing = true,
+    this.done = 0,
+    this.target = 10,
+    this.percent = 0,
+  });
 
   factory Placement.fromJson(Map<String, dynamic> json) => Placement(
-        placing: json['placing'] != false,
-        done: json['done'] as int? ?? 0,
-        target: json['target'] as int? ?? 10,
-        percent: json['percent'] as int? ?? 0,
-      );
+    placing: json['placing'] != false,
+    done: json['done'] as int? ?? 0,
+    target: json['target'] as int? ?? 10,
+    percent: json['percent'] as int? ?? 0,
+  );
 }
 
 class WeekBounds {
@@ -602,11 +619,11 @@ class WeekBounds {
   });
 
   factory WeekBounds.fromJson(Map<String, dynamic> json) => WeekBounds(
-        weekStart: json['weekStart'] as String? ?? '',
-        daysLeft: json['daysLeft'] as int? ?? 0,
-        percentElapsed: json['percentElapsed'] as int? ?? 0,
-        rangeLabel: json['rangeLabel'] as String? ?? '',
-      );
+    weekStart: json['weekStart'] as String? ?? '',
+    daysLeft: json['daysLeft'] as int? ?? 0,
+    percentElapsed: json['percentElapsed'] as int? ?? 0,
+    rangeLabel: json['rangeLabel'] as String? ?? '',
+  );
 }
 
 class BoardRow {
@@ -625,12 +642,12 @@ class BoardRow {
   });
 
   factory BoardRow.fromJson(Map<String, dynamic> json) => BoardRow(
-        rank: json['rank'] as int? ?? 0,
-        userId: json['userId'] as String?,
-        name: json['name'] as String? ?? '',
-        xp: json['xp'] as int? ?? 0,
-        isMe: json['isMe'] == true,
-      );
+    rank: json['rank'] as int? ?? 0,
+    userId: json['userId'] as String?,
+    name: json['name'] as String? ?? '',
+    xp: json['xp'] as int? ?? 0,
+    isMe: json['isMe'] == true,
+  );
 }
 
 class LobbySeat {
@@ -651,15 +668,15 @@ class LobbySeat {
   });
 
   factory LobbySeat.fromJson(Map<String, dynamic> json) => LobbySeat(
-        position: json['position'] as int? ?? 0,
-        userId: json['userId'] as String?,
-        name: json['name'] as String? ?? '',
-        xp: json['xp'] as int? ?? 0,
-        isMe: json['isMe'] == true,
-        rank: json['rank'] is Map<String, dynamic>
-            ? Rank.fromJson(json['rank'] as Map<String, dynamic>)
-            : null,
-      );
+    position: json['position'] as int? ?? 0,
+    userId: json['userId'] as String?,
+    name: json['name'] as String? ?? '',
+    xp: json['xp'] as int? ?? 0,
+    isMe: json['isMe'] == true,
+    rank: json['rank'] is Map<String, dynamic>
+        ? Rank.fromJson(json['rank'] as Map<String, dynamic>)
+        : null,
+  );
 }
 
 /// `promotion` | `safe` | `demotion` | `pending` — decided server-side.
@@ -681,22 +698,22 @@ class Lobby {
   });
 
   String get zoneLabel => switch (zone) {
-        'promotion' => 'Promotion zone',
-        'demotion' => 'Demotion zone',
-        'pending' => 'Placements',
-        _ => 'Safe',
-      };
+    'promotion' => 'Promotion zone',
+    'demotion' => 'Demotion zone',
+    'pending' => 'Placements',
+    _ => 'Safe',
+  };
 
   factory Lobby.fromJson(Map<String, dynamic> json) => Lobby(
-        position: json['position'] as int? ?? 0,
-        size: json['size'] as int? ?? 0,
-        filled: json['filled'] as int? ?? 0,
-        zone: json['zone'] as String? ?? 'pending',
-        band: json['band'] as int? ?? 0,
-        rows: (json['rows'] as List? ?? [])
-            .map((r) => LobbySeat.fromJson(r as Map<String, dynamic>))
-            .toList(),
-      );
+    position: json['position'] as int? ?? 0,
+    size: json['size'] as int? ?? 0,
+    filled: json['filled'] as int? ?? 0,
+    zone: json['zone'] as String? ?? 'pending',
+    band: json['band'] as int? ?? 0,
+    rows: (json['rows'] as List? ?? [])
+        .map((r) => LobbySeat.fromJson(r as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class SeasonClock {
@@ -719,14 +736,14 @@ class SeasonClock {
   });
 
   factory SeasonClock.fromJson(Map<String, dynamic> json) => SeasonClock(
-        number: json['number'] as int? ?? 0,
-        label: json['label'] as String? ?? '',
-        rangeLabel: json['rangeLabel'] as String? ?? '',
-        daysLeft: json['daysLeft'] as int? ?? 0,
-        day: json['day'] as int? ?? 0,
-        lengthDays: json['lengthDays'] as int? ?? 0,
-        percentElapsed: json['percentElapsed'] as int? ?? 0,
-      );
+    number: json['number'] as int? ?? 0,
+    label: json['label'] as String? ?? '',
+    rangeLabel: json['rangeLabel'] as String? ?? '',
+    daysLeft: json['daysLeft'] as int? ?? 0,
+    day: json['day'] as int? ?? 0,
+    lengthDays: json['lengthDays'] as int? ?? 0,
+    percentElapsed: json['percentElapsed'] as int? ?? 0,
+  );
 }
 
 const _kEmptyRank = Rank(
@@ -765,27 +782,27 @@ class Ranked {
   });
 
   factory Ranked.fromJson(Map<String, dynamic> json) => Ranked(
-        rank: json['rank'] is Map<String, dynamic>
-            ? Rank.fromJson(json['rank'] as Map<String, dynamic>)
-            : _kEmptyRank,
-        placement: json['placement'] is Map<String, dynamic>
-            ? Placement.fromJson(json['placement'] as Map<String, dynamic>)
-            : const Placement(),
-        week: json['week'] is Map<String, dynamic>
-            ? WeekBounds.fromJson(json['week'] as Map<String, dynamic>)
-            : const WeekBounds(),
-        lobby: json['lobby'] is Map<String, dynamic>
-            ? Lobby.fromJson(json['lobby'] as Map<String, dynamic>)
-            : const Lobby(),
-        xpThisWeek: json['xpThisWeek'] as int? ?? 0,
-        season: json['season'] is Map<String, dynamic>
-            ? SeasonClock.fromJson(json['season'] as Map<String, dynamic>)
-            : null,
-        seasonXp: json['seasonXp'] as int?,
-        lifetimeRank: json['lifetimeRank'] is Map<String, dynamic>
-            ? Rank.fromJson(json['lifetimeRank'] as Map<String, dynamic>)
-            : null,
-      );
+    rank: json['rank'] is Map<String, dynamic>
+        ? Rank.fromJson(json['rank'] as Map<String, dynamic>)
+        : _kEmptyRank,
+    placement: json['placement'] is Map<String, dynamic>
+        ? Placement.fromJson(json['placement'] as Map<String, dynamic>)
+        : const Placement(),
+    week: json['week'] is Map<String, dynamic>
+        ? WeekBounds.fromJson(json['week'] as Map<String, dynamic>)
+        : const WeekBounds(),
+    lobby: json['lobby'] is Map<String, dynamic>
+        ? Lobby.fromJson(json['lobby'] as Map<String, dynamic>)
+        : const Lobby(),
+    xpThisWeek: json['xpThisWeek'] as int? ?? 0,
+    season: json['season'] is Map<String, dynamic>
+        ? SeasonClock.fromJson(json['season'] as Map<String, dynamic>)
+        : null,
+    seasonXp: json['seasonXp'] as int?,
+    lifetimeRank: json['lifetimeRank'] is Map<String, dynamic>
+        ? Rank.fromJson(json['lifetimeRank'] as Map<String, dynamic>)
+        : null,
+  );
 }
 
 class RankedMe {
@@ -806,13 +823,13 @@ class RankedMe {
   });
 
   factory RankedMe.fromJson(Map<String, dynamic> json) => RankedMe(
-        rank: json['rank'] as int? ?? 0,
-        xpThisWeek: json['xpThisWeek'] as int? ?? 0,
-        totalXp: json['totalXp'] as int? ?? 0,
-        level: json['level'] as int? ?? 0,
-        seatedThisWeek: json['seatedThisWeek'] == true,
-        seasonXp: json['seasonXp'] as int?,
-      );
+    rank: json['rank'] as int? ?? 0,
+    xpThisWeek: json['xpThisWeek'] as int? ?? 0,
+    totalXp: json['totalXp'] as int? ?? 0,
+    level: json['level'] as int? ?? 0,
+    seatedThisWeek: json['seatedThisWeek'] == true,
+    seasonXp: json['seasonXp'] as int?,
+  );
 }
 
 class Achievement {
@@ -833,13 +850,13 @@ class Achievement {
   });
 
   factory Achievement.fromJson(Map<String, dynamic> json) => Achievement(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String?,
-        icon: json['icon'] as String?,
-        unlocked: json['unlocked'] == true,
-        unlockedAt: json['unlockedAt'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String?,
+    icon: json['icon'] as String?,
+    unlocked: json['unlocked'] == true,
+    unlockedAt: json['unlockedAt'] as String?,
+  );
 }
 
 class AchievementRef {
@@ -858,12 +875,12 @@ class AchievementRef {
   });
 
   factory AchievementRef.fromJson(Map<String, dynamic> json) => AchievementRef(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        description: json['description'] as String?,
-        icon: json['icon'] as String?,
-        unlockedAt: json['unlockedAt'] as String?,
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    description: json['description'] as String?,
+    icon: json['icon'] as String?,
+    unlockedAt: json['unlockedAt'] as String?,
+  );
 }
 
 /// `GET /gamification` — the board, the lobby and the achievements behind both.
@@ -882,7 +899,8 @@ class GamificationPayload {
     this.achievements = const [],
   });
 
-  factory GamificationPayload.fromJson(Map<String, dynamic> json) => GamificationPayload(
+  factory GamificationPayload.fromJson(Map<String, dynamic> json) =>
+      GamificationPayload(
         scope: json['scope'] as String? ?? 'weekly',
         board: (json['board'] as List? ?? [])
             .map((r) => BoardRow.fromJson(r as Map<String, dynamic>))
@@ -922,24 +940,24 @@ class Visibility {
   });
 
   factory Visibility.fromJson(Map<String, dynamic> json) => Visibility(
-        name: json['name'] != false,
-        nickname: json['nickname'] != false,
-        bio: json['bio'] != false,
-        pronouns: json['pronouns'] != false,
-        subjects: json['subjects'] != false,
-        stats: json['stats'] != false,
-        achievements: json['achievements'] != false,
-      );
+    name: json['name'] != false,
+    nickname: json['nickname'] != false,
+    bio: json['bio'] != false,
+    pronouns: json['pronouns'] != false,
+    subjects: json['subjects'] != false,
+    stats: json['stats'] != false,
+    achievements: json['achievements'] != false,
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'nickname': nickname,
-        'bio': bio,
-        'pronouns': pronouns,
-        'subjects': subjects,
-        'stats': stats,
-        'achievements': achievements,
-      };
+    'name': name,
+    'nickname': nickname,
+    'bio': bio,
+    'pronouns': pronouns,
+    'subjects': subjects,
+    'stats': stats,
+    'achievements': achievements,
+  };
 }
 
 class Prefs {
@@ -949,14 +967,14 @@ class Prefs {
   const Prefs({this.noteDensity = 'detailed', this.reducedMotion = false});
 
   factory Prefs.fromJson(Map<String, dynamic> json) => Prefs(
-        noteDensity: json['noteDensity'] as String? ?? 'detailed',
-        reducedMotion: json['reducedMotion'] == true,
-      );
+    noteDensity: json['noteDensity'] as String? ?? 'detailed',
+    reducedMotion: json['reducedMotion'] == true,
+  );
 
   Map<String, dynamic> toJson() => {
-        'noteDensity': noteDensity,
-        'reducedMotion': reducedMotion,
-      };
+    'noteDensity': noteDensity,
+    'reducedMotion': reducedMotion,
+  };
 }
 
 class SubjectRef {
@@ -966,9 +984,9 @@ class SubjectRef {
   const SubjectRef({required this.id, required this.name});
 
   factory SubjectRef.fromJson(Map<String, dynamic> json) => SubjectRef(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-      );
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+  );
 }
 
 class Gamification {
@@ -989,13 +1007,13 @@ class Gamification {
   });
 
   factory Gamification.fromJson(Map<String, dynamic> json) => Gamification(
-        totalXp: json['totalXp'] as int? ?? 0,
-        level: json['level'] as int? ?? 0,
-        intoLevel: json['intoLevel'] as int? ?? 0,
-        forNext: json['forNext'] as int? ?? 0,
-        streak: json['streak'] as int? ?? 0,
-        bestStreak: json['bestStreak'] as int? ?? 0,
-      );
+    totalXp: json['totalXp'] as int? ?? 0,
+    level: json['level'] as int? ?? 0,
+    intoLevel: json['intoLevel'] as int? ?? 0,
+    forNext: json['forNext'] as int? ?? 0,
+    streak: json['streak'] as int? ?? 0,
+    bestStreak: json['bestStreak'] as int? ?? 0,
+  );
 }
 
 class TodaySummary {
@@ -1006,10 +1024,32 @@ class TodaySummary {
   const TodaySummary({this.due = 0, this.reviewed = 0, this.correct = 0});
 
   factory TodaySummary.fromJson(Map<String, dynamic> json) => TodaySummary(
-        due: json['due'] as int? ?? 0,
-        reviewed: json['reviewed'] as int? ?? 0,
-        correct: json['correct'] as int? ?? 0,
-      );
+    due: json['due'] as int? ?? 0,
+    reviewed: json['reviewed'] as int? ?? 0,
+    correct: json['correct'] as int? ?? 0,
+  );
+}
+
+/// `srs` on `/me` — card counts per ladder level plus the rollup the
+/// dashboard's strength card prints.
+class SrsSummary {
+  final List<int> levels;
+  final double? avgLevel;
+  final int totalCards;
+
+  const SrsSummary({
+    this.levels = const [],
+    this.avgLevel,
+    this.totalCards = 0,
+  });
+
+  factory SrsSummary.fromJson(Map<String, dynamic> json) => SrsSummary(
+    levels: (json['levels'] as List? ?? [])
+        .map((v) => (v as num).toInt())
+        .toList(),
+    avgLevel: (json['avgLevel'] as num?)?.toDouble(),
+    totalCards: json['totalCards'] as int? ?? 0,
+  );
 }
 
 /// `GET /me` — the whole account, including the parts only the owner sees.
@@ -1034,6 +1074,7 @@ class MeDetail {
   final List<SubjectRef> subjects;
   final Gamification gamification;
   final TodaySummary today;
+  final SrsSummary srs;
   final List<AchievementRef> achievements;
   final String bannerColor;
 
@@ -1058,44 +1099,48 @@ class MeDetail {
     this.subjects = const [],
     this.gamification = const Gamification(),
     this.today = const TodaySummary(),
+    this.srs = const SrsSummary(),
     this.achievements = const [],
     this.bannerColor = 'dusk',
   });
 
   factory MeDetail.fromJson(Map<String, dynamic> json) => MeDetail(
-        id: json['id'] as String? ?? '',
-        email: json['email'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        username: json['username'] as String?,
-        nickname: json['nickname'] as String?,
-        bio: json['bio'] as String?,
-        pronouns: json['pronouns'] as String?,
-        avatarEmoji: json['avatarEmoji'] as String?,
-        avatarColor: json['avatarColor'] as String? ?? 'ink',
-        avatarUrl: json['avatarUrl'] as String?,
-        bannerUrl: json['bannerUrl'] as String?,
-        profileVisibility: json['profileVisibility'] is Map<String, dynamic>
-            ? Visibility.fromJson(json['profileVisibility'] as Map<String, dynamic>)
-            : const Visibility(),
-        role: json['role'] as String? ?? 'student',
-        status: json['status'] as String?,
-        totpEnabled: json['totpEnabled'] == true,
-        leaderboardOptOut: json['leaderboardOptOut'] == true,
-        prefs: json['prefs'] is Map<String, dynamic>
-            ? Prefs.fromJson(json['prefs'] as Map<String, dynamic>)
-            : const Prefs(),
-        subjects: (json['subjects'] as List? ?? [])
-            .map((s) => SubjectRef.fromJson(s as Map<String, dynamic>))
-            .toList(),
-        gamification: json['gamification'] is Map<String, dynamic>
-            ? Gamification.fromJson(json['gamification'] as Map<String, dynamic>)
-            : const Gamification(),
-        today: json['today'] is Map<String, dynamic>
-            ? TodaySummary.fromJson(json['today'] as Map<String, dynamic>)
-            : const TodaySummary(),
-        achievements: (json['achievements'] as List? ?? [])
-            .map((a) => AchievementRef.fromJson(a as Map<String, dynamic>))
-            .toList(),
-        bannerColor: json['bannerColor'] as String? ?? 'dusk',
-      );
+    id: json['id'] as String? ?? '',
+    email: json['email'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    username: json['username'] as String?,
+    nickname: json['nickname'] as String?,
+    bio: json['bio'] as String?,
+    pronouns: json['pronouns'] as String?,
+    avatarEmoji: json['avatarEmoji'] as String?,
+    avatarColor: json['avatarColor'] as String? ?? 'ink',
+    avatarUrl: json['avatarUrl'] as String?,
+    bannerUrl: json['bannerUrl'] as String?,
+    profileVisibility: json['profileVisibility'] is Map<String, dynamic>
+        ? Visibility.fromJson(json['profileVisibility'] as Map<String, dynamic>)
+        : const Visibility(),
+    role: json['role'] as String? ?? 'student',
+    status: json['status'] as String?,
+    totpEnabled: json['totpEnabled'] == true,
+    leaderboardOptOut: json['leaderboardOptOut'] == true,
+    prefs: json['prefs'] is Map<String, dynamic>
+        ? Prefs.fromJson(json['prefs'] as Map<String, dynamic>)
+        : const Prefs(),
+    subjects: (json['subjects'] as List? ?? [])
+        .map((s) => SubjectRef.fromJson(s as Map<String, dynamic>))
+        .toList(),
+    gamification: json['gamification'] is Map<String, dynamic>
+        ? Gamification.fromJson(json['gamification'] as Map<String, dynamic>)
+        : const Gamification(),
+    today: json['today'] is Map<String, dynamic>
+        ? TodaySummary.fromJson(json['today'] as Map<String, dynamic>)
+        : const TodaySummary(),
+    srs: json['srs'] is Map<String, dynamic>
+        ? SrsSummary.fromJson(json['srs'] as Map<String, dynamic>)
+        : const SrsSummary(),
+    achievements: (json['achievements'] as List? ?? [])
+        .map((a) => AchievementRef.fromJson(a as Map<String, dynamic>))
+        .toList(),
+    bannerColor: json['bannerColor'] as String? ?? 'dusk',
+  );
 }

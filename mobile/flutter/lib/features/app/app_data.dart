@@ -12,6 +12,7 @@ import '../../engine/models.dart';
 import '../../engine/offline.dart';
 import '../../services/api_client.dart';
 import '../auth/auth_provider.dart';
+import '../rank/season_models.dart';
 
 final meProvider = FutureProvider<MeDetail>((ref) async {
   ref.watch(authProvider); // refetch on session change
@@ -28,6 +29,26 @@ final gamificationProvider = FutureProvider<GamificationPayload>((ref) async {
   return ref.read(apiClientProvider).gamification();
 });
 
+/// `GET /gamification?scope=` — the XP board's daily/weekly/monthly windows.
+final gamificationScopedProvider =
+    FutureProvider.family<GamificationPayload, String>((ref, scope) async {
+      ref.watch(authProvider);
+      return ref.read(apiClientProvider).gamification(scope: scope);
+    });
+
+/// `GET /seasons` — the seasonal rank payload behind the Rank tab.
+final seasonsProvider = FutureProvider<SeasonPayload>((ref) async {
+  ref.watch(authProvider);
+  return SeasonPayload.fromJson(await ref.read(apiClientProvider).seasons());
+});
+
+/// `GET /insights` — own-progress payload for the Strength tab. Fetched only
+/// while that tab is open, same as the web.
+final insightsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.watch(authProvider);
+  return ref.read(apiClientProvider).insights();
+});
+
 final subjectsProvider = FutureProvider<List<Subject>>((ref) async {
   ref.watch(authProvider);
   return ref.read(apiClientProvider).subjects();
@@ -39,8 +60,38 @@ final consentProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(apiClientProvider).getConsent();
 });
 
+/// Topics under one subject (`/content?subjectId=`) — the Learn subject
+/// screen's list, with per-topic spec refs.
+final subjectTopicsProvider = FutureProvider.family<List<Topic>, String>((
+  ref,
+  subjectId,
+) async {
+  ref.watch(authProvider);
+  return ref.read(apiClientProvider).content(subjectId: subjectId);
+});
+
+/// One topic's meta (`/content?topicId=`) — null when not visible.
+final topicMetaProvider = FutureProvider.family<Topic?, String>((
+  ref,
+  topicId,
+) async {
+  ref.watch(authProvider);
+  return ref.read(apiClientProvider).contentTopic(topicId: topicId);
+});
+
+/// A topic's lessons (`/lessons?topicId=`) — the reading screen's sections.
+final topicLessonsProvider = FutureProvider.family<List<Lesson>, String>((
+  ref,
+  topicId,
+) async {
+  ref.watch(authProvider);
+  return ref.read(apiClientProvider).lessons(topicId: topicId);
+});
+
 /// Joined classes for the Settings → Class section.
-final myClassesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final myClassesProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   ref.watch(authProvider);
   return ref.read(apiClientProvider).myClassesList();
 });
@@ -49,7 +100,9 @@ final myClassesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async
 /// device, memory in tests.
 final offlineStoreProvider = FutureProvider<OfflineStore>((ref) async {
   final dir = await getApplicationDocumentsDirectory();
-  return OfflineStore(FileKeyValueStore(Directory('${dir.path}/revisio_offline')));
+  return OfflineStore(
+    FileKeyValueStore(Directory('${dir.path}/revisio_offline')),
+  );
 });
 
 /// Refresh the cached offline pack. Offline or signed-out → keep the old pack;
@@ -95,7 +148,8 @@ class _ReviewApiSink implements ReviewApi {
       );
       return true;
     } on ApiError catch (e) {
-      if (e.status == 401 || e.status == 403) return false; // session dead — keep
+      if (e.status == 401 || e.status == 403)
+        return false; // session dead — keep
       if (e.status >= 400 && e.status < 500) return true; // un-acceptable: drop
       rethrow;
     }

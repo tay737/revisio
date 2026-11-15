@@ -14,9 +14,14 @@ String firstName(String name) {
 }
 
 String initials(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
   if (parts.isEmpty) return 'R';
-  if (parts.length == 1) return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+  if (parts.length == 1)
+    return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
@@ -30,10 +35,16 @@ String greeting({DateTime? now}) {
   return 'Late session';
 }
 
-String greetingFor(String name, {DateTime? now}) => '${greeting(now: now)}, ${firstName(name)}';
+String greetingFor(String name, {DateTime? now}) =>
+    '${greeting(now: now)}, ${firstName(name)}';
 
 /// The subset of the learner snapshot `openers` reads.
-typedef OpenersInput = ({int due, int streak, int level, List<String> subjects});
+typedef OpenersInput = ({
+  int due,
+  int streak,
+  int level,
+  List<String> subjects,
+});
 
 /// Conversation starters for the rotating headline on the dashboard.
 List<String> openers(OpenersInput snap, {DateTime? now}) {
@@ -59,8 +70,10 @@ String sessionSummary(int correct, int total) {
   if (total == 0) return 'No cards answered yet.';
   final pct = ((correct / total) * 100).round();
   if (pct == 100) return '$correct for $total. Nothing to redo.';
-  if (pct >= 80) return '$correct for $total. ${total - correct} to look at again.';
-  if (pct >= 50) return '$correct for $total. Read the notes before the next run.';
+  if (pct >= 80)
+    return '$correct for $total. ${total - correct} to look at again.';
+  if (pct >= 50)
+    return '$correct for $total. Read the notes before the next run.';
   return '$correct for $total. Go back to the notes; this set is not settled yet.';
 }
 
@@ -83,7 +96,15 @@ class CompanionRead {
   final String line;
   final String actionLabel;
 
-  const CompanionRead({required this.tone, required this.line, required this.actionLabel});
+  /// Web href mapped to the Flutter route ('/progress' → '/rank').
+  final String actionPath;
+
+  const CompanionRead({
+    required this.tone,
+    required this.line,
+    required this.actionLabel,
+    required this.actionPath,
+  });
 }
 
 /// The snapshot `companionFor` reads. `totalXp` distinguishes a new account;
@@ -116,8 +137,10 @@ CompanionRead companionFor(CompanionSnapshot snap, {DateTime? now}) {
   if (totalXp <= 0 && reviewed == 0) {
     return CompanionRead(
       tone: CompanionTone.welcome,
-      line: 'Nothing here yet, ${firstName(snap.name)}. Ten minutes on one topic is enough to start.',
+      line:
+          'Nothing here yet, ${firstName(snap.name)}. Ten minutes on one topic is enough to start.',
       actionLabel: 'Pick a topic',
+      actionPath: '/library',
     );
   }
 
@@ -128,6 +151,7 @@ CompanionRead companionFor(CompanionSnapshot snap, {DateTime? now}) {
       line:
           'You had $bestStreak days going. Your queue kept your place, so today starts the next run.',
       actionLabel: 'Resume where you left off',
+      actionPath: due > 0 ? '/review' : '/learn',
     );
   }
 
@@ -140,6 +164,7 @@ CompanionRead companionFor(CompanionSnapshot snap, {DateTime? now}) {
           ? '$reviewed for $reviewed.${rank.isNotEmpty ? ' Still$rank.' : ''}'
           : '$reviewed answered and the queue is clear.${rank.isNotEmpty ? ' Still$rank.' : ''}',
       actionLabel: 'See the ladder',
+      actionPath: '/rank',
     );
   }
 
@@ -149,6 +174,7 @@ CompanionRead companionFor(CompanionSnapshot snap, {DateTime? now}) {
       tone: CompanionTone.momentum,
       line: '$reviewed down, $due to go.',
       actionLabel: 'Carry on',
+      actionPath: '/review',
     );
   }
 
@@ -159,10 +185,11 @@ CompanionRead companionFor(CompanionSnapshot snap, {DateTime? now}) {
       tone: CompanionTone.nudge,
       line: late
           ? (due == 1
-              ? 'One card is due. It will take a minute.'
-              : '$due cards are due. A few now, the rest tomorrow.')
+                ? 'One card is due. It will take a minute.'
+                : '$due cards are due. A few now, the rest tomorrow.')
           : '$due cards are due. All of them are cards you have already seen.',
       actionLabel: 'Start the queue',
+      actionPath: '/review',
     );
   }
 
@@ -171,6 +198,7 @@ CompanionRead companionFor(CompanionSnapshot snap, {DateTime? now}) {
     tone: CompanionTone.open,
     line: 'Nothing is due. Get ahead on a topic, or leave it until tomorrow.',
     actionLabel: 'Get ahead',
+    actionPath: '/learn',
   );
 }
 
@@ -193,4 +221,21 @@ String lobbyLine({
     return '$position of $size. That is the demotion band, and one session pulls you clear of it.';
   }
   return '$position of $size. Safe, and close enough to the promotion band to take it. $days.';
+}
+
+/// Port of `seasonLine` in `src/domain/seasons.ts` — the one sentence the
+/// rank strip and the Rank page both use to describe a season.
+String seasonLine({
+  required int daysLeft,
+  required String rankLabel,
+  required bool placed,
+  bool isLastDay = false,
+}) {
+  if (isLastDay)
+    return 'Last day. Whatever you are holding now is what you keep.';
+  if (!placed) return 'Ten reviews and you are placed for this season.';
+  if (daysLeft <= 7) {
+    return '$daysLeft days left. You are $rankLabel going into the final week.';
+  }
+  return '$daysLeft days left. You are $rankLabel.';
 }

@@ -37,7 +37,10 @@ final versionCheckProvider = FutureProvider<VersionCheck?>((ref) async {
       return VersionCheck(status: VersionStatus.updateRequired, latest: latest);
     }
     if (own < build) {
-      return VersionCheck(status: VersionStatus.updateAvailable, latest: latest);
+      return VersionCheck(
+        status: VersionStatus.updateAvailable,
+        latest: latest,
+      );
     }
     return VersionCheck(status: VersionStatus.current, latest: latest);
   } catch (_) {
@@ -57,7 +60,9 @@ const _prereleaseNote = 'Prerelease test build — not a store release yet.';
 /// the router picked. Call from the app root with the navigator's context.
 Future<void> maybeShowVersionGate(BuildContext context, WidgetRef ref) async {
   final check = await ref.read(versionCheckProvider.future);
-  if (!context.mounted || check == null || check.status == VersionStatus.current) {
+  if (!context.mounted ||
+      check == null ||
+      check.status == VersionStatus.current) {
     return;
   }
   final required = check.status == VersionStatus.updateRequired;
@@ -73,11 +78,17 @@ Future<void> maybeShowVersionGate(BuildContext context, WidgetRef ref) async {
       ),
       actions: [
         if (!required)
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Later')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Later'),
+          ),
         FilledButton(
           onPressed: () {
             Navigator.pop(ctx);
-            launchUrl(Uri.parse(_updateUrl), mode: LaunchMode.externalApplication);
+            launchUrl(
+              Uri.parse(_updateUrl),
+              mode: LaunchMode.externalApplication,
+            );
           },
           child: const Text('Update'),
         ),

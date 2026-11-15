@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+
 import '../../design/design.dart';
 import '../../services/api_client.dart';
 import 'auth_provider.dart';
@@ -17,7 +18,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -54,7 +56,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       setState(() => _message = e.message);
     } on DioException {
       if (!mounted) return;
-      setState(() => _message = 'We could not reach the server. Check your connection and try again.');
+      setState(
+        () => _message = 'We could not reach the server. Check your connection and try again.',
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _message = 'Something went wrong. Try again shortly.');
@@ -103,8 +107,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         enabled: !_loading,
                         validator: (v) {
                           final v2 = v?.trim() ?? '';
-                          if (v2.isEmpty) return 'Enter an email address you can receive mail at.';
-                          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v2)) {
+                          if (v2.isEmpty)
+                            return 'Enter an email address you can receive mail at.';
+                          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                              .hasMatch(v2)) {
                             return 'Enter a valid email address.';
                           }
                           return null;
@@ -130,11 +136,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Text(
                                 _sent ? 'Send again' : 'Send reset link',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                       ),
                     ),

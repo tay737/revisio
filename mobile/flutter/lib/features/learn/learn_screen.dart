@@ -1,19 +1,19 @@
-/// Learn — subjects → topics → lessons & first-exposure batches.
-/// A learn batch hands its cards to the review loop with `mode: "learn"`.
+/// Learn — the catalogue, a screen-for-screen port of the web's
+/// `learn/page.tsx`: PageHeader, search, and one card per subject that
+/// links into `/learn/[subjectId]` with a Follow/Open action.
 library revisio.features.learn.learn_screen;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../design/components/components.dart';
+import '../../design/revisio_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../engine/models.dart';
 import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
-import '../review/review_screen.dart';
-import '../../design/revisio_icons.dart';
+import '../../services/api_client.dart';
 
 class LearnScreen extends ConsumerStatefulWidget {
   const LearnScreen({super.key});
@@ -23,37 +23,169 @@ class LearnScreen extends ConsumerStatefulWidget {
 }
 
 class _LearnScreenState extends ConsumerState<LearnScreen> {
-  Subject? _subject;
-  Topic? _topic;
+  String _query = '';
+  String? _busyId;
+  String _followError = '';
 
   @override
   Widget build(BuildContext context) {
     final subjects = ref.watch(subjectsProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Learn')),
       body: SafeArea(
         child: subjects.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => _Message(
-            text: 'Subjects could not be loaded.',
-            action: () => ref.invalidate(subjectsProvider),
+          error: (_, __) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Subjects could not be loaded.',
+                    style: TypeScale.body.copyWith(
+                      color: context.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => ref.invalidate(subjectsProvider),
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
           ),
           data: (list) {
-            if (list.isEmpty) {
-              return const _Message(text: 'No subjects yet — join a class from Settings.');
-            }
-            final subject = _subject ?? list.firstWhere((s) => s.enrolled, orElse: () => list.first);
-            return Column(
+            final q = _query.trim().toLowerCase();
+            final visible = q.isEmpty
+                ? list
+                : list
+                      .where(
+                        (s) =>
+                            s.name.toLowerCase().contains(q) ||
+                            (s.description ?? '').toLowerCase().contains(q),
+                      )
+                      .toList();
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               children: [
-                _SubjectStrip(
-                  subjects: list,
-                  selected: subject,
-                  onSelect: (s) => setState(() {
-                    _subject = s;
-                    _topic = null;
-                  }),
+                if (_followError.isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.destructive.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(RadiusTokens.md),
+                      border: Border.all(
+                        color: context.destructive.withOpacity(0.4),
+                      ),
+                    ),
+                    child: Text(
+                      _followError,
+                      style: TypeScale.caption.copyWith(
+                        color: context.destructiveInk,
+                      ),
+                    ),
+                  ),
+                ],
+                // PageHeader — icon, title, subtitle.
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: context.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const RevisioIcon('learn', size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Learn', style: TypeScale.title),
+                          Text(
+                            'Pick a subject to see its topics, notes and specification.',
+                            style: TypeScale.caption.copyWith(
+                              color: context.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(child: _TopicPane(subject: subject, topic: _topic, onTopic: (t) => setState(() => _topic = t))),
+                const SizedBox(height: 24),
+
+                if (list.length > 3)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TextField(
+                      onChanged: (v) => setState(() => _query = v),
+                      decoration: InputDecoration(
+                        hintText: 'Search subjects…',
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: RevisioIcon(
+                            'search',
+                            size: 17,
+                            color: context.mutedForeground,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (list.isEmpty) _EmptyCatalogue(),
+
+                if (visible.isEmpty && list.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: context.card,
+                      borderRadius: BorderRadius.circular(RadiusTokens.lg),
+                      border: Border.all(color: context.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Nothing matches “$_query”',
+                          style: TypeScale.strong,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Try a shorter piece of the name.',
+                          style: TypeScale.caption.copyWith(
+                            color: context.mutedForeground,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SmallSecondary(
+                          label: 'Clear the search',
+                          onTap: () => setState(() => _query = ''),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                for (final s in visible) ...[
+                  _SubjectCard(
+                    subject: s,
+                    busy: _busyId == s.id,
+                    onOpen: () => context.push('/learn/${s.id}'),
+                    onFollow: () => _follow(s),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ],
             );
           },
@@ -61,344 +193,230 @@ class _LearnScreenState extends ConsumerState<LearnScreen> {
       ),
     );
   }
+
+  Future<void> _follow(Subject s) async {
+    setState(() {
+      _busyId = s.id;
+      _followError = '';
+    });
+    try {
+      await ref.read(apiClientProvider).enrollSubject(s.id);
+      ref.invalidate(subjectsProvider);
+      ref.invalidate(meProvider);
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _followError = e is ApiError
+              ? e.message
+              : 'We could not follow that subject.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
+  }
 }
 
-class _SubjectStrip extends StatelessWidget {
-  const _SubjectStrip({required this.subjects, required this.selected, required this.onSelect});
+class _SubjectCard extends StatelessWidget {
+  const _SubjectCard({
+    required this.subject,
+    required this.busy,
+    required this.onOpen,
+    required this.onFollow,
+  });
 
-  final List<Subject> subjects;
-  final Subject selected;
-  final ValueChanged<Subject> onSelect;
+  final Subject subject;
+  final bool busy;
+  final VoidCallback onOpen;
+  final VoidCallback onFollow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.card,
+        borderRadius: BorderRadius.circular(RadiusTokens.lg),
+        border: Border.all(color: context.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Link-first row: the whole info block navigates.
+            InkWell(
+              onTap: onOpen,
+              borderRadius: BorderRadius.circular(RadiusTokens.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: kTouchTarget,
+                    decoration: BoxDecoration(
+                      color: context.secondary,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const RevisioIcon('topic', size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(subject.name, style: TypeScale.strong),
+                        if ((subject.description ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subject.description!,
+                            style: TypeScale.caption.copyWith(
+                              color: context.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _Chip(
+                  '${subject.topicCount} '
+                  '${subject.topicCount == 1 ? 'topic' : 'topics'}',
+                ),
+                const Spacer(),
+                if (!subject.enrolled)
+                  _SmallSecondary(
+                    label: busy ? 'Adding…' : 'Follow',
+                    onTap: busy ? null : onFollow,
+                  )
+                else
+                  _SmallPrimary(label: 'Open', onTap: onOpen),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.card,
+        borderRadius: BorderRadius.circular(RadiusTokens.pill),
+        border: Border.all(color: context.border),
+      ),
+      child: Text(
+        text,
+        style: TypeScale.caption.copyWith(
+          color: context.foreground,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _SmallPrimary extends StatelessWidget {
+  const _SmallPrimary({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: subjects.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final s = subjects[i];
-          final active = s.id == selected.id;
-          return ChoiceChip(
-            label: Text(s.name),
-            selected: active,
-            onSelected: (_) => onSelect(s),
-            showCheckmark: false,
-            labelStyle: TypeScale.captionS.copyWith(
-              color: active ? context.primaryForeground : context.foreground,
-            ),
-            selectedColor: context.primary,
-            backgroundColor: context.card,
-            side: BorderSide(color: active ? context.primary : context.border),
-          );
-        },
+      height: kTouchTarget,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: context.primary,
+          foregroundColor: context.primaryForeground,
+          elevation: 0,
+          minimumSize: const Size(0, kTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: const StadiumBorder(),
+        ),
+        child: Text(label),
       ),
     );
   }
 }
 
-class _TopicPane extends ConsumerStatefulWidget {
-  const _TopicPane({required this.subject, required this.topic, required this.onTopic});
+class _SmallSecondary extends StatelessWidget {
+  const _SmallSecondary({required this.label, this.onTap});
 
-  final Subject subject;
-  final Topic? topic;
-  final ValueChanged<Topic?> onTopic;
-
-  @override
-  ConsumerState<_TopicPane> createState() => _TopicPaneState();
-}
-
-class _TopicPaneState extends ConsumerState<_TopicPane> {
-  late Future<List<Topic>> _topicsFuture;
-  @override
-  void initState() {
-    super.initState();
-    _topicsFuture = _load();
-  }
-
-  @override
-  void didUpdateWidget(_TopicPane old) {
-    super.didUpdateWidget(old);
-    if (old.subject.id != widget.subject.id) {
-        _topicsFuture = _load();
-    }
-  }
-
-  Future<List<Topic>> _load() =>
-      ref.read(apiClientProvider).content(subjectId: widget.subject.id);
+  final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final topic = widget.topic;
-    if (topic == null) {
-      return FutureBuilder<List<Topic>>(
-        future: _topicsFuture,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return _Message(text: 'Topics could not be loaded.');
-          }
-          final topics = snap.data ?? const [];
-          if (topics.isEmpty) {
-            return const _Message(text: 'No topics in this subject yet.');
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: topics.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final t = topics[i];
-              final count = t.cardCount ?? t.cards ?? 0;
-              final lessons = t.lessonCount ?? t.lessons ?? 0;
-              return Card(
-                color: context.card,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(RadiusTokens.lg),
-                  side: BorderSide(color: context.border),
-                ),
-                child: ListTile(
-                  title: Text(t.name, style: TypeScale.strong),
-                  subtitle: Text('$count cards · $lessons lessons',
-                      style: TypeScale.caption.copyWith(color: context.mutedForeground)),
-                  trailing: const RevisioIcon('expand'),
-                  onTap: () => widget.onTopic(t),
-                ),
-              );
-            },
-          );
-        },
-      );
-    }
-    // Keyed by topic so switching topics rebuilds state instead of showing
-    // the previous topic's lessons/exposure.
-    return _TopicDetail(key: ValueKey(topic.id), topic: topic, onBack: () => widget.onTopic(null));
-  }
-}
-
-class _TopicDetail extends ConsumerStatefulWidget {
-  const _TopicDetail({super.key, required this.topic, required this.onBack});
-
-  final Topic topic;
-  final VoidCallback onBack;
-
-  @override
-  ConsumerState<_TopicDetail> createState() => _TopicDetailState();
-}
-
-class _TopicDetailState extends ConsumerState<_TopicDetail> {
-  FirstExposure? _exposure;
-  List<Lesson>? _lessons;
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final api = ref.read(apiClientProvider);
-      final results = await Future.wait([
-        api.learn(topicId: widget.topic.id),
-        api.lessons(topicId: widget.topic.id),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _exposure = results[0] as FirstExposure;
-        _lessons = results[1] as List<Lesson>;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'This topic could not be loaded.';
-        _loading = false;
-      });
-    }
-  }
-
-  void _openReview() {
-    final cards = _exposure?.batch ?? const <QueueCard>[];
-    if (cards.isEmpty) return;
-    context.push(
-      '/review',
-      extra: ReviewSession(
-        cards: cards,
-        title: 'Learn · ${widget.topic.name}',
-        mode: 'learn',
+    return SizedBox(
+      height: kTouchTarget,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: context.foreground,
+          side: BorderSide(color: context.border),
+          minimumSize: const Size(0, kTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: const StadiumBorder(),
+        ),
+        child: Text(label),
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const RevisioIcon('back'),
-                tooltip: 'Back to topics',
-                onPressed: widget.onBack,
-              ),
-              Expanded(
-                child: Text(widget.topic.name, style: TypeScale.title, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? _Message(text: _error!, action: _load)
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                      children: [
-                        if (_exposure != null) ...[
-                          _ExposureHeader(exposure: _exposure!),
-                          const SizedBox(height: 16),
-                        ],
-                        if (_lessons?.isNotEmpty == true) ...[
-                          Text('Lessons', style: TypeScale.strong),
-                          const SizedBox(height: 8),
-                          for (final l in _lessons!) _LessonTile(lesson: l),
-                          const SizedBox(height: 16),
-                        ],
-                        if (_exposure?.notes.isNotEmpty == true) ...[
-                          Text('Notes', style: TypeScale.strong),
-                          const SizedBox(height: 8),
-                          for (final n in _exposure!.notes) _NoteTile(note: n),
-                        ],
-                      ],
-                    ),
-        ),
-        if (_exposure?.batch.isNotEmpty == true)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: RevisioButton(
-              onPressed: _openReview,
-              child: Text('Review ${_exposure!.batch.length} new cards'),
-            ),
-          ),
-      ],
-    );
-  }
 }
 
-class _ExposureHeader extends StatelessWidget {
-  const _ExposureHeader({required this.exposure});
-
-  final FirstExposure exposure;
-
+class _EmptyCatalogue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final p = exposure.progress;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: context.card,
         borderRadius: BorderRadius.circular(RadiusTokens.lg),
         border: Border.all(color: context.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('First exposure', style: TypeScale.captionS.copyWith(color: context.mutedForeground)),
-          const SizedBox(height: 4),
-          Text('${p.met} of ${p.total} seen · ${p.remaining} left', style: TypeScale.body),
-        ],
-      ),
-    );
-  }
-}
-
-class _LessonTile extends StatelessWidget {
-  const _LessonTile({required this.lesson});
-
-  final Lesson lesson;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: context.card,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(RadiusTokens.md),
-        side: BorderSide(color: context.border),
-      ),
-      child: ExpansionTile(
-        title: Text(lesson.title, style: TypeScale.body),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: context.secondary,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const RevisioIcon('library', size: 22),
+          ),
+          const SizedBox(height: 16),
+          Text('Nothing published yet', style: TypeScale.tagline),
+          const SizedBox(height: 8),
           Text(
-            lesson.detailedMd ?? lesson.summaryMd ?? '',
-            style: TypeScale.caption.copyWith(color: context.mutedForeground, height: 1.5),
+            'No subjects are available on this deployment. Create your own '
+            'in My content, or ask a teacher to publish one.',
+            style: TypeScale.caption.copyWith(color: context.mutedForeground),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          _SmallPrimary(
+            label: 'Go to My content',
+            onTap: () => context.push('/library'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NoteTile extends StatelessWidget {
-  const _NoteTile({required this.note});
-
-  final Note note;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: context.card,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(RadiusTokens.md),
-        side: BorderSide(color: context.border),
-      ),
-      child: ExpansionTile(
-        title: Text(note.title, style: TypeScale.body),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          Text(
-            note.detailedMd ?? note.summaryMd ?? note.contentMd ?? '',
-            style: TypeScale.caption.copyWith(color: context.mutedForeground, height: 1.5),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  const _Message({required this.text, this.action});
-
-  final String text;
-  final VoidCallback? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(text, style: TypeScale.body.copyWith(color: context.mutedForeground), textAlign: TextAlign.center),
-            if (action != null) ...[
-              const SizedBox(height: 16),
-              RevisioButton(onPressed: action, child: const Text('Try again')),
-            ],
-          ],
-        ),
       ),
     );
   }

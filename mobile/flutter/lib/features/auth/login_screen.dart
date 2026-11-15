@@ -7,6 +7,7 @@ library revisio.features.auth.login_screen;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../design/design.dart';
 import '../auth/auth_provider.dart';
 
@@ -84,10 +85,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _info = null;
     });
     try {
-      await ref.read(apiClientProvider).resendVerification(email: _unverifiedEmail!);
-      setState(() => _info = 'Sent again to $_unverifiedEmail. It can take a minute to arrive.');
+      await ref
+          .read(apiClientProvider)
+          .resendVerification(email: _unverifiedEmail!);
+      setState(
+        () => _info =
+            'Sent again to $_unverifiedEmail. It can take a minute to arrive.',
+      );
     } catch (e) {
-      setState(() => _error = 'We could not re-send that right now. Try again shortly.');
+      setState(
+        () =>
+            _error = 'We could not re-send that right now. Try again shortly.',
+      );
     } finally {
       setState(() => _loading = false);
     }
@@ -134,8 +143,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         enabled: !_loading,
                         validator: (v) {
                           final v2 = v?.trim() ?? '';
-                          if (v2.isEmpty) return 'Enter an email address you can receive mail at.';
-                          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v2)) {
+                          if (v2.isEmpty)
+                            return 'Enter an email address you can receive mail at.';
+                          if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                              .hasMatch(v2)) {
                             return 'Enter a valid email address.';
                           }
                           return null;
@@ -159,12 +170,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 16),
                     if (_mfaStage) ...[
                       RevisioField(
-                        label: _useRecovery ? 'Recovery code' : 'Two-factor code',
+                        label: _useRecovery
+                            ? 'Recovery code'
+                            : 'Two-factor code',
                         icon: 'private',
                         child: RevisioTextInput(
                           controller: _useRecovery ? _recovery : _totp,
-                          placeholder: _useRecovery ? 'Recovery code' : '000000',
-                          keyboardType: _useRecovery ? TextInputType.text : TextInputType.number,
+                          placeholder: _useRecovery
+                              ? 'Recovery code'
+                              : '000000',
+                          keyboardType: _useRecovery
+                              ? TextInputType.text
+                              : TextInputType.number,
                           maxLength: _useRecovery ? null : 6,
                           autofillHints: AutofillHints.oneTimeCode,
                           enabled: !_loading,
@@ -179,22 +196,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: _loading
                               ? null
                               : () => setState(() {
-                                    _useRecovery = !_useRecovery;
-                                    _info = _useRecovery
-                                        ? 'Enter one of your saved recovery codes.'
-                                        : 'Enter the six-digit code from your authenticator app.';
-                                  }),
-                          child: Text(_useRecovery ? 'Use an authenticator code' : 'Use a recovery code'),
+                                  _useRecovery = !_useRecovery;
+                                  _info = _useRecovery
+                                      ? 'Enter one of your saved recovery codes.'
+                                      : 'Enter the six-digit code from your authenticator app.';
+                                }),
+                          child: Text(
+                            _useRecovery
+                                ? 'Use an authenticator code'
+                                : 'Use a recovery code',
+                          ),
                         ),
                       ),
                     ],
                     if (error != null && error.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      RevisioNotice(tone: NoticeTone.bad, show: true, child: Text(error)),
+                      RevisioNotice(
+                        tone: NoticeTone.bad,
+                        show: true,
+                        child: Text(error),
+                      ),
                     ],
                     if (_info != null && _info!.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      RevisioNotice(tone: NoticeTone.note, show: true, child: Text(_info!)),
+                      RevisioNotice(
+                        tone: NoticeTone.note,
+                        show: true,
+                        child: Text(_info!),
+                      ),
                     ],
                     const SizedBox(height: 24),
                     SizedBox(
@@ -206,11 +235,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text(
                                 'Sign in',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                       ),
                     ),
@@ -226,7 +260,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: _loading ? null : _resendVerification,
                     child: const Text(
                       'Re-send the verification email',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
@@ -241,19 +278,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(
-                    child: Divider(height: 1, color: context.border),
-                  ),
+                  Expanded(child: Divider(height: 1, color: context.border)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       'New to Revisio?',
-                      style: TypeScale.caption.copyWith(color: context.mutedForeground),
+                      style: TypeScale.caption.copyWith(
+                        color: context.mutedForeground,
+                      ),
                     ),
                   ),
-                  Expanded(
-                    child: Divider(height: 1, color: context.border),
-                  ),
+                  Expanded(child: Divider(height: 1, color: context.border)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -275,5 +310,4 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
-
 }
