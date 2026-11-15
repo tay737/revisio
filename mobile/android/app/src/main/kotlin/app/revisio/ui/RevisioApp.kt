@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.revisio.DeepLinkBus
 import app.revisio.Destination
 import app.revisio.RevisioViewModel
 import app.revisio.UiState
@@ -87,6 +88,14 @@ import app.revisio.engine.UpdateKind
 @Composable
 fun RevisioApp(viewModel: RevisioViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // A revisio:// link the OS delivered: consumed once, then the ViewModel
+    // decides whether it may open (staff destinations are role-gated).
+    val deepLink by DeepLinkBus.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(deepLink) {
+        val uri = deepLink ?: return@LaunchedEffect
+        DeepLinkBus.consume()
+        viewModel.onDeepLink(uri)
+    }
     RevisioTheme {
         // The account's own calm preference joins the system's: either one
         // settles the springs, whichever the learner used to ask for it.

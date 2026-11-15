@@ -45,7 +45,13 @@ final versionCheckProvider = FutureProvider<VersionCheck?>((ref) async {
   }
 });
 
-const _updateUrl = 'https://revisio-srs.vercel.app';
+/// The only place builds are published until store listings exist: the GitHub
+/// Releases page carries the APK, AAB and unsigned iOS zip.
+const _updateUrl = 'https://github.com/tay737/revisio/releases';
+
+/// What the update leads to today — said out loud so nobody mistakes a
+/// prerelease test build for a store release.
+const _prereleaseNote = 'Prerelease test build — not a store release yet.';
 
 /// Shows the gate once per launch, after first frame, above whatever route
 /// the router picked. Call from the app root with the navigator's context.
@@ -62,8 +68,8 @@ Future<void> maybeShowVersionGate(BuildContext context, WidgetRef ref) async {
       title: Text(required ? 'Update required' : 'Update available'),
       content: Text(
         required
-            ? 'This version of Revisio is no longer supported. Update to keep studying.'
-            : 'Revisio ${check.latest}',
+            ? 'This version of Revisio is no longer supported. Update to keep studying.\n\n$_prereleaseNote'
+            : 'Revisio ${check.latest}\n\n$_prereleaseNote',
       ),
       actions: [
         if (!required)

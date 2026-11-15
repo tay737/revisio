@@ -1,5 +1,6 @@
 package app.revisio
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,6 +24,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        offerDeepLink(intent)
         setContent { RevisioApp() }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        offerDeepLink(intent)
+    }
+
+    private fun offerDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme.equals("revisio", ignoreCase = true)) DeepLinkBus.offer(uri)
     }
 }

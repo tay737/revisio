@@ -1,0 +1,17 @@
+appId: app.revisio.revisio
+---
+# Repro: Settings list must scroll past Account to Preferences/Delete account.
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Tab 5 of 5"
+    timeout: 20000
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Delete account|Preferences|Sign out"
+    timeout: 10000
+- scroll
+- scroll
+- scroll
+- scroll
+- assertVisible: "Delete account"

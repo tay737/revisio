@@ -10,15 +10,20 @@
 library revisio.design.components.revisio_button;
 
 import 'package:flutter/material.dart';
+
 import '../theme.dart';
 import '../tokens.dart';
 
 /// Primary action — ink pill with tactile lip.
+///
+/// [compact] drops the theme's full-width minimum so the button can sit as a
+/// non-flex child of a Row; the default keeps the full-width CTA behaviour.
 class RevisioButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Widget child;
   final bool enabled;
   final bool loading;
+  final bool compact;
 
   const RevisioButton({
     super.key,
@@ -26,6 +31,7 @@ class RevisioButton extends StatelessWidget {
     required this.child,
     this.enabled = true,
     this.loading = false,
+    this.compact = false,
   });
 
   @override
@@ -34,11 +40,7 @@ class RevisioButton extends StatelessWidget {
     return AnimatedContainer(
       duration: context.reduceMotion ? Duration.zero : PressTokens.duration,
       curve: EaseTokens.snap,
-      transform: Matrix4.translationValues(
-        0,
-        effective ? 0 : 3,
-        0,
-      ),
+      transform: Matrix4.translationValues(0, effective ? 0 : 3, 0),
       child: SizedBox(
         height: kTouchTarget,
         child: ElevatedButton(
@@ -49,6 +51,7 @@ class RevisioButton extends StatelessWidget {
             elevation: 0,
             shadowColor: Colors.transparent,
             side: BorderSide.none,
+            minimumSize: compact ? const Size(0, kTouchTarget) : null,
             shape: const StadiumBorder(),
           ),
           child: loading
@@ -57,7 +60,9 @@ class RevisioButton extends StatelessWidget {
                   width: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(context.primaryForeground),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.primaryForeground,
+                    ),
                   ),
                 )
               : child,
@@ -72,12 +77,14 @@ class RevisioGoodButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Widget child;
   final bool enabled;
+  final bool compact;
 
   const RevisioGoodButton({
     super.key,
     required this.onPressed,
     required this.child,
     this.enabled = true,
+    this.compact = false,
   });
 
   @override
@@ -86,11 +93,7 @@ class RevisioGoodButton extends StatelessWidget {
     return AnimatedContainer(
       duration: context.reduceMotion ? Duration.zero : PressTokens.duration,
       curve: EaseTokens.snap,
-      transform: Matrix4.translationValues(
-        0,
-        enabled ? 0 : 4,
-        0,
-      ),
+      transform: Matrix4.translationValues(0, enabled ? 0 : 4, 0),
       child: SizedBox(
         height: kTouchTarget,
         child: ElevatedButton(
@@ -101,6 +104,7 @@ class RevisioGoodButton extends StatelessWidget {
             elevation: 0,
             shadowColor: Colors.transparent,
             side: BorderSide.none,
+            minimumSize: compact ? const Size(0, kTouchTarget) : null,
             shape: const StadiumBorder(),
           ),
           child: child,
@@ -115,12 +119,14 @@ class RevisioSecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Widget child;
   final bool enabled;
+  final bool compact;
 
   const RevisioSecondaryButton({
     super.key,
     required this.onPressed,
     required this.child,
     this.enabled = true,
+    this.compact = false,
   });
 
   @override
@@ -132,6 +138,7 @@ class RevisioSecondaryButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: context.foreground,
           side: BorderSide(color: context.border),
+          minimumSize: compact ? const Size(0, kTouchTarget) : null,
           shape: const StadiumBorder(),
         ),
         child: child,
@@ -175,9 +182,6 @@ class RevisioDisabledButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: 0.45,
-      child: child,
-    );
+    return Opacity(opacity: 0.45, child: child);
   }
 }

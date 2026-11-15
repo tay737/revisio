@@ -8,11 +8,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../design/components/components.dart';
+import '../../design/revisio_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../engine/models.dart';
 import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
+import '../staff/staff_controller.dart';
 import 'settings_panels.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -108,8 +110,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: me.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => Center(
-            child: Text('Settings could not be loaded.',
-                style: TypeScale.body.copyWith(color: context.mutedForeground)),
+            child: Text(
+              'Settings could not be loaded.',
+              style: TypeScale.body.copyWith(color: context.mutedForeground),
+            ),
           ),
           data: (m) {
             _seed(m);
@@ -128,7 +132,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _Section('Profile', [
                   RevisioField(
                     label: 'Name',
-                    child: RevisioTextInput(controller: _name, placeholder: 'Your name'),
+                    child: RevisioTextInput(
+                      controller: _name,
+                      placeholder: 'Your name',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   RevisioField(
@@ -156,7 +163,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _Section('Privacy', [
                   _SwitchTile(
                     title: 'Show on leaderboards',
-                    subtitle: m.leaderboardOptOut ? 'Hidden — opt back in' : 'Your name appears on boards',
+                    subtitle: m.leaderboardOptOut
+                        ? 'Hidden — opt back in'
+                        : 'Your name appears on boards',
                     value: !m.leaderboardOptOut,
                     onChanged: (v) => _patch({'leaderboardOptOut': !v}),
                   ),
@@ -181,7 +190,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _Section('Account', [
                   _InfoTile(label: 'Email', value: m.email),
                   _InfoTile(label: 'Role', value: m.role),
-                  if (m.totpEnabled) const _InfoTile(label: 'Two-factor', value: 'On'),
+                  if (m.totpEnabled)
+                    const _InfoTile(label: 'Two-factor', value: 'On'),
                   const SizedBox(height: 8),
                   RevisioButton(
                     onPressed: _saving ? null : _signOut,
@@ -200,6 +210,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(width: 8),
                       RevisioButton(
+                        compact: true,
                         enabled: !_saving && _classCode.text.trim().isNotEmpty,
                         onPressed: _joinClass,
                         child: const Text('Join'),
@@ -207,6 +218,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ],
                   ),
                 ]),
+                // Staff consoles — the same role split the native More sheet
+                // draws: teachers reach Teaching, developers reach both.
+                if (staffCanTeach(m.role) || staffCanAdmin(m.role))
+                  _Section('Staff', [
+                    if (staffCanTeach(m.role))
+                      _NavTile(
+                        icon: 'teacher',
+                        title: 'Teaching',
+                        subtitle: 'Classes, join codes, progress',
+                        route: '/teacher',
+                      ),
+                    if (staffCanAdmin(m.role))
+                      _NavTile(
+                        icon: 'admin',
+                        title: 'Admin',
+                        subtitle: 'Users, content and the platform',
+                        route: '/admin',
+                      ),
+                  ]),
                 const SecurityPanel(),
                 const ConsentPanel(),
                 const DataPanel(),
@@ -237,15 +267,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   bool _visibilityValue(Visibility v, String key) => switch (key) {
-        'name' => v.name,
-        'nickname' => v.nickname,
-        'bio' => v.bio,
-        'pronouns' => v.pronouns,
-        'subjects' => v.subjects,
-        'stats' => v.stats,
-        'achievements' => v.achievements,
-        _ => true,
-      };
+    'name' => v.name,
+    'nickname' => v.nickname,
+    'bio' => v.bio,
+    'pronouns' => v.pronouns,
+    'subjects' => v.subjects,
+    'stats' => v.stats,
+    'achievements' => v.achievements,
+    _ => true,
+  };
 }
 
 class _Section extends StatelessWidget {
@@ -275,7 +305,10 @@ class _Section extends StatelessWidget {
               borderRadius: BorderRadius.circular(RadiusTokens.lg),
               border: Border.all(color: context.border),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
           ),
         ],
       ),
@@ -308,13 +341,68 @@ class _SwitchTile extends StatelessWidget {
               children: [
                 Text(title, style: TypeScale.body),
                 if (subtitle != null)
-                  Text(subtitle!,
-                      style: TypeScale.fine.copyWith(color: context.mutedForeground)),
+                  Text(
+                    subtitle!,
+                    style: TypeScale.fine.copyWith(
+                      color: context.mutedForeground,
+                    ),
+                  ),
               ],
             ),
           ),
           Switch(value: value, onChanged: onChanged),
         ],
+      ),
+    );
+  }
+}
+
+/// A tappable row that pushes a staff console — 44px floor like every
+/// interactive element.
+class _NavTile extends StatelessWidget {
+  const _NavTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+  });
+
+  final String icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => context.push(route),
+      borderRadius: BorderRadius.circular(RadiusTokens.md),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: kTouchTarget),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              RevisioIcon(icon, size: 18, color: context.mutedForeground),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TypeScale.body),
+                    Text(
+                      subtitle,
+                      style: TypeScale.fine.copyWith(
+                        color: context.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              RevisioIcon('expand', size: 14, color: context.mutedForeground),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -334,8 +422,10 @@ class _InfoTile extends StatelessWidget {
         children: [
           SizedBox(
             width: 110,
-            child: Text(label,
-                style: TypeScale.caption.copyWith(color: context.mutedForeground)),
+            child: Text(
+              label,
+              style: TypeScale.caption.copyWith(color: context.mutedForeground),
+            ),
           ),
           Expanded(child: Text(value, style: TypeScale.body)),
         ],

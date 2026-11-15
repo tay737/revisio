@@ -13,6 +13,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../engine/models.dart';
+import '../engine/staff_models.dart';
 
 const String kBaseUrl = String.fromEnvironment(
   'REVISIO_API_BASE_URL',
@@ -695,6 +696,66 @@ class RevisioApi {
       ),
     );
     return Uint8List.fromList(response.data ?? const []);
+  }
+
+  // ── staff consoles (teacher + developer) ────────────────────────────────
+
+  /// `GET /teacher` — my classes with per-student rosters. Teachers and
+  /// developers only; the server answers 403 for anyone else.
+  Future<TeacherPayload> teacher() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/teacher'),
+    );
+    return TeacherPayload.fromJson(response.data ?? {});
+  }
+
+  /// `GET /content?mine=1` — the topics this account may edit, with counts.
+  Future<MyTopicsPayload> myTopics() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/content',
+        queryParameters: {'mine': 1},
+      ),
+    );
+    return MyTopicsPayload.fromJson(response.data ?? {});
+  }
+
+  /// `GET /teacher/student?userId=…` — one learner's progress, for the staff
+  /// sheet. A teacher may open anyone in their own classes; a developer may
+  /// open anyone.
+  Future<StudentProgress> studentProgress({required String userId}) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/teacher/student',
+        queryParameters: {'userId': userId},
+      ),
+    );
+    return StudentProgress.fromJson(response.data ?? {});
+  }
+
+  /// `GET /admin` — the whole console in one payload, developers only.
+  Future<AdminPayload> admin() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/admin'),
+    );
+    return AdminPayload.fromJson(response.data ?? {});
+  }
+
+  /// `POST /teacher` — one `action` envelope; the caller re-reads the
+  /// console afterwards so the screen never shows a stale state.
+  Future<Map<String, dynamic>> teacherAction(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/teacher', data: body),
+    );
+    return response.data ?? {};
+  }
+
+  /// `POST /admin` — same envelope, developer-only server-side.
+  Future<Map<String, dynamic>> adminAction(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/admin', data: body),
+    );
+    return response.data ?? {};
   }
 
   // ── authenticated helpers ───────────────────────────────────────────────

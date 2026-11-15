@@ -67,7 +67,10 @@ class PanelCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(RadiusTokens.lg),
               border: Border.all(color: context.border),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
           ),
         ],
       ),
@@ -101,8 +104,12 @@ class PanelSwitch extends StatelessWidget {
               children: [
                 Text(title, style: TypeScale.body),
                 if (subtitle != null)
-                  Text(subtitle!,
-                      style: TypeScale.fine.copyWith(color: context.mutedForeground)),
+                  Text(
+                    subtitle!,
+                    style: TypeScale.fine.copyWith(
+                      color: context.mutedForeground,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -177,11 +184,9 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
         });
         return;
       }
-      await ref.read(apiClientProvider).uploadAvatar(
-            kind: 'avatar',
-            bytes: bytes,
-            contentType: contentType,
-          );
+      await ref
+          .read(apiClientProvider)
+          .uploadAvatar(kind: 'avatar', bytes: bytes, contentType: contentType);
       ref.invalidate(meProvider);
       setState(() => _notice = 'Photo updated.');
     } on ApiError catch (e) {
@@ -189,8 +194,8 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
         _notice = e.status == 503
             ? 'Image uploads are unavailable — the colour avatar still works.'
             : e.status == 413
-                ? 'That image is over 5 MB.'
-                : 'The upload failed — try again.';
+            ? 'That image is over 5 MB.'
+            : 'The upload failed — try again.';
       });
     } catch (_) {
       setState(() => _notice = 'The upload failed — try again.');
@@ -212,7 +217,9 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: Color(_avatarColorHex[_avatarColor] ?? _avatarColorHex['ink']!),
+                  color: Color(
+                    _avatarColorHex[_avatarColor] ?? _avatarColorHex['ink']!,
+                  ),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -223,7 +230,9 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
                 width: 140,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: Color(_bannerColorHex[_bannerColor] ?? _bannerColorHex['dusk']!),
+                  color: Color(
+                    _bannerColorHex[_bannerColor] ?? _bannerColorHex['dusk']!,
+                  ),
                   borderRadius: BorderRadius.circular(RadiusTokens.pill),
                 ),
               ),
@@ -231,7 +240,10 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
           ),
         ),
         const SizedBox(height: 14),
-        Text('Avatar emoji', style: TypeScale.caption.copyWith(color: context.mutedForeground)),
+        Text(
+          'Avatar emoji',
+          style: TypeScale.caption.copyWith(color: context.mutedForeground),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: TextEditingController(text: _emoji),
@@ -256,7 +268,10 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
           ],
         ),
         const SizedBox(height: 14),
-        Text('Banner colour', style: TypeScale.caption.copyWith(color: context.mutedForeground)),
+        Text(
+          'Banner colour',
+          style: TypeScale.caption.copyWith(color: context.mutedForeground),
+        ),
         const SizedBox(height: 6),
         Wrap(
           spacing: 8,
@@ -285,16 +300,23 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
             if (widget.me.avatarUrl != null) ...[
               const SizedBox(width: 8),
               OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, kTouchTarget),
+                ),
                 onPressed: _busy
                     ? null
                     : () async {
                         setState(() => _busy = true);
                         try {
-                          await ref.read(apiClientProvider).removeAvatar(kind: 'avatar');
+                          await ref
+                              .read(apiClientProvider)
+                              .removeAvatar(kind: 'avatar');
                           ref.invalidate(meProvider);
                           setState(() => _notice = 'Photo removed.');
                         } catch (_) {
-                          setState(() => _notice = 'Could not remove the photo.');
+                          setState(
+                            () => _notice = 'Could not remove the photo.',
+                          );
                         } finally {
                           if (mounted) setState(() => _busy = false);
                         }
@@ -307,7 +329,10 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
         if (_notice != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(_notice!, style: TypeScale.fine.copyWith(color: context.mutedForeground)),
+            child: Text(
+              _notice!,
+              style: TypeScale.fine.copyWith(color: context.mutedForeground),
+            ),
           ),
       ],
     );
@@ -315,7 +340,11 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
 }
 
 class _Swatch extends StatelessWidget {
-  const _Swatch({required this.color, required this.selected, required this.onTap});
+  const _Swatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
 
   final Color color;
   final bool selected;
@@ -375,25 +404,37 @@ class _SecurityPanelState extends ConsumerState<SecurityPanel> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send link')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send link'),
+          ),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      final pending = await ref.read(apiClientProvider).changeEmail(
-            password: password.text,
-            newEmail: email.text.trim(),
-          );
+      final pending = await ref
+          .read(apiClientProvider)
+          .changeEmail(password: password.text, newEmail: email.text.trim());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(pending ? 'Check the new inbox — the change completes from that link.' : 'Nothing changed.')),
+          SnackBar(
+            content: Text(
+              pending
+                  ? 'Check the new inbox — the change completes from that link.'
+                  : 'Nothing changed.',
+            ),
+          ),
         );
       }
     } on ApiError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -408,19 +449,35 @@ class _SecurityPanelState extends ConsumerState<SecurityPanel> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: current, obscureText: true, decoration: const InputDecoration(labelText: 'Current password')),
-            TextField(controller: next, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
+            TextField(
+              controller: current,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Current password'),
+            ),
+            TextField(
+              controller: next,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password'),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Change')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Change'),
+          ),
         ],
       ),
     );
     if (ok != true) return;
     try {
-      final changed = await ref.read(apiClientProvider).changePassword(
+      final changed = await ref
+          .read(apiClientProvider)
+          .changePassword(
             currentPassword: current.text,
             newPassword: next.text,
           );
@@ -429,13 +486,18 @@ class _SecurityPanelState extends ConsumerState<SecurityPanel> {
         await ref.read(authProvider.notifier).signOut();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password changed — sign in again on every device.')),
+            const SnackBar(
+              content: Text(
+                'Password changed — sign in again on every device.',
+              ),
+            ),
           );
         }
       }
     } on ApiError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -445,19 +507,27 @@ class _SecurityPanelState extends ConsumerState<SecurityPanel> {
     return PanelCard(
       title: 'Security',
       children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Change email'),
-          subtitle: const Text('A confirmation link goes to the new address'),
-          trailing: const RevisioIcon('expand'),
-          onTap: _changeEmail,
+        // Material ancestor required: a bare ListTile inside the card's
+        // DecoratedBox asserts (and wedges the lazy ListView) in debug builds.
+        Material(
+          color: Colors.transparent,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Change email'),
+            subtitle: const Text('A confirmation link goes to the new address'),
+            trailing: const RevisioIcon('expand'),
+            onTap: _changeEmail,
+          ),
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Change password'),
-          subtitle: const Text('Signs out every device, including this one'),
-          trailing: const RevisioIcon('expand'),
-          onTap: _changePassword,
+        Material(
+          color: Colors.transparent,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Change password'),
+            subtitle: const Text('Signs out every device, including this one'),
+            trailing: const RevisioIcon('expand'),
+            onTap: _changePassword,
+          ),
         ),
       ],
     );
@@ -506,7 +576,8 @@ class _ConsentPanelState extends ConsumerState<ConsentPanel> {
         };
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'We could not load your saved choices.');
+      if (mounted)
+        setState(() => _error = 'We could not load your saved choices.');
     }
   }
 
@@ -540,14 +611,21 @@ class _ConsentPanelState extends ConsumerState<ConsentPanel> {
         const SizedBox(height: 8),
         PanelSwitch(
           title: 'Essential',
-          subtitle: 'Strictly necessary for sessions, security and the account.',
+          subtitle:
+              'Strictly necessary for sessions, security and the account.',
           value: true,
           onChanged: (_) {},
         ),
         if (_choices == null && _error == null)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           )
         else if (_choices != null)
           for (final e in _consentLabels.entries)
@@ -558,7 +636,10 @@ class _ConsentPanelState extends ConsumerState<ConsentPanel> {
               onChanged: (v) => setState(() => _choices![e.key] = v),
             ),
         if (_error != null)
-          Text(_error!, style: TypeScale.fine.copyWith(color: context.destructive)),
+          Text(
+            _error!,
+            style: TypeScale.fine.copyWith(color: context.destructive),
+          ),
         const SizedBox(height: 8),
         FilledButton(
           onPressed: _saving || _choices == null ? null : _save,
@@ -567,8 +648,10 @@ class _ConsentPanelState extends ConsumerState<ConsentPanel> {
         if (_saved)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text('Your consent choices have been saved.',
-                style: TypeScale.fine.copyWith(color: context.mutedForeground)),
+            child: Text(
+              'Your consent choices have been saved.',
+              style: TypeScale.fine.copyWith(color: context.mutedForeground),
+            ),
           ),
       ],
     );
@@ -594,12 +677,15 @@ class _DataPanelState extends ConsumerState<DataPanel> {
       _notice = null;
     });
     try {
-      final bytes = await ref.read(apiClientProvider).exportTranscript(format: 'csv');
+      final bytes = await ref
+          .read(apiClientProvider)
+          .exportTranscript(format: 'csv');
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/revisio-transcript.csv');
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path, mimeType: 'text/csv')],
-          subject: 'Revisio transcript');
+      await Share.shareXFiles([
+        XFile(file.path, mimeType: 'text/csv'),
+      ], subject: 'Revisio transcript');
       setState(() => _notice = 'Transcript exported.');
     } catch (_) {
       setState(() => _notice = 'The export failed — try again.');
@@ -630,9 +716,14 @@ class _DataPanelState extends ConsumerState<DataPanel> {
           title: const Text('Delete account?'),
           content: Text(message),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: context.destructive),
+              style: FilledButton.styleFrom(
+                backgroundColor: context.destructive,
+              ),
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Delete forever'),
             ),
@@ -667,14 +758,21 @@ class _DataPanelState extends ConsumerState<DataPanel> {
     return PanelCard(
       title: 'Your data',
       children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Download transcript'),
-          subtitle: const Text('CSV of your reviews and progress'),
-          trailing: _busy
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const RevisioIcon('download'),
-          onTap: _busy ? null : _export,
+        Material(
+          color: Colors.transparent,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Download transcript'),
+            subtitle: const Text('CSV of your reviews and progress'),
+            trailing: _busy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const RevisioIcon('download'),
+            onTap: _busy ? null : _export,
+          ),
         ),
         classes.when(
           loading: () => const SizedBox.shrink(),
@@ -685,7 +783,12 @@ class _DataPanelState extends ConsumerState<DataPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
-                    Text('Classes', style: TypeScale.caption.copyWith(color: context.mutedForeground)),
+                    Text(
+                      'Classes',
+                      style: TypeScale.caption.copyWith(
+                        color: context.mutedForeground,
+                      ),
+                    ),
                     for (final c in list)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -698,13 +801,21 @@ class _DataPanelState extends ConsumerState<DataPanel> {
         OutlinedButton.icon(
           onPressed: _busy ? null : _deleteAccount,
           icon: RevisioIcon('remove', color: context.destructive),
-          label: Text('Delete account', style: TextStyle(color: context.destructive)),
-          style: OutlinedButton.styleFrom(side: BorderSide(color: context.destructive)),
+          label: Text(
+            'Delete account',
+            style: TextStyle(color: context.destructive),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: context.destructive),
+          ),
         ),
         if (_notice != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(_notice!, style: TypeScale.fine.copyWith(color: context.mutedForeground)),
+            child: Text(
+              _notice!,
+              style: TypeScale.fine.copyWith(color: context.mutedForeground),
+            ),
           ),
       ],
     );

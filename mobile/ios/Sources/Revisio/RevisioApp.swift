@@ -304,6 +304,10 @@ final class AppModel: ObservableObject {
     private let monitor = NWPathMonitor()
     private var accessToken: String?
     private var cardStartedAt = Date()
+    /// The role the session was issued with — known before `/me` ever loads.
+    private var sessionRole: String?
+    /// A `revisio://` destination held until there is a session to gate it by.
+    private var pendingDeepLink: Destination?
     /// Total XP when the session began, so its ladder movement can be judged.
     private var xpAtSessionStart: Int?
     /// XP the session has earned so far — the promotion check at session end.
@@ -361,8 +365,10 @@ final class AppModel: ObservableObject {
         loading = false
         signedIn = true
         name = stored.user.name
+        sessionRole = stored.user.role
         pending = store.pendingCount()
         refreshHome()
+        applyPendingDeepLink()
     }
 
     ///
@@ -382,11 +388,13 @@ final class AppModel: ObservableObject {
                     accessToken = session.accessToken
                     sessionStore.save(session)
                     name = session.user.name
+                    sessionRole = session.user.role
                     signedIn = true
                     loading = false
                     mfaStage = false
                     refreshHome()
                     loadSubjects()
+                    applyPendingDeepLink()
                 }
             } catch {
                 loading = false
@@ -430,6 +438,8 @@ final class AppModel: ObservableObject {
         accessToken = nil
         sessionStore.clear()
         store.clearPack()
+        sessionRole = nil
+        pendingDeepLink = nil
         signedIn = false
         name = ""
         home = nil
@@ -499,6 +509,8 @@ final class AppModel: ObservableObject {
     private func endSession(_ note: String) {
         accessToken = nil
         sessionStore.clear()
+        sessionRole = nil
+        pendingDeepLink = nil
         signedIn = false
         me = nil
         meLoading = false
@@ -611,6 +623,59 @@ final class AppModel: ObservableObject {
         case .teaching: if teacherData == nil { loadTeaching() }
         case .admin: if adminData == nil { loadAdmin() }
         }
+    }
+
+    // ── deep links ──────────────────────────────────────────────────────────
+
+    ///
+    /// A `revisio://` link the OS delivered. Staff destinations are role-gated
+    /// the same way the More sheet gates them: a learner who follows one is
+    /// told the area is for staff rather than shown a console that cannot load.
+    /// A link that arrives signed-out is held until the session answers who
+    /// is asking.
+    ///
+    func handleDeepLink(_ url: URL) {
+        guard let destination = Self.deepLinkDestination(url) else { return }
+        if signedIn { openDeepLink(destination) } else { pendingDeepLink = destination }
+    }
+
+    /// The destination a `revisio://` link names, or nil when it names none.
+    ///
+    /// The host is the web's own path word — `revisio://teacher` is `/teacher`,
+    /// `revisio://admin` is `/admin` — with `teaching` and `you` accepted as
+    /// the aliases the enum already answers to.
+    static func deepLinkDestination(_ url: URL) -> Destination? {
+        guard url.scheme?.lowercased() == "revisio" else { return nil }
+        let key = (url.host ?? url.pathComponents.dropFirst().first ?? "").lowercased()
+        switch key {
+        case "today": return .today
+        case "review": return .review
+        case "learn": return .learn
+        case "rank": return .rank
+        case "cram": return .cram
+        case "exam": return .exam
+        case "practice": return .practice
+        case "library": return .library
+        case "settings", "you": return .settings
+        case "teacher", "teaching": return .teaching
+        case "admin": return .admin
+        default: return nil
+        }
+    }
+
+    private func openDeepLink(_ destination: Destination) {
+        let role = me?.role ?? sessionRole
+        if destination.visibleTo(role) {
+            go(destination)
+        } else {
+            message = "That area is for staff accounts."
+        }
+    }
+
+    private func applyPendingDeepLink() {
+        guard let destination = pendingDeepLink else { return }
+        pendingDeepLink = nil
+        openDeepLink(destination)
     }
 
     func dismissMessage() { message = nil }
@@ -1698,6 +1763,7 @@ private struct RootView: View {
             // The account's own calm preference joins the system's: either one
             // settles the springs, whichever switch the learner used to ask.
             .environment(\.revisioReduceMotion, model.me?.prefs?.reducedMotion ?? false)
+            .onOpenURL { url in model.handleDeepLink(url) }
         }
     }
 

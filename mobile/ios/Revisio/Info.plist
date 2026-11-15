@@ -16,6 +16,18 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<!-- revisio:// links: staff destinations open in the app itself. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.revisio</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>revisio</string>
+			</array>
+		</dict>
+	</array>
 	<!-- Both come from build settings so `scripts/native/set-version.mjs` stamps
 	     one value into every platform. -->
 	<key>CFBundleShortVersionString</key>

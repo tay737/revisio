@@ -22,6 +22,10 @@ import 'features/rank/rank_screen.dart';
 import 'features/cram/cram_screen.dart';
 import 'features/review/review_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/staff/admin_screen.dart';
+import 'features/staff/staff_bits.dart';
+import 'features/staff/student_progress_screen.dart';
+import 'features/staff/teaching_screen.dart';
 import 'features/today/today_screen.dart';
 
 const _publicPaths = {
@@ -96,6 +100,33 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/cram',
         builder: (context, state) => CramScreen(
           preselectedTopicId: state.uri.queryParameters['topic'],
+        ),
+      ),
+      // Staff consoles — pushed routes outside the five-tab shell. The role
+      // gate lives in StaffGate (teacher+developer for Teaching, developer
+      // for Admin), the same split the native `Destination.visibleTo` draws.
+      GoRoute(
+        path: '/teacher',
+        builder: (context, state) => const StaffGate(
+          admin: false,
+          child: TeachingScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const StaffGate(
+          admin: true,
+          child: AdminScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/staff/student',
+        builder: (context, state) => StaffGate(
+          admin: false,
+          child: StudentProgressScreen(
+            userId: state.uri.queryParameters['userId'] ?? '',
+            name: state.uri.queryParameters['name'] ?? 'Student',
+          ),
         ),
       ),
       StatefulShellRoute.indexedStack(

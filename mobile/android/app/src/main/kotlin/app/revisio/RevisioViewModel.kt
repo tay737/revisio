@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.revisio.engine.CramSession
@@ -305,6 +306,10 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
 
     private var accessToken: String? = null
     private var cardStartedAt: Long = System.currentTimeMillis()
+    /** The role the session was issued with — known before `/me` ever loads. */
+    private var sessionRole: String? = null
+    /** A `revisio://` destination held until there is a session to gate it by. */
+    private var pendingDeepLink: Destination? = null
     /** XP the session has earned so far — the promotion check at session end. */
     private var xpThisSession = 0
 
@@ -370,7 +375,9 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 online = isOnline(),
             )
         }
+        sessionRole = stored.user.role
         refreshHome()
+        applyPendingDeepLink()
     }
 
     /** What a sign-in attempt ended in, told to the screen that asked. */
@@ -401,8 +408,10 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update {
                     it.copy(loading = false, signedIn = true, name = session.user.name, email = session.user.email)
                 }
+                sessionRole = session.user.role
                 refreshHome()
                 loadSubjects()
+                applyPendingDeepLink()
                 onDone(SignInOutcome.SignedIn)
             } catch (e: RevisioApi.MfaRequiredException) {
                 _state.update { it.copy(loading = false) }
@@ -451,6 +460,8 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         accessToken = null
         sessionStore.clear()
         store.clearPack()
+        sessionRole = null
+        pendingDeepLink = null
         _state.update { UiState(loading = false, signedIn = false, online = it.online) }
     }
 
@@ -517,6 +528,8 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
     private fun endSession(note: String) {
         accessToken = null
         sessionStore.clear()
+        sessionRole = null
+        pendingDeepLink = null
         _state.update {
             it.copy(
                 signedIn = false,
@@ -659,6 +672,35 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
 
     /** `selectTab` under its old name, for the shell's bar. */
     fun selectTab(tab: Destination) = go(tab)
+
+    // ── deep links ──────────────────────────────────────────────────────────
+
+    /**
+     * A `revisio://` link the OS delivered. Staff destinations are role-gated
+     * the same way the More sheet gates them: a learner who follows one is
+     * told the area is for staff rather than shown a console that cannot load.
+     * A link that arrives signed-out is held until the session answers who
+     * is asking.
+     */
+    fun onDeepLink(uri: Uri) {
+        val destination = deepLinkDestination(uri) ?: return
+        if (_state.value.signedIn) openDeepLink(destination) else pendingDeepLink = destination
+    }
+
+    private fun openDeepLink(destination: Destination) {
+        val role = _state.value.me?.role ?: sessionRole
+        if (destination.visibleTo(role)) {
+            go(destination)
+        } else {
+            _state.update { it.copy(message = "That area is for staff accounts.") }
+        }
+    }
+
+    private fun applyPendingDeepLink() {
+        val destination = pendingDeepLink ?: return
+        pendingDeepLink = null
+        openDeepLink(destination)
+    }
 
     fun openMore() = _state.update { it.copy(moreOpen = true) }
 
