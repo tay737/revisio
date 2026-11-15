@@ -17,8 +17,8 @@
 // are transcribed from mark schemes (id, ao_split, markSchemeMd, board, year);
 // these are generated-from-notes quiz cards for the daily review queue.
 
-import { generateClozeProposals, type ClozeProposal } from './cloze-gen';
-import { gradeFlashcard, type AcceptedAnswer } from './grading';
+import { generateClozeProposals, sentencesFromMarkdown, STOPLIST, type ClozeProposal } from './cloze-gen';
+import { fullyNormalized, gradeFlashcard, type AcceptedAnswer } from './grading';
 import type { LessonSource } from './cloze-gen';
 
 export type GeneratedCard = {
@@ -50,7 +50,7 @@ const DISTRACTOR_BAD =
     'section', 'page', 'activity', 'task', 'tasks', 'figure', 'table',
   ].map((w) => w.toLowerCase()));
 
-const WORD_RE = /[\p{L}][\\p{L}'’-]*|\d+(?:[.,]\d+)?/gu;
+const WORD_RE = /[\p{L}][\p{L}'’-]*|\d+(?:[.,]\d+)?/gu;
 
 function phraseCandidates(md: string): string[] {
   const out: string[] = [];
@@ -67,6 +67,7 @@ function phraseCandidates(md: string): string[] {
       .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
       .replace(/(\*\*|__|\*|`)/g, '')
       .replace(/\${1,2}([^$]*)\${1,2}/g, '$1')
+      .replace(/(\d)['’]s\b/g, '$1') // "2018's" → "2018", not "2018" + "s"
       .replace(/\s+/g, ' ')
       .trim();
     if (prose.length < 8) continue;
@@ -77,21 +78,27 @@ function phraseCandidates(md: string): string[] {
       const head = tokens[start];
       const bl = head.toLowerCase();
       if (bl.length < 3) continue;
-      if (DISTRACTOR_BAD.has(bl)) continue;
+      if (DISTRACTOR_BAD.has(bl) || STOPLIST.has(bl)) continue;
       if (/^(.)\1+$/.test(head)) continue;
       // 1-word terms
       out.push(head);
+      // A span is only a term if it does not end on glue ("protection of")
+      // and carries at most one stopword inside ("health and safety" is a
+      // term; "sits alongside the" is not).
+      const isGlue = (w: string) => STOPLIST.has(w.toLowerCase());
+      const spanOk = (words: string[]) =>
+        !isGlue(words[words.length - 1]) && words.filter(isGlue).length <= 1;
       if (tokens.length > start + 1) {
         const two = `${head} ${tokens[start + 1]}`;
         const b2 = two.toLowerCase();
-        if (b2.length >= 5 && b2.length <= 70 && !DISTRACTOR_BAD.has(b2)) {
+        if (b2.length >= 5 && b2.length <= 70 && !DISTRACTOR_BAD.has(b2) && spanOk([head, tokens[start + 1]])) {
           out.push(two);
         }
       }
       if (tokens.length > start + 2) {
         const three = `${head} ${tokens[start + 1]} ${tokens[start + 2]}`;
         const b3 = three.toLowerCase();
-        if (b3.length >= 6 && b3.length <= 90 && !DISTRACTOR_BAD.has(b3)) {
+        if (b3.length >= 6 && b3.length <= 90 && !DISTRACTOR_BAD.has(b3) && spanOk([head, tokens[start + 1], tokens[start + 2]])) {
           out.push(three);
         }
       }
@@ -128,27 +135,44 @@ export function distractorsFromNotes(
   return picked;
 }
 
-/** A short answerable phrase that appears in this lesson's prose. */
+/** A short answerable phrase that appears in this lesson's prose — but only a
+ *  *term*: it must recur in the notes (count ≥ 2), and once a longer term is
+ *  taken, its fragments ("Data", "Data Protection") step aside so one fact
+ *  never becomes three cards. */
 function answerablePhrases(md: string, exclude: Set<string>): string[] {
-  const out: string[] = [];
+  const hay = ` ${fullyNormalized(md)} `;
+  const scored: { phrase: string; count: number; words: number }[] = [];
   const seen = new Set<string>();
   for (const p of phraseCandidates(md)) {
     const key = p.toLowerCase();
-    if (key.length < 3) continue;
-    if (exclude.has(key)) continue;
-    if (seen.has(key)) continue;
+    if (key.length < 3 || exclude.has(key) || seen.has(key)) continue;
     seen.add(key);
-    out.push(p);
+    const needle = ` ${fullyNormalized(p)} `;
+    let count = 0;
+    for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + needle.length)) count += 1;
+    const words = (p.match(WORD_RE) ?? []).length;
+    // A lone word earns a card only when it is a real term: recurring often
+    // enough and long enough that it is not just a common noun ("request",
+    // "limitation") that happens to appear in two sentences.
+    if (count < 2 || (words === 1 && (count < 3 || p.replace(/[^\p{L}\p{N}]/gu, '').length < 5))) continue;
+    scored.push({ phrase: p, count, words });
+  }
+  scored.sort((a, b) => b.words - a.words || b.count - a.count || a.phrase.localeCompare(b.phrase));
+  const out: string[] = [];
+  const outKeys: { padded: string; bigrams: Set<string> }[] = [];
+  for (const s of scored) {
+    const norm = fullyNormalized(s.phrase);
+    const key = ` ${norm} `;
+    const tokens = norm.split(' ');
+    const bigrams = new Set(tokens.slice(0, -1).map((w, i) => `${w} ${tokens[i + 1]}`));
+    const clashes = outKeys.some(
+      (k) => k.padded.includes(key) || key.includes(k.padded) || [...bigrams].some((b) => k.bigrams.has(b)),
+    );
+    if (clashes) continue;
+    out.push(s.phrase);
+    outKeys.push({ padded: key, bigrams });
   }
   return out;
-}
-
-/** Plain-English explanation for a generated card drawn from the note context. */
-export function noteAsExplanation(lessonTitle: string, kind: GeneratedCard['kind'], ref?: string): string {
-  const bits = [`Generated from "${lessonTitle}".`];
-  if (kind === 'mcq') bits.push('One correct option; all others were drawn from the same notes.');
-  if (kind === 'flashcard') bits.push('Marked by the keywords listed with the card; partial coverage can score part marks.');
-  return bits.join(' ');
 }
 
 // ── public generators ────────────────────────────────────────────────────────
@@ -167,7 +191,8 @@ export function generateClozeFromNotes(
     topicId: '',
     lessonTitle: p.lessonTitle,
     textWithBlank: p.textWithBlank,
-    explanationMd: `Generated from "${p.lessonTitle}".`,
+    answer: p.answer,
+    explanationMd: '',
     specRefs: lessons.find((l) => l.title === p.lessonTitle)?.specRefs,
     generated: true as const,
   }));
@@ -208,7 +233,7 @@ export function generateFlashcardsFromNotes(
         lessonTitle: lesson.title,
         prompt,
         answer: phrase,
-        explanationMd: noteAsExplanation(lesson.title, 'flashcard'),
+        explanationMd: '',
         specRefs: lesson.specRefs,
         generated: true as const,
       });
@@ -259,10 +284,10 @@ export function generateMcqFromNotes(
         kind: 'mcq',
         topicId: '',
         lessonTitle: lesson.title,
-        question: mcqStemFor(lesson, correct),
+        question: mcqStemFor(correct),
         options,
         correctOptionText: correct,
-        explanationMd: noteAsExplanation(lesson.title, 'mcq'),
+        explanationMd: '',
         specRefs: lesson.specRefs,
         generated: true as const,
       });
@@ -274,30 +299,18 @@ export function generateMcqFromNotes(
 // ── small helpers (pure, over little text) ──────────────────────────────────
 
 function cueSentenceFor(lesson: LessonSource, phrase: string): string | null {
-  // pick the first prose sentence that contains the phrase (case-insensitive)
-  // and is long enough to be a usable cue. If none, fall back to a generic cue
-  // naming the phrase, which is still honest about where it came from.
+  // pick the first clean prose sentence that contains the phrase
+  // (case-insensitive); sentencesFromMarkdown has already stripped headings,
+  // markup and list markers, so the cue never shows raw note syntax.
   const target = phrase.toLowerCase();
-  const prose = `${lesson.detailedMd}\n\n${lesson.summaryMd}`;
-  const sentences = prose
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length >= 20 && s.toLowerCase().includes(target));
-  if (sentences.length) {
-    // strip markup lightly so the cue reads cleanly
-    return sentences[0]
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/(\*\*|__|\*|`)/g, '')
-      .replace(/\${1,2}([^$]*)\${1,2}/g, '$1')
-      .slice(0, 320);
-  }
-  // generic cue: name the topic and the phrase
-  return `What ${(phrase.match(WORD_RE) ?? []).slice(0, 6).join(' ')} means in ${lesson.title}?`;
+  const sentences = sentencesFromMarkdown(`${lesson.detailedMd}\n\n${lesson.summaryMd}`)
+    .filter((s) => s.toLowerCase().includes(target));
+  return sentences.length ? sentences[0].slice(0, 320) : null;
 }
 
-function mcqStemFor(lesson: LessonSource, correct: string): string {
+function mcqStemFor(correct: string): string {
   const head = (correct.match(WORD_RE) ?? []).slice(0, 4).join(' ');
-  return `Select the option that best matches ${head} as covered in ${lesson.title}.`;
+  return `Which option correctly matches ${head}?`;
 }
 
 function shuffle<T>(arr: T[]): T[] {
