@@ -279,7 +279,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nothing more is due right now.')),
+          const SnackBar(
+            content: Text('More cards could not be loaded — try again.'),
+          ),
         );
       }
     }
@@ -711,18 +713,24 @@ class _OptionTile extends StatelessWidget {
             ? context.foreground
             : context.border;
     }
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(RadiusTokens.md),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: kTouchTarget),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(RadiusTokens.md),
-          border: Border.all(color: border, width: selected ? 2 : 1),
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(RadiusTokens.md),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: kTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(RadiusTokens.md),
+            border: Border.all(color: border, width: selected ? 2 : 1),
+          ),
+          child: Text(label, style: TypeScale.body),
         ),
-        child: Text(label, style: TypeScale.body),
       ),
     );
   }

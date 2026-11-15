@@ -426,33 +426,37 @@ class _NavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.push(route),
-      borderRadius: BorderRadius.circular(RadiusTokens.md),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: kTouchTarget),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              RevisioIcon(icon, size: 18, color: context.mutedForeground),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: TypeScale.body),
-                    Text(
-                      subtitle,
-                      style: TypeScale.fine.copyWith(
-                        color: context.mutedForeground,
+    return Semantics(
+      button: true,
+      label: '$title. $subtitle',
+      child: InkWell(
+        onTap: () => context.push(route),
+        borderRadius: BorderRadius.circular(RadiusTokens.md),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kTouchTarget),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                RevisioIcon(icon, size: 18, color: context.mutedForeground),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: TypeScale.body),
+                      Text(
+                        subtitle,
+                        style: TypeScale.fine.copyWith(
+                          color: context.mutedForeground,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              RevisioIcon('expand', size: 14, color: context.mutedForeground),
-            ],
+                RevisioIcon('expand', size: 14, color: context.mutedForeground),
+              ],
+            ),
           ),
         ),
       ),

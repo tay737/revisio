@@ -29,6 +29,7 @@ class CramScreen extends ConsumerStatefulWidget {
 
 class _CramScreenState extends ConsumerState<CramScreen> {
   List<Topic>? _topics;
+  bool _topicsFailed = false;
   final Set<String> _picked = {};
   String _density = 'summary';
   double _maxPerTopic = 10;
@@ -48,13 +49,14 @@ class _CramScreenState extends ConsumerState<CramScreen> {
       if (!mounted) return;
       setState(() {
         _topics = topics;
+        _topicsFailed = false;
         final pre = widget.preselectedTopicId;
         if (pre != null && topics.any((t) => t.id == pre && t.questions > 0)) {
           _picked.add(pre);
         }
       });
     } catch (_) {
-      if (mounted) setState(() => _topics = const []);
+      if (mounted) setState(() => _topicsFailed = true);
     }
   }
 
@@ -128,7 +130,30 @@ class _CramScreenState extends ConsumerState<CramScreen> {
       appBar: AppBar(title: const Text('Cram')),
       body: SafeArea(
         child: topics == null
-            ? const Center(child: CircularProgressIndicator())
+            ? _topicsFailed
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Topics could not be loaded.',
+                            style: TypeScale.body.copyWith(
+                              color: context.mutedForeground,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          RevisioSecondaryButton(
+                            compact: true,
+                            onPressed: () {
+                              setState(() => _topicsFailed = false);
+                              _load();
+                            },
+                            child: const Text('Try again'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : const Center(child: CircularProgressIndicator())
             : ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
@@ -313,40 +338,45 @@ class _TopicChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(RadiusTokens.pill),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: kTouchTarget),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? context.primary : context.card,
-          borderRadius: BorderRadius.circular(RadiusTokens.pill),
-          border: Border.all(
-            color: selected ? context.primary : context.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (selected) ...[
-              RevisioIcon(
-                'correct',
-                size: 13,
-                color: context.primaryForeground,
-              ),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              name,
-              style: TypeScale.body.copyWith(
-                color: selected
-                    ? context.primaryForeground
-                    : context.foreground,
-                fontWeight: FontWeight.w600,
-              ),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: name,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(RadiusTokens.pill),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: kTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? context.primary : context.card,
+            borderRadius: BorderRadius.circular(RadiusTokens.pill),
+            border: Border.all(
+              color: selected ? context.primary : context.border,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                RevisioIcon(
+                  'correct',
+                  size: 13,
+                  color: context.primaryForeground,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                name,
+                style: TypeScale.body.copyWith(
+                  color: selected
+                      ? context.primaryForeground
+                      : context.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -260,6 +260,7 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
               _Swatch(
                 color: Color(_avatarColorHex[c]!),
                 selected: _avatarColor == c,
+                label: 'Avatar colour $c',
                 onTap: () {
                   setState(() => _avatarColor = c);
                   _patch({'avatarColor': c});
@@ -280,6 +281,7 @@ class _AppearancePanelState extends ConsumerState<AppearancePanel> {
               _Swatch(
                 color: Color(_bannerColorHex[c]!),
                 selected: _bannerColor == c,
+                label: 'Banner colour $c',
                 onTap: () {
                   setState(() => _bannerColor = c);
                   _patch({'bannerColor': c});
@@ -343,27 +345,34 @@ class _Swatch extends StatelessWidget {
   const _Swatch({
     required this.color,
     required this.selected,
+    required this.label,
     required this.onTap,
   });
 
   final Color color;
   final bool selected;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(RadiusTokens.pill),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? context.foreground : context.border,
-            width: selected ? 3 : 1,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(RadiusTokens.pill),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? context.foreground : context.border,
+              width: selected ? 3 : 1,
+            ),
           ),
         ),
       ),
