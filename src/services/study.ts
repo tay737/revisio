@@ -568,7 +568,12 @@ export async function submitExam(userId: string, topicIds: string[], submission:
       const correct = sub.selectedOptionId === q.correctOptionId;
       if (correct) score += q.marks;
       detail.push({
-        questionId: q.id, userAnswer: sub.selectedOptionId ?? '', awarded: correct ? q.marks : 0, marks: q.marks,
+        questionId: q.id,
+        // MCQ submissions carry the chosen option id; the result view needs the words.
+        userAnswer: sub.selectedOptionId
+          ? (q.options ?? []).find((o) => o.id === sub.selectedOptionId)?.text ?? sub.selectedOptionId
+          : '',
+        awarded: correct ? q.marks : 0, marks: q.marks,
         correct, feedback: correct ? 'Correct.' : 'Incorrect. The mark scheme shows where the marks were.',
         questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
         markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
