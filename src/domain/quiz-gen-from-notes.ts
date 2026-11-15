@@ -34,6 +34,9 @@ export type GeneratedCard = {
   question?: string;
   options?: string[];
   correctOptionText?: string;
+  // flashcard grading keywords (phrases the learner's answer must contain);
+  // falls back to the full answer text when absent.
+  keywords?: string[];
   explanationMd: string;
   specRefs?: string;
   generated: true;
@@ -198,13 +201,65 @@ export function generateClozeFromNotes(
   }));
 }
 
+/** Definition-shaped sentences: "X is Y", "X are Y", "X means Y",
+ *  "X refers to Y". The term becomes the prompt, the predicate the answer —
+ *  so the cue never contains the answer verbatim. */
+const DEF_RE = /^(.{2,90}?)\s+(?:is|are|means|refers to|is defined as)\s+(.{6,240})$/;
+
+function termLooksAnswerable(term: string): boolean {
+  const words = term.match(WORD_RE) ?? [];
+  if (words.length === 0 || words.length > 8) return false;
+  const first = words[0]?.toLowerCase() ?? '';
+  const last = words[words.length - 1]?.toLowerCase() ?? '';
+  if (STOPLIST.has(first) || STOPLIST.has(last) || DISTRACTOR_BAD.has(first)) return false;
+  if (/^\d/.test(first)) return false;
+  // a real term is a noun phrase, not a clause fragment: it should not end
+  // on a verb-ish stopword and should carry at least one content word ≥4.
+  return words.some((w) => w.replace(/[^\p{L}\p{N}]/gu, '').length >= 4);
+}
+
+function tidyDefinition(raw: string): string {
+  let d = raw.replace(/\s+/g, ' ').trim().replace(/[.]+$/, '');
+  // cut trailing clause chains ("..., which ...", "; ...") to keep answers tight
+  const cut = d.search(/,\s+(?:which|who|that|because|so|and|but|or)\b|;\s/);
+  if (cut > 30) d = d.slice(0, cut).trim().replace(/[,;:]$/, '');
+  const words = d.match(WORD_RE) ?? [];
+  if (words.length > 30) d = words.slice(0, 30).join(' ');
+  return d;
+}
+
+/** Grading keywords for a definition answer: the longest content phrases in
+ *  the predicate, so a correct paraphrase still contains them. */
+function keywordsForDefinition(definition: string): string[] {
+  const phrases = phraseCandidates(definition)
+    .map((p) => p.trim())
+    .filter((p) => {
+      const w = (p.match(WORD_RE) ?? []).length;
+      return w >= 1 && p.length >= 4;
+    })
+    .sort((a, b) => (b.match(WORD_RE) ?? []).length - (a.match(WORD_RE) ?? []).length || b.length - a.length);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of phrases) {
+    const key = p.toLowerCase();
+    if (seen.has(key) || out.some((o) => o.toLowerCase().includes(key) || key.includes(o.toLowerCase()))) continue;
+    seen.add(key);
+    out.push(p);
+    if (out.length >= 3) break;
+  }
+  if (out.length === 0) {
+    const w = (definition.match(WORD_RE) ?? []).filter((x) => x.replace(/[^\p{L}\p{N}]/gu, '').length >= 6).sort((a, b) => b.length - a.length);
+    if (w[0]) out.push(w[0]);
+  }
+  return out;
+}
+
 /** Keyword-marked flashcards generated from the same notes.
  *
- * A flashcard is honest here only when the notes actually name a short answer
- * phrase and the surrounding sentence gives the cue. We pick answer phrases
- * that appear in the prose and write a prompt that leads to them.
- * `gradeFlashcard` then marks partial coverage, which is the whole reason
- * flashcards use keywords rather than exact-answer matching.
+ * Cards are term→definition pairs lifted from definition-shaped sentences
+ * ("X is Y", "X means Y"). The prompt asks what the term means, so the answer
+ * is never visible on the card, and `keywordsForDefinition` gives the grader
+ * the phrases a correct answer should contain.
  */
 export function generateFlashcardsFromNotes(
   lessons: LessonSource[],
@@ -212,27 +267,29 @@ export function generateFlashcardsFromNotes(
   max: number,
 ): GeneratedCard[] {
   const existingKeys = new Set(existingPrompts.map((p) => p.toLowerCase()));
-  const usedAnswers = new Set<string>();
+  const usedTerms = new Set<string>();
   const cards: GeneratedCard[] = [];
 
   for (const lesson of lessons) {
     if (cards.length >= max) break;
-    const prose = `${lesson.detailedMd}\n\n${lesson.summaryMd}`;
-    const phrases = answerablePhrases(prose, existingKeys);
-    for (const phrase of phrases) {
+    const sentences = sentencesFromMarkdown(`${lesson.detailedMd}\n\n${lesson.summaryMd}`);
+    for (const sentence of sentences) {
       if (cards.length >= max) break;
-      const key = phrase.toLowerCase();
-      if (usedAnswers.has(key)) continue;
-      usedAnswers.add(key);
-      // prompt = a short cue lifted from the same note, not the answer itself
-      const prompt = cueSentenceFor(lesson, phrase);
-      if (!prompt) continue;
+      const m = sentence.trim().match(DEF_RE);
+      if (!m) continue;
+      const term = m[1].trim().replace(/^["'“”]+|["'“”.,;:!?]+$/g, '');
+      const definition = tidyDefinition(m[2]);
+      const key = term.toLowerCase();
+      if (!termLooksAnswerable(term) || key.length < 3 || usedTerms.has(key) || existingKeys.has(`what does "${key}" mean?`)) continue;
+      if (definition.split(/\s+/).length < 3) continue;
+      usedTerms.add(key);
       cards.push({
         kind: 'flashcard',
         topicId: '',
         lessonTitle: lesson.title,
-        prompt,
-        answer: phrase,
+        prompt: `What does "${term}" mean?`,
+        answer: definition,
+        keywords: keywordsForDefinition(definition),
         explanationMd: '',
         specRefs: lesson.specRefs,
         generated: true as const,
@@ -242,76 +299,67 @@ export function generateFlashcardsFromNotes(
   return cards;
 }
 
-/** MCQ with one correct option and the rest drawn from the same notes.
- *
- * Correct option is a short answerable phrase from the note. Distractors are
- * other short registrable phrases from the same lesson (falling back to the
- * topic's other lessons), so every option is something that actually appeared
- * in the notes. We prefer 4 options; if the notes don't yield enough
- * distractors we fall back to fewer and mark the card as short-option.
- */
+/** MCQ built on cloze proposals: the question is the gapped sentence itself,
+ *  so the stem never leaks the answer, and every option is a term that
+ *  actually appears in the notes. Distractors are filtered to phrases of a
+ *  similar length and word count to the correct answer — random note phrases
+ *  of a different shape give the answer away. Cards with fewer than three
+ *  plausible distractors are skipped rather than shipped weak. */
 export function generateMcqFromNotes(
   lessons: LessonSource[],
   existingQuestions: string[],
   max: number,
 ): GeneratedCard[] {
-  const allMdByLesson = lessons.map((l) => `${l.detailedMd}\n\n${l.summaryMd}`);
   const existingKeys = new Set(existingQuestions.map((q) => q.toLowerCase()));
   const usedCorrect = new Set<string>();
   const usedDistractors = new Set<string>();
   const cards: GeneratedCard[] = [];
 
-  for (let li = 0; li < lessons.length && cards.length < max; li++) {
-    const lesson = lessons[li];
-    const phrases = answerablePhrases(allMdByLesson[li], existingKeys);
-    for (const correct of phrases) {
-      if (cards.length >= max) break;
-      const key = correct.toLowerCase();
-      if (usedCorrect.has(key)) continue;
-      usedCorrect.add(key);
+  const proposals = generateClozeProposals(lessons, [], { max: max * 4 });
+  const distractorPool = answerablePhrases(
+    lessons.map((l) => `${l.detailedMd}\n\n${l.summaryMd}`).join('\n'),
+    new Set(),
+  );
 
-      const otherMd = allMdByLesson.filter((_, i) => i !== li);
-      const dist = distractorsFromNotes(otherMd.join('\n'), [], usedDistractors, 3);
-      if (dist.length === 0) continue;
-      usedDistractors.add(key);
-      for (const d of dist) usedDistractors.add(d.toLowerCase());
+  for (const p of proposals) {
+    if (cards.length >= max) break;
+    const qKey = (p.textWithBlank ?? '').toLowerCase();
+    const aKey = (p.answer ?? '').toLowerCase();
+    if (!qKey || !aKey || existingKeys.has(qKey) || usedCorrect.has(aKey)) continue;
 
-      const options = shuffle([correct, ...dist]).slice(0, 4);
-      const correctIdx = options.indexOf(correct);
-      if (correctIdx < 0) continue;
-
-      cards.push({
-        kind: 'mcq',
-        topicId: '',
-        lessonTitle: lesson.title,
-        question: mcqStemFor(correct),
-        options,
-        correctOptionText: correct,
-        explanationMd: '',
-        specRefs: lesson.specRefs,
-        generated: true as const,
-      });
+    const aWords = (p.answer ?? '').split(/\s+/).length;
+    const dist: string[] = [];
+    for (const cand of distractorPool) {
+      if (dist.length >= 3) break;
+      const cKey = cand.toLowerCase();
+      if (cKey === aKey || usedDistractors.has(cKey) || usedCorrect.has(cKey)) continue;
+      if (aKey.includes(cKey) || cKey.includes(aKey)) continue;
+      const cWords = cand.split(/\s+/).length;
+      if (Math.abs(cWords - aWords) > 2) continue;
+      if (Math.abs(cand.length - (p.answer ?? '').length) > (p.answer ?? '').length) continue;
+      dist.push(cand);
+      usedDistractors.add(cKey);
     }
+    if (dist.length < 3) continue;
+
+    usedCorrect.add(aKey);
+    const options = shuffle([p.answer, ...dist]).slice(0, 4);
+    cards.push({
+      kind: 'mcq',
+      topicId: '',
+      lessonTitle: p.lessonTitle,
+      question: p.textWithBlank,
+      options,
+      correctOptionText: p.answer,
+      explanationMd: '',
+      specRefs: lessons.find((l) => l.title === p.lessonTitle)?.specRefs,
+      generated: true as const,
+    });
   }
   return cards;
 }
 
 // ── small helpers (pure, over little text) ──────────────────────────────────
-
-function cueSentenceFor(lesson: LessonSource, phrase: string): string | null {
-  // pick the first clean prose sentence that contains the phrase
-  // (case-insensitive); sentencesFromMarkdown has already stripped headings,
-  // markup and list markers, so the cue never shows raw note syntax.
-  const target = phrase.toLowerCase();
-  const sentences = sentencesFromMarkdown(`${lesson.detailedMd}\n\n${lesson.summaryMd}`)
-    .filter((s) => s.toLowerCase().includes(target));
-  return sentences.length ? sentences[0].slice(0, 320) : null;
-}
-
-function mcqStemFor(correct: string): string {
-  const head = (correct.match(WORD_RE) ?? []).slice(0, 4).join(' ');
-  return `Which option correctly matches ${head}?`;
-}
 
 function shuffle<T>(arr: T[]): T[] {
   const out = arr.slice();

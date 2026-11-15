@@ -349,7 +349,7 @@ export const PATCH = route(async (req: NextRequest) => {
         });
         await db.insert(cardAnswers).values({
           id: crypto.randomUUID(), cardId, text: card.answer ?? '', isPrimary: true,
-          keywords: [{ required: true, phrase: card.answer ?? '', synonyms: [] }],
+          keywords: (card.keywords?.length ? card.keywords : [card.answer ?? '']).map((phrase) => ({ required: true, phrase, synonyms: [] })),
           minPoints: 1,
         });
       } else {
