@@ -347,10 +347,13 @@ export const PATCH = route(async (req: NextRequest) => {
         await db.insert(cards).values({
           id: cardId, topicId: topic.id, kind: 'flashcard', prompt: card.prompt ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
         });
+        // First keyword is the anchor a correct answer must contain; the rest
+        // are supporting phrases — all-required would fail honest paraphrases.
+        const fcKeywords = card.keywords?.length ? card.keywords : [card.answer ?? ''];
         await db.insert(cardAnswers).values({
           id: crypto.randomUUID(), cardId, text: card.answer ?? '', isPrimary: true,
-          keywords: (card.keywords?.length ? card.keywords : [card.answer ?? '']).map((phrase) => ({ required: true, phrase, synonyms: [] })),
-          minPoints: 1,
+          keywords: fcKeywords.map((phrase, i) => ({ required: i === 0, phrase, synonyms: [] })),
+          minPoints: fcKeywords.length > 1 ? 2 : 1,
         });
       } else {
         const correctId = `o${card.options?.indexOf(card.correctOptionText ?? '') ?? 0}`;

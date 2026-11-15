@@ -372,9 +372,13 @@ async function main() {
           prompt: card.prompt ?? '', explanationMd: card.explanationMd ?? '',
           visibility: 'public', ownerId: null, generated: true,
         });
+        // Same grading shape as POST /api/v1/content generate_from_notes:
+        // first keyword anchors the answer, the rest are supporting phrases.
+        const fcKeywords = card.keywords?.length ? card.keywords : [card.answer ?? ''];
         await db.insert(cardAnswers).values({
           id: crypto.randomUUID(), cardId, text: card.answer ?? '', isPrimary: true,
-          keywords: [{ required: true, phrase: card.answer ?? '', synonyms: [] }], minPoints: 1,
+          keywords: fcKeywords.map((phrase, i) => ({ required: i === 0, phrase, synonyms: [] })),
+          minPoints: fcKeywords.length > 1 ? 2 : 1,
         });
       } else {
         if (seenMcq.has(card.question ?? '')) continue;

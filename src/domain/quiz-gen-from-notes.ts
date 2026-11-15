@@ -90,7 +90,7 @@ function phraseCandidates(md: string): string[] {
       // term; "sits alongside the" is not).
       const isGlue = (w: string) => STOPLIST.has(w.toLowerCase());
       const spanOk = (words: string[]) =>
-        !isGlue(words[words.length - 1]) && words.filter(isGlue).length <= 1;
+        !isGlue(words[0]) && !isGlue(words[words.length - 1]) && words.filter(isGlue).length <= 1;
       if (tokens.length > start + 1) {
         const two = `${head} ${tokens[start + 1]}`;
         const b2 = two.toLowerCase();
@@ -235,7 +235,7 @@ function keywordsForDefinition(definition: string): string[] {
     .map((p) => p.trim())
     .filter((p) => {
       const w = (p.match(WORD_RE) ?? []).length;
-      return w >= 1 && p.length >= 4;
+      return w >= 1 && p.length >= 5;
     })
     .sort((a, b) => (b.match(WORD_RE) ?? []).length - (a.match(WORD_RE) ?? []).length || b.length - a.length);
   const out: string[] = [];
@@ -269,6 +269,9 @@ export function generateFlashcardsFromNotes(
   const existingKeys = new Set(existingPrompts.map((p) => p.toLowerCase()));
   const usedTerms = new Set<string>();
   const cards: GeneratedCard[] = [];
+  // A term that is just the lesson's own title ("Data Protection Act 2018")
+  // tests nothing — the card would ask what the topic is called.
+  const titleBlob = ` ${lessons.map((l) => fullyNormalized(l.title)).join(' ')} `;
 
   for (const lesson of lessons) {
     if (cards.length >= max) break;
@@ -278,9 +281,13 @@ export function generateFlashcardsFromNotes(
       const m = sentence.trim().match(DEF_RE);
       if (!m) continue;
       const term = m[1].trim().replace(/^["'“”]+|["'“”.,;:!?]+$/g, '');
-      const definition = tidyDefinition(m[2]);
+      // The regex predicate can run past the real sentence end when the next
+      // sentence starts lowercase (summary bullets) — keep only the first
+      // sentence of what it captured.
+      const definition = (tidyDefinition(m[2]).split(/(?<=[.!?])\s+/)[0] ?? '').trim();
       const key = term.toLowerCase();
       if (!termLooksAnswerable(term) || key.length < 3 || usedTerms.has(key) || existingKeys.has(`what does "${key}" mean?`)) continue;
+      if (titleBlob.includes(` ${fullyNormalized(term)} `)) continue;
       if (definition.split(/\s+/).length < 3) continue;
       usedTerms.add(key);
       cards.push({
@@ -316,10 +323,14 @@ export function generateMcqFromNotes(
   const cards: GeneratedCard[] = [];
 
   const proposals = generateClozeProposals(lessons, [], { max: max * 4 });
+  // Foils that are just the lesson's own title ("Data Protection Act",
+  // "Act 2018") give the answer away — they can never plausibly complete the
+  // gap, so they are excluded up front.
+  const titleBlob = ` ${lessons.map((l) => fullyNormalized(l.title)).join(' ')} `;
   const distractorPool = answerablePhrases(
     lessons.map((l) => `${l.detailedMd}\n\n${l.summaryMd}`).join('\n'),
     new Set(),
-  );
+  ).filter((p) => !titleBlob.includes(` ${fullyNormalized(p)} `));
 
   for (const p of proposals) {
     if (cards.length >= max) break;
