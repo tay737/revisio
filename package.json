@@ -27,6 +27,7 @@
     "verify:pronouns": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-pronouns.ts",
     "verify:season-write": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-season-write.ts",
     "verify:analytics": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-analytics.ts",
+    "verify:ai-drafts": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-ai-drafts.ts",
     "hero:readout": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/hero-readout.ts",
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",

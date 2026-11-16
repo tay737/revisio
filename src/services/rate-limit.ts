@@ -50,6 +50,8 @@ const RULES = {
   eventsIp: { bucket: 'events-ip', windowSec: 60, max: 120 },
   /** Public sample-deck grading: unauthenticated compute, per source IP. */
   sampleGrade: { bucket: 'sample-grade', windowSec: 60, max: 30 },
+  /** AI draft proposals: real provider spend per call, per teacher account. */
+  draft: { bucket: 'ai-draft', windowSec: 3600, max: 20 },
 } satisfies Record<string, RateLimitRule>;
 
 export type RateLimitKind = keyof typeof RULES;
