@@ -1,8 +1,9 @@
 import 'server-only';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { cardUserStates, cards, reviewLogs, streaks, subjects, topics, users, xpEvents } from '@/db/schema';
 import { srsInfoForState } from '@/domain/srs';
+import { enrolledSubjectIds } from '@/services/visibility';
 
 /**
  * One learner's progress, as data — the single source both staff panels and the
@@ -104,6 +105,7 @@ export async function buildInsights(userId: string) {
       .select({
         topicId: topics.id,
         topicName: topics.name,
+        subjectId: subjects.id,
         subjectName: subjects.name,
         states: sql<number>`count(*)::int`,
         mastered: sql<number>`coalesce(sum(case when ${cardUserStates.stage} = 'mastered' then 1 else 0 end), 0)::int`,
@@ -114,7 +116,7 @@ export async function buildInsights(userId: string) {
       .innerJoin(topics, eq(cards.topicId, topics.id))
       .innerJoin(subjects, eq(topics.subjectId, subjects.id))
       .where(eq(cardUserStates.userId, userId))
-      .groupBy(topics.id, topics.name, subjects.name),
+      .groupBy(topics.id, topics.name, subjects.id, subjects.name),
   ]);
 
   // ── Strength ladder ───────────────────────────────────────────────────────
@@ -135,7 +137,7 @@ export async function buildInsights(userId: string) {
     if (!meta) continue;
     const key = meta.topicId;
     const cur = struggleByTopic.get(key) ?? {
-      topicId: key, topicName: meta.topicName, subjectName: meta.subjectName, misses: 0, lastMissedAt: null as Date | null,
+      topicId: key, topicName: meta.topicName, subjectId: meta.subjectId, subjectName: meta.subjectName, misses: 0, lastMissedAt: null as Date | null,
     };
     cur.misses += s.misses;
     if (s.lastMissedAt && (!cur.lastMissedAt || s.lastMissedAt > cur.lastMissedAt)) cur.lastMissedAt = s.lastMissedAt;
@@ -151,6 +153,61 @@ export async function buildInsights(userId: string) {
       missCount: struggleByTopic.get(t.topicId)?.misses ?? 0,
     }))
     .sort((a, b) => b.missCount - a.missCount || b.lapses - a.lapses || a.masteryPct - b.masteryPct);
+
+  // ── Weakest topics (#18): the same roll-up, cut to the five that need a
+  // next step, each with the reason it is weak and how many of its cards are
+  // due right now. One source of truth — topicHealth above — so the list can
+  // never disagree with the coverage table beside it.
+  const dueByTopic = new Map<string, number>();
+  for (const r of strengthRows) {
+    if (r.dueAt && r.dueAt.getTime() <= Date.now()) dueByTopic.set(r.topicId, (dueByTopic.get(r.topicId) ?? 0) + 1);
+  }
+  const weakTopics = topicHealth.slice(0, 5).map((t) => {
+    const due = dueByTopic.get(t.topicId) ?? 0;
+    const reason =
+      t.missCount > 0
+        ? `${t.missCount} miss${t.missCount === 1 ? '' : 'es'} in the last 30 days`
+        : t.lapses > 0
+          ? `${t.lapses} lapse${t.lapses === 1 ? '' : 's'} — cards keep slipping back`
+          : t.masteryPct < 50
+            ? `only ${t.masteryPct}% of its cards are mastered`
+            : due > 0
+              ? `${due} card${due === 1 ? '' : 's'} due now`
+              : 'shaky — worth a review pass';
+    return { ...t, dueCount: due, reason };
+  });
+
+  // ── Coverage map (#18): every topic in the learner's subjects, including
+  // the ones they have never touched — those are the invisible gaps a
+  // states-only roll-up cannot show.
+  let coverageSubjectIds = await enrolledSubjectIds(userId);
+  if (coverageSubjectIds.length === 0) {
+    coverageSubjectIds = [...new Set(strengthRows.map((r) => r.subjectId))];
+  }
+  let coverage: {
+    topicId: string; topicName: string; subjectId: string; subjectName: string;
+    cards: number; masteryPct: number; misses: number; status: 'unseen' | 'learning' | 'strong';
+  }[] = [];
+  if (coverageSubjectIds.length > 0) {
+    const topicRows = await db
+      .select({ topicId: topics.id, topicName: topics.name, subjectId: subjects.id, subjectName: subjects.name })
+      .from(topics)
+      .innerJoin(subjects, eq(topics.subjectId, subjects.id))
+      .where(inArray(subjects.id, coverageSubjectIds));
+    const healthByTopic = new Map(topicHealth.map((t) => [t.topicId, t]));
+    coverage = topicRows
+      .map((t) => {
+        const h = healthByTopic.get(t.topicId);
+        return {
+          ...t,
+          cards: h?.states ?? 0,
+          masteryPct: h?.masteryPct ?? 0,
+          misses: h?.missCount ?? 0,
+          status: (!h ? 'unseen' : h.masteryPct >= 80 && h.missCount === 0 ? 'strong' : 'learning') as 'unseen' | 'learning' | 'strong',
+        };
+      })
+      .sort((a, b) => a.subjectName.localeCompare(b.subjectName) || a.topicName.localeCompare(b.topicName));
+  }
 
   const soonest = strengthRows
     .filter((r) => r.dueAt && r.dueAt.getTime() > Date.now())
@@ -192,6 +249,8 @@ export async function buildInsights(userId: string) {
       })),
     struggling,
     topicHealth,
+    weakTopics,
+    coverage,
     recent: recentRows.map((r) => ({
       id: r.id,
       cardId: r.cardId,

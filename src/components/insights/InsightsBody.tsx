@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Icon } from '@/components/ui/icons';
 import { SRS_LADDER, type SrsTier } from '@/domain/srs';
@@ -8,6 +9,7 @@ import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/lib/button-variants';
 
 /**
  * One learner's progress, rendered — the single body both the staff sheet
@@ -46,8 +48,13 @@ export type StudentProgress = {
     reps: number;
     lastReviewedAt: string | null;
   }[];
-  struggling: { topicId: string; topicName: string; subjectName: string; misses: number; lastMissedAt: string | null }[];
-  topicHealth: { topicId: string; topicName: string; subjectName: string; states: number; mastered: number; lapses: number; masteryPct: number; missCount: number }[];
+  struggling: { topicId: string; topicName: string; subjectId: string; subjectName: string; misses: number; lastMissedAt: string | null }[];
+  topicHealth: { topicId: string; topicName: string; subjectId: string; subjectName: string; states: number; mastered: number; lapses: number; masteryPct: number; missCount: number }[];
+  /** Weakest topics with a concrete next step (#18). Same roll-up as
+   *  topicHealth, cut to five and annotated — never a second data source. */
+  weakTopics: ({ topicId: string; topicName: string; subjectId: string; subjectName: string; masteryPct: number; missCount: number; lapses: number; dueCount: number; reason: string })[];
+  /** Every topic in the learner's subjects, touched or not (#18). */
+  coverage: { topicId: string; topicName: string; subjectId: string; subjectName: string; cards: number; masteryPct: number; misses: number; status: 'unseen' | 'learning' | 'strong' }[];
   recent: {
     id: string;
     cardId: string;
@@ -232,6 +239,97 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
           </>
         )}
       </section>
+
+      {/* ── Weakest topics → next step (#18) ────────────────────────────── */}
+      {data.weakTopics.length > 0 && (
+        <section>
+          <h3 className="t-tagline">Weakest topics</h3>
+          <p className="t-caption mt-1 text-muted-foreground">
+            {self ? 'The topics costing you the most, and what to do about each.' : 'The topics costing the learner the most.'}
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {data.weakTopics.map((t) => (
+              <li key={t.topicId} className="inset px-3 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate t-caption font-semibold">{t.topicName}</div>
+                    <div className="t-fine truncate text-muted-foreground">
+                      {t.subjectName} · {t.reason}
+                      {t.dueCount > 0 && ` · ${t.dueCount} due`}
+                    </div>
+                  </div>
+                  <span className="num shrink-0 t-fine text-muted-foreground">{t.masteryPct}%</span>
+                </div>
+                {/* One-tap actions are only honest on your own queue — for
+                    staff the links would open *their* review session. */}
+                {self && (
+                  <div className="mt-2 flex gap-2">
+                    <Link href={`/review?topicId=${t.topicId}`} className={buttonVariants({ variant: 'good', size: 'sm' })}>
+                      Review{t.dueCount > 0 ? ` ${t.dueCount}` : ''}
+                    </Link>
+                    <Link href={`/learn/${t.subjectId}/${t.topicId}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                      Learn
+                    </Link>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Coverage map (#18) ──────────────────────────────────────────── */}
+      {data.coverage.length > 0 && (
+        <section>
+          <h3 className="t-tagline">Coverage</h3>
+          <p className="t-caption mt-1 text-muted-foreground">
+            Every topic in {self ? 'your' : "the learner's"} subjects — including the ones never touched.
+          </p>
+          <div className="mt-3 space-y-3">
+            {Object.entries(
+              data.coverage.reduce<Record<string, StudentProgress['coverage']>>((acc, t) => {
+                (acc[t.subjectName] ??= []).push(t);
+                return acc;
+              }, {}),
+            ).map(([subjectName, topics]) => {
+              const strong = topics.filter((t) => t.status === 'strong').length;
+              const unseen = topics.filter((t) => t.status === 'unseen').length;
+              return (
+                <div key={subjectName}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="t-caption font-semibold">{subjectName}</span>
+                    <span className="t-fine text-muted-foreground">
+                      {strong}/{topics.length} strong{unseen > 0 && ` · ${unseen} untouched`}
+                    </span>
+                  </div>
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label={`${subjectName} topic coverage`}>
+                    {topics.map((t) => (
+                      <li
+                        key={t.topicId}
+                        title={t.status === 'unseen' ? `${t.topicName} — not started` : `${t.topicName} — ${t.masteryPct}% mastered`}
+                        className={cn(
+                          'rounded-full border px-2.5 py-1 t-fine',
+                          t.status === 'strong' && 'border-good/50 bg-good-soft text-good-strong',
+                          t.status === 'learning' && 'border-gold/50 bg-gold/15 text-foreground',
+                          t.status === 'unseen' && 'border-border bg-secondary/60 text-muted-foreground',
+                        )}
+                      >
+                        {t.topicName}
+                        {t.status !== 'unseen' && <span className="num ml-1 opacity-70">{t.masteryPct}%</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+          <p className="t-fine mt-2 text-muted-foreground">
+            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-good" />strong
+            <span className="mx-2 inline-block h-2 w-2 rounded-full bg-gold" />learning
+            <span className="mx-2 inline-block h-2 w-2 rounded-full bg-muted-foreground/40" />untouched
+          </p>
+        </section>
+      )}
 
       {/* ── Recent answers ───────────────────────────────────────────────── */}
       <section>

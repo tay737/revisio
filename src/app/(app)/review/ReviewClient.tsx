@@ -51,6 +51,12 @@ type QueueCard = {
    *  sessions cached before this field existed still have to render. */
   srsLevel?: number;
   srsLabel?: string;
+  /** Scheduler state behind "why is this due" (#18). Absent on packs cached
+   *  before the fields existed — the reason line simply does not render. */
+  dueAt?: string | null;
+  lastReviewedAt?: string | null;
+  reps?: number;
+  lapses?: number;
 };
 
 type Verdict = {
@@ -83,6 +89,27 @@ const KIND_LABEL: Record<QueueCard['kind'], string> = {
   flashcard: 'Flashcard',
   mcq: 'Choose one',
 };
+
+/** "Why is this card here" (#18) — one plain line built from the scheduler
+ *  state the queue already carries, so the answer is never a mystery. */
+function dueReason(card: QueueCard, learnMode: boolean): string | null {
+  if (learnMode) return 'First exposure — the notes are beside the card';
+  const seen = (card.reps ?? 0) > 0 || !!card.lastReviewedAt;
+  if (!seen) return 'New card — this first review starts its schedule';
+  const bits: string[] = [];
+  if (card.dueAt) {
+    const diff = new Date(card.dueAt).getTime() - Date.now();
+    if (diff <= 0) bits.push('was due');
+    else bits.push(`next due in ${Math.max(1, Math.round(diff / 86_400_000))}d`);
+  }
+  if (card.lapses) bits.push(`${card.lapses} lapse${card.lapses === 1 ? '' : 's'}`);
+  if (card.lastReviewedAt) {
+    const mins = Math.max(0, Math.round((Date.now() - new Date(card.lastReviewedAt).getTime()) / 60_000));
+    const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : mins < 1440 ? `${Math.round(mins / 60)}h ago` : `${Math.round(mins / 1440)}d ago`;
+    bits.push(`last review ${ago}`);
+  }
+  return bits.length ? bits.join(' · ') : null;
+}
 
 type Note = { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string };
 type FirstExposure = {
@@ -119,6 +146,10 @@ export default function ReviewClient() {
   // grading and the report are identical; what changes is *which* cards are
   // chosen and that the notes are on screen while you answer.
   const topicId = useSearchParams().get('topic');
+  // `?topicId=` scopes the ordinary due queue to one topic — the one-tap
+  // "review this" action on a weak-topic recommendation (#18). Distinct from
+  // `?topic=`, which is first exposure with notes alongside.
+  const reviewTopicId = useSearchParams().get('topicId');
   const [session, setSession] = useState<FirstExposure | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   const [queue, setQueue] = useState<QueueCard[] | null>(null);
@@ -233,7 +264,9 @@ export default function ReviewClient() {
       }
     } else {
       try {
-        const data = await api.get<{ queue: QueueCard[] }>('/api/v1/queue/today?limit=20');
+        const data = await api.get<{ queue: QueueCard[] }>(
+          `/api/v1/queue/today?limit=20${reviewTopicId ? `&topicId=${encodeURIComponent(reviewTopicId)}` : ''}`,
+        );
         cards = data.queue;
         // Take a session with us for next time. Failing to cache is not failing
         // to load, so this never blocks the queue already on screen.
@@ -284,7 +317,7 @@ export default function ReviewClient() {
     setBreakAck(0);
     setReviewActive(false);
     startRef.current = Date.now();
-  }, [topicId, rememberPack, setReviewActive]);
+  }, [topicId, reviewTopicId, rememberPack, setReviewActive]);
 
   // Wait for the device prefs so the first deal honours the saved length.
   useEffect(() => {
@@ -455,7 +488,9 @@ export default function ReviewClient() {
   /** Fetch the next page of due cards into the undealt pool. */
   const fetchMore = useCallback(async (): Promise<QueueCard[]> => {
     try {
-      const data = await api.get<{ queue: QueueCard[] }>('/api/v1/queue/today?limit=20');
+      const data = await api.get<{ queue: QueueCard[] }>(
+        `/api/v1/queue/today?limit=20${reviewTopicId ? `&topicId=${encodeURIComponent(reviewTopicId)}` : ''}`,
+      );
       const known = new Set([...(queue ?? []), ...poolRef.current].map((c) => c.id));
       const fresh = data.queue.filter((c) => !known.has(c.id));
       if (fresh.length > 0) {
@@ -471,7 +506,7 @@ export default function ReviewClient() {
     } catch {
       return [];
     }
-  }, [queue, rememberPack]);
+  }, [queue, reviewTopicId, rememberPack]);
 
   /** "Just one more": deal a single card past the session's chosen length.
    *  Works after "End session" too — the summary is a waypoint, not a door. */
@@ -837,6 +872,15 @@ export default function ReviewClient() {
           {/* Ink, not green — leaving is not something to celebrate. Ending a
               session keeps every point already earned; the summary opens and
               the remaining cards stay due. */}
+          {reviewTopicId && (
+            <Link
+              href="/review"
+              className="t-caption-s flex items-center gap-1 rounded-full px-2.5 py-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Icon name="back" size={12} />
+              All topics
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setEnded(true)}
@@ -886,6 +930,11 @@ export default function ReviewClient() {
                 </span>
               )}
             </div>
+
+            {/* Why this card is here (#18): scheduler facts, not a label. */}
+            {!focus && dueReason(card, !!topicId) && (
+              <p className="t-fine mt-1 text-muted-foreground">{dueReason(card, !!topicId)}</p>
+            )}
 
             <div className="mt-5 t-display-sm font-bold leading-[1.35]">
               {card.kind === 'cloze' && (
