@@ -72,6 +72,9 @@ export interface Me {
     forNext: number;
     streak: number;
     bestStreak: number;
+    /** Earned gap-shields (#12): one is spent automatically per missed day,
+     *  earned every 7th consecutive day, capped at 3. */
+    streakFreezes: number;
   };
   today: { due: number; reviewed: number; correct: number };
   /** The learner's own 12-level SRS strength distribution (zero-filled), with
