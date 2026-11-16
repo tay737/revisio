@@ -16,6 +16,7 @@ import {
   DIVISION_SPAN,
   RANK_LADDER,
   TIER_ORDER,
+  TOP_OF_LADDER,
   rankFor,
   reviewsForRp,
   tierColor,
@@ -133,7 +134,7 @@ export function RankView({ data }: { data: RankViewData }) {
 
       <SeasonClock season={season.season} mine={mine} isLastDay={isLastDay} />
       <TierProgress rank={rank} form={data.form} />
-      <TheLadder rank={rank} placement={data.placement} season={season.season} />
+      <TheLadder rank={rank} placement={data.placement} season={season.season} record={history[0]?.rank.label} />
       <SeasonBoard season={season.season} board={board} mine={mine} />
       <Showcase history={history} claiming={claiming} onClaim={claim} />
       <YourRecord lifetimeRank={data.lifetimeRank} totalXp={data.totalXp} />
@@ -320,10 +321,12 @@ function TheLadder({
   rank,
   placement,
   season,
+  record,
 }: {
   rank: Rank;
   placement: { placing: boolean; done: number; target: number };
   season: { number: number; label: string };
+  record?: string;
 }) {
   const activeRef = useRef<HTMLDivElement>(null);
 
@@ -343,6 +346,47 @@ function TheLadder({
       {/* Keyboard access for the hidden-scrollbar rail (axe
           scrollable-region-focusable): a focusable rail scrolls with the
           keyboard, and the effect below keeps the current rung in view. */}
+      {/* The same ladder drawn to scale: each mark sits at its rung's real
+          cumulative RP (base / TOP_OF_LADDER), so the cheap bottom and the
+          grind at the top are visible at a glance. Hidden from AT — the card
+          rail below carries the same ladder semantically. */}
+      <div className="relative mt-5 h-9" aria-hidden>
+        <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+        {RANK_LADDER.map((rung) => {
+          const reached = rung.index <= rank.index;
+          const isCurrent = rung.index === rank.index;
+          return (
+            <span
+              key={rung.index}
+              className={cn(
+                'absolute top-1/2 -translate-x-1/2 -translate-y-1/2',
+                isCurrent ? 'h-4 w-0.5 bg-foreground' : reached ? 'h-2.5 w-px bg-foreground/60' : 'h-2 w-px bg-border-strong',
+              )}
+              style={{ left: `${(rung.base / TOP_OF_LADDER) * 100}%` }}
+            />
+          );
+        })}
+        <span
+          className="absolute top-1/2 h-5 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-foreground"
+          style={{
+            left: `${
+              rank.isApex
+                ? 100
+                : Math.min(
+                    100,
+                    ((RANK_LADDER[rank.index].base + (rank.percent / 100) * RANK_LADDER[rank.index].span) /
+                      TOP_OF_LADDER) *
+                      100,
+                  )
+            }%`,
+          }}
+        />
+      </div>
+      <p className="t-fine mt-1.5 text-muted-foreground">
+        Each mark is a rung's real RP position
+        {record ? ` · last season finished on ${record}` : ''}.
+      </p>
+
       <div className="rail mt-4" tabIndex={0} role="group" aria-label="The rank ladder, thirty rungs">
         {RANK_LADDER.map((rung) => {
           const rungRank = rankFor(rung.base);
