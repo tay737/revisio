@@ -11,6 +11,7 @@ import { TopBar } from '@/components/nav/TopBar';
 import { BottomNav } from '@/components/nav/BottomNav';
 import { AccountSheet } from '@/components/nav/AccountSheet';
 import { useMotionPreference } from '@/components/ui/motion/motion-provider';
+import { useReviewSession } from '@/components/ReviewSessionContext';
 import PageSkeleton from '@/components/PageSkeleton';
 import {
   isActivePath,
@@ -43,6 +44,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [accountOpen, setAccountOpen] = useState(false);
   const { setAccountReducedMotion } = useMotionPreference();
+  // Focus mode (review session option): while a card is on screen the shell's
+  // chrome steps back so nothing competes with the question.
+  const { active: reviewActive, focus: reviewFocus } = useReviewSession();
+  const zen = reviewActive && reviewFocus;
 
   useEffect(() => {
     setAccountReducedMotion(me?.prefs?.reducedMotion === true);
@@ -87,16 +92,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      <Sidebar nav={nav} pathname={pathname} me={me} onSignOut={onSignOut} />
+      {!zen && (
+        <Sidebar nav={nav} pathname={pathname} me={me} onSignOut={onSignOut} />
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          pathname={pathname}
-          me={me}
-          greeting={greeting}
-          companionLine={companionLine}
-          onOpenAccount={() => setAccountOpen(true)}
-        />
+        {!zen && (
+          <TopBar
+            pathname={pathname}
+            me={me}
+            greeting={greeting}
+            companionLine={companionLine}
+            onOpenAccount={() => setAccountOpen(true)}
+          />
+        )}
 
         <main
           id="main"
@@ -109,13 +118,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <BottomNav
-        tabs={tabs}
-        pathname={pathname}
-        due={me.today.due}
-        overflowActive={overflowActive}
-        onMore={() => setAccountOpen(true)}
-      />
+      {!zen && (
+        <BottomNav
+          tabs={tabs}
+          pathname={pathname}
+          due={me.today.due}
+          overflowActive={overflowActive}
+          onMore={() => setAccountOpen(true)}
+        />
+      )}
 
       <AccountSheet
         open={accountOpen}

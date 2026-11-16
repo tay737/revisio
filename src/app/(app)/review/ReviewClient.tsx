@@ -35,6 +35,7 @@ import { useReviewSession } from '@/components/ReviewSessionContext';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 type QueueCard = {
   id: string;
@@ -113,7 +114,7 @@ export default function ReviewClient() {
   // and lets the session report know the rank it started from.
   const { me, refresh: refreshMe } = useMe();
   const { refresh: refreshRanked } = useRanked('weekly');
-  const { setActive: setReviewActive } = useReviewSession();
+  const { setActive: setReviewActive, setFocus: setReviewFocus } = useReviewSession();
   // `?topic=` turns the same loop into first exposure. The card surface, the
   // grading and the report are identical; what changes is *which* cards are
   // chosen and that the notes are on screen while you answer.
@@ -154,6 +155,45 @@ export default function ReviewClient() {
   // possible. Held in a ref because it is looked up per keystroke-free submit
   // and never rendered.
   const offlineCards = useRef<Map<string, OfflineCard>>(new Map());
+
+  // ── Session autonomy (#19) ──────────────────────────────────────────────
+  // Three device-local choices: how many cards a session deals (5/10/20),
+  // whether the chrome steps back (focus), and whether a nudge appears every
+  // ten cards. The offline pack is deliberately untouched — it still caches
+  // the full 20-card session, so a short session loses nothing it could have
+  // dealt and "just one more" can reach the rest of the pack.
+  const [dealSize, setDealSize] = useState(20);
+  const [poolCount, setPoolCount] = useState(0);
+  const [focus, setFocus] = useState(false);
+  const [breaks, setBreaks] = useState(true);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [breakAck, setBreakAck] = useState(0);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const dealSizeRef = useRef(20);
+  const poolRef = useRef<QueueCard[]>([]);
+
+  // Device prefs load after mount (localStorage is unavailable during SSR).
+  // The queue load waits for them so the first deal honours the saved length.
+  useEffect(() => {
+    try {
+      const len = window.localStorage.getItem('revisio.sessionLength');
+      if (len === '5' || len === '10' || len === '20') {
+        dealSizeRef.current = Number(len);
+        setDealSize(Number(len));
+      }
+      setFocus(window.localStorage.getItem('revisio.focusMode') === '1');
+      setBreaks(window.localStorage.getItem('revisio.breakReminders') !== '0');
+    } catch {
+      // Private mode or a full quota: the defaults stand.
+    }
+    setPrefsLoaded(true);
+  }, []);
+
+  // Mirror the focus preference into the shell while a card is on screen.
+  useEffect(() => {
+    setReviewFocus(focus);
+    return () => setReviewFocus(false);
+  }, [focus, setReviewFocus]);
 
   /** One burst helper, so every celebration in this file is the same gesture. */
   const burst = useCallback((particleCount: number, y = 0.5) => {
@@ -220,7 +260,13 @@ export default function ReviewClient() {
     }
 
     setSession(firstExposure);
-    setQueue(cards);
+    // Deal only the chosen session length; the rest waits in the pool for
+    // "just one more" or the next "Load more". First-exposure batches are
+    // already small, so the slice is a no-op there.
+    const dealt = cards.slice(0, dealSizeRef.current);
+    poolRef.current = cards.slice(dealt.length);
+    setPoolCount(poolRef.current.length);
+    setQueue(dealt);
     setOffline(fromCache);
     setPending(pendingCount());
     setIdx(0);
@@ -235,13 +281,15 @@ export default function ReviewClient() {
     setSelected(null);
     setNotesOpen(false);
     setAutoMark(false);
+    setBreakAck(0);
     setReviewActive(false);
     startRef.current = Date.now();
   }, [topicId, rememberPack, setReviewActive]);
 
+  // Wait for the device prefs so the first deal honours the saved length.
   useEffect(() => {
-    load();
-  }, [load]);
+    if (prefsLoaded) void load();
+  }, [prefsLoaded, load]);
 
   // Hand back anything the server has not seen: once when this screen opens, and
   // again the moment the connection returns. This is the only place the outbox
@@ -396,11 +444,103 @@ export default function ReviewClient() {
     setIdx((i) => i + 1);
   }, []);
 
+  /** Move up to `n` fetched-but-undealt cards into the session. */
+  const dealFromPool = useCallback((n: number) => {
+    const take = poolRef.current.slice(0, n);
+    poolRef.current = poolRef.current.slice(take.length);
+    setPoolCount(poolRef.current.length);
+    if (take.length > 0) setQueue((q) => [...(q ?? []), ...take]);
+  }, []);
+
+  /** Fetch the next page of due cards into the undealt pool. */
+  const fetchMore = useCallback(async (): Promise<QueueCard[]> => {
+    try {
+      const data = await api.get<{ queue: QueueCard[] }>('/api/v1/queue/today?limit=20');
+      const known = new Set([...(queue ?? []), ...poolRef.current].map((c) => c.id));
+      const fresh = data.queue.filter((c) => !known.has(c.id));
+      if (fresh.length > 0) {
+        poolRef.current = [...poolRef.current, ...fresh];
+        setPoolCount(poolRef.current.length);
+      }
+      try {
+        rememberPack(await api.get<OfflinePack>('/api/v1/offline/pack?limit=20'));
+      } catch {
+        // keep the queue we have
+      }
+      return fresh;
+    } catch {
+      return [];
+    }
+  }, [queue, rememberPack]);
+
+  /** "Just one more": deal a single card past the session's chosen length.
+   *  Works after "End session" too — the summary is a waypoint, not a door. */
+  const justOneMore = useCallback(async () => {
+    setEnded(false);
+    if (poolRef.current.length === 0) await fetchMore();
+    dealFromPool(1);
+  }, [fetchMore, dealFromPool]);
+
+  /** Re-size the deal before the first answer. Locked afterwards — extending
+   *  mid-session is what "just one more" is for. */
+  const setLength = useCallback(
+    (n: number) => {
+      if (n === dealSizeRef.current || done > 0) return;
+      dealSizeRef.current = n;
+      setDealSize(n);
+      try {
+        window.localStorage.setItem('revisio.sessionLength', String(n));
+      } catch {
+        // Private mode: the choice still applies to this session.
+      }
+      const all = [...(queue ?? []), ...poolRef.current];
+      const next = all.slice(0, n);
+      poolRef.current = all.slice(n);
+      setPoolCount(poolRef.current.length);
+      setQueue(next);
+    },
+    [queue, done],
+  );
+
+  const toggleFocus = useCallback(() => {
+    setFocus((f) => {
+      const next = !f;
+      try {
+        window.localStorage.setItem('revisio.focusMode', next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const toggleBreaks = useCallback(() => {
+    setBreaks((b) => {
+      const next = !b;
+      try {
+        window.localStorage.setItem('revisio.breakReminders', next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Escape closes the session-options panel.
+  useEffect(() => {
+    if (!optionsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOptionsOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [optionsOpen]);
+
   // The session has ended — every card answered, or the learner chose "End
   // session" early. Either way the summary is the destination: XP is already
   // banked per answer, so stopping now forfeits nothing earned. `card` already
   // folds `ended` in (above), so `!card` is the whole test.
   const finished = queue !== null && queue.length > 0 && !card;
+
+  // Break reminder: a quiet nudge every ten answered cards, dismissible per
+  // milestone. Daily sessions only — a first-exposure batch is already short.
+  const showBreak = !session && breaks && done > 0 && done % 10 === 0 && done !== breakAck;
 
   useEffect(() => {
     setReviewActive(!!card && !finished);
@@ -528,6 +668,8 @@ export default function ReviewClient() {
             sessionXp={sessionXp}
             change={change}
             ended={ended}
+            canExtend={!session && (poolCount > 0 || !offline)}
+            onJustOneMore={justOneMore}
             onAgain={load}
           />
         )}
@@ -586,6 +728,22 @@ export default function ReviewClient() {
         </div>
       )}
 
+      {showBreak && (
+        <div className="mb-3 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3" role="status">
+          <Icon name="clock" size={16} className="shrink-0 text-muted-foreground" />
+          <p className="t-caption flex-1 text-muted-foreground">
+            {done} cards down. A short break is fair — your queue will wait.
+          </p>
+          <button
+            type="button"
+            onClick={() => setBreakAck(done)}
+            className="shrink-0 t-caption font-semibold underline underline-offset-4"
+          >
+            Keep going
+          </button>
+        </div>
+      )}
+
       {/* The session's own progress readout. Green, because you are earning. */}
       <div className="mb-2 flex items-center justify-between">
         <span className="num t-caption font-semibold text-muted-foreground">
@@ -598,9 +756,84 @@ export default function ReviewClient() {
               {pending > 0 ? `${pending} saved` : 'Offline'}
             </Badge>
           )}
-          <Badge variant="quiet" className="num">
-            <Icon name="xp" size={12} />+{sessionXp} XP
-          </Badge>
+          {!focus && (
+            <Badge variant="quiet" className="num">
+              <Icon name="xp" size={12} />+{sessionXp} XP
+            </Badge>
+          )}
+          {/* Session autonomy: length, focus and break reminders. Daily
+              sessions only — a first-exposure batch is already sized. */}
+          {!session && (
+            <span className="relative">
+              <button
+                type="button"
+                aria-expanded={optionsOpen}
+                aria-haspopup="true"
+                onClick={() => setOptionsOpen((o) => !o)}
+                className={cn(
+                  't-caption-s flex items-center gap-1 rounded-full px-2.5 py-1 transition-colors',
+                  optionsOpen
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                )}
+              >
+                <Icon name="schedule" size={12} />
+                Session
+              </button>
+              {optionsOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" aria-hidden onClick={() => setOptionsOpen(false)} />
+                  <div
+                    role="group"
+                    aria-label="Session options"
+                    className="card absolute right-0 top-full z-20 mt-1 w-60 p-3"
+                  >
+                    <p className="t-fine font-semibold uppercase tracking-wide text-muted-foreground">
+                      Cards per session
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Session length">
+                      {[5, 10, 20].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          disabled={done > 0}
+                          aria-pressed={dealSize === n}
+                          onClick={() => setLength(n)}
+                          className={cn(
+                            't-strong num rounded-md border px-2 py-1.5 transition-colors disabled:opacity-50',
+                            dealSize === n
+                              ? 'border-foreground bg-foreground text-background'
+                              : 'border-border bg-card hover:border-border-strong',
+                          )}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    {done > 0 && (
+                      <p className="t-fine mt-1.5 text-muted-foreground">
+                        Locked once you start — “just one more” extends.
+                      </p>
+                    )}
+                    <div className="mt-3 space-y-2.5 border-t border-border pt-3">
+                      <OptionRow
+                        label="Focus mode"
+                        hint="Hide everything but the card"
+                        on={focus}
+                        onToggle={toggleFocus}
+                      />
+                      <OptionRow
+                        label="Break reminders"
+                        hint="A nudge every 10 cards"
+                        on={breaks}
+                        onToggle={toggleBreaks}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </span>
+          )}
           {/* Ink, not green — leaving is not something to celebrate. Ending a
               session keeps every point already earned; the summary opens and
               the remaining cards stay due. */}
@@ -641,15 +874,17 @@ export default function ReviewClient() {
                   />
                   {KIND_LABEL[card.kind]}
                 </Badge>
-                {card.srsLevel != null && (
+                {card.srsLevel != null && !focus && (
                   <Badge variant="quiet" className="num" title={`Strength: ${card.srsLabel} (level ${card.srsLevel} of 12)`}>
                     Lv {card.srsLevel}
                   </Badge>
                 )}
               </span>
-              <span className="truncate t-fine text-muted-foreground">
-                {card.subjectName} · {card.topicName}
-              </span>
+              {!focus && (
+                <span className="truncate t-fine text-muted-foreground">
+                  {card.subjectName} · {card.topicName}
+                </span>
+              )}
             </div>
 
             <div className="mt-5 t-display-sm font-bold leading-[1.35]">
@@ -886,6 +1121,8 @@ function SessionReport({
   sessionXp,
   change,
   ended,
+  canExtend,
+  onJustOneMore,
   onAgain,
 }: {
   correct: number;
@@ -893,6 +1130,9 @@ function SessionReport({
   sessionXp: number;
   change: ReturnType<typeof rankChange> | null;
   ended: boolean;
+  /** Daily sessions only, and only while more due cards can be dealt. */
+  canExtend: boolean;
+  onJustOneMore: () => void;
   onAgain: () => void;
 }) {
   const rank: Rank | null = change?.after ?? null;
@@ -945,6 +1185,11 @@ function SessionReport({
       )}
 
       <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+        {canExtend && (
+          <Button variant="secondary" onClick={onJustOneMore}>
+            Just one more
+          </Button>
+        )}
         <Button variant="ghost" onClick={onAgain}>
           Load more
         </Button>
@@ -954,6 +1199,46 @@ function SessionReport({
         </Link>
       </div>
     </TilePanel>
+  );
+}
+
+/** A labelled on/off row inside the session-options panel. */
+function OptionRow({
+  label,
+  hint,
+  on,
+  onToggle,
+}: {
+  label: string;
+  hint: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="min-w-0">
+        <span className="t-strong block">{label}</span>
+        <span className="t-fine block text-muted-foreground">{hint}</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={onToggle}
+        className={cn(
+          'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150',
+          on ? 'bg-foreground' : 'bg-border',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 h-5 w-5 rounded-full bg-card shadow-sm transition-all duration-150',
+            on ? 'left-[22px]' : 'left-0.5',
+          )}
+        />
+      </button>
+    </div>
   );
 }
 
