@@ -26,6 +26,7 @@ type Topic = TopicOption & {
   subjectId: string;
   description: string;
   subjectName: string | null;
+  ownerId: string | null;
 };
 type Subject = { id: string; name: string; mathsEnabled?: boolean };
 
@@ -65,10 +66,17 @@ export default function LibraryPage() {
   const load = useCallback(
     () =>
       api
-        .get<{ topics: Topic[] }>('/api/v1/content?mine=1')
-        .then((d) => setTopics(d.topics))
+        // Staff publish with ownerId NULL, so `mine=1` hid their own published
+        // work (and emptied the tab for pure teachers). `editable=1` lists
+        // everything they may edit; the ownerId filter keeps this "my topics"
+        // list honest — own rows plus ownerless staff content, never another
+        // user's drafts.
+        .get<{ topics: Topic[] }>(isStaff ? '/api/v1/content?editable=1' : '/api/v1/content?mine=1')
+        .then((d) =>
+          setTopics(isStaff ? d.topics.filter((t) => t.ownerId === null || t.ownerId === me?.id) : d.topics),
+        )
         .catch(() => setTopics([])),
-    [],
+    [isStaff, me?.id],
   );
 
   useEffect(() => {
