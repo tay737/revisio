@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { DUR, EASE } from '@/lib/motion';
 import { labelForPath } from '@/components/nav/routes';
+import { NotificationBell } from '@/components/nav/NotificationBell';
 import { rankFor } from '@/domain/ranked';
 import type { Me } from '@/lib/useMe';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +64,7 @@ export function TopBar({
         <span className="t-strong truncate">{title}</span>
 
         <div className="ml-auto flex items-center gap-1.5">
+          <NotificationBell />
           <Badge variant="chip" className="num" title={`${streak}-day streak`}>
             <Icon
               name="streak"
@@ -96,6 +98,7 @@ export function TopBar({
         </p>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          <NotificationBell />
           <Link href="/review" className={cn(badgeVariants({ variant: 'chip' }), 'num min-h-11 px-3')} title={`${due} cards due today`}>
             <Icon
               name="review"

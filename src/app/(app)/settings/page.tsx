@@ -15,6 +15,7 @@ import { RoleBadge } from '@/components/ui/role-badge';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Security2FA } from '@/app/(app)/settings/Security2FA';
 import { ConsentSection } from '@/app/(app)/settings/ConsentSection';
+import { RemindersSection } from '@/app/(app)/settings/RemindersSection';
 import { DataDeletionControl } from '@/app/(app)/settings/DataDeletionControl';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 import { PRONOUN_MAX, PRONOUN_SUGGESTIONS, pronounsProblem } from '@/lib/pronouns';
@@ -588,6 +589,7 @@ function SettingsBody({
 
       {/* ── How we use your data ─────────────────────────────────────────── */}
       <ConsentSection />
+      <RemindersSection />
       <DataDeletionControl />
 
       {/* ── Preferences ───────────────────────────────────────────────────── */}
