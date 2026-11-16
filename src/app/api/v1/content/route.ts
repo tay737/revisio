@@ -156,7 +156,14 @@ export const GET = route(async (req: NextRequest) => {
     return ok({ topics: rows.map((t) => ({ ...t, ...counts.get(t.id), specRefs: specRefs.get(t.id) ?? [] })) });
   }
 
-  const rows = isDeveloper(user)
+  // `?editable=1` asks "which topics may I edit" rather than "which are mine":
+  // staff publish with ownerId NULL, so the ownerId filter hides their own
+  // published work from pickers (the #7 draft target list hit exactly this).
+  // The answer mirrors loadEditableTopic — any canManageContent user may edit
+  // any topic — while students keep the owner-scoped list.
+  const editable = req.nextUrl.searchParams.get('editable') === '1';
+  const listAll = isDeveloper(user) || (editable && staff);
+  const rows = listAll
     ? await db
         .select({ topic: topics, subjectName: subjects.name })
         .from(topics)

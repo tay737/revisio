@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import useSWR from 'swr';
 import { api, ApiClientError } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Notice } from '@/components/Notice';
@@ -50,6 +51,14 @@ const KIND_LABEL = { cloze: 'Fill the blank', flashcard: 'Flashcard', mcq: 'Mult
  * states are: drafting, reviewing, accepted, discarded.
  */
 export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone: (message: string) => void }) {
+  // The page's `topics` prop is the *mine* list — for non-developer staff it
+  // misses ownerId-NULL topics they can still edit. `?editable=1` lists
+  // everything the caller may actually edit; prefer it once it answers.
+  const { data: editable } = useSWR<{ topics: TopicOption[] }>('/api/v1/content?editable=1', api.get, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  });
+  const topicOptions = editable?.topics?.length ? editable.topics : topics;
   const [source, setSource] = useState('');
   const [topicId, setTopicId] = useState('');
   const [counts, setCounts] = useState({ cloze: 8, flashcard: 6, mcq: 4 });
@@ -60,7 +69,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
   const [busy, setBusy] = useState<'draft' | 'accept' | 'reject' | ''>('');
   const [error, setError] = useState('');
 
-  const picked = topics.find((t) => t.id === topicId) ?? null;
+  const picked = topicOptions.find((t) => t.id === topicId) ?? null;
   const kept = proposal?.cards.filter((c) => c.keep).length ?? 0;
 
   const fail = (e: unknown) => {
@@ -174,7 +183,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
           <Label htmlFor="draft-topic">Topic</Label>
           <NativeSelect id="draft-topic" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
             <option value="">Choose where accepted cards land…</option>
-            {topics.map((t) => (
+            {topicOptions.map((t) => (
               <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName} — ${t.name}` : t.name}</option>
             ))}
           </NativeSelect>
