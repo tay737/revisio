@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
+import { AssignmentsPanel, PulsePanel } from './ClassPanels';
 
 type Roster = {
   userId: string;
@@ -61,6 +62,8 @@ export default function TeacherPage() {
   const [copyFailed, setCopyFailed] = useState(false);
   /** Whose progress sheet is open — roster names open the shared staff panel. */
   const [progressFor, setProgressFor] = useState<{ id: string; name: string; siblings?: { id: string; name: string }[] } | null>(null);
+  // Which class panel is open — 'assign' or 'pulse' per class id (#5).
+  const [panelFor, setPanelFor] = useState<string | null>(null);
 
   const copyCode = async (classId: string, code: string) => {
     try {
@@ -343,6 +346,34 @@ export default function TeacherPage() {
                 ))}
               </NativeSelect>
             </div>
+
+            {/* Assigned decks + class pulse (#5) — one open at a time per class. */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={panelFor === `${c.id}:assign` ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-1.5"
+                aria-expanded={panelFor === `${c.id}:assign`}
+                onClick={() => setPanelFor(panelFor === `${c.id}:assign` ? null : `${c.id}:assign`)}
+              >
+                <Icon name="target" size={14} />
+                Assignments
+              </Button>
+              <Button
+                type="button"
+                variant={panelFor === `${c.id}:pulse` ? 'secondary' : 'ghost'}
+                size="sm"
+                className="gap-1.5"
+                aria-expanded={panelFor === `${c.id}:pulse`}
+                onClick={() => setPanelFor(panelFor === `${c.id}:pulse` ? null : `${c.id}:pulse`)}
+              >
+                <Icon name="form" size={14} />
+                Class pulse
+              </Button>
+            </div>
+            {panelFor === `${c.id}:assign` && <AssignmentsPanel classId={c.id} />}
+            {panelFor === `${c.id}:pulse` && <PulsePanel classId={c.id} />}
 
             {c.roster.length === 0 ? (
               <p className="t-caption mt-4 text-muted-foreground">
