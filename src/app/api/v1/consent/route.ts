@@ -1,7 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users } from '@/db/schema';
+import { users, studyConnections, guardianLinks } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
+import { consentFromBlob } from '@/lib/consent';
 import type { NextRequest } from 'next/server';
 
 /** GET /api/v1/consent — current consent state for the signed-in user. */
@@ -49,10 +50,26 @@ export const PATCH = route(async (req: NextRequest) => {
     choices,
   };
 
-  await db.update(users).set({
-    consent: next,
-    consentUpdatedAt: receivedAt,
-  }).where(eq(users.id, user.id));
+  // Sever-on-withdrawal (DPO Amendment B): social true→false ends every study
+  // link and summary share in the same transaction. Re-consent starts fresh —
+  // nothing silently reactivates.
+  const [current] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, user.id)).limit(1);
+  const wasSocial = consentFromBlob(current?.consent).choices.social === true;
+  const isSocial = choices.social === true;
+  const sever = wasSocial && !isSocial;
+
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({
+      consent: next,
+      consentUpdatedAt: receivedAt,
+    }).where(eq(users.id, user.id));
+    if (sever) {
+      await tx.delete(studyConnections).where(or(eq(studyConnections.requesterId, user.id), eq(studyConnections.addresseeId, user.id)));
+      await tx.update(guardianLinks)
+        .set({ status: 'revoked', respondedAt: receivedAt })
+        .where(and(or(eq(guardianLinks.studentId, user.id), eq(guardianLinks.guardianId, user.id)), sql`${guardianLinks.status} in ('pending','accepted')`));
+    }
+  });
 
   return ok({ consent: next });
 });

@@ -1,14 +1,17 @@
 import 'server-only';
 
 import { NextRequest } from 'next/server';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
   users, refreshTokens, emailTokens, userSubjects, userAchievements, cardUserStates, streaks,
   approvalRequests, mediaAssets, streakEvents, notificationPrefs, notifications,
   notificationDeliveries, examPlans, userChallenges, userGoals, referralCodes,
   deckSubscriptions, classMemberships, studyConnections, guardianLinks,
-  referralRedemptions,
+  referralRedemptions, leagueMemberships, seasonResults, userTopicStates, imports,
+  cramSessions, userProfileBadges, reviewLogs, xpEvents, examAttempts,
+  subjects, topics, lessons, cards, mathSets, examQuestions, examPapers,
+  classes, classAssignments,
 } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { issueDeletionConfirmation, verifyDeletionConfirmation } from '@/services/data-deletion';
@@ -36,14 +39,15 @@ import { deleteMediaObject } from '@/services/storage';
 
 /** The tables that reference `users` and must be cleared before `users` is.
  *  Because the user row is anonymised rather than deleted, the FK cascades
- *  never fire — every user-keyed table has to be named here. This covers the
- *  retention layer (0016), acquisition (0017), deck subscriptions and class
- *  memberships; learning records (review_logs, xp_events, exam_attempts) stay
- *  under the existing retention policy. */
+ *  never fire — every user-keyed table has to be named here. DPO erasure
+ *  ruling (Amendment A): learning records go too — review_logs, xp_events and
+ *  exam_attempts are pseudonymous-keyed free text and count as personal data.
+ *  audit_log.actor_id is the documented retained-with-justification exception. */
 const CASCADE_AFTER_USERS = [
   userSubjects,
   userAchievements,
   cardUserStates,
+  userTopicStates,
   streaks,
   streakEvents,
   approvalRequests,
@@ -60,6 +64,14 @@ const CASCADE_AFTER_USERS = [
   referralCodes,
   deckSubscriptions,
   classMemberships,
+  leagueMemberships,
+  seasonResults,
+  imports,
+  cramSessions,
+  userProfileBadges,
+  reviewLogs,
+  xpEvents,
+  examAttempts,
 ];
 
 /** Tables keyed by a user on *both* ends — severed symmetrically so neither
@@ -159,6 +171,46 @@ export const DELETE = route(async (req: NextRequest) => {
     for (const { table, columns } of CASCADE_BY_PAIR) {
       await tx.delete(table).where(or(...columns.map((c) => eq(c, user.id))));
     }
+
+    // ownerId-keyed content (DPO Amendment B): private content is deleted;
+    // shared (public/pending_review) content is retained with attribution
+    // stripped. Deleting a private topic/subject cascades its own subtree via
+    // the content FKs — private content is never visible to other owners, so
+    // the cascade cannot reach anyone else's rows.
+    await tx.delete(cards).where(and(eq(cards.ownerId, user.id), eq(cards.visibility, 'private')));
+    // Cards pinned to a private lesson have no FK to lessons — clear them first.
+    await tx.delete(cards).where(inArray(cards.lessonId,
+      tx.select({ id: lessons.id }).from(lessons)
+        .where(and(eq(lessons.ownerId, user.id), eq(lessons.visibility, 'private')))));
+    await tx.delete(lessons).where(and(eq(lessons.ownerId, user.id), eq(lessons.visibility, 'private')));
+    await tx.delete(topics).where(and(eq(topics.ownerId, user.id), eq(topics.visibility, 'private')));
+    await tx.delete(examQuestions).where(and(eq(examQuestions.ownerId, user.id), eq(examQuestions.visibility, 'private')));
+    await tx.delete(examPapers).where(and(eq(examPapers.ownerId, user.id), eq(examPapers.visibility, 'private')));
+    // math_sets has no visibility — an owned set is private by definition.
+    await tx.delete(mathSets).where(eq(mathSets.ownerId, user.id));
+    // Owned subjects go only when no other owner has topics inside them;
+    // otherwise the subject is shared structure and keeps living, unattributed.
+    const ownedSubjects = await tx.select({ id: subjects.id }).from(subjects).where(eq(subjects.ownerId, user.id));
+    for (const s of ownedSubjects) {
+      const [foreign] = await tx
+        .select({ c: sql<number>`count(*)::int` })
+        .from(topics)
+        .where(and(eq(topics.subjectId, s.id), sql`(${topics.ownerId} is null or ${topics.ownerId} <> ${user.id})`));
+      if ((foreign?.c ?? 0) === 0) {
+        await tx.delete(subjects).where(eq(subjects.id, s.id));
+      } else {
+        await tx.update(subjects).set({ ownerId: null }).where(eq(subjects.id, s.id));
+      }
+    }
+    // Strip attribution from retained shared content (ownerId is nullable).
+    for (const t of [topics, lessons, cards, examQuestions, examPapers] as const) {
+      await tx.update(t).set({ ownerId: null }).where(and(eq(t.ownerId, user.id), sql`${t.visibility} <> 'private'`));
+    }
+
+    // Teacher/creator provenance (DPO item B): classes and assignments are
+    // shared structures — null the attribution, keep the content readable.
+    await tx.update(classes).set({ teacherId: null }).where(eq(classes.teacherId, user.id));
+    await tx.update(classAssignments).set({ createdBy: null }).where(eq(classAssignments.createdBy, user.id));
 
     await tx.update(users).set({
       status: 'deleted',

@@ -514,7 +514,9 @@ export const seasonResults = pgTable('season_results', {
 
 export const classes = pgTable('classes', {
   id: text('id').primaryKey(),
-  teacherId: text('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** Nullable since the erasure ruling: a deleted teacher's class continues
+   *  read-only for students rather than disappearing with the account. */
+  teacherId: text('teacher_id').references(() => users.id, { onDelete: 'cascade' }),
   subjectId: text('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   joinCode: text('join_code').notNull(),
@@ -820,7 +822,9 @@ export const classAssignments = pgTable('class_assignments', {
   noteDensity: text('note_density', { enum: ['light', 'standard', 'deep'] }).notNull().default('standard'),
   required: boolean('required').notNull().default(true),
   note: text('note').notNull().default(''),
-  createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** Provenance only — nulled on creator erasure; the assignment is class
+   *  content and outlives the account that wrote it. */
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   classTopicIdx: uniqueIndex('class_assignments_class_topic_idx').on(t.classId, t.topicId),
