@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-o
 import { db } from '@/db/client';
 import {
   cards, cardUserStates, examAttempts, examPlans, guardianLinks,
-  leagueMemberships, notificationDeliveries, notificationPrefs, notifications, reviewLogs, seasons,
+  achievements, leagueMemberships, notificationDeliveries, notificationPrefs, notifications, reviewLogs, seasons,
   streakEvents, streaks, studyConnections, topics, userAchievements, userChallenges, userGoals,
   users, xpEvents,
 } from '@/db/schema';
@@ -280,7 +280,7 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
         candidates.push({
           kind: 'streak_risk',
           title: 'Your streak is still alive',
-          body: 'No reviews yet today — one quick session keeps it going.',
+          body: 'One review today keeps it going. It does not have to be a long one — a single card counts.',
           href: '/review',
           dedupe: reminderDedupeKey('streak_risk', now, prefs.timezone),
         });
@@ -289,20 +289,22 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
 
     // Achievement nudge: unlocks already land as in-app notifications; this
     // reminds once per achievement (dedupe key) about recent unlocks the
-    // learner may not have opened. Counts-free copy — no achievement names.
+    // learner may not have opened. Name/description are the user's own
+    // achievement text — safe to interpolate per the copy deck.
     if (triggers.achievement !== false) {
       const cutoff = new Date(now.getTime() - 7 * 86_400_000);
       const unlocked = await db
-        .select({ achievementId: userAchievements.achievementId })
+        .select({ achievementId: userAchievements.achievementId, name: achievements.name, description: achievements.description })
         .from(userAchievements)
+        .innerJoin(achievements, eq(achievements.id, userAchievements.achievementId))
         .where(and(eq(userAchievements.userId, user.id), gte(userAchievements.unlockedAt, cutoff)))
         .orderBy(desc(userAchievements.unlockedAt))
         .limit(2);
       for (const u of unlocked) {
         candidates.push({
           kind: 'achievement',
-          title: 'You unlocked an achievement',
-          body: 'A new achievement is waiting for you — open Revisio to see it.',
+          title: `Achievement unlocked: ${u.name}`,
+          body: u.description ? `${u.description} It is on your profile now.` : `${u.name} is on your profile now.`,
           href: '/progress',
           dedupe: `achievement:${u.achievementId}`,
         });
@@ -335,8 +337,10 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
         if (membership) {
           candidates.push({
             kind: 'league_ending',
-            title: 'Your lobby week ends soon',
-            body: `${week.daysLeft} day${week.daysLeft === 1 ? '' : 's'} left in this week's lobby — every review still counts toward your seat.`,
+            title: 'This week in the lobby ends soon',
+            // League weeks do relegate/promote and placement carries over —
+            // the second line is the factual variant the copy deck allows.
+            body: `${week.daysLeft} day${week.daysLeft === 1 ? '' : 's'} left to add XP to your league week. Reviews and maths practice both count. Your placement carries into next week.`,
             href: '/progress',
             dedupe: `league_ending:${week.weekStart}`,
           });
@@ -344,13 +348,14 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
       }
     }
 
-    // Exam countdown (#17): active plans inside the final week get a daily
-    // nudge, deduped per plan per day-count so it ticks 7→0 without repeating.
+    // Exam countdown (#17): the nearest active plan inside the final week
+    // gets one nudge per day-count — never one per plan. Pace copy comes from
+    // planSummary; a fully-mastered plan sends nothing.
     if (triggers.examCountdown !== false) {
       const today = now.toISOString().slice(0, 10);
       const horizon = new Date(now.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
       const plans = await db
-        .select({ id: examPlans.id, title: examPlans.title, examDate: examPlans.examDate })
+        .select()
         .from(examPlans)
         .where(and(
           eq(examPlans.userId, user.id),
@@ -358,16 +363,22 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
           gte(examPlans.examDate, today),
           lte(examPlans.examDate, horizon),
         ))
-        .limit(3);
+        .orderBy(examPlans.examDate)
+        .limit(1);
       for (const plan of plans) {
-        const daysLeft = daysUntil(plan.examDate, now);
-        if (daysLeft < 0 || daysLeft > 7) continue;
+        const summary = await planSummary(user.id, plan, now);
+        if (summary.topicsRemaining === 0) continue;
+        const n = summary.daysLeft;
+        const title = n === 1 ? `${plan.title} is tomorrow` : n === 0 ? `${plan.title} is today` : `${plan.title} is in ${n} days`;
+        const lead = n === 1 ? 'Tomorrow.' : n === 0 ? 'Today.' : `${n} days to go.`;
+        const pace = `About ${summary.perDayNeeded} topic${summary.perDayNeeded === 1 ? '' : 's'} a day keeps you on pace — ${summary.topicsRemaining} of ${summary.topicsTotal} still open.`;
+        const tail = summary.onTrack ? ' You are on track.' : ` Your target is ${plan.dailyTarget} a day.`;
         candidates.push({
           kind: 'exam_countdown',
-          title: `Countdown: ${plan.title}`,
-          body: `${daysLeft} day${daysLeft === 1 ? '' : 's'} until your exam — a short review session keeps the plan on track.`,
-          href: '/exam',
-          dedupe: `exam_countdown:${plan.id}:${daysLeft}`,
+          title,
+          body: `${lead} · ${pace}${tail}`,
+          href: '/dashboard',
+          dedupe: `exam_countdown:${plan.id}:${n}`,
         });
       }
     }
