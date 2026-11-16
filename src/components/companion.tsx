@@ -55,13 +55,6 @@ export function Companion({
         transition={SPRING.pop}
       >
         <RankCrest rank={rank} size={compact ? 28 : 36} showProgress={false} animate={false} />
-        {/* A slow halo: enough to read as alive, not enough to dance at you. */}
-        <motion.span
-          aria-hidden
-          className="absolute inset-0 rounded-full border border-foreground/20"
-          animate={{ scale: [1, 1.14, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
-        />
       </motion.span>
 
       <div className="min-w-0 flex-1">
