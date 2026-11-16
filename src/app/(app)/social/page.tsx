@@ -65,11 +65,11 @@ function PersonChip({ user }: { user: ConnectionUser | null }) {
 export default function SocialPage() {
   const { me } = useMe();
   const underAge = me?.isUnderAge === true;
-  const { data, mutate, isLoading } = useSWR<SocialData>('/api/v1/social', api.get, {
+  const { data, error: loadError, mutate, isLoading } = useSWR<SocialData>('/api/v1/social', api.get, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
   });
-  const { data: guardianData, mutate: mutateGuardian } = useSWR<{ links: GuardianLink[] }>(
+  const { data: guardianData, error: guardianLoadError, mutate: mutateGuardian } = useSWR<{ links: GuardianLink[] }>(
     '/api/v1/social/guardian',
     api.get,
     { revalidateOnFocus: false, shouldRetryOnError: false },
@@ -178,6 +178,28 @@ export default function SocialPage() {
   };
 
   if (isLoading) return <PageSkeleton />;
+
+  // A failed fetch must not render as "consent on, nobody here" — that reads
+  // as an empty circle, not an outage. Show the error card instead.
+  if (loadError && data === undefined) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          icon="join"
+          title="Study circle"
+          subtitle="Buddies and accountability partners — private, never on the public leaderboard."
+        />
+        <Card className="p-6 text-center">
+          <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
+          <p className="t-strong mt-2">We couldn’t load your study circle.</p>
+          <p className="t-caption mt-1 text-muted-foreground">Check your connection and try again.</p>
+          <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => void mutate()}>
+            Try again
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -355,6 +377,15 @@ export default function SocialPage() {
         <p className="t-caption mt-1 text-muted-foreground">
           Share a read-only progress summary with a parent or guardian. They see reviews, accuracy, streak and topics mastered — nothing else, and only while the link is accepted.
         </p>
+
+        {guardianLoadError && guardianData === undefined && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="t-caption text-muted-foreground">We couldn’t load your summary links.</p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void mutateGuardian()}>
+              Try again
+            </Button>
+          </div>
+        )}
 
         {links.filter((l) => l.status === 'pending' && l.role === 'guardian').length > 0 && (
           <ul className="mt-3 divide-y divide-border/60">

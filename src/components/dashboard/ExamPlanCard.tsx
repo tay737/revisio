@@ -69,6 +69,8 @@ export function ExamPlanCard() {
   const [subjectId, setSubjectId] = useState('');
   const [dailyTarget, setDailyTarget] = useState('10');
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [score, setScore] = useState('');
   const [maxScore, setMaxScore] = useState('');
@@ -77,13 +79,32 @@ export function ExamPlanCard() {
   const [reflectError, setReflectError] = useState('');
 
   const load = () => {
+    setLoadError(false);
     api.get<{ plans: ExamPlan[] }>('/api/v1/exam-plans')
       .then((d) => setPlans(d.plans.filter((p) => p.status === 'active')))
-      .catch(() => setPlans([]));
+      .catch(() => {
+        setPlans(null);
+        setLoadError(true);
+      });
   };
   useEffect(load, []);
 
-  if (me?.role !== 'student' || plans === null) return null;
+  if (me?.role !== 'student' || plans === null) {
+    if (me?.role === 'student' && loadError) {
+      return (
+        <Card>
+          <h2 className="t-strong">Exam countdown</h2>
+          <p className="t-caption mt-2 text-muted-foreground">
+            We couldn’t load your exam plans. Check your connection and try again.
+          </p>
+          <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={load}>
+            Try again
+          </Button>
+        </Card>
+      );
+    }
+    return null;
+  }
 
   const upcoming = plans
     .filter((p) => !examPassed(p))
@@ -155,6 +176,24 @@ export function ExamPlanCard() {
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the plan.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // DELETE archives the plan server-side, which also drops it from the
+  // examCountdown reminder candidates — the countdown truly stops.
+  const remove = async (id: string) => {
+    setBusy(true);
+    setError('');
+    try {
+      await api.del(`/api/v1/exam-plans/${id}`);
+      setConfirmRemove(null);
+      resetForm();
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove the plan.');
+      setConfirmRemove(null);
     } finally {
       setBusy(false);
     }
@@ -261,9 +300,25 @@ export function ExamPlanCard() {
               ))}
             </div>
           )}
-          <Button variant="ghost" size="sm" className="mt-2" onClick={() => startEdit(plan)}>
-            Edit
-          </Button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => startEdit(plan)}>
+              Edit
+            </Button>
+            {confirmRemove === plan.id ? (
+              <>
+                <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void remove(plan.id)}>
+                  {busy ? 'Removing…' : 'Yes, remove it'}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>
+                  Keep it
+                </Button>
+              </>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmRemove(plan.id)}>
+                Remove plan
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="mt-3">
@@ -289,7 +344,23 @@ export function ExamPlanCard() {
 
       {pastPlan && (
         <div className="mt-3 border-t border-border pt-3">
-          <p className="t-strong">The exam is over</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="t-strong">The exam is over</p>
+            {confirmRemove === pastPlan.id ? (
+              <span className="flex items-center gap-1.5">
+                <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void remove(pastPlan.id)}>
+                  {busy ? 'Removing…' : 'Yes, remove it'}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>
+                  Keep it
+                </Button>
+              </span>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmRemove(pastPlan.id)}>
+                Remove plan
+              </Button>
+            )}
+          </div>
           <p className="t-caption mt-1 text-muted-foreground">
             {pastPlan.title} — sat {examDateLabel(pastPlan.examDate)}. A minute of honesty here is what makes the next countdown smarter.
           </p>

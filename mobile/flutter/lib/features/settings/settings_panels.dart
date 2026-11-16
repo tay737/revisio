@@ -862,6 +862,16 @@ class _RemindersPanelState extends ConsumerState<RemindersPanel> {
       'Weekly recap',
       'A Monday summary of your week — counts only, no content.',
     ),
+    (
+      'leagueEnding',
+      'League week ending',
+      'Before your league week closes.',
+    ),
+    (
+      'examCountdown',
+      'Exam countdown',
+      'As a saved exam date gets close.',
+    ),
   ];
 
   NotificationPrefsResponse? _data;

@@ -32,6 +32,8 @@ const TRIGGERS: { key: string; label: string; hint: string }[] = [
   { key: 'seasonEnding', label: 'Season ending', hint: 'Before the weekly lobby closes.' },
   { key: 'achievement', label: 'Achievements', hint: 'When you earn a badge.' },
   { key: 'weeklyRecap', label: 'Weekly recap', hint: 'A Monday summary of your week — counts only, no content.' },
+  { key: 'leagueEnding', label: 'League week ending', hint: 'Before your league week closes.' },
+  { key: 'examCountdown', label: 'Exam countdown', hint: 'As a saved exam date gets close.' },
 ];
 
 function detectedTimezone(): string {
@@ -59,13 +61,14 @@ export function RemindersSection() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [consentNeeded, setConsentNeeded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  const load = () => {
+    setLoadFailed(false);
+    setError('');
     void api
       .get<PrefsResponse>('/api/v1/notifications/prefs')
       .then((result) => {
-        if (!active) return;
         setData(result);
         // A learner who never saved prefs gets their own timezone prefilled —
         // the server default is UTC, which is rarely where they live.
@@ -74,12 +77,12 @@ export function RemindersSection() {
         setPrefs(next);
       })
       .catch((cause) => {
-        if (active) setError(cause instanceof Error ? cause.message : 'We could not load your reminder settings.');
+        setLoadFailed(true);
+        setError(cause instanceof Error ? cause.message : 'We could not load your reminder settings.');
       });
-    return () => {
-      active = false;
-    };
-  }, []);
+  };
+
+  useEffect(load, []);
 
   const timezones = useMemo(() => {
     try {
@@ -90,6 +93,19 @@ export function RemindersSection() {
   }, []);
 
   if (!prefs) {
+    if (loadFailed) {
+      return (
+        <Card as="section" className="p-6 text-center" aria-labelledby="reminders">
+          <h2 id="reminders" className="t-strong">Reminders</h2>
+          <p className="t-caption mt-2 text-muted-foreground">
+            We couldn’t load your reminder settings. Check your connection and try again.
+          </p>
+          <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={load}>
+            Try again
+          </Button>
+        </Card>
+      );
+    }
     return (
       <Card as="section" className="p-5">
         <div className="h-4 w-32 rounded bg-secondary" />
