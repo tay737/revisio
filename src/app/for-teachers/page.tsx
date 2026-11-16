@@ -44,7 +44,7 @@ const SECTIONS: {
     icon: 'class',
     title: 'A class in a minute',
     body: 'Create a class and share its join code. Students register or sign in and join with the code — no invites, no email lists, no IT ticket.',
-    points: ['Join codes you can rotate', 'Add or remove students yourself', 'One class per subject'],
+    points: ['Join codes you can rotate', 'Add or remove students yourself', 'Rename or delete a class anytime'],
   },
   {
     icon: 'notes',
