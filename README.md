@@ -35,7 +35,7 @@ published.
 > mobile clients are native — Kotlin + Compose over a native engine on Android,
 > Swift + SwiftUI over the same engine on iOS — and each ships as a
 > sideload-only alpha artefact. The iOS `.ipa` is unsigned and must be re-signed
-> to run; see [Native clients](#native-clients) and [`docs/MOBILE.md`](docs/MOBILE.md).
+> to run; see [Native clients](#native-clients).
 
 ---
 
@@ -450,14 +450,10 @@ Known, and stated rather than implied:
 
 ## Documentation
 
-| Document | Covers |
-| --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The authoritative description of the system, including which original decisions survived the change of shape |
-| [`docs/MOBILE.md`](docs/MOBILE.md) | Native architecture, the generators, verification status and what remains |
-| [`docs/UI-SYSTEM.md`](docs/UI-SYSTEM.md) | The design system the surfaces are written against |
-| [`docs/DESIGN-NOTES.md`](docs/DESIGN-NOTES.md) | The interface rules the design encodes |
-| [`docs/UX-AUDIT.md`](docs/UX-AUDIT.md), `docs/FRONTEND-UX-UI-AUDIT-*.md` | Audits, kept as the record of what was found and fixed |
-| [`AGENTS.md`](AGENTS.md) | Non-obvious operational facts — environment, sync, native builds, deploy |
+[`AGENTS.md`](AGENTS.md) holds the non-obvious operational facts: environment,
+sync, native builds, deploy. Everything else — architecture notes, design
+records, audits, API references — lives in `docs/` on the machines that work
+on this repo. It is deliberately not part of the repository.
 
 ---
 
