@@ -80,7 +80,7 @@ export function ChallengesCard() {
                           {Math.min(c.progress, c.target)}/{c.target}
                         </span>
                       </div>
-                      <Progress value={(c.progress / c.target) * 100} className="mt-1" />
+                      <Progress value={Math.min(100, (c.progress / c.target) * 100)} className="mt-1" />
                     </div>
                     {!c.completed && (
                       <Badge variant="chip" className="shrink-0">

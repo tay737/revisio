@@ -208,6 +208,8 @@ export function ExamPlanCard() {
             <Field icon="topic" label="Subject (optional)" htmlFor="examPlanSubject">
               <select
                 id="examPlanSubject"
+                name="examPlanSubject"
+                autoComplete="off"
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value)}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 t-body"

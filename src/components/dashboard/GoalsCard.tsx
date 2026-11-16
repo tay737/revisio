@@ -219,6 +219,8 @@ export function GoalsCard() {
             <Field icon="spec" label="Counts" htmlFor="goalKind">
               <select
                 id="goalKind"
+                name="goalKind"
+                autoComplete="off"
                 value={form.kind}
                 disabled={form.id !== null}
                 onChange={(e) => setForm({ ...form, kind: e.target.value as GoalKind })}

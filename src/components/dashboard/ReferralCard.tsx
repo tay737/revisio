@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { useMe } from '@/lib/useMe';
-import { cn } from '@/lib/utils';
 
 type Referral = {
   code: string;
@@ -27,6 +26,7 @@ export function ReferralCard() {
   const { me } = useMe();
   const [referral, setReferral] = useState<Referral | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -42,11 +42,14 @@ export function ReferralCard() {
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(referral.shareUrl);
+      setCopied(true);
+      setCopyFailed(false);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      return;
+      // Clipboard can be denied (permissions, non-secure context). Say so —
+      // a silent tap looks dead — and point at the selectable URL below.
+      setCopyFailed(true);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   const rotate = async () => {
@@ -87,12 +90,18 @@ export function ReferralCard() {
           size="sm"
           className="shrink-0 gap-1.5"
           onClick={() => void copyLink()}
+          aria-live="polite"
         >
           <Icon name={copied ? 'correct' : 'visible'} size={14} />
           {copied ? 'Copied' : 'Copy link'}
         </Button>
       </div>
       <p className="t-fine mt-1.5 truncate text-muted-foreground">{referral.shareUrl}</p>
+      {copyFailed && (
+        <p className="t-fine mt-1.5 text-muted-foreground">
+          Copy didn&apos;t work — select the link above and copy it by hand.
+        </p>
+      )}
 
       {confirmRotate ? (
         <div className="mt-3 rounded-md border border-border bg-secondary/50 px-3 py-2.5">
@@ -110,13 +119,15 @@ export function ReferralCard() {
           </div>
         </div>
       ) : (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-2 h-11 px-2 t-fine text-muted-foreground"
           onClick={() => setConfirmRotate(true)}
-          className={cn('t-fine mt-3 text-muted-foreground underline underline-offset-4 hover:text-foreground')}
         >
           Rotate the code
-        </button>
+        </Button>
       )}
       {error && <p className="t-caption mt-2 text-destructive-ink">{error}</p>}
     </Card>
