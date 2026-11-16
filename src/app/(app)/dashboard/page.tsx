@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import { motion } from 'motion/react';
 import useSWR from 'swr';
 import { api } from '@/lib/api';
 import { learnerSnapshot, useMe } from '@/lib/useMe';
@@ -24,6 +25,7 @@ import { Card } from '@/components/ui/card';
 import { Stat } from '@/components/ui/stat';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
+import { fadeUp, staggerParent } from '@/lib/motion';
 
 /**
  * Today — the dashboard.
@@ -103,8 +105,14 @@ export default function DashboardPage() {
   const accuracy = today.reviewed > 0 ? Math.round((today.correct / today.reviewed) * 100) : null;
 
   return (
-    <div className="space-y-4">
+    <motion.div
+      className="space-y-4"
+      variants={staggerParent(0.06, 0.04)}
+      initial="hidden"
+      animate="show"
+    >
       {/* ── 1. The hero: greeting, one line, one green button ─────────────── */}
+      <motion.div variants={fadeUp}>
       <TilePanel tone="dark" className="relative overflow-hidden p-5 sm:p-7">
         <p className="t-eyebrow">{greetingFor(me.name)}</p>
 
@@ -139,14 +147,17 @@ export default function DashboardPage() {
           </div>
         )}
       </TilePanel>
+      </motion.div>
 
       {/* ── 1½. First run: the guided path for a student who has never
           graded a card. Self-gates on role + srs.totalCards, so it costs
           nothing for anyone past activation. ── */}
-      <FirstRunCard me={me} />
+      <motion.div variants={fadeUp}>
+        <FirstRunCard me={me} />
+      </motion.div>
 
       {/* ── 2. Four numbers ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat icon="review" label="Due" value={today.due} tone={today.due > 0 ? 'good' : undefined} />
         <Stat icon="reviewed" label="Done today" value={today.reviewed} />
         <Stat
@@ -157,7 +168,7 @@ export default function DashboardPage() {
           tone={gam.streak > 0 ? 'streak' : undefined}
         />
         <Stat icon="xp" label="Total XP" value={gam.totalXp} />
-      </div>
+      </motion.div>
 
       {/* Mastery streak (#8): a sub-line under the four numbers, only for
           learners who opted in. The difference line is information, never a
@@ -179,24 +190,24 @@ export default function DashboardPage() {
       )}
 
       {/* ── 2½. Strength: how strong the queue actually is ─────────────── */}
-      
+      <motion.div variants={fadeUp}>
         <StrengthCard levels={me.srs.levels} avgLevel={me.srs.avgLevel} totalCards={me.srs.totalCards} />
-      
+      </motion.div>
 
       {/* ── 2¾. Student cards: challenges, exam countdown, goals, invites
           (#13/#17/#20). Staff accounts have no review queue to pace. ── */}
       {me.role === 'student' && (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <motion.div variants={fadeUp} className="grid gap-3 lg:grid-cols-2">
           <ChallengesCard />
           <ExamPlanCard />
           <GoalsCard />
           <ReferralCard />
-        </div>
+        </motion.div>
       )}
 
       {/* ── 3. Rank: the second dark band ────────────────────────────────── */}
       {ranked && (
-        
+        <motion.div variants={fadeUp}>
           <RankStrip
             rank={ranked.ranked.rank}
             lobby={ranked.ranked.lobby}
@@ -205,11 +216,11 @@ export default function DashboardPage() {
             xpThisWeek={ranked.ranked.xpThisWeek}
             season={ranked.ranked.season}
           />
-        
+        </motion.div>
       )}
 
       {/* ── 4. Four ways in ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ACTIONS.map((action, i) => (
           
             <Link key={action.href}
@@ -226,10 +237,10 @@ export default function DashboardPage() {
             </Link>
           
         ))}
-      </div>
+      </motion.div>
 
       {/* ── Subjects, and the two facts worth keeping from the old card ──── */}
-      
+      <motion.div variants={fadeUp}>
         <Card>
           <div className="flex items-center justify-between gap-3">
             <h2 className="t-strong">Your subjects</h2>
@@ -285,8 +296,8 @@ export default function DashboardPage() {
             )}
           </dl>
         </Card>
-      
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
