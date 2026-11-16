@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { cardAnswers, cards, deckSubscriptions, lessons, subjects, topics, users } from '@/db/schema';
 import { ApiError } from '@/services/api';
@@ -173,6 +173,41 @@ export async function followDeck(user: SessionUser, deckTopicId: string) {
   }
 
   const subject = await sharedDecksSubject(user.id);
+
+  // Re-follow after unfollow: the subscription row is gone but the private
+  // copy stayed. Reuse it rather than minting a duplicate — match by name
+  // inside the user's Shared decks subject, most recent wins if legacy
+  // duplicates exist. Content is not re-copied (live propagation is deferred,
+  // so the existing copy is current-enough); the count snapshots refresh so
+  // "updated since you followed" measures from this follow.
+  const [priorCopy] = await db
+    .select({ id: topics.id })
+    .from(topics)
+    .where(
+      and(
+        eq(topics.ownerId, user.id),
+        eq(topics.subjectId, subject.id),
+        eq(topics.visibility, 'private'),
+        eq(topics.name, deck.name),
+      ),
+    )
+    .orderBy(desc(topics.createdAt))
+    .limit(1);
+  if (priorCopy) {
+    const [subscription] = await db
+      .insert(deckSubscriptions)
+      .values({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        deckTopicId,
+        copyTopicId: priorCopy.id,
+        cardsAtFollow: srcCards.length,
+        lessonsAtFollow: srcLessons.length,
+      })
+      .returning();
+    return { subscription, copyTopicId: priorCopy.id, copySubjectId: subject.id, alreadyFollowing: false };
+  }
+
   const copyTopicId = crypto.randomUUID();
   await db.insert(topics).values({
     id: copyTopicId,

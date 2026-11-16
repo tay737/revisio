@@ -34,8 +34,9 @@ type Deck = {
  *
  * Follow is copy-on-follow: the deck lands as a private copy under the
  * learner's "Shared decks" subject, so it is theirs to edit and study
- * immediately. Decks the author later updates show an "updated" badge — the
- * copy itself is refreshed by re-following once live propagation ships.
+ * immediately. Re-following after an unfollow reuses that copy rather than
+ * duplicating it; the API still reports source-vs-snapshot counts, but no
+ * badge renders until a refresh path exists.
  */
 export default function PublicDecksPage() {
   const [decks, setDecks] = useState<Deck[] | null>(null);
@@ -136,9 +137,6 @@ export default function PublicDecksPage() {
                       {d.subjectName} · by {d.authorName}
                     </p>
                   </div>
-                  {d.subscription?.updated && (
-                    <span className="chip shrink-0">Updated</span>
-                  )}
                 </div>
                 {d.description && (
                   <p className="t-caption mt-2 line-clamp-3 text-muted-foreground">{d.description}</p>
@@ -164,7 +162,7 @@ export default function PublicDecksPage() {
                         disabled={busy === d.topicId}
                         onClick={() => void act(d)}
                       >
-                        Unfollow
+                        {busy === d.topicId ? 'Removing…' : 'Unfollow'}
                       </Button>
                     </>
                   ) : (
