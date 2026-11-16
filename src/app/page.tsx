@@ -41,6 +41,16 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
   { icon: 'exam', title: 'Papers that mark like real ones', body: 'Per-question feedback against the scheme.' },
 ];
 
+/** Capabilities a student meets in week one (#26) — the audit's gap list:
+ *  cram, maths drills, offline. Native apps stay unmentioned by name: they
+ *  are sideload-alpha, and "offline review" is true on every client anyway. */
+const ALSO_IN_THE_BOX: { icon: IconName; title: string; body: string }[] = [
+  { icon: 'cram', title: 'Cram mode', body: 'A focused burst when the deadline is close.' },
+  { icon: 'practice', title: 'Maths drills', body: 'Generated practice, on demand, per subject.' },
+  { icon: 'offline', title: 'Offline review', body: 'Your queue is cached — revise without signal, sync later.' },
+  { icon: 'clock', title: 'Exam countdown', body: 'Set a date — Revisio paces your topics to it.' },
+];
+
 /** The demo's own three cards, so the queue shown here is the queue beside it. */
 const QUEUE = [
   { topic: 'Biology · Enzymes', kind: 'Cloze' },
@@ -211,6 +221,20 @@ export default function LandingPage() {
                 </Card>
               ))}
             </div>
+
+            {/* The rest of the box, one line each — enough to show the
+                product is bigger than three cards without a second bento. */}
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {ALSO_IN_THE_BOX.map((item) => (
+                <li key={item.title} className="flex items-start gap-3 rounded-md border border-border bg-card px-4 py-3.5">
+                  <Icon name={item.icon} size={17} className="mt-0.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0">
+                    <span className="t-caption-s block">{item.title}</span>
+                    <span className="t-fine mt-0.5 block text-muted-foreground">{item.body}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </TileBand>
 

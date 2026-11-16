@@ -32,6 +32,20 @@ export const metadata: Metadata = {
   description: 'Spaced repetition, a daily queue and a rank worth defending.',
   manifest: '/manifest.webmanifest',
   applicationName: 'Revisio',
+  // Social cards (#24): shared links unfurl with title, description and the
+  // generated opengraph-image. /u/<handle> overrides title/description per
+  // profile; the image is inherited site-wide.
+  openGraph: {
+    title: 'Revisio: Learn it once',
+    description: 'Spaced repetition, a daily queue and a rank worth defending.',
+    siteName: 'Revisio',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Revisio: Learn it once',
+    description: 'Spaced repetition, a daily queue and a rank worth defending.',
+  },
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/icon-192.png', sizes: '192x192' }],
