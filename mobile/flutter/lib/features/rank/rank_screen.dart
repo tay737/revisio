@@ -1174,6 +1174,7 @@ class _LobbyTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lobby = data.lobby;
+    final smallLobby = lobby.filled < ranked.lobbyZoneMin;
     final demotionFrom = lobby.size - lobby.band + 1;
     final unclaimed = (lobby.size - lobby.rows.length).clamp(0, 1 << 30);
     final shownSeats = unclaimed < 3 ? unclaimed : 3;
@@ -1207,6 +1208,7 @@ class _LobbyTab extends StatelessWidget {
               zone: lobby.zone,
               position: lobby.position,
               size: lobby.size,
+              filled: lobby.filled,
               daysLeft: data.week.daysLeft,
               rankLabel: data.rank.label,
             ),
@@ -1275,14 +1277,25 @@ class _LobbyTab extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _ZoneBadge.up('Top ${lobby.band} promote'),
-                _ZoneBadge.down('Bottom ${lobby.band} demote'),
+                if (smallLobby)
+                  _Fine(
+                    'Bands start at ${ranked.lobbyZoneMin} seated — ${lobby.filled} so far',
+                  )
+                else ...[
+                  _ZoneBadge.up('Top ${lobby.band} promote'),
+                  _ZoneBadge.down('Bottom ${lobby.band} drop a rung'),
+                ],
                 _Fine('${lobby.filled}/${lobby.size} seats'),
               ],
             ),
             const SizedBox(height: 10),
             for (final row in lobby.rows)
-              _LobbyRow(row: row, band: lobby.band, demotionFrom: demotionFrom),
+              _LobbyRow(
+                row: row,
+                band: lobby.band,
+                demotionFrom: demotionFrom,
+                showZones: !smallLobby,
+              ),
             for (var i = 0; i < shownSeats; i++)
               _OpenSeat(position: lobby.rows.length + i + 1),
             if (unclaimed > shownSeats)
@@ -1338,16 +1351,18 @@ class _LobbyRow extends StatelessWidget {
     required this.row,
     required this.band,
     required this.demotionFrom,
+    required this.showZones,
   });
 
   final LobbySeat row;
   final int band;
   final int demotionFrom;
+  final bool showZones;
 
   @override
   Widget build(BuildContext context) {
-    final promoting = row.position <= band;
-    final demoting = row.position >= demotionFrom;
+    final promoting = showZones && row.position <= band;
+    final demoting = showZones && row.position >= demotionFrom;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5),
       padding: EdgeInsets.symmetric(horizontal: row.isMe ? 8 : 0, vertical: 10),

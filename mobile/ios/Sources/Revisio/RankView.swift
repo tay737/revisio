@@ -164,6 +164,7 @@ struct RankView: View {
                                     zone: payload.ranked.lobby.zone,
                                     position: payload.ranked.lobby.position,
                                     size: payload.ranked.lobby.size,
+                                    filled: payload.ranked.lobby.filled,
                                     daysLeft: payload.ranked.week.daysLeft,
                                     rankLabel: payload.ranked.rank.label
                                 )
@@ -396,17 +397,24 @@ private struct LobbyTable: View {
     var onOpenProfile: (String) -> Void = { _ in }
 
     var body: some View {
+        let smallLobby = lobby.filled < RankLadder.lobbyZoneMin
         VStack(alignment: .leading, spacing: 8) {
-            GeometryReader { geo in
-                let unit = geo.size.width / CGFloat(max(lobby.size, 1))
-                let gap: CGFloat = 3
-                HStack(spacing: gap) {
-                    band(width: CGFloat(max(lobby.band, 1)) * unit - gap, colour: colors.good)
-                    band(width: CGFloat(max(lobby.size - lobby.band * 2, 1)) * unit - gap, colour: colors.secondary)
-                    band(width: CGFloat(max(lobby.band, 1)) * unit - gap, colour: colors.destructive)
+            if smallLobby {
+                Text("Bands start at \(RankLadder.lobbyZoneMin) seated — \(lobby.filled) so far")
+                    .font(Type.fine.font)
+                    .foregroundStyle(colors.mutedForeground)
+            } else {
+                GeometryReader { geo in
+                    let unit = geo.size.width / CGFloat(max(lobby.size, 1))
+                    let gap: CGFloat = 3
+                    HStack(spacing: gap) {
+                        band(width: CGFloat(max(lobby.band, 1)) * unit - gap, colour: colors.good)
+                        band(width: CGFloat(max(lobby.size - lobby.band * 2, 1)) * unit - gap, colour: colors.secondary)
+                        band(width: CGFloat(max(lobby.band, 1)) * unit - gap, colour: colors.destructive)
+                    }
                 }
+                .frame(height: 6)
             }
-            .frame(height: 6)
 
             Text("\(lobby.filled) of \(lobby.size) seats taken")
                 .font(Type.fine.font)

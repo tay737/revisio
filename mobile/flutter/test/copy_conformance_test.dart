@@ -103,6 +103,7 @@ void main() {
             zone: c['zone'] as String,
             position: c['position'] as int,
             size: c['size'] as int,
+            filled: c['filled'] as int,
             daysLeft: c['daysLeft'] as int,
             rankLabel: c['rankLabel'] as String,
           ),

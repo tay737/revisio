@@ -260,10 +260,20 @@ export function zoneBand(size: number): number {
   return Math.max(1, Math.min(5, Math.round(size * 0.17)));
 }
 
+/**
+ * Lobbies smaller than this show no promotion/drop zones at all — a
+ * three-person "competition" with bands is shaming theatre, not motivation
+ * (competition-safety spec, C4). The route suppresses the zone and the
+ * components quiet the legend; both read this one constant.
+ */
+export const LOBBY_ZONE_MIN = 10;
+
 export type LobbyZone = 'promotion' | 'safe' | 'demotion' | 'pending';
 
 export function zoneFor(position: number, size: number, totalXp: number): LobbyZone {
   if (totalXp < PLACEMENT_REVIEWS) return 'pending';
+  // `size` is the *filled* seat count — small lobbies get no zones (C4).
+  if (size < LOBBY_ZONE_MIN) return 'pending';
   const band = zoneBand(size);
   if (position <= band) return 'promotion';
   if (position > size - band) return 'demotion';
@@ -361,17 +371,23 @@ export function weekBounds(now: Date = new Date()): WeekBounds {
   const elapsed = (now.getTime() - start.getTime()) / (7 * 86_400_000);
   const daysLeft = Math.max(0, Math.ceil((end.getTime() + 86_400_000 - now.getTime()) / 86_400_000));
 
-  const fmt = (x: Date, withMonth: boolean) =>
-    x.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', ...(withMonth ? { month: 'short' } : {}) });
-  const weekday = (x: Date) => x.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short' });
-  const month = end.toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'short' });
-
   return {
     weekStart: start.toISOString().slice(0, 10),
     daysLeft,
     percentElapsed: Math.max(0, Math.min(100, Math.round(elapsed * 100))),
-    rangeLabel: `${weekday(start)} ${fmt(start, false)} – ${weekday(end)} ${fmt(end, false)} ${month}`,
+    rangeLabel: weekRangeLabel(start),
   };
+}
+
+/** "Mon 22 – Sun 28 Sep" for any Monday — the same label `weekBounds` emits,
+ *  for weeks that are not the current one (e.g. a personal-best week). */
+export function weekRangeLabel(monday: Date): string {
+  const end = new Date(monday.getTime() + 6 * 86_400_000);
+  const fmt = (x: Date, withMonth: boolean) =>
+    x.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', ...(withMonth ? { month: 'short' } : {}) });
+  const weekday = (x: Date) => x.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short' });
+  const month = end.toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'short' });
+  return `${weekday(monday)} ${fmt(monday, false)} – ${weekday(end)} ${fmt(end, false)} ${month}`;
 }
 
 // ── the crest's shape signature ─────────────────────────────────────────────

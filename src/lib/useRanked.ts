@@ -55,6 +55,9 @@ export type RankedResponse = {
     };
     seasonXp: number;
     seasonReviews: number;
+    /** Strongest week ever (xp_week > 0, earliest week on ties), self-only —
+     *  shown even to opted-out learners. Null with no history. */
+    bestWeek: { xp: number; weekStart: string } | null;
     /** The same engine on lifetime XP: the record, not the rank. */
     lifetimeRank: Rank;
   };

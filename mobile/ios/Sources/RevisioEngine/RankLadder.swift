@@ -23,6 +23,9 @@ public enum RankLadder {
     public static let zoneBandMin = 1
     public static let zoneBandMax = 5
 
+    /// Lobbies below this many filled seats show no promotion/drop zones.
+    public static let lobbyZoneMin = 10
+
     public static let tierOrder = ["bronze", "silver", "gold", "platinum", "emerald", "sapphire", "diamond", "ruby", "obsidian", "legend"]
 
     public static let divisionSpan: [String: Int] = [

@@ -26,22 +26,28 @@ class RankStrip extends StatelessWidget {
     final lobby = ranked.lobby;
     final season = ranked.season;
 
-    final zoneLabel = switch (lobby.zone) {
-      'promotion' => 'Promotion zone',
-      'demotion' => 'Demotion zone',
-      'pending' => 'Being placed',
-      _ => 'Safe',
-    };
-    final zoneIcon = switch (lobby.zone) {
-      'promotion' => 'zoneUp',
-      'demotion' => 'zoneDown',
-      _ => 'zoneUp',
-    };
-    final zoneColor = switch (lobby.zone) {
-      'promotion' => context.goodStrong,
-      'demotion' => context.destructiveInk,
-      _ => context.bandMuted,
-    };
+    final smallLobby = lobby.filled < lobbyZoneMin;
+    final zoneLabel = smallLobby
+        ? 'Small lobby'
+        : switch (lobby.zone) {
+            'promotion' => 'Promotion zone',
+            'demotion' => 'Drop zone',
+            'pending' => 'Being placed',
+            _ => 'Safe',
+          };
+    final zoneIcon = smallLobby
+        ? 'person'
+        : switch (lobby.zone) {
+            'demotion' => 'zoneDown',
+            _ => 'zoneUp',
+          };
+    final zoneColor = smallLobby
+        ? context.bandMuted
+        : switch (lobby.zone) {
+            'promotion' => context.goodStrong,
+            'demotion' => context.destructiveInk,
+            _ => context.bandMuted,
+          };
 
     final caption = season != null
         ? copy.seasonLine(
@@ -227,7 +233,7 @@ class RankStrip extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${lobby.position} of ${lobby.size} · ${ranked.xpThisWeek} XP this week',
+                          '${lobby.position} of ${lobby.filled} · ${ranked.xpThisWeek} XP this week',
                           style: TypeScale.fine.copyWith(
                             color: context.bandMuted,
                           ),

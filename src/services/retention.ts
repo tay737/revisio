@@ -698,8 +698,21 @@ export async function friendBoard(userId: string) {
       weeklyXp: xp?.c ?? 0, streak: streak?.current ?? 0, kind: link.kind,
     });
   }
+  // Self row: the learner sees their own standing inside the same circle.
+  // Opted-out viewers get no self row (they are off every board, including this one).
+  const self = await publicUser(userId);
+  if (self && !self.leaderboardOptOut) {
+    const [[selfXp], [selfStreak]] = await Promise.all([
+      db.select({ c: sql<number>`coalesce(sum(${xpEvents.amount}),0)::int` }).from(xpEvents).where(and(eq(xpEvents.userId, userId), gte(xpEvents.occurredAt, weekStart))),
+      db.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, userId)).limit(1),
+    ]);
+    entries.push({
+      userId: self.id, name: self.name, username: self.username, avatarColor: self.avatarColor,
+      weeklyXp: selfXp?.c ?? 0, streak: selfStreak?.current ?? 0, kind: 'self', isSelf: true,
+    });
+  }
   entries.sort((a, b) => b.weeklyXp - a.weeklyXp);
-  return entries.slice(0, 20).map((e, i) => ({ ...e, rank: i + 1 }));
+  return entries.slice(0, 20).map((e, i) => ({ ...e, rank: i + 1, isSelf: e.isSelf ?? false }));
 }
 
 function mondayUtc(d: Date): Date {

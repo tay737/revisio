@@ -6,7 +6,7 @@
 library revisio.engine.models;
 
 import 'grading.dart';
-import 'ranked.dart' show Rank, Tier;
+import 'ranked.dart' show Rank, Tier, lobbyZoneMin;
 
 // ── the offline pack ────────────────────────────────────────────────────────
 
@@ -697,12 +697,15 @@ class Lobby {
     this.rows = const [],
   });
 
-  String get zoneLabel => switch (zone) {
-    'promotion' => 'Promotion zone',
-    'demotion' => 'Demotion zone',
-    'pending' => 'Placements',
-    _ => 'Safe',
-  };
+  String get zoneLabel {
+    if (filled < lobbyZoneMin) return 'Small lobby';
+    return switch (zone) {
+      'promotion' => 'Promotion zone',
+      'demotion' => 'Drop zone',
+      'pending' => 'Being placed',
+      _ => 'Safe',
+    };
+  }
 
   factory Lobby.fromJson(Map<String, dynamic> json) => Lobby(
     position: json['position'] as int? ?? 0,

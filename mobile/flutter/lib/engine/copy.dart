@@ -7,6 +7,8 @@
 /// Voice: second person, quiet confidence, no exclamation marks, no emoji.
 library revisio.engine.copy;
 
+import 'ranked.dart';
+
 String firstName(String name) {
   final trimmed = name.trim();
   if (trimmed.isEmpty) return 'there';
@@ -207,18 +209,27 @@ String lobbyLine({
   required String zone, // 'promotion' | 'safe' | 'demotion' | 'pending'
   required int position,
   required int size,
+  required int filled,
   required int daysLeft,
   required String rankLabel,
 }) {
   final days = daysLeft == 1 ? 'Today is the last day' : '$daysLeft days left';
   if (zone == 'pending') {
+    // 'pending' covers three quiet states: still placing, a lobby too small
+    // for bands, and a viewer waiting below the filled seats.
+    if (filled < lobbyZoneMin) {
+      return '$position of $filled. A small lobby this week — bands start at $lobbyZoneMin seated. No stakes yet; keep going.';
+    }
+    if (position > filled) {
+      return '$position overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies.';
+    }
     return 'We are still placing you. A few more reviews and we will seat you in a $rankLabel lobby.';
   }
   if (zone == 'promotion') {
     return '$position of $size. You are inside the promotion zone. $days; holding this seat moves you up a rung.';
   }
   if (zone == 'demotion') {
-    return '$position of $size. That is the demotion band, and one session pulls you clear of it.';
+    return "$position of $size. You're in the drop zone. $days; one session pulls you clear, and nothing is lost — your RP stays.";
   }
   return '$position of $size. Safe, and close enough to the promotion band to take it. $days.';
 }

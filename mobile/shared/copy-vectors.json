@@ -871,16 +871,36 @@
   "lobbyLine": [
     {
       "zone": "pending",
-      "position": 0,
+      "position": 4,
       "size": 30,
+      "filled": 14,
       "daysLeft": 5,
       "rankLabel": "Silver II",
       "expected": "We are still placing you. A few more reviews and we will seat you in a Silver II lobby."
     },
     {
+      "zone": "pending",
+      "position": 3,
+      "size": 30,
+      "filled": 6,
+      "daysLeft": 5,
+      "rankLabel": "Silver II",
+      "expected": "3 of 6. A small lobby this week — bands start at 10 seated. No stakes yet; keep going."
+    },
+    {
+      "zone": "pending",
+      "position": 18,
+      "size": 30,
+      "filled": 14,
+      "daysLeft": 5,
+      "rankLabel": "Silver II",
+      "expected": "18 overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies."
+    },
+    {
       "zone": "promotion",
       "position": 3,
       "size": 30,
+      "filled": 14,
       "daysLeft": 1,
       "rankLabel": "Silver II",
       "expected": "3 of 30. You are inside the promotion zone. Today is the last day; holding this seat moves you up a rung."
@@ -889,14 +909,16 @@
       "zone": "demotion",
       "position": 28,
       "size": 30,
+      "filled": 14,
       "daysLeft": 2,
       "rankLabel": "Silver II",
-      "expected": "28 of 30. That is the demotion band, and one session pulls you clear of it."
+      "expected": "28 of 30. You're in the drop zone. 2 days left; one session pulls you clear, and nothing is lost — your RP stays."
     },
     {
       "zone": "safe",
       "position": 14,
       "size": 30,
+      "filled": 14,
       "daysLeft": 6,
       "rankLabel": "Bronze I",
       "expected": "14 of 30. Safe, and close enough to the promotion band to take it. 6 days left."

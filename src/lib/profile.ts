@@ -7,6 +7,8 @@
 // emoji (the design system reserves colour for Action Blue). Teasing is fine;
 // nagging is not. Every line should be true of the numbers we were given.
 
+import { LOBBY_ZONE_MIN, type LobbyZone } from '@/domain/ranked';
+
 export type LearnerSnapshot = {
   name: string;
   role: string;
@@ -193,22 +195,33 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
  * aggression: the zone is a fact, and the sentence explains what it means.
  */
 export function lobbyLine(input: {
-  zone: 'promotion' | 'safe' | 'demotion' | 'pending';
+  zone: LobbyZone;
   position: number;
   size: number;
+  /** Seats actually filled this week — 'pending' splits three quiet states on it. */
+  filled: number;
   daysLeft: number;
   rankLabel: string;
 }): string {
-  const { zone, position, size, daysLeft, rankLabel } = input;
+  const { zone, position, size, filled, daysLeft, rankLabel } = input;
   const days = daysLeft === 1 ? 'Today is the last day' : `${daysLeft} days left`;
   if (zone === 'pending') {
+    // 'pending' covers three different quiet states (competition-safety spec):
+    // still placing, a lobby too small for bands, and a viewer waiting below
+    // the filled seats. Only the first one is about placement.
+    if (filled < LOBBY_ZONE_MIN) {
+      return `${position} of ${filled}. A small lobby this week — bands start at ${LOBBY_ZONE_MIN} seated. No stakes yet; keep going.`;
+    }
+    if (position > filled) {
+      return `${position} overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies.`;
+    }
     return `We are still placing you. A few more reviews and we will seat you in a ${rankLabel} lobby.`;
   }
   if (zone === 'promotion') {
     return `${position} of ${size}. You are inside the promotion zone. ${days}; holding this seat moves you up a rung.`;
   }
   if (zone === 'demotion') {
-    return `${position} of ${size}. That is the demotion band, and one session pulls you clear of it.`;
+    return `${position} of ${size}. You're in the drop zone. ${days}; one session pulls you clear, and nothing is lost — your RP stays.`;
   }
   return `${position} of ${size}. Safe, and close enough to the promotion band to take it. ${days}.`;
 }

@@ -18,7 +18,7 @@ import { RankView } from '@/components/rank/RankView';
 import { SPRING, cappedDelay } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { lobbyLine } from '@/lib/profile';
-import { formFor } from '@/domain/ranked';
+import { formFor, weekRangeLabel } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { StrengthTab } from '@/components/insights/StrengthTab';
 import { Button } from '@/components/ui/button';
@@ -227,10 +227,24 @@ function RankPage() {
                     zone: data.lobby.zone,
                     position: data.lobby.position,
                     size: data.lobby.size,
+                    filled: data.lobby.filled,
                     daysLeft: data.week.daysLeft,
                     rankLabel: data.rank.label,
                   })}
                 </p>
+
+                {/* Personal best (#16): self-only, so opted-out learners still
+                    see it. Hidden with no history — "best: none" is a cold
+                    start, not a feature. bestWeek excludes the live week, so
+                    "past it" means this week's XP has already beaten the
+                    record. */}
+                {data.bestWeek && (
+                  <p className="t-fine mt-1.5 text-muted-foreground">
+                    {data.xpThisWeek > data.bestWeek.xp
+                      ? `Your best week: ${data.bestWeek.xp} XP — and this week is already past it.`
+                      : `Your best week: ${data.bestWeek.xp} XP (${weekRangeLabel(new Date(`${data.bestWeek.weekStart}T00:00:00Z`))}).`}
+                  </p>
+                )}
 
                 {/* The clock the whole lobby runs on. */}
                 <div className="mt-4 flex items-center gap-3">
@@ -252,7 +266,8 @@ function RankPage() {
                     <div className="flex items-start gap-3 rounded-md bg-secondary p-3.5">
                       <Icon name="private" size={17} className="mt-0.5 shrink-0" />
                       <p className="t-caption leading-snug">
-                        Your name is hidden. Your RP still moves.{' '}
+                        You&rsquo;re off every board. Your rank, XP and streak are untouched — only the
+                        comparisons stop.{' '}
                         <button
                           type="button"
                           onClick={toggleOptOut}

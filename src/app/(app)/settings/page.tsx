@@ -505,7 +505,7 @@ function SettingsBody({
           ))}
         </div>
         <p className="t-fine mt-3 text-muted-foreground">
-          Your email is never shown to anyone. Leaderboard visibility is a separate switch on the Rank page.
+          Your email is never shown to anyone. Board visibility is the 'Show me on leaderboards and study boards' switch under Preferences — the Rank page has the same control.
         </p>
       </Card>
 
@@ -625,8 +625,8 @@ function SettingsBody({
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
-              <label htmlFor="pref-board" className="t-caption font-semibold">Show me on leaderboards</label>
-              <p className="t-caption text-muted-foreground">Your rank is unaffected either way.</p>
+              <label htmlFor="pref-board" className="t-caption font-semibold">Show me on leaderboards and study boards</label>
+              <p className="t-caption text-muted-foreground">Includes your study circle's private board — off removes you from every comparison, everywhere. Your rank is unaffected either way.</p>
             </div>
             <Toggle
               id="pref-board"

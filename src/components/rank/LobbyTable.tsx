@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { cn } from '@/lib/utils';
-import { type LobbyZone, type Rank } from '@/domain/ranked';
+import { LOBBY_ZONE_MIN, type LobbyZone, type Rank } from '@/domain/ranked';
 import { Badge } from '@/components/ui/badge';
 
 export type LobbyRow = {
@@ -50,19 +50,31 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
   const unclaimed = Math.max(0, lobby.size - lobby.rows.length);
   const demotionFrom = lobby.size - lobby.band + 1;
   const shownSeats = Math.min(unclaimed, 3);
+  // C4: under LOBBY_ZONE_MIN filled seats there are no promotion/drop bands —
+  // the legend and row markers quiet down rather than advertise stakes that
+  // do not exist yet.
+  const smallLobby = lobby.filled < LOBBY_ZONE_MIN;
 
   return (
     <div className={cn('min-w-0', className)}>
-      {/* Band legend. */}
+      {/* Band legend — or the quiet note when the lobby is too small for bands. */}
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
-        <Badge variant="good">
-          <Icon name="zoneUp" size={12} />
-          Top {lobby.band} promote
-        </Badge>
-        <Badge variant="quiet">
-          <Icon name="zoneDown" size={12} />
-          Bottom {lobby.band} demote
-        </Badge>
+        {smallLobby ? (
+          <span className="t-fine text-muted-foreground">
+            Bands start at {LOBBY_ZONE_MIN} seated — {lobby.filled} so far
+          </span>
+        ) : (
+          <>
+            <Badge variant="good">
+              <Icon name="zoneUp" size={12} />
+              Top {lobby.band} promote
+            </Badge>
+            <Badge variant="quiet">
+              <Icon name="zoneDown" size={12} />
+              Bottom {lobby.band} drop a rung
+            </Badge>
+          </>
+        )}
         <span className="num ml-auto t-fine text-muted-foreground">
           {lobby.filled}/{lobby.size} seats
         </span>
@@ -70,8 +82,8 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
 
       <ol className="divide-y divide-border">
         {lobby.rows.map((row) => {
-          const promoting = row.position <= lobby.band;
-          const demoting = row.position >= demotionFrom;
+          const promoting = !smallLobby && row.position <= lobby.band;
+          const demoting = !smallLobby && row.position >= demotionFrom;
           return (
             <li
               key={`${row.position}-${row.name}`}
@@ -123,7 +135,7 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
                   name="zoneDown"
                   size={14}
                   className="shrink-0 text-destructive-ink"
-                  aria-label="Demotion band"
+                  aria-label="Drop zone"
                 />
               )}
 

@@ -64,16 +64,26 @@ fun RankStrip(
     modifier: Modifier = Modifier,
 ) {
     val placing = placement.placing
-    val zoneLabel = when (lobby.zone) {
-        "promotion" -> "Promotion zone"
-        "demotion" -> "Demotion zone"
-        "pending" -> "Being placed"
-        else -> "Safe"
+    val smallLobby = lobby.filled < RankLadder.LOBBY_ZONE_MIN
+    val zoneLabel = if (smallLobby) {
+        "Small lobby"
+    } else {
+        when (lobby.zone) {
+            "promotion" -> "Promotion zone"
+            "demotion" -> "Drop zone"
+            "pending" -> "Being placed"
+            else -> "Safe"
+        }
     }
-    val zoneIcon = if (lobby.zone == "demotion") RevisioIcons.zoneDown else RevisioIcons.zoneUp
-    val zoneTint = when (lobby.zone) {
-        "promotion" -> Good
-        "demotion" -> Bad
+    val zoneIcon = when {
+        smallLobby -> RevisioIcons.person
+        lobby.zone == "demotion" -> RevisioIcons.zoneDown
+        else -> RevisioIcons.zoneUp
+    }
+    val zoneTint = when {
+        smallLobby -> Muted
+        lobby.zone == "promotion" -> Good
+        lobby.zone == "demotion" -> Bad
         else -> Muted
     }
 
@@ -142,7 +152,7 @@ fun RankStrip(
                 }
                 Spacer(Modifier.height(4.dp))
                 Row {
-                    Text("${lobby.position} of ${lobby.size} · ", style = Type.fine.style(Muted))
+                    Text("${lobby.position} of ${lobby.filled} · ", style = Type.fine.style(Muted))
                     NumberTicker(value = xpThisWeek, style = Type.fine.style(Muted))
                     Text(" XP this week", style = Type.fine.style(Muted))
                 }

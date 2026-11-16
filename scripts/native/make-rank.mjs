@@ -42,6 +42,7 @@ const tierSource = constSource('TIER_ORDER');
 const labelSource = constSource('DIVISION_LABEL');
 const rpPerXp = Number(constSource('RP_PER_XP'));
 const placementReviews = Number(constSource('PLACEMENT_REVIEWS'));
+const lobbyZoneMin = Number(constSource('LOBBY_ZONE_MIN'));
 
 const TIER_ORDER = [...tierSource.matchAll(/'([a-z]+)'|"([a-z]+)"/g)].map((m) => m[1] ?? m[2]);
 const DIVISION_SPAN = Object.fromEntries(
@@ -205,6 +206,9 @@ object RankLadder {
     const val ZONE_BAND_MIN = 1
     const val ZONE_BAND_MAX = 5
 
+    /** Lobbies below this many filled seats show no promotion/drop zones. */
+    const val LOBBY_ZONE_MIN = ${lobbyZoneMin}
+
     val TIER_ORDER: List<String> = listOf(${TIER_ORDER.map((t) => `"${t}"`).join(', ')})
 
     val DIVISION_SPAN: Map<String, Int> = mapOf(
@@ -310,6 +314,9 @@ public enum RankLadder {
     public static let zoneBandShare = 0.17
     public static let zoneBandMin = 1
     public static let zoneBandMax = 5
+
+    /// Lobbies below this many filled seats show no promotion/drop zones.
+    public static let lobbyZoneMin = ${lobbyZoneMin}
 
     public static let tierOrder = [${TIER_ORDER.map((t) => `"${t}"`).join(', ')}]
 

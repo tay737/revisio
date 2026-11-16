@@ -190,8 +190,13 @@ int zoneBand(int size) {
 
 enum LobbyZone { promotion, safe, demotion, pending }
 
+/// Lobbies smaller than this show no promotion/drop zones at all.
+const int lobbyZoneMin = 10;
+
 LobbyZone zoneFor(int position, int size, int totalXp) {
   if (totalXp < placementReviews) return LobbyZone.pending;
+  // `size` is the *filled* seat count — small lobbies get no zones.
+  if (size < lobbyZoneMin) return LobbyZone.pending;
   final band = zoneBand(size);
   if (position <= band) return LobbyZone.promotion;
   if (position > size - band) return LobbyZone.demotion;

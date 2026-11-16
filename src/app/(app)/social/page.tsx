@@ -25,7 +25,7 @@ type Connection = {
   createdAt: string;
   user: ConnectionUser;
 };
-type BoardEntry = { userId: string; name: string; username: string | null; weeklyXp: number; streak: number; kind: string; rank: number };
+type BoardEntry = { userId: string; name: string; username: string | null; weeklyXp: number; streak: number; kind: string; rank: number; isSelf?: boolean };
 type SocialData = { consentSocial: boolean; connections: Connection[]; board: BoardEntry[] };
 
 type GuardianLink = {
@@ -147,6 +147,7 @@ export default function SocialPage() {
     guardianAct(() => api.post('/api/v1/social/guardian', { action: 'respond', linkId, response }), 'Updated.');
 
   const viewSummary = async (studentId: string) => {
+    if (!studentId) return;
     setBusy(true);
     setError('');
     try {
@@ -279,17 +280,25 @@ export default function SocialPage() {
       </Card>
 
       {/* ── Friend board — private, weekly ──────────────────────────────── */}
-      {board.length > 0 && (
+      {(board.length > 0 || accepted.length > 0) && (
         <Card className="p-5">
           <h2 className="t-strong">This week, privately</h2>
           <p className="t-caption mt-1 text-muted-foreground">
             Weekly XP and streaks for your circle only. It never touches the public leaderboard.
           </p>
+          {board.length === 0 ? (
+            <p className="t-caption mt-3 text-muted-foreground">
+              Nobody in your circle is sharing weekly stats right now — they may have boards turned off in Settings.
+            </p>
+          ) : (
           <ul className="mt-3 divide-y divide-border/60">
             {board.map((b) => (
               <li key={b.userId} className="flex items-center gap-3 py-2">
                 <span className="num w-6 shrink-0 text-right t-caption-s font-bold text-muted-foreground">{b.rank}</span>
-                <span className="min-w-0 flex-1 truncate t-caption font-medium">{b.name}</span>
+                <span className="min-w-0 flex-1 truncate t-caption font-medium">
+                  {b.name}
+                  {b.isSelf && <span className="ml-1.5 t-fine font-normal text-muted-foreground">(you)</span>}
+                </span>
                 <span className="num shrink-0 t-fine text-muted-foreground">{b.weeklyXp} XP this week</span>
                 <span className="num flex shrink-0 items-center gap-1 t-fine text-muted-foreground">
                   <Icon name="streak" size={12} />
@@ -298,6 +307,7 @@ export default function SocialPage() {
               </li>
             ))}
           </ul>
+          )}
         </Card>
       )}
 
@@ -382,7 +392,7 @@ export default function SocialPage() {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      disabled={busy}
+                      disabled={busy || !l.user?.id}
                       onClick={() => void viewSummary(l.user?.id ?? '')}
                     >
                       {summaryFor === l.user?.id ? 'Refresh' : 'View summary'}

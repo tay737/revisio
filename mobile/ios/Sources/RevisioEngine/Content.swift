@@ -282,10 +282,11 @@ public struct Lobby: Codable, Equatable {
     public var rows: [LobbySeat]
 
     public var zoneLabel: String {
+        if filled < RankLadder.lobbyZoneMin { return "Small lobby" }
         switch zone {
         case "promotion": return "Promotion zone"
-        case "demotion": return "Demotion zone"
-        case "pending": return "Placements"
+        case "demotion": return "Drop zone"
+        case "pending": return "Being placed"
         default: return "Safe"
         }
     }

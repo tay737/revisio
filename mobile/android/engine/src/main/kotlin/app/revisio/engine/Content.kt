@@ -285,11 +285,14 @@ data class Lobby(
     val rows: List<LobbySeat> = emptyList(),
 ) {
     val zoneLabel: String
-        get() = when (zone) {
-            "promotion" -> "Promotion zone"
-            "demotion" -> "Demotion zone"
-            "pending" -> "Placements"
-            else -> "Safe"
+        get() {
+            if (filled < RankLadder.LOBBY_ZONE_MIN) return "Small lobby"
+            return when (zone) {
+                "promotion" -> "Promotion zone"
+                "demotion" -> "Drop zone"
+                "pending" -> "Being placed"
+                else -> "Safe"
+            }
         }
 }
 

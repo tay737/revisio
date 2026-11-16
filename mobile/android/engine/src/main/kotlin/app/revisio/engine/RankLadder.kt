@@ -28,6 +28,9 @@ object RankLadder {
     const val ZONE_BAND_MIN = 1
     const val ZONE_BAND_MAX = 5
 
+    /** Lobbies below this many filled seats show no promotion/drop zones. */
+    const val LOBBY_ZONE_MIN = 10
+
     val TIER_ORDER: List<String> = listOf("bronze", "silver", "gold", "platinum", "emerald", "sapphire", "diamond", "ruby", "obsidian", "legend")
 
     val DIVISION_SPAN: Map<String, Int> = mapOf(

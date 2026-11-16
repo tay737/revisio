@@ -225,6 +225,7 @@ fun RankScreen(state: UiState, viewModel: RevisioViewModel) {
                                 zone = data.lobby.zone,
                                 position = data.lobby.position,
                                 size = data.lobby.size,
+                                filled = data.lobby.filled,
                                 daysLeft = data.week.daysLeft,
                                 rankLabel = data.rank.label,
                             ),
@@ -445,8 +446,16 @@ private fun AchievementCard(achievement: Achievement, modifier: Modifier = Modif
 private fun LobbyTable(lobby: Lobby, onOpenProfile: (String) -> Unit) {
     var showAll by remember { mutableStateOf(false) }
     val meRow = lobby.rows.firstOrNull { it.isMe }
+    val smallLobby = lobby.filled < RankLadder.LOBBY_ZONE_MIN
     Column {
-        ConfidenceBand(lobby.band, lobby.size)
+        if (smallLobby) {
+            Text(
+                "Bands start at ${RankLadder.LOBBY_ZONE_MIN} seated — ${lobby.filled} so far",
+                style = Type.fine.style(Muted),
+            )
+        } else {
+            ConfidenceBand(lobby.band, lobby.size)
+        }
         Spacer(Modifier.height(8.dp))
         Text(
             "${lobby.filled} of ${lobby.size} seats taken",

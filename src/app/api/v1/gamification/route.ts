@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, lt, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { readReplica } from '@/db/replica';
 import { achievements, leagueMemberships, reviewLogs, userAchievements, users, xpEvents } from '@/db/schema';
@@ -157,6 +157,18 @@ export const GET = route(async (req: NextRequest) => {
     // The XP board and the season board already filter `optOut`; the lobby was
     // the one board that leaked it (docs/COMPETITION-SAFETY-2026-11-16.md C1).
     const week = weekBounds();
+
+    // Personal best (#16): the viewer's strongest *completed* week — the
+    // current week is excluded so "this week already beat it" stays
+    // reachable. Self-only data, so opted-out learners still get it;
+    // earliest week wins ties.
+    const [bestWeekRow] = await rdb
+      .select({ xp: leagueMemberships.xpWeek, weekStart: leagueMemberships.weekStart })
+      .from(leagueMemberships)
+      .where(and(eq(leagueMemberships.userId, user.id), gt(leagueMemberships.xpWeek, 0), lt(leagueMemberships.weekStart, week.weekStart)))
+      .orderBy(desc(leagueMemberships.xpWeek), leagueMemberships.weekStart)
+      .limit(1);
+
     const lobbyRows = await rdb
       .select({
         userId: leagueMemberships.userId,
@@ -193,14 +205,38 @@ export const GET = route(async (req: NextRequest) => {
         lifetimeXp: lifetime.get(r.userId) ?? 0,
       }));
     const myXp = mine?.xpWeek ?? 0;
-    const myIndexAmongOthers = seats.filter((s) => s.xp > myXp).length;
-    const position = myIndexAmongOthers + 1;
 
+    // Position and filled seats come from counts, not the fetched page: the
+    // fetch is capped at the lobby capacity, but a learner can rank below
+    // every fetched seat — and zones must measure seats actually filled, not
+    // the 30-seat capacity (C4). Two indexed counts are cheaper than widening
+    // the fetch and stay exact at any lobby size.
+    const [[memberCountRow], [aheadRow]] = await Promise.all([
+      rdb
+        .select({ c: sql<number>`count(*)::int` })
+        .from(leagueMemberships)
+        .innerJoin(users, eq(leagueMemberships.userId, users.id))
+        .where(and(eq(leagueMemberships.weekStart, week.weekStart), eq(users.leaderboardOptOut, false))),
+      rdb
+        .select({ c: sql<number>`count(*)::int` })
+        .from(leagueMemberships)
+        .innerJoin(users, eq(leagueMemberships.userId, users.id))
+        .where(and(eq(leagueMemberships.weekStart, week.weekStart), eq(users.leaderboardOptOut, false), gt(leagueMemberships.xpWeek, myXp))),
+    ]);
+    const memberCount = Number(memberCountRow?.c ?? 0);
+    const position = Number(aheadRow?.c ?? 0) + 1;
+    // A viewer without a membership row still takes a displayed seat.
+    const filledSeats = Math.min(memberCount + (seated ? 0 : 1), LOBBY_CAPACITY);
+
+    // The viewer's seat is capped one short of the table edge before the
+    // slice, so "You" can never be sliced out when they rank below every
+    // fetched seat — the row keeps their true position instead (C4.3).
+    const youSeat = { userId: user.id, name: 'You', xp: myXp, lifetimeXp: totalXp };
     const lobbySeats = [
-      ...seats.slice(0, position - 1),
-      { userId: user.id, name: 'You', xp: myXp, lifetimeXp: totalXp },
+      ...seats.slice(0, Math.min(position - 1, LOBBY_CAPACITY - 1)),
+      youSeat,
       ...seats.slice(position - 1),
-    ].slice(0, 30);
+    ].slice(0, LOBBY_CAPACITY);
 
     // The lobby has a fixed capacity, the way a league always does. Empty seats
     // are shown as unclaimed rather than being hidden — a table of one that
@@ -215,11 +251,17 @@ export const GET = route(async (req: NextRequest) => {
     } = {
       position,
       size: LOBBY_CAPACITY,
-      filled: lobbySeats.length,
-      band: zoneBand(LOBBY_CAPACITY),
-      zone: zoneFor(position, LOBBY_CAPACITY, seasonReviews),
+      filled: filledSeats,
+      band: zoneBand(filledSeats),
+      // 'pending' covers the quiet states: unplaced (season gate inside
+      // zoneFor), small lobbies (LOBBY_ZONE_MIN inside zoneFor), and a
+      // viewer ranked below every filled seat — they are waiting, not in
+      // the drop zone.
+      zone: position > filledSeats ? 'pending' : zoneFor(position, filledSeats, seasonReviews),
       rows: lobbySeats.map((s, i) => ({
-        position: i + 1,
+        // "You" keeps their true position even when it sits past the fetched
+        // seats at the bottom of the table.
+        position: s.userId === user.id ? position : i + 1,
         userId: s.userId,
         name: s.userId === user.id ? 'You' : s.name,
         xp: s.xp,
@@ -256,6 +298,7 @@ export const GET = route(async (req: NextRequest) => {
         },
         seasonXp,
         seasonReviews,
+        bestWeek: bestWeekRow ? { xp: bestWeekRow.xp, weekStart: bestWeekRow.weekStart } : null,
         // The record that survives a reset: the same engine, run on lifetime XP.
         lifetimeRank: rankFor(totalXp),
       },

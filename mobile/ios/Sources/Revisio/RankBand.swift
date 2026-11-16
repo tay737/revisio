@@ -27,18 +27,25 @@ struct RankStripBand: View {
     let xpThisWeek: Int
     var onLadder: () -> Void
 
+    private var smallLobby: Bool { lobby.filled < RankLadder.lobbyZoneMin }
+
     private var zoneLabel: String {
+        if smallLobby { return "Small lobby" }
         switch lobby.zone {
         case "promotion": return "Promotion zone"
-        case "demotion": return "Demotion zone"
+        case "demotion": return "Drop zone"
         case "pending": return "Being placed"
         default: return "Safe"
         }
     }
 
-    private var zoneIcon: String { lobby.zone == "demotion" ? "zoneDown" : "zoneUp" }
+    private var zoneIcon: String {
+        if smallLobby { return "person" }
+        return lobby.zone == "demotion" ? "zoneDown" : "zoneUp"
+    }
 
     private var zoneTint: Color {
+        if smallLobby { return colors.mutedForeground }
         switch lobby.zone {
         case "promotion": return colors.good
         case "demotion": return colors.destructive
@@ -107,7 +114,7 @@ struct RankStripBand: View {
                             Icon(zoneIcon, size: 13, color: zoneTint)
                         }
                         HStack(spacing: 0) {
-                            Text("\(lobby.position) of \(lobby.size) · ")
+                            Text("\(lobby.position) of \(lobby.filled) · ")
                                 .font(Type.fine.font)
                                 .foregroundStyle(colors.mutedForeground)
                             NumberTicker(value: xpThisWeek, font: Type.fine.font, color: colors.mutedForeground)

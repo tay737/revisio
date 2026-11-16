@@ -8,7 +8,7 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 import { TilePanel } from '@/components/ui/tile';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { reviewsForRp, type Placement, type Rank, type WeekBounds } from '@/domain/ranked';
+import { LOBBY_ZONE_MIN, reviewsForRp, type Placement, type Rank, type WeekBounds } from '@/domain/ranked';
 import { seasonLine } from '@/domain/seasons';
 import type { LobbyData } from '@/components/rank/LobbyTable';
 
@@ -59,12 +59,16 @@ export function RankStrip({
   className?: string;
 }) {
   const placing = placement.placing;
+  // C4: under LOBBY_ZONE_MIN filled seats the lobby carries no zones — the
+  // chip says so plainly instead of advertising promotion/drop stakes.
+  const smallLobby = lobby.filled < LOBBY_ZONE_MIN;
 
-  const zoneLabel =
-    lobby.zone === 'promotion'
+  const zoneLabel = smallLobby
+    ? 'Small lobby'
+    : lobby.zone === 'promotion'
       ? 'Promotion zone'
       : lobby.zone === 'demotion'
-        ? 'Demotion zone'
+        ? 'Drop zone'
         : lobby.zone === 'pending'
           ? 'Being placed'
           : 'Safe';
@@ -154,19 +158,21 @@ export function RankStrip({
             <p className="mt-1 flex items-center gap-1.5 t-caption font-semibold">
               {zoneLabel}
               <Icon
-                name={lobby.zone === 'demotion' ? 'zoneDown' : 'zoneUp'}
+                name={smallLobby ? 'person' : lobby.zone === 'demotion' ? 'zoneDown' : 'zoneUp'}
                 size={13}
                 className={
-                  lobby.zone === 'promotion'
-                    ? 'text-good-strong'
-                    : lobby.zone === 'demotion'
-                      ? 'text-destructive-ink'
-                      : 'text-muted-foreground'
+                  smallLobby
+                    ? 'text-muted-foreground'
+                    : lobby.zone === 'promotion'
+                      ? 'text-good-strong'
+                      : lobby.zone === 'demotion'
+                        ? 'text-destructive-ink'
+                        : 'text-muted-foreground'
                 }
               />
             </p>
             <p className="num t-fine mt-1 text-muted-foreground">
-              {lobby.position} of {lobby.size} · <NumberTicker value={xpThisWeek} /> XP this week
+              {lobby.position} of {lobby.filled} · <NumberTicker value={xpThisWeek} /> XP this week
             </p>
           </div>
           <Icon

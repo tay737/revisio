@@ -191,12 +191,13 @@ class CopyConformanceTest {
             val zone = entry["zone"]!!.text()
             val position = entry["position"]!!.int()
             val size = entry["size"]!!.int()
+            val filled = entry["filled"]!!.int()
             val daysLeft = entry["daysLeft"]!!.int()
             val rankLabel = entry["rankLabel"]!!.text()
             assertEquals(
-                "lobbyLine($zone, $position, $size, $daysLeft, $rankLabel)",
+                "lobbyLine($zone, $position, $size, $filled, $daysLeft, $rankLabel)",
                 entry["expected"]!!.text(),
-                Copy.lobbyLine(zone, position, size, daysLeft, rankLabel),
+                Copy.lobbyLine(zone, position, size, filled, daysLeft, rankLabel),
             )
         }
 

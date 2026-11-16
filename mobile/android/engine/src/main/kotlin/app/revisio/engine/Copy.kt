@@ -114,15 +114,23 @@ object Copy {
      * Competitive framing without aggression: the zone is a fact, and the
      * sentence explains what it means.
      */
-    fun lobbyLine(zone: String, position: Int, size: Int, daysLeft: Int, rankLabel: String): String {
+    fun lobbyLine(zone: String, position: Int, size: Int, filled: Int, daysLeft: Int, rankLabel: String): String {
         val days = if (daysLeft == 1) "Today is the last day" else "$daysLeft days left"
         return when (zone) {
-            "pending" ->
-                "We are still placing you. A few more reviews and we will seat you in a $rankLabel lobby."
+            "pending" -> when {
+                // 'pending' covers three quiet states: still placing, a lobby
+                // too small for bands, and a viewer below the filled seats.
+                filled < RankLadder.LOBBY_ZONE_MIN ->
+                    "$position of $filled. A small lobby this week — bands start at ${RankLadder.LOBBY_ZONE_MIN} seated. No stakes yet; keep going."
+                position > filled ->
+                    "$position overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies."
+                else ->
+                    "We are still placing you. A few more reviews and we will seat you in a $rankLabel lobby."
+            }
             "promotion" ->
                 "$position of $size. You are inside the promotion zone. $days; holding this seat moves you up a rung."
             "demotion" ->
-                "$position of $size. That is the demotion band, and one session pulls you clear of it."
+                "$position of $size. You're in the drop zone. $days; one session pulls you clear, and nothing is lost — your RP stays."
             else ->
                 "$position of $size. Safe, and close enough to the promotion band to take it. $days."
         }

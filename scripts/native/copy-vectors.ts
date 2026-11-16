@@ -117,10 +117,14 @@ const openerCases = [
 }));
 
 const lobbyCases = [
-  { zone: 'pending', position: 0, size: 30, daysLeft: 5, rankLabel: 'Silver II' },
-  { zone: 'promotion', position: 3, size: 30, daysLeft: 1, rankLabel: 'Silver II' },
-  { zone: 'demotion', position: 28, size: 30, daysLeft: 2, rankLabel: 'Silver II' },
-  { zone: 'safe', position: 14, size: 30, daysLeft: 6, rankLabel: 'Bronze I' },
+  // pending splits three ways on `filled`/`position`: unplaced, small lobby,
+  // and waiting below the filled seats.
+  { zone: 'pending', position: 4, size: 30, filled: 14, daysLeft: 5, rankLabel: 'Silver II' },
+  { zone: 'pending', position: 3, size: 30, filled: 6, daysLeft: 5, rankLabel: 'Silver II' },
+  { zone: 'pending', position: 18, size: 30, filled: 14, daysLeft: 5, rankLabel: 'Silver II' },
+  { zone: 'promotion', position: 3, size: 30, filled: 14, daysLeft: 1, rankLabel: 'Silver II' },
+  { zone: 'demotion', position: 28, size: 30, filled: 14, daysLeft: 2, rankLabel: 'Silver II' },
+  { zone: 'safe', position: 14, size: 30, filled: 14, daysLeft: 6, rankLabel: 'Bronze I' },
 ].map((input) => ({ ...input, expected: lobbyLine(input as never) }));
 
 type CompanionInput = {

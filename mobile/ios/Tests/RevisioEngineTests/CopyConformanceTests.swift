@@ -170,6 +170,7 @@ final class CopyConformanceTests: XCTestCase {
             let zone = str(vector["zone"])
             let position = int(vector["position"])
             let size = int(vector["size"])
+            let filled = int(vector["filled"])
             let daysLeft = int(vector["daysLeft"])
             let rankLabel = str(vector["rankLabel"])
             XCTAssertEqual(
@@ -177,11 +178,12 @@ final class CopyConformanceTests: XCTestCase {
                     zone: zone,
                     position: position,
                     size: size,
+                    filled: filled,
                     daysLeft: daysLeft,
                     rankLabel: rankLabel
                 ),
                 str(vector["expected"]),
-                "lobbyLine(\(zone), \(position), \(size), \(daysLeft), \(rankLabel))"
+                "lobbyLine(\(zone), \(position), \(size), \(filled), \(daysLeft), \(rankLabel))"
             )
         }
 
