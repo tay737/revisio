@@ -1,10 +1,10 @@
 import 'server-only';
-import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
   cards, cardUserStates, examAttempts, examPlans, guardianLinks,
-  notificationDeliveries, notificationPrefs, notifications, reviewLogs, seasons,
-  streakEvents, streaks, studyConnections, topics, userChallenges, userGoals,
+  leagueMemberships, notificationDeliveries, notificationPrefs, notifications, reviewLogs, seasons,
+  streakEvents, streaks, studyConnections, topics, userAchievements, userChallenges, userGoals,
   users, xpEvents,
 } from '@/db/schema';
 import {
@@ -17,6 +17,7 @@ import { consentFromBlob } from '@/lib/consent';
 import { sendRetentionEmail } from '@/services/email';
 import { enrolledSubjectIds, studiableCard, studiableCardIn } from '@/services/visibility';
 import { seasonAt, seasonConfigs } from '@/domain/seasons';
+import { weekBounds } from '@/domain/ranked';
 import { ApiError } from '@/services/api';
 
 // ── shared helpers ──────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ export const DEFAULT_NOTIFICATION_PREFS = {
   timezone: 'UTC',
   quietStart: null as string | null,
   quietEnd: null as string | null,
-  triggers: { dueCards: true, streakRisk: true, seasonEnding: true, achievement: true, weeklyRecap: false } as Record<string, boolean>,
+  triggers: { dueCards: true, streakRisk: true, seasonEnding: true, achievement: true, weeklyRecap: false, leagueEnding: true, examCountdown: true } as Record<string, boolean>,
   channel: 'email' as const,
 };
 
@@ -152,8 +153,11 @@ export async function updateNotificationPrefs(userId: string, input: Record<stri
   for (const key of Object.keys(triggers)) {
     if (!(REMINDER_TRIGGERS as string[]).includes(key)) delete triggers[key];
   }
-  if (!['email', 'push', 'in_app'].includes(next.channel)) throw new ApiError(400, 'bad_request', 'channel must be email, push or in_app.');
-  const channel = next.channel as 'email' | 'push' | 'in_app';
+  // 'push' was never deliverable — no sender exists — so new prefs can only
+  // choose email or in_app. Legacy rows stored as 'push' are delivered in-app
+  // by the dispatcher rather than silently emailed.
+  if (!['email', 'in_app'].includes(next.channel)) throw new ApiError(400, 'bad_request', 'channel must be email or in_app.');
+  const channel = next.channel as 'email' | 'in_app';
   // Enabling reminders also requires the notifications consent purpose; the
   // settings UI sets both, but the API refuses to half-enable.
   if (next.enabled) {
@@ -254,9 +258,10 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
 
     if (triggers.dueCards !== false || triggers.streakRisk !== false) {
       const w = await waitingCount(user.id);
-      if (w.total > 0) {
-        const [streakRow] = await db.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, user.id)).limit(1);
-        const streakAtRisk = (streakRow?.current ?? 0) > 0 && w.reviewedToday === 0 && triggers.streakRisk !== false;
+      const [streakRow] = await db.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, user.id)).limit(1);
+      const streakAtRisk = (streakRow?.current ?? 0) > 0 && w.reviewedToday === 0 && triggers.streakRisk !== false;
+      let dueCardsSent = false;
+      if (w.total > 0 && triggers.dueCards !== false) {
         candidates.push({
           kind: 'due_cards',
           title: 'Your study queue is ready',
@@ -265,6 +270,41 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
             : `You have ${w.total} card${w.total === 1 ? '' : 's'} waiting. Open Revisio when you're ready.`,
           href: '/review',
           dedupe: reminderDedupeKey('due_cards', now, prefs.timezone),
+        });
+        dueCardsSent = true;
+      }
+      // Standalone streak-risk: a live streak with no review today deserves a
+      // nudge even when the queue is empty (or dueCards is off) — one review
+      // is all it takes to keep it alive.
+      if (streakAtRisk && !dueCardsSent) {
+        candidates.push({
+          kind: 'streak_risk',
+          title: 'Your streak is still alive',
+          body: 'No reviews yet today — one quick session keeps it going.',
+          href: '/review',
+          dedupe: reminderDedupeKey('streak_risk', now, prefs.timezone),
+        });
+      }
+    }
+
+    // Achievement nudge: unlocks already land as in-app notifications; this
+    // reminds once per achievement (dedupe key) about recent unlocks the
+    // learner may not have opened. Counts-free copy — no achievement names.
+    if (triggers.achievement !== false) {
+      const cutoff = new Date(now.getTime() - 7 * 86_400_000);
+      const unlocked = await db
+        .select({ achievementId: userAchievements.achievementId })
+        .from(userAchievements)
+        .where(and(eq(userAchievements.userId, user.id), gte(userAchievements.unlockedAt, cutoff)))
+        .orderBy(desc(userAchievements.unlockedAt))
+        .limit(2);
+      for (const u of unlocked) {
+        candidates.push({
+          kind: 'achievement',
+          title: 'You unlocked an achievement',
+          body: 'A new achievement is waiting for you — open Revisio to see it.',
+          href: '/progress',
+          dedupe: `achievement:${u.achievementId}`,
         });
       }
     }
@@ -282,6 +322,56 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
       }
     }
 
+    // League lobby week-end: only learners actually seated in this week's
+    // lobby get the nudge — unplaced accounts have no seat to lose.
+    if (triggers.leagueEnding !== false) {
+      const week = weekBounds(now);
+      if (week.daysLeft <= 2) {
+        const [membership] = await db
+          .select({ userId: leagueMemberships.userId })
+          .from(leagueMemberships)
+          .where(and(eq(leagueMemberships.userId, user.id), eq(leagueMemberships.weekStart, week.weekStart)))
+          .limit(1);
+        if (membership) {
+          candidates.push({
+            kind: 'league_ending',
+            title: 'Your lobby week ends soon',
+            body: `${week.daysLeft} day${week.daysLeft === 1 ? '' : 's'} left in this week's lobby — every review still counts toward your seat.`,
+            href: '/progress',
+            dedupe: `league_ending:${week.weekStart}`,
+          });
+        }
+      }
+    }
+
+    // Exam countdown (#17): active plans inside the final week get a daily
+    // nudge, deduped per plan per day-count so it ticks 7→0 without repeating.
+    if (triggers.examCountdown !== false) {
+      const today = now.toISOString().slice(0, 10);
+      const horizon = new Date(now.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
+      const plans = await db
+        .select({ id: examPlans.id, title: examPlans.title, examDate: examPlans.examDate })
+        .from(examPlans)
+        .where(and(
+          eq(examPlans.userId, user.id),
+          eq(examPlans.status, 'active'),
+          gte(examPlans.examDate, today),
+          lte(examPlans.examDate, horizon),
+        ))
+        .limit(3);
+      for (const plan of plans) {
+        const daysLeft = daysUntil(plan.examDate, now);
+        if (daysLeft < 0 || daysLeft > 7) continue;
+        candidates.push({
+          kind: 'exam_countdown',
+          title: `Countdown: ${plan.title}`,
+          body: `${daysLeft} day${daysLeft === 1 ? '' : 's'} until your exam — a short review session keeps the plan on track.`,
+          href: '/exam',
+          dedupe: `exam_countdown:${plan.id}:${daysLeft}`,
+        });
+      }
+    }
+
     // Weekly recap (#8): on the learner's local Monday, summarise the UTC
     // week that just ended. In-app notification always; email only when the
     // weeklyRecap trigger is explicitly on (opt-in, off by default).
@@ -292,7 +382,9 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
         await recordNotification(user.id, { kind: 'recap', title: 'Your week in Revisio', body: recap.line, href: '/progress' });
         await db.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: appDelivery.attempt } }).where(eq(notificationDeliveries.id, appDelivery.id));
       }
-      if (triggers.weeklyRecap === true) {
+      // weeklyRecap is an *email* trigger — in_app/push learners already got
+      // the recap notification above, so don't double-deliver it.
+      if (triggers.weeklyRecap === true && prefs.channel === 'email') {
         candidates.push({
           kind: 'weekly_recap',
           title: 'Your week in Revisio',
@@ -308,13 +400,19 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
       const delivery = await claimDelivery(user.id, candidate.kind, prefs.channel, candidate.dedupe);
       if (!delivery) { suppressed++; continue; }
       try {
-        await sendRetentionEmail(user.id, user.email, {
-          subject: candidate.title,
-          title: candidate.title,
-          body: candidate.body,
-          ctaLabel: 'Open Revisio',
-          ctaUrl: `${process.env.APP_URL ?? 'http://localhost:3000'}${candidate.href}`,
-        });
+        // Channel is honored: only 'email' leaves the building. 'in_app' (and
+        // legacy 'push' rows, which have no sender) deliver the in-app
+        // notification alone — never a silent email to someone who opted out
+        // of it.
+        if (prefs.channel === 'email') {
+          await sendRetentionEmail(user.id, user.email, {
+            subject: candidate.title,
+            title: candidate.title,
+            body: candidate.body,
+            ctaLabel: 'Open Revisio',
+            ctaUrl: `${process.env.APP_URL ?? 'http://localhost:3000'}${candidate.href}`,
+          });
+        }
         await db.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: delivery.attempt } }).where(eq(notificationDeliveries.id, delivery.id));
         await recordNotification(user.id, { kind: candidate.kind, title: candidate.title, body: candidate.body, href: candidate.href });
         sent++;

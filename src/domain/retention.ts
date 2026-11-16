@@ -88,8 +88,8 @@ export function nextStreakState(state: StreakState, activityDate: string): { sta
 
 // ── reminders / quiet hours ─────────────────────────────────────────────────
 
-export type ReminderTrigger = 'dueCards' | 'streakRisk' | 'seasonEnding' | 'achievement' | 'weeklyRecap';
-export const REMINDER_TRIGGERS: ReminderTrigger[] = ['dueCards', 'streakRisk', 'seasonEnding', 'achievement', 'weeklyRecap'];
+export type ReminderTrigger = 'dueCards' | 'streakRisk' | 'seasonEnding' | 'achievement' | 'weeklyRecap' | 'leagueEnding' | 'examCountdown';
+export const REMINDER_TRIGGERS: ReminderTrigger[] = ['dueCards', 'streakRisk', 'seasonEnding', 'achievement', 'weeklyRecap', 'leagueEnding', 'examCountdown'];
 
 export type ReminderPrefs = {
   enabled: boolean;
