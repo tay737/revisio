@@ -29,7 +29,7 @@ export const PATCH = route(async (req: NextRequest) => {
   if (!body?.choices) throw new ApiError(400, 'bad_request', 'consent.choices are required.');
 
   const choices: Record<string, boolean> = { essential: true };
-  for (const key of ['preferences', 'analytics', 'marketing', 'notifications', 'profile', 'school', 'research']) {
+  for (const key of ['preferences', 'analytics', 'marketing', 'notifications', 'profile', 'school', 'social', 'research']) {
     if (typeof body.choices[key] === 'boolean') choices[key] = body.choices[key];
   }
   // The moment consent was recorded is our evidence under UK GDPR Art 7(1), so
