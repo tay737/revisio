@@ -365,6 +365,23 @@ private fun FeedbackPanel(feedback: Feedback) {
             Text(it, style = Type.caption.style(Ink))
         }
 
+        feedback.newAchievements.forEach { achievement ->
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    achievementIcon(achievement.id, achievement.icon),
+                    size = 16,
+                    tint = Gold,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "${achievement.name} unlocked",
+                    style = Type.caption.style(Ink),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
         // An answer is queued in two situations, and they are not the same: a
         // card that came from today's pack carries its key, so the mark above is
         // the real one and only the confirmation is pending; a card the server

@@ -19,6 +19,7 @@ import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
 import '../nav/rank_crest.dart';
 import '../../services/api_client.dart';
+import '../../design/achievement_icons.dart';
 import '../../design/revisio_icons.dart';
 
 /// Optional payload pushed by Learn/Cram: a ready-made card list.
@@ -79,6 +80,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   bool _offlineMode = false;
   bool _submitting = false;
   String? _submitError;
+  int _burstTrigger = 0;
+  int _promotionTrigger = 0;
+  bool _promotionFired = false;
   Stopwatch? _watch;
 
   bool _started = false;
@@ -142,6 +146,18 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   QueueCard? get _card =>
       (_cards == null || _index >= _cards!.length) ? null : _cards![_index];
 
+  List<AchievementRef> get _newAchievements {
+    final raw = _result?['newAchievements'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => AchievementRef.fromJson(Map<String, dynamic>.from(e)),
+        )
+        .where((a) => a.name.isNotEmpty)
+        .toList();
+  }
+
   bool get _isMcq => _card?.kind == 'mcq';
 
   Future<void> _submit() async {
@@ -184,7 +200,10 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           _startXp ??= before < 0 ? 0 : before;
           _latestXp = totalXp;
         }
-        if ((result['verdict'] as Map?)?['correct'] == true) _correct += 1;
+        if ((result['verdict'] as Map?)?['correct'] == true) {
+          _correct += 1;
+          _burstTrigger += 1;
+        }
         _queuedOffline = false;
         _submitError = null;
         _submitting = false;
@@ -265,6 +284,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _ended = false;
         _startXp = null;
         _latestXp = null;
+        _promotionFired = false;
         _watch = Stopwatch()..start();
       });
     } catch (_) {
@@ -292,6 +312,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _ended = false;
         _startXp = null;
         _latestXp = null;
+        _promotionFired = false;
         _watch = Stopwatch()..start();
       });
     } catch (_) {
@@ -324,16 +345,41 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final me = ref.watch(meProvider).valueOrNull;
+    final reduceMotion =
+        context.reduceMotion || (me?.prefs.reducedMotion ?? false);
+    final Widget content = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _loadError != null
+        ? _ErrorCard(message: _loadError!, onRetry: _loadQueue)
+        : _card == null || _ended
+        ? _report(context)
+        : _buildCard(context);
     return Scaffold(
       appBar: AppBar(title: Text(_title)),
       body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _loadError != null
-            ? _ErrorCard(message: _loadError!, onRetry: _loadQueue)
-            : _card == null || _ended
-            ? _report(context)
-            : _buildCard(context),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(child: content),
+            Positioned.fill(
+              child: CelebrationConfetti(
+                trigger: _burstTrigger,
+                particleCount: 46,
+                originY: 0.46,
+                reduceMotion: reduceMotion,
+              ),
+            ),
+            Positioned.fill(
+              child: CelebrationConfetti(
+                trigger: _promotionTrigger,
+                particleCount: 140,
+                originY: 0.30,
+                reduceMotion: reduceMotion,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -366,19 +412,29 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     }
     final startXp = _startXp;
     final latestXp = _latestXp;
+    final change = startXp != null && latestXp != null
+        ? rankChange(startXp, latestXp)
+        : null;
+    _firePromotionOnce(change);
     return _SessionReport(
       correct: _correct,
       done: _answered,
       sessionXp: _sessionXp,
-      change: startXp != null && latestXp != null
-          ? rankChange(startXp, latestXp)
-          : null,
+      change: change,
       queuedOffline: _anyOffline,
       ended: _ended,
       onAgain: _loadMore,
       onLadder: () => context.go('/rank'),
       onDone: _finish,
     );
+  }
+
+  void _firePromotionOnce(RankChange? change) {
+    if (change?.promoted != true || _promotionFired) return;
+    _promotionFired = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _promotionTrigger += 1);
+    });
   }
 
   Widget _buildCard(BuildContext context) {
@@ -642,6 +698,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final model =
         _result?['modelAnswer'] as String? ??
         _result?['primaryAnswer'] as String?;
+    final achievements = _newAchievements;
     final accent = _queuedOffline
         ? context.mutedForeground
         : (correct ? context.goodStrong : context.destructiveInk);
@@ -692,6 +749,27 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   style: TypeScale.caption.copyWith(
                     color: context.mutedForeground,
                   ),
+                ),
+              ],
+              for (final a in achievements) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    RevisioIcon(
+                      achievementIconName(a.id, a.icon),
+                      size: 16,
+                      color: context.goldInk,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${a.name} unlocked',
+                        style: TypeScale.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],

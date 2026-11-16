@@ -1,6 +1,7 @@
 /// Barrel for shared design components.
 library revisio.design.components;
 
+export 'celebration_confetti.dart';
 export 'revisio_avatar.dart';
 export 'revisio_button.dart';
 export 'revisio_input.dart';

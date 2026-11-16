@@ -8,6 +8,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.revisio.engine.AchievementRef
 import app.revisio.engine.CramSession
 import app.revisio.engine.EMAIL_RE
 import app.revisio.engine.FileKeyValueStore
@@ -286,6 +287,7 @@ data class Feedback(
     val xpAwarded: Int,
     /** True when the server has not seen this answer yet. */
     val provisional: Boolean,
+    val newAchievements: List<AchievementRef> = emptyList(),
 )
 
 /**
@@ -1618,6 +1620,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                         result.explanation,
                         result.xpAwarded,
                         provisional = false,
+                        achievements = result.newAchievements,
                     )
                     if (advanceOnCorrect && card.kind == "cloze" && result.verdict?.correct == true) next()
                     return@launch
@@ -1633,11 +1636,18 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun apply(verdict: Verdict?, correctAnswer: String?, explanation: String?, xp: Int, provisional: Boolean) {
+    private fun apply(
+        verdict: Verdict?,
+        correctAnswer: String?,
+        explanation: String?,
+        xp: Int,
+        provisional: Boolean,
+        achievements: List<AchievementRef> = emptyList(),
+    ) {
         noteXp(xp)
         _state.update {
             it.copy(
-                feedback = Feedback(verdict, correctAnswer, explanation, xp, provisional),
+                feedback = Feedback(verdict, correctAnswer, explanation, xp, provisional, achievements),
                 answered = it.answered + 1,
                 correct = it.correct + if (verdict?.correct == true) 1 else 0,
                 // The reward moment: a correct mark fires the small burst, the

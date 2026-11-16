@@ -178,5 +178,6 @@ data class ReviewResult(
     val totalXp: Int = 0,
     val level: Int = 0,
     val streak: Int = 0,
+    val newAchievements: List<AchievementRef> = emptyList(),
     val nextDueAt: String? = null,
 )

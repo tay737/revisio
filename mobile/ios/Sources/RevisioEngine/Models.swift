@@ -157,5 +157,6 @@ public struct ReviewResult: Codable {
     public var totalXp: Int?
     public var level: Int?
     public var streak: Int?
+    public var newAchievements: [AchievementRef]?
     public var nextDueAt: String?
 }

@@ -348,6 +348,19 @@ private struct FeedbackPanel: View {
                     .foregroundStyle(colors.foreground)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            ForEach(feedback.newAchievements) { achievement in
+                Spacer().frame(height: 8)
+                HStack(spacing: 8) {
+                    Icon(
+                        achievementIcon(id: achievement.id, legacyEmoji: achievement.icon),
+                        size: 16,
+                        color: colors.gold
+                    )
+                    Text("\(achievement.name) unlocked")
+                        .font(Type.caption.font)
+                        .foregroundStyle(colors.foreground)
+                }
+            }
             if feedback.provisional {
                 Spacer().frame(height: 10)
                 HStack(spacing: 8) {

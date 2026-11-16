@@ -148,6 +148,7 @@ struct Feedback {
     var xpAwarded: Int
     /// True when the server has not seen this answer yet.
     var provisional: Bool
+    var newAchievements: [AchievementRef] = []
 }
 
 /// The student a staff member is looking at — the roster and the admin users
@@ -1595,7 +1596,8 @@ final class AppModel: ObservableObject {
                         result.primaryAnswer ?? result.modelAnswer ?? Grading.primaryAnswer(card),
                         result.explanation,
                         result.xpAwarded ?? 0,
-                        provisional: false
+                        provisional: false,
+                        achievements: result.newAchievements ?? []
                     )
                     if advanceOnCorrect && card.kind == "cloze" && result.verdict.correct { next() }
                     return
@@ -1617,8 +1619,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func apply(_ verdict: Verdict?, _ correctAnswer: String?, _ explanation: String?, _ xp: Int, provisional: Bool) {
-        feedback = Feedback(verdict: verdict, correctAnswer: correctAnswer, explanation: explanation, xpAwarded: xp, provisional: provisional)
+    private func apply(_ verdict: Verdict?, _ correctAnswer: String?, _ explanation: String?, _ xp: Int, provisional: Bool, achievements: [AchievementRef] = []) {
+        feedback = Feedback(verdict: verdict, correctAnswer: correctAnswer, explanation: explanation, xpAwarded: xp, provisional: provisional, newAchievements: achievements)
         answered += 1
         xpThisSession += xp
         if verdict?.correct == true {

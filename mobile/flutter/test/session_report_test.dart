@@ -13,11 +13,15 @@ import 'package:revisio/services/api_client.dart';
 /// rank when a session moves it: crest, "Promoted to <label>", the RP chip
 /// and the distance to the next rung.
 class _Api extends RevisioApi {
-  _Api({required this.totalXp, required this.xpAwarded})
-    : super(storage: SessionStorage());
+  _Api({
+    required this.totalXp,
+    required this.xpAwarded,
+    this.newAchievements = const [],
+  }) : super(storage: SessionStorage());
 
   final int totalXp;
   final int xpAwarded;
+  final List<Map<String, dynamic>> newAchievements;
 
   @override
   Future<Map<String, dynamic>> submitReview({
@@ -32,6 +36,7 @@ class _Api extends RevisioApi {
     'xpAwarded': xpAwarded,
     'totalXp': totalXp,
     'streak': 3,
+    'newAchievements': newAchievements,
   };
 }
 
@@ -49,6 +54,7 @@ Future<GoRouter> _pumpSession(
   WidgetTester tester, {
   required int totalXp,
   required int xpAwarded,
+  List<Map<String, dynamic>> newAchievements = const [],
 }) async {
   final router = GoRouter(
     initialLocation: '/',
@@ -64,7 +70,11 @@ Future<GoRouter> _pumpSession(
     ProviderScope(
       overrides: [
         apiClientProvider.overrideWithValue(
-          _Api(totalXp: totalXp, xpAwarded: xpAwarded),
+          _Api(
+            totalXp: totalXp,
+            xpAwarded: xpAwarded,
+            newAchievements: newAchievements,
+          ),
         ),
       ],
       child: MaterialApp.router(routerConfig: router),
@@ -124,6 +134,25 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('new achievements render in the verdict feedback', (
+    tester,
+  ) async {
+    await _pumpSession(
+      tester,
+      totalXp: 60,
+      xpAwarded: 10,
+      newAchievements: const [
+        {'id': 'first-review', 'name': 'First review', 'icon': '⚡'},
+      ],
+    );
+    await tester.tap(find.text('Carbon dioxide'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('First review unlocked'), findsOneWidget);
   });
 
   testWidgets('no promotion still shows the rank and rung distance', (

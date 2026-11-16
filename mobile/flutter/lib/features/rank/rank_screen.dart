@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../design/achievement_icons.dart';
 import '../../design/components/components.dart';
 import '../../design/revisio_icons.dart';
 import '../../design/theme.dart';
@@ -1691,7 +1692,7 @@ class _AchievementsCard extends StatelessWidget {
                     ),
                     child: Center(
                       child: RevisioIcon(
-                        a.icon ?? 'rank',
+                        achievementIconName(a.id, a.icon),
                         size: 17,
                         color: a.unlocked
                             ? context.foreground
