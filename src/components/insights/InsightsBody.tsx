@@ -283,7 +283,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
         <section>
           <h3 className="t-tagline">Coverage</h3>
           <p className="t-caption mt-1 text-muted-foreground">
-            Every topic in {self ? 'your' : "the learner's"} subjects — including the ones never touched.
+            Every topic in {self ? 'your' : "the learner's"} subjects, including the ones never touched.
           </p>
           <div className="mt-3 space-y-3">
             {Object.entries(
@@ -306,7 +306,7 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
                     {topics.map((t) => (
                       <li
                         key={t.topicId}
-                        title={t.status === 'unseen' ? `${t.topicName} — not started` : `${t.topicName} — ${t.masteryPct}% mastered`}
+                        title={t.status === 'unseen' ? `${t.topicName}: not started` : `${t.topicName}: ${t.masteryPct}% mastered`}
                         className={cn(
                           'rounded-full border px-2.5 py-1 t-fine',
                           t.status === 'strong' && 'border-good/50 bg-good-soft text-good-strong',

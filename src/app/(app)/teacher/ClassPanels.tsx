@@ -44,7 +44,7 @@ function dueLabel(iso: string | null): string {
 }
 
 function duration(ms: number): string {
-  if (ms <= 0) return '—';
+  if (ms <= 0) return '–';
   const s = Math.round(ms / 1000);
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 }
@@ -174,7 +174,7 @@ export function AssignmentsPanel({ classId }: { classId: string }) {
           <NativeSelect id={`assign-topic-${classId}`} className="mt-1" value={topicId} onChange={(e) => setTopicId(e.target.value)} disabled={!!editingId}>
             <option value="">Choose a topic…</option>
             {topics.map((t) => (
-              <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName} — ${t.name}` : t.name}</option>
+              <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName}: ${t.name}` : t.name}</option>
             ))}
           </NativeSelect>
         </div>
@@ -198,13 +198,13 @@ export function AssignmentsPanel({ classId }: { classId: string }) {
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label className="flex min-h-11 cursor-pointer items-center gap-2 t-caption">
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="h-4 w-4 accent-primary" />
-          Required — goes to the front of their queue
+          Required. Goes to the front of their queue
         </label>
         <Button type="button" variant="primary" size="sm" className="ml-auto" disabled={busy || !topicId} onClick={() => void save()}>
           {editingId ? 'Save changes' : 'Assign deck'}
         </Button>
       </div>
-      {editingId && <p className="t-fine mt-1 text-muted-foreground">Editing an existing assignment — the topic itself cannot change; unassign and reassign to move it.</p>}
+      {editingId && <p className="t-fine mt-1 text-muted-foreground">Editing an existing assignment. The topic itself cannot change; unassign and reassign to move it.</p>}
     </div>
   );
 }
@@ -223,7 +223,7 @@ export function PulsePanel({ classId }: { classId: string }) {
   if (isLoading) return <p className="t-caption mt-4 text-muted-foreground">Reading the class…</p>;
   if (!data) return <p className="t-caption mt-4 text-muted-foreground">Pulse is unavailable right now.</p>;
   if (data.members === 0) {
-    return <p className="t-caption mt-4 text-muted-foreground">Nobody has joined yet — the pulse fills in once students start reviewing.</p>;
+    return <p className="t-caption mt-4 text-muted-foreground">Nobody has joined yet. The pulse fills in once students start reviewing.</p>;
   }
 
   return (

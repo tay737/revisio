@@ -61,7 +61,7 @@ export function LobbyTable({ lobby, className }: { lobby: LobbyData; className?:
       <div className="mb-2.5 flex flex-wrap items-center gap-2">
         {smallLobby ? (
           <span className="t-fine text-muted-foreground">
-            Bands start at {LOBBY_ZONE_MIN} seated — {lobby.filled} so far
+            Bands start at {LOBBY_ZONE_MIN} seated: {lobby.filled} so far
           </span>
         ) : (
           <>

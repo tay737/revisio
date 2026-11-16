@@ -293,14 +293,14 @@ const SECTIONS = [
               <span className="font-semibold">Study circle.</span> If you turn on
               Social, you can link with other learners by username. Linked learners
               see your name, username and avatar, and a private weekly board shows
-              XP and streak for your circle only — it is never public and never
+              XP and streak for your circle only. It is never public and never
               includes the public leaderboard. You can remove anyone, decline or
               block requests, or turn Social off at any time.
             </li>
             <li>
               <span className="font-semibold">Guardian summaries.</span> You can
-              share a read-only progress summary — reviews, accuracy, streak and
-              topics mastered over the last 30 days — with a parent or guardian you
+              share a read-only progress summary (reviews, accuracy, streak and
+              topics mastered over the last 30 days) with a parent or guardian you
               choose. Only they see it, only while the link is accepted, and you
               can stop sharing at any time. We cannot check that the person you
               name is a guardian.

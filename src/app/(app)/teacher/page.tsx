@@ -473,7 +473,7 @@ export default function TeacherPage() {
         </p>
         {myTopics.length === 0 ? (
           <p className="t-caption mt-3 text-muted-foreground">
-            Nothing written yet — start in <Link href="/library" className="text-foreground underline underline-offset-4">My content</Link>.
+            Nothing written yet. Start in <Link href="/library" className="text-foreground underline underline-offset-4">My content</Link>.
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-border">

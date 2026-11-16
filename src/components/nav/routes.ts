@@ -3,8 +3,8 @@
 // this list; none of them keeps a second copy, so a destination can never
 // appear in one surface and be missing from another.
 //
-// Copy rule (docs/DESIGN-DUOLINGO.md, "concise, easy to read"): a label is one
-// word where possible, and a hint is at most four. There is no prose here.
+// Copy rule (docs/UI-SYSTEM.md §9, plain words): a label is one word where
+// possible, and a hint is at most four. There is no prose here.
 
 import type { IconName } from '@/components/ui/icons';
 

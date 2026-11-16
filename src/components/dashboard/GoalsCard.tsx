@@ -270,7 +270,7 @@ export function GoalsCard() {
       ) : goals.length === 0 ? (
         <div className="mt-3">
           <p className="t-caption text-muted-foreground">
-            Set something to aim at — Revisio counts it live and pays out when you land it.
+            Set something to aim at. Revisio counts it live and pays out when you land it.
           </p>
           <Button variant="secondary" size="sm" className="mt-3 gap-1.5" onClick={() => setForm({ ...emptyForm })}>
             <Icon name="add" size={14} />

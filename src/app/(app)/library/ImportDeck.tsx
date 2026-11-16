@@ -110,7 +110,7 @@ export function ImportDeck({
 
       <div>
         <Label>Where should these questions go?</Label>
-        <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
+        <div className="flex gap-1 rounded-md border border-border/70 bg-card/60 p-1">
           {(
             [
               ['existing', 'Into a topic I have'],

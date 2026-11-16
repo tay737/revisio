@@ -17,7 +17,7 @@ import { isActivePath, type NavItem } from '@/components/nav/routes';
  * relative to the page edge is a worse target than a full-bleed strip anchored
  * to the viewport.
  *
- * What it is now, per docs/DESIGN-UBER.md (`nav-bar`):
+ * What it is now, per docs/UI-SYSTEM.md (`nav-bar`):
  *   • full-bleed and flush to the bottom, with the safe-area inset as padding,
  *     so it never fights the home indicator;
  *   • `glass-bar` — solid enough to read text on, translucent enough that the

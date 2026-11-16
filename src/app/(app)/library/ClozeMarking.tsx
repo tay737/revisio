@@ -124,7 +124,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Applies to</Label>
-          <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
+          <div className="flex gap-1 rounded-md border border-border/70 bg-card/60 p-1">
             {(['global', 'subject', 'topic'] as const).map((t) => (
               <button
                 key={t}
@@ -178,7 +178,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
 
       <div>
         <Label>Strictness</Label>
-        <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
+        <div className="flex gap-1 rounded-md border border-border/70 bg-card/60 p-1">
           <button
             type="button"
             onClick={() => setPolicy((p) => ({ ...p, mode: 'legacy' }))}
@@ -240,7 +240,7 @@ export function ClozeMarking({ isDeveloper }: { isDeveloper: boolean }) {
       )}
 
       {policy.mode === 'similar' && (
-        <div className="inset rounded-[11px] px-3 py-2.5">
+        <div className="inset rounded-md px-3 py-2.5">
           <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">How “encryption” would be marked</span>
           <div className="mt-1.5 space-y-1">
             {preview.map((p) => (

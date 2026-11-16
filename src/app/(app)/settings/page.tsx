@@ -505,7 +505,7 @@ function SettingsBody({
           ))}
         </div>
         <p className="t-fine mt-3 text-muted-foreground">
-          Your email is never shown to anyone. Board visibility is the 'Show me on leaderboards and study boards' switch under Preferences — the Rank page has the same control.
+          Your email is never shown to anyone. Board visibility is the 'Show me on leaderboards and study boards' switch under Preferences. The Rank page has the same control.
         </p>
       </Card>
 
@@ -627,7 +627,7 @@ function SettingsBody({
             <div>
               <label htmlFor="pref-mastery" className="t-caption font-semibold">Mastery streak</label>
               <p className="t-caption text-muted-foreground">
-                A second streak that only counts verified-correct review days. Your streak counts every day you revise; this one is stricter — a day counts only when a daily or learn review comes back correct. Near misses and cram sessions don&apos;t. It is a signal, not a score: no XP, no rewards, and it never changes your regular streak. Off unless you switch it on.
+                A second streak that only counts verified-correct review days. Your streak counts every day you revise; this one is stricter. A day counts only when a daily or learn review comes back correct. Near misses and cram sessions don&apos;t. It is a signal, not a score: no XP, no rewards, and it never changes your regular streak. Off unless you switch it on.
               </p>
             </div>
             <Toggle
@@ -640,7 +640,7 @@ function SettingsBody({
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
               <label htmlFor="pref-board" className="t-caption font-semibold">Show me on leaderboards and study boards</label>
-              <p className="t-caption text-muted-foreground">Includes your study circle's private board — off removes you from every comparison, everywhere. Your rank is unaffected either way.</p>
+              <p className="t-caption text-muted-foreground">Includes your study circle's private board. Off removes you from every comparison, everywhere. Your rank is unaffected either way.</p>
             </div>
             <Toggle
               id="pref-board"

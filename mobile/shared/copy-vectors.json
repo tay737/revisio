@@ -885,7 +885,7 @@
       "filled": 6,
       "daysLeft": 5,
       "rankLabel": "Silver II",
-      "expected": "3 of 6. A small lobby this week — bands start at 10 seated. No stakes yet; keep going."
+      "expected": "3 of 6. A small lobby this week. Bands start at 10 seated. No stakes yet; keep going."
     },
     {
       "zone": "pending",
@@ -894,7 +894,7 @@
       "filled": 14,
       "daysLeft": 5,
       "rankLabel": "Silver II",
-      "expected": "18 overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies."
+      "expected": "18 overall. The lobby seats 30. Keep reviewing and the table reshuffles as everyone studies."
     },
     {
       "zone": "promotion",
@@ -912,7 +912,7 @@
       "filled": 14,
       "daysLeft": 2,
       "rankLabel": "Silver II",
-      "expected": "28 of 30. You're in the drop zone. 2 days left; one session pulls you clear, and nothing is lost — your RP stays."
+      "expected": "28 of 30. You're in the drop zone. 2 days left; one session pulls you clear, and nothing is lost. Your rank points stay."
     },
     {
       "zone": "safe",

@@ -47,8 +47,8 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
 const ALSO_IN_THE_BOX: { icon: IconName; title: string; body: string }[] = [
   { icon: 'cram', title: 'Cram mode', body: 'A focused burst when the deadline is close.' },
   { icon: 'practice', title: 'Maths drills', body: 'Generated practice, on demand, per subject.' },
-  { icon: 'offline', title: 'Offline review', body: 'Your queue is cached — revise without signal, sync later.' },
-  { icon: 'clock', title: 'Exam countdown', body: 'Set a date — Revisio paces your topics to it.' },
+  { icon: 'offline', title: 'Offline review', body: 'Your queue is cached. Revise without signal, sync later.' },
+  { icon: 'clock', title: 'Exam countdown', body: 'Set a date. Revisio paces your topics to it.' },
 ];
 
 /** The demo's own three cards, so the queue shown here is the queue beside it. */
@@ -61,7 +61,7 @@ const QUEUE = [
 const FACTS: { value: string; short: string; label: string }[] = [
   { value: '10 min', short: 'a day', label: 'a day' },
   { value: '30', short: 'rungs', label: 'rungs, ten tiers' },
-  { value: 'Free', short: 'to start', label: 'to start' },
+  { value: 'Free', short: 'to start', label: 'no card needed' },
 ];
 
 const COMPANION_LINE = 'Nothing is due. You are ahead.';
@@ -72,19 +72,19 @@ const COMPANION_LINE = 'Nothing is due. You are ahead.';
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'What is Revisio?',
-    a: 'A revision app for students with real exams — GCSE, A-level and university. It turns your notes and topics into review cards and schedules each one to come back right before you would forget it.',
+    a: 'A revision app for students with real exams: GCSE, A-level and university. It turns your notes and topics into review cards and schedules each one to come back right before you would forget it.',
   },
   {
     q: 'Is Revisio free?',
-    a: 'Yes — free while it is in alpha, and there is no card needed to sign up. Pricing has not been decided yet; when it is, we will say so plainly rather than surprise anyone.',
+    a: 'Yes. Free while it is in alpha, and there is no card needed to sign up. Pricing has not been decided yet; when it is, we will say so plainly rather than surprise anyone.',
   },
   {
     q: 'How does spaced repetition work?',
-    a: 'Every card you get right comes back later; every card you get wrong comes back sooner. After a few weeks the gaps widen until keeping a fact costs you seconds, not hours. You never plan it — the queue is already built when you open the app.',
+    a: 'Every card you get right comes back later; every card you get wrong comes back sooner. After a few weeks the gaps widen until keeping a fact costs you seconds, not hours. You never plan it. The queue is already built when you open the app.',
   },
   {
     q: 'Do I have to make my own cards?',
-    a: 'No. Cards are built from the notes and topics you study, and every card links back to the note it came from — a wrong answer is a chance to re-read, not a dead end.',
+    a: 'No. Cards are built from the notes and topics you study, and every card links back to the note it came from. A wrong answer is a chance to re-read, not a dead end.',
   },
   {
     q: 'Which subjects and exams are covered?',

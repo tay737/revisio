@@ -479,7 +479,7 @@ export default function RegisterWizard({
                     )}
                     {refStatus === 'invalid' && (
                       <p className="t-fine mt-1.5 text-muted-foreground">
-                        We couldn&apos;t find that code — check it with your friend, or clear the field. You can still continue.
+                        We couldn&apos;t find that code. Check it with your friend, or clear the field. You can still continue.
                       </p>
                     )}
                   </div>

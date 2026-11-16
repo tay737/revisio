@@ -212,7 +212,7 @@ export default function LibraryPage() {
             <span className="min-w-0">
               <span className="t-strong block">Deck library</span>
               <span className="t-caption block text-muted-foreground">
-                Verified decks from teachers — follow one and a private copy lands in Shared decks.
+                Verified decks from teachers. Follow one and a private copy lands in Shared decks.
               </span>
             </span>
             <Icon name="next" size={15} className="ml-auto shrink-0 text-muted-foreground" />
@@ -331,7 +331,7 @@ export default function LibraryPage() {
             <h2 className="t-strong">Draft cards from your own text</h2>
             <p className="t-caption mt-1 text-muted-foreground">
               Paste notes or a lesson transcript and the model proposes cloze, flashcard and multiple-choice cards.
-              You edit or discard each one — nothing is added until you accept, and accepted cards keep the topic's visibility.
+              You edit or discard each one. Nothing is added until you accept, and accepted cards keep the topic's visibility.
             </p>
             <div className="mt-5">
               <DraftReview

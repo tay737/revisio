@@ -70,7 +70,7 @@ export default function PublicDecksPage() {
         setMessage(
           res.alreadyFollowing
             ? `Already following “${deck.name}”.`
-            : `“${deck.name}” is in your Shared decks — yours to edit and study.`,
+            : `“${deck.name}” is in your Shared decks, yours to edit and study.`,
         );
       }
       load();

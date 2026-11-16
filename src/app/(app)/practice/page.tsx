@@ -247,7 +247,7 @@ export default function PracticePage() {
 
               {result && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} transition={SPRING.soft} className="overflow-hidden">
-                  <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.correct ? 'bg-good-soft' : 'bg-destructive/10'}`}>
+                  <div className={`mt-5 rounded-md px-4 py-3.5 ${result.correct ? 'bg-good-soft' : 'bg-destructive/10'}`}>
                     <div className={`flex items-center gap-2 t-lead-airy font-semibold ${result.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
                       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-white ${result.correct ? 'bg-good' : 'bg-destructive'}`}>
                         <Icon name={result.correct ? 'correct' : 'close'} size={16} strokeWidth={3} />
@@ -427,7 +427,7 @@ export default function PracticePage() {
                             return n;
                           })
                         }
-                        className={`flex items-start gap-2 rounded-[11px] border px-3 py-2 text-left transition-colors duration-150 ${on ? 'border-foreground bg-secondary' : 'border-border/70 hover:bg-border/20'}`}
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors duration-150 ${on ? 'border-foreground bg-secondary' : 'border-border/70 hover:bg-border/20'}`}
                       >
                         <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border ${on ? 'border-foreground bg-foreground text-background' : 'border-border-strong'}`}>
                           {on && <Icon name="correct" size={11} strokeWidth={3} />}
@@ -445,7 +445,7 @@ export default function PracticePage() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <Label>Difficulty</Label>
-                  <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
+                  <div className="flex gap-1 rounded-md border border-border/70 bg-card/60 p-1">
                     {(['easy', 'medium', 'hard', 'mixed'] as const).map((d) => (
                       <button
                         key={d}

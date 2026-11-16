@@ -93,9 +93,9 @@ const KIND_LABEL: Record<QueueCard['kind'], string> = {
 /** "Why is this card here" (#18) — one plain line built from the scheduler
  *  state the queue already carries, so the answer is never a mystery. */
 function dueReason(card: QueueCard, learnMode: boolean): string | null {
-  if (learnMode) return 'First exposure — the notes are beside the card';
+  if (learnMode) return 'First exposure. The notes are beside the card';
   const seen = (card.reps ?? 0) > 0 || !!card.lastReviewedAt;
-  if (!seen) return 'New card — this first review starts its schedule';
+  if (!seen) return 'New card. This first review starts its schedule';
   const bits: string[] = [];
   if (card.dueAt) {
     const diff = new Date(card.dueAt).getTime() - Date.now();
@@ -124,7 +124,7 @@ type FirstExposure = {
  *
  * **The one design rule this screen follows:** green means you are earning
  * something. Everything you press *inside* a session is green with a flat bottom
- * lip that compresses under your thumb (docs/DESIGN-DUOLINGO.md), and every
+ * lip that compresses under your thumb (docs/UI-SYSTEM.md), and every
  * action that navigates *away* from the session is ink. That single split is
  * what makes a review feel like a game round rather than a form, and it is why
  * the old `btn btn-primary` blue-on-everything version read as flat.
@@ -132,8 +132,8 @@ type FirstExposure = {
  * The rest is the loop itself, unchanged and now much quieter: one card, one
  * question at display size, one uppercase action, and a verdict that lands as a
  * full-width band — green with a check, or red with the model answer. Enter
- * advances, so a session can be run without the mouse. Confetti is MagicUI's,
- * fired from a ref; it is the only celebratory effect in the app and it is
+ * advances, so a session can be run without the mouse. Confetti is the local
+ * ui/confetti wrapper, fired from a ref; it is the only celebratory effect in the app and it is
  * reserved for a correct answer and for a promotion.
  */
 export default function ReviewClient() {
@@ -767,7 +767,7 @@ export default function ReviewClient() {
         <div className="mb-3 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3" role="status">
           <Icon name="clock" size={16} className="shrink-0 text-muted-foreground" />
           <p className="t-caption flex-1 text-muted-foreground">
-            {done} cards down. A short break is fair — your queue will wait.
+            {done} cards down. A short break is fair. Your queue will wait.
           </p>
           <button
             type="button"
@@ -847,7 +847,7 @@ export default function ReviewClient() {
                     </div>
                     {done > 0 && (
                       <p className="t-fine mt-1.5 text-muted-foreground">
-                        Locked once you start — “just one more” extends.
+                        Locked once you start. “just one more” extends.
                       </p>
                     )}
                     <div className="mt-3 space-y-2.5 border-t border-border pt-3">
@@ -1229,7 +1229,7 @@ function SessionReport({
 
       {rank && !rank.isApex && (
         <p className="mt-3 t-caption text-muted-foreground">
-          {rank.remaining} RP to the next rung · about {reviewsForRp(rank.remaining)} more reviews.
+          {rank.remaining} rank points (RP) to the next rung · about {reviewsForRp(rank.remaining)} more reviews.
         </p>
       )}
 

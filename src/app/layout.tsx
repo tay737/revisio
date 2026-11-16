@@ -12,12 +12,10 @@ import './globals.css';
 /**
  * One typeface, two roles.
  *
- * docs/DESIGN-UBER.md runs a custom pair (UberMove for display, UberMoveText for
- * body) and names Inter weight 700 with `ss01` as the closest open substitute for
- * the display face, with weights 400/500 matching the text face's width and
- * x-height. Using one variable family for both roles keeps the download at a
- * single file while the *scale* — the thing anyone actually perceives — still
- * follows the spec exactly: 700 display in sentence case, 400/500 for everything
+ * docs/UI-SYSTEM.md runs a single Inter variable family: weight 700 display in
+ * sentence case, weights 400/500 for everything else. One variable file keeps
+ * the download small while the *scale* — the thing anyone actually perceives —
+ * still follows the spec exactly: 700 display in sentence case, 400/500 for everything
  * else, no letter-spacing on the display face.
  */
 const inter = Inter({

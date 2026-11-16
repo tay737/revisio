@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
  * ground, white ink, the same "R" tile the nav uses: recognisable at
  * notification-preview size, honest at full card size.
  */
-export const alt = 'Revisio — spaced repetition for GCSE, A-level and university';
+export const alt = 'Revisio: spaced repetition for GCSE, A-level and university';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
