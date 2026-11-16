@@ -186,21 +186,45 @@ export default function TopicScreen() {
               transition={SPRING.soft}
               className="card p-5 sm:p-6"
             >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id={`lesson-${i}-heading`} className="t-tagline">
-                  {l.title}
-                </h2>
-                {l.specRefs && (
-                  <Badge variant="chip-soft" className="shrink-0">
-                    <Icon name="spec" size={12} />
-                    {l.specRefs}
-                  </Badge>
-                )}
+              {/* Editorial spread: on sm+ the lesson index, position and spec
+                  reference move into a marginalia rail and the note takes a
+                  readable measure; below sm the rail hides and the spec chip
+                  stays in the title row, so the phone keeps one column. */}
+              <div className="sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:gap-6">
+                <div className="hidden sm:block">
+                  <p className="num t-fine text-muted-foreground">
+                    {String(i + 1).padStart(2, '0')}
+                  </p>
+                  <p className="t-fine mt-1.5 text-muted-foreground">
+                    Lesson {i + 1} of {lessons.length}
+                  </p>
+                  {l.specRefs && (
+                    <p className="t-fine mt-3 border-l border-border pl-2.5 text-muted-foreground">
+                      {l.specRefs}
+                    </p>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2
+                      id={`lesson-${i}-heading`}
+                      className={i === 0 ? 't-display-md' : 't-tagline'}
+                    >
+                      {l.title}
+                    </h2>
+                    {l.specRefs && (
+                      <Badge variant="chip-soft" className="shrink-0 sm:hidden">
+                        <Icon name="spec" size={12} />
+                        {l.specRefs}
+                      </Badge>
+                    )}
+                  </div>
+                  <Markdown
+                    text={(density === 'detailed' ? l.detailedMd : l.summaryMd) || l.detailedMd}
+                    className="mt-3 max-w-prose"
+                  />
+                </div>
               </div>
-              <Markdown
-                text={(density === 'detailed' ? l.detailedMd : l.summaryMd) || l.detailedMd}
-                className="mt-3"
-              />
             </motion.section>
           
         ))}
