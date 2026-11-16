@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { PageHeader } from '@/components/PageHeader';
@@ -186,6 +187,21 @@ export default function LibraryPage() {
 
         {/* ── Topics ──────────────────────────────────────────────────────── */}
         <TabsContent value="topics" className="space-y-4">
+          <Link
+            href="/library/public"
+            className="flex items-center gap-3 rounded-md border border-border bg-card px-4 py-3 transition-colors hover:border-foreground/30"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary">
+              <Icon name="download" size={16} />
+            </span>
+            <span className="min-w-0">
+              <span className="t-strong block">Deck library</span>
+              <span className="t-caption block text-muted-foreground">
+                Verified decks from teachers — follow one and a private copy lands in Shared decks.
+              </span>
+            </span>
+            <Icon name="next" size={15} className="ml-auto shrink-0 text-muted-foreground" />
+          </Link>
           {topics.length === 0 ? (
             <EmptyState
               icon="library2"

@@ -779,3 +779,25 @@ export const referralRedemptions = pgTable('referral_redemptions', {
   referredIdx: uniqueIndex('referral_redemptions_referred_idx').on(t.referredUserId),
   referrerIdx: index('referral_redemptions_referrer_idx').on(t.referrerUserId, t.createdAt),
 }));
+
+// ── deck library (#6) ───────────────────────────────────────────────────────
+// A "deck" is a public topic with public cards — the verified, staff-published
+// content a student can follow. Following is copy-on-follow MVP: the follower
+// gets a private copy under a per-user "Shared decks" subject, and the row
+// keeps a content-count snapshot so "updated since you followed" is computable
+// without live propagation (deferred per the ticket).
+
+export const deckSubscriptions = pgTable('deck_subscriptions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** The public source topic being followed. */
+  deckTopicId: text('deck_topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+  /** The follower's private copy created at follow time. */
+  copyTopicId: text('copy_topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+  cardsAtFollow: integer('cards_at_follow').notNull().default(0),
+  lessonsAtFollow: integer('lessons_at_follow').notNull().default(0),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  pk: uniqueIndex('deck_subscriptions_pk').on(t.userId, t.deckTopicId),
+  deckIdx: index('deck_subscriptions_deck_idx').on(t.deckTopicId),
+}));
