@@ -16,6 +16,7 @@ const PURPOSES: { key: Exclude<ConsentKey, 'essential'>; label: string; descript
   { key: 'notifications', label: 'Notifications', description: 'Non-essential in-app and email notifications.' },
   { key: 'profile', label: 'Profile fields', description: 'Recorded for the audit trail. What visitors see is set under Privacy.' },
   { key: 'school', label: 'School / account data', description: 'Recorded for the audit trail. Applies only if you join a class.' },
+  { key: 'social', label: 'Social', description: 'Study buddies, accountability partners and guardian summaries.' },
   { key: 'research', label: 'Research', description: 'Anonymised product research and improvement.' },
 ];
 

@@ -28,6 +28,7 @@ export const NAV: NavItem[] = [
   { href: '/practice', label: 'Practice', icon: 'practice', hint: 'Generated maths drills' },
   { href: '/library', label: 'Library', icon: 'library', hint: 'Subjects and topics' },
   { href: '/notifications', label: 'Alerts', icon: 'bell', hint: 'Reminders and updates' },
+  { href: '/social', label: 'Circle', icon: 'join', hint: 'Buddies and summaries' },
   { href: '/settings', label: 'Settings', icon: 'person', hint: 'Profile and account' },
   {
     href: '/teacher',
