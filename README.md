@@ -2,7 +2,7 @@
 
 **Learn it once.**
 
-![version](https://img.shields.io/badge/version-1.0.0--alpha.10-7AA2F7?style=flat-square)
+![version](https://img.shields.io/badge/version-1.0.0--alpha.11-7AA2F7?style=flat-square)
 ![web](https://img.shields.io/badge/web-feature--complete-2EA043?style=flat-square)
 ![mobile](https://img.shields.io/badge/mobile-sideload%20alpha-FB8C00?style=flat-square)
 ![license](https://img.shields.io/badge/license-proprietary-BB9AF7?style=flat-square)
@@ -31,7 +31,7 @@ published.
 > is prohibited. See [`LICENSE`](LICENSE) for the exact terms.
 
 > [!NOTE]
-> **Status: `1.0.0-alpha.10`.** The web app is feature-complete for v1. Both
+> **Status: `1.0.0-alpha.11`.** The web app is feature-complete for v1. Both
 > mobile clients are native — Kotlin + Compose over a native engine on Android,
 > Swift + SwiftUI over the same engine on iOS — and each ships as a
 > sideload-only alpha artefact. The iOS `.ipa` is unsigned and must be re-signed
@@ -419,7 +419,7 @@ module and the iOS app target, so the two artefacts of one release cannot
 disagree about what they are. Release by tagging:
 
 ```bash
-git tag v1.0.0-alpha.10 && git push origin v1.0.0-alpha.10
+git tag v1.0.0-alpha.11 && git push origin v1.0.0-alpha.11
 ```
 
 ---

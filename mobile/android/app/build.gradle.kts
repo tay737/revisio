@@ -22,7 +22,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 10000
-        versionName = "1.0.0-alpha.10"
+        versionName = "1.0.0-alpha.11"
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
     }
