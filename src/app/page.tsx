@@ -4,6 +4,7 @@ import { TileBand } from '@/components/ui/tile';
 import { RankCrest } from '@/components/ui/rank-crest';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { ReviewDemo } from '@/components/landing/review-demo';
+import { HeroH1 } from '@/components/landing/hero-h1';
 import { ForgettingCurve } from '@/components/landing/forgetting-curve';
 import { HeroEnter, HeroItem } from '@/components/landing/hero-enter';
 import { LandingCtaTracker } from '@/components/landing/cta-tracker';
@@ -106,7 +107,7 @@ export default function LandingPage() {
           <div className="grid items-center gap-6 sm:gap-8 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
             <HeroEnter>
               <HeroItem>
-                <h1 className="t-hero max-w-[21ch]">Spaced repetition for GCSE, A-level and university.</h1>
+                <HeroH1 />
               </HeroItem>
 
               <HeroItem>

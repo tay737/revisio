@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { track } from '@/lib/analytics';
+import { getHeroVariant } from '@/lib/hero-test';
 
 /**
  * Landing-page CTA measurement by event delegation: one listener on the
@@ -25,7 +26,7 @@ export function LandingCtaTracker({ children }: { children: ReactNode }) {
       if (!target) return;
       const section = anchor.closest('[id]')?.id
         ?? (anchor.closest('header') ? 'nav' : 'close');
-      track('cta_click', { target, section });
+      track('cta_click', { target, section, hero: getHeroVariant() });
     };
     node.addEventListener('click', onClick);
     return () => node.removeEventListener('click', onClick);

@@ -11,6 +11,8 @@ import { Companion } from '@/components/companion';
 import { FirstRunCard } from '@/components/onboarding/FirstRunCard';
 import { RankStrip } from '@/components/rank/RankStrip';
 import { StrengthCard } from '@/components/insights/StrengthCard';
+import { ChallengesCard } from '@/components/dashboard/ChallengesCard';
+import { ExamPlanCard } from '@/components/dashboard/ExamPlanCard';
 import { companionFor, greetingFor, openers } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Badge } from '@/components/ui/badge';
@@ -150,6 +152,15 @@ export default function DashboardPage() {
         <StrengthCard levels={me.srs.levels} avgLevel={me.srs.avgLevel} totalCards={me.srs.totalCards} />
       
 
+      {/* ── 2¾. Retention surfaces: challenges + exam countdown (#13/#17).
+          Student-only — staff accounts have no review queue to pace. ── */}
+      {me.role === 'student' && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ChallengesCard />
+          <ExamPlanCard />
+        </div>
+      )}
+
       {/* ── 3. Rank: the second dark band ────────────────────────────────── */}
       {ranked && (
         
@@ -228,6 +239,12 @@ export default function DashboardPage() {
                 {accuracy === null ? '–' : `${accuracy}%`}
               </dd>
             </div>
+            {gam.streakFreezes > 0 && (
+              <div>
+                <dt className="t-fine text-muted-foreground">Streak shields</dt>
+                <dd className="t-strong num mt-0.5">{gam.streakFreezes}</dd>
+              </div>
+            )}
           </dl>
         </Card>
       

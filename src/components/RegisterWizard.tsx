@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { api, ApiClientError } from '@/lib/api';
 import { track } from '@/lib/analytics';
+import { heroProps } from '@/lib/hero-test';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/Notice';
@@ -98,7 +99,7 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
   const strength = passwordStrength(password);
 
   useEffect(() => {
-    track('signup_started');
+    track('signup_started', heroProps());
     fetch('/api/v1/auth/subjects-public')
       .then((r) => (r.ok ? r.json() : { subjects: [] }))
       .then((d) => setSubjects(d.subjects ?? []))
@@ -199,7 +200,7 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
         dateOfBirth: student ? dateOfBirth : undefined,
         ageConsent: student && underConsentAge ? guardianConsent : undefined,
       });
-      track('signup_completed', { role });
+      track('signup_completed', { role, ...heroProps() });
       setResult(
         data.verifyUrl
           ? {
