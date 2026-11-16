@@ -33,9 +33,12 @@ export function ConsentSection() {
     void api.get<{ consent: unknown }>('/api/v1/consent').then((result) => {
       if (!active) return;
       const loaded = consentFromBlob(result.consent);
-      // #36: a stale social:true can never be re-affirmed on a guardian-consented
-      // account — show it off so Save doesn't send a grant the API refuses.
-      setState(me.isUnderAge ? { ...loaded, choices: { ...loaded.choices, social: false } } : loaded);
+      // #36 + F-A: purposes a guardian-consented (under-13) account can never
+      // hold are shown off so Save doesn't send grants the API refuses.
+      const lockedOff = me.isUnderAge
+        ? { ...loaded.choices, social: false, analytics: false, marketing: false, research: false, profile: false, school: false }
+        : loaded.choices;
+      setState({ ...loaded, choices: lockedOff });
     }).catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'We could not load your saved choices.');
     });
@@ -90,9 +93,10 @@ export function ConsentSection() {
           <span className="t-caption shrink-0">Always on</span>
         </div>
         {PURPOSES.map(({ key, label, description }) => {
-          // #36: guardian-consented (under-13) accounts cannot self-grant the
-          // social purpose — show the switch off and say why, don't let it save.
-          const underAgeLocked = key === 'social' && me.isUnderAge;
+          // #36 + F-A: guardian-consented (under-13) accounts cannot self-grant
+          // social or any non-essential purpose except notifications — show the
+          // switch off and say why, don't let it save.
+          const underAgeLocked = me.isUnderAge && key !== 'notifications' && key !== 'preferences';
           return (
           <div key={key} className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">

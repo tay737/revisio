@@ -27,7 +27,7 @@
  */
 import 'dotenv/config';
 
-import { eq, or } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 import { NextRequest } from 'next/server';
 import { db, closeDb } from '../src/db/client';
 import {
@@ -43,6 +43,8 @@ import { weekBounds } from '../src/domain/ranked';
 import { socialPairKey } from '../src/domain/retention';
 import { signAccessToken } from '../src/services/auth';
 import { PATCH as patchConsent } from '../src/app/api/v1/consent/route';
+import { POST as postEvents } from '../src/app/api/v1/events/route';
+import { recordServerEvent } from '../src/services/analytics';
 import { ApiError } from '../src/services/api';
 
 let failures = 0;
@@ -296,7 +298,9 @@ try {
   const u13 = await seedUser('u13', {
     channel: 'in_app', triggers: ALL_OFF,
     user: { dateOfBirth: '2015-06-01', ageConsent: true },
-    consent: { version: 1, choices: { social: true, notifications: true } },
+    // Stale blob: every gateable purpose already granted — enforcement must
+    // override stored state at both the write and the read sites.
+    consent: { version: 1, choices: { social: true, notifications: true, analytics: true, marketing: true, research: true, profile: true, school: true } },
   });
   const adult = await seedUser('adult', {
     channel: 'in_app', triggers: ALL_OFF,
@@ -351,11 +355,56 @@ try {
   try { await createGuardianLink(u13, {}); } catch (e) { u13LinkCreateStatus = e instanceof ApiError ? e.status : -1; }
   check('u13 guardian link create gated', u13LinkCreateStatus === 409, `status ${u13LinkCreateStatus}`);
 
+  // F-A ruling: every non-essential purpose except notifications is refused.
+  for (const purpose of ['analytics', 'marketing', 'research', 'profile', 'school']) {
+    const res = await patchSocial(u13, { [purpose]: true });
+    const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+    check(`u13 PATCH ${purpose} grant refused`, res.status === 403 && body?.error?.code === 'consent_underage', `${res.status} ${body?.error?.code ?? ''}`);
+  }
+
+  // Stale-blob read sites: the blob says analytics:true but under-13 cannot
+  // hold the effect — events drop, server events skip.
+  const u13EventsReq = new NextRequest('http://verify.local/api/v1/events', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${await signAccessToken({ id: u13, email: `${u13}@verify.invalid`, role: 'student', totpEnabled: false })}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ events: [{ name: 'page_view', anonymousId: 'verify-anon-0001' }] }),
+  });
+  const u13EventsRes = await postEvents(u13EventsReq, { params: {} });
+  const u13EventsBody = (await u13EventsRes.json().catch(() => null)) as { accepted?: number } | null;
+  check('u13 events batch dropped', u13EventsRes.status === 200 && u13EventsBody?.accepted === 0, `accepted=${u13EventsBody?.accepted}`);
+
+  await recordServerEvent('first_review_completed', u13);
+  await recordServerEvent('first_review_completed', adult);
+
+  const adultEventsReq = new NextRequest('http://verify.local/api/v1/events', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${await signAccessToken({ id: adult, email: `${adult}@verify.invalid`, role: 'student', totpEnabled: false })}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ events: [{ name: 'page_view', anonymousId: 'verify-anon-0002' }] }),
+  });
+  const adultEventsRes = await postEvents(adultEventsReq, { params: {} });
+  const adultEventsBody = (await adultEventsRes.json().catch(() => null)) as { accepted?: number } | null;
+  check('DOB-less events accepted', adultEventsRes.status === 200 && (adultEventsBody?.accepted ?? 0) > 0, `accepted=${adultEventsBody?.accepted}`);
+
+  const analyticsRows = await db.execute(sql`select user_id from analytics_events where user_id in (${u13}, ${adult})`);
+  const analyticsIds = (analyticsRows as unknown as { rows: { user_id: string }[] }).rows.map((r) => r.user_id);
+  check('stale blob: no analytics rows for u13', !analyticsIds.includes(u13), analyticsIds.join(',') || 'none');
+  check('DOB-less analytics rows recorded', analyticsIds.includes(adult));
+
+  // Withdrawals and the notifications carve-out stay allowed.
+  const u13Notif = await patchSocial(u13, { notifications: true });
+  check('u13 PATCH notifications allowed', u13Notif.status === 200, `status ${u13Notif.status}`);
+  const u13Withdraw = await patchSocial(u13, { analytics: false, social: false });
+  check('u13 withdrawal allowed', u13Withdraw.status === 200, `status ${u13Withdraw.status}`);
+
   const adultPatch = await patchSocial(adult, { social: true });
   check('DOB-less PATCH social allowed', adultPatch.status === 200, `status ${adultPatch.status}`);
   check('DOB-less overview shows consent', (await getSocialOverview(adult)).consentSocial === true);
   const adultSend = await sendConnection(adult, { userId: target });
   check('DOB-less sendConnection works', adultSend.status === 'pending', adultSend.status ?? 'none');
+  // Last: PATCH replaces the whole blob, so grant analytics only after every
+  // social-dependent check above has run.
+  const adultAnalytics = await patchSocial(adult, { analytics: true });
+  check('DOB-less PATCH analytics allowed', adultAnalytics.status === 200, `status ${adultAnalytics.status}`);
 
   // ── 8. #13 scoped goals: reviews/correct honor scope ────────────────────
   const goalUser = await seedUser('goals', { channel: 'in_app', triggers: ALL_OFF });
@@ -411,6 +460,7 @@ try {
   if (fixtureContentIds.topic2) await db.delete(topics).where(eq(topics.id, fixtureContentIds.topic2));
   if (fixtureContentIds.subject) await db.delete(subjects).where(eq(subjects.id, fixtureContentIds.subject));
   if (fixtureContentIds.achievement) await db.delete(achievements).where(eq(achievements.id, fixtureContentIds.achievement));
+  await db.execute(sql`delete from analytics_events where user_id like ${MARK + '%'}`).catch(() => {});
   console.log('cleanup: all fixture rows removed');
 }
 

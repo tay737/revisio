@@ -1,6 +1,8 @@
 import 'server-only';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
+import { users } from '@/db/schema';
+import { isUnderAge } from '@/lib/age';
 
 // ── First-party product analytics ───────────────────────────────────────────
 //
@@ -139,6 +141,11 @@ export async function recordServerEvent(
   props?: Record<string, string | number | boolean | null>,
 ): Promise<void> {
   try {
+    // F-A ruling: under-13 accounts cannot hold analytics consent, so a stale
+    // blob must not grant the effect — server-side events carry user_id and
+    // are skipped outright for guardian-consented accounts.
+    const [u] = await db.select({ dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, userId)).limit(1);
+    if (isUnderAge(u?.dateOfBirth)) return;
     await ensureTable();
     await db.execute(sql`
       INSERT INTO analytics_events (id, name, props, user_id)

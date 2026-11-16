@@ -1,4 +1,8 @@
 import { NextRequest } from 'next/server';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db/client';
+import { users } from '@/db/schema';
+import { isUnderAge } from '@/lib/age';
 import { ApiError, getSession, ok, route } from '@/services/api';
 import { clientIp, takeRateLimitAttempt } from '@/services/rate-limit';
 import { recordAnalyticsEvents, type AnalyticsEventInput } from '@/services/analytics';
@@ -21,6 +25,13 @@ export const POST = route(async (req: NextRequest) => {
   if (!events?.length) throw new ApiError(400, 'bad_request', 'events must be a non-empty array.');
 
   const session = await getSession(req);
+  // F-A ruling: a signed-in under-13 account cannot hold analytics consent,
+  // so its events are dropped entirely rather than recorded anonymously.
+  // Pre-auth anonymous traffic is governed by the client-side consent gate.
+  if (session) {
+    const [u] = await db.select({ dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, session.id)).limit(1);
+    if (isUnderAge(u?.dateOfBirth)) return ok({ accepted: 0 });
+  }
   const accepted = await recordAnalyticsEvents(events, session?.id ?? null);
   return ok({ accepted });
 });

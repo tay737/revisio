@@ -57,10 +57,18 @@ export const PATCH = route(async (req: NextRequest) => {
   const [current] = await db.select({ consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, user.id)).limit(1);
   const wasSocial = consentFromBlob(current?.consent).choices.social === true;
   const isSocial = choices.social === true;
+  const underAge = isUnderAge(current?.dateOfBirth);
   // #36: under-13 accounts registered under guardian consent may not self-grant
   // the social purpose. Withdrawal stays allowed — only the grant is refused.
-  if (isSocial && isUnderAge(current?.dateOfBirth)) {
+  if (underAge && isSocial) {
     throw new ApiError(403, 'social_underage', 'Social features are not available on guardian-consented accounts.');
+  }
+  // F-A ruling: the same bar covers every non-essential purpose except
+  // notifications (reminders are core to the study loop — product call).
+  // preferences is UX-essential, essential is always on. Only an explicit
+  // grant is refused; withdrawing a stale grant stays allowed.
+  if (underAge && ['analytics', 'marketing', 'research', 'profile', 'school'].some((k) => choices[k] === true)) {
+    throw new ApiError(403, 'consent_underage', 'Non-essential consent purposes are not available on guardian-consented accounts.');
   }
   const sever = wasSocial && !isSocial;
 
