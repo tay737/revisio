@@ -72,7 +72,7 @@ export interface Me {
     forNext: number;
     streak: number;
     bestStreak: number;
-    /** Earned gap-shields (#12): one is spent automatically per missed day,
+    /** Earned streak freezes (#12): one is spent automatically per missed day,
      *  earned every 7th consecutive day, capped at 3. */
     streakFreezes: number;
   };

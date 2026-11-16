@@ -35,6 +35,12 @@ const KIND_ICON: Record<string, IconName> = {
   season_ending: 'league',
   seasonEnding: 'league',
   achievement: 'achievements',
+  streak: 'streak',
+  challenge: 'clash',
+  challengeComplete: 'clash',
+  goal: 'target',
+  goalReached: 'target',
+  social: 'person',
 };
 
 /**

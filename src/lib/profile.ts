@@ -218,7 +218,7 @@ export function lobbyLine(input: {
     return `We are still placing you. A few more reviews and we will seat you in a ${rankLabel} lobby.`;
   }
   if (zone === 'promotion') {
-    return `${position} of ${size}. You are inside the promotion zone. ${days}; holding this seat moves you up a rung.`;
+    return `${position} of ${size}. You're inside the promotion zone. ${days}; holding this seat moves you up a rung.`;
   }
   if (zone === 'demotion') {
     return `${position} of ${size}. You're in the drop zone. ${days}; one session pulls you clear, and nothing is lost — your RP stays.`;

@@ -113,7 +113,7 @@ export function RankStrip({
                 ? `Placement: ${placement.done} of ${placement.target} reviews before you hold a rank.`
                 : rank.isApex
                   ? 'Top of the ladder. Holding it is the hard part.'
-                  : `${rank.remaining} RP to the next rung · about ${reviewsForRp(rank.remaining)} reviews.`}
+                  : `${rank.remaining} rank points (RP) to the next rung · about ${reviewsForRp(rank.remaining)} reviews.`}
           </p>
 
           <div className="mt-3.5 flex items-center gap-3">

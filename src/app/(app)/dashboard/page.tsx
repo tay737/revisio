@@ -245,7 +245,7 @@ export default function DashboardPage() {
             </div>
             {gam.streakFreezes > 0 && (
               <div>
-                <dt className="t-fine text-muted-foreground">Streak shields</dt>
+                <dt className="t-fine text-muted-foreground">Streak freezes</dt>
                 <dd className="t-strong num mt-0.5">{gam.streakFreezes}</dd>
               </div>
             )}

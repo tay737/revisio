@@ -37,6 +37,19 @@ function examPassed(plan: ExamPlan): boolean {
   return new Date(`${plan.examDate}T00:00:00`) < today;
 }
 
+/** examDate is a plain calendar date — render it as one, not an ISO string.
+ *  UTC noon so no timezone can slide it to the previous day. */
+function examDateLabel(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return d.toLocaleDateString('en-GB', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' as const }),
+  });
+}
+
 /**
  * Exam countdown (#17) — the nearest active plan's deadline, pace and weakest
  * topics, with a compact create form when the student has none. A visible
@@ -240,9 +253,9 @@ export function ExamPlanCard() {
 
       {pastPlan && (
         <div className="mt-3 border-t border-border pt-3">
-          <p className="t-strong">The exam has been and gone</p>
+          <p className="t-strong">The exam is over</p>
           <p className="t-caption mt-1 text-muted-foreground">
-            {pastPlan.title} — sat {pastPlan.examDate}. A minute of honesty here is what makes the next countdown smarter.
+            {pastPlan.title} — sat {examDateLabel(pastPlan.examDate)}. A minute of honesty here is what makes the next countdown smarter.
           </p>
           {pastPlan.reflection ? (
             <p className="t-caption mt-2 text-muted-foreground">
