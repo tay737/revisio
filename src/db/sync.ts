@@ -92,6 +92,8 @@ const REPLICATED_TABLES = [
   'user_goals',
   'study_connections',
   'guardian_links',
+  'referral_codes',
+  'referral_redemptions',
   'audit_log',
 ] as const;
 

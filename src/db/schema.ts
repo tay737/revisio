@@ -752,3 +752,30 @@ export const guardianLinks = pgTable('guardian_links', {
   studentIdx: index('guardian_links_student_idx').on(t.studentId, t.status),
   guardianIdx: index('guardian_links_guardian_idx').on(t.guardianId, t.status),
 }));
+
+// ── acquisition (#20) ───────────────────────────────────────────────────────
+// Peer referral codes: one shareable code per learner, redemptions recorded
+// once per referred account at registration.
+
+export const referralCodes = pgTable('referral_codes', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  rotatedAt: timestamp('rotated_at', { mode: 'date' }),
+}, (t) => ({
+  userIdx: uniqueIndex('referral_codes_user_idx').on(t.userId),
+  codeIdx: uniqueIndex('referral_codes_code_idx').on(t.code),
+}));
+
+export const referralRedemptions = pgTable('referral_redemptions', {
+  id: text('id').primaryKey(),
+  /** The code as entered — kept as a snapshot so stats survive rotation. */
+  code: text('code').notNull(),
+  referrerUserId: text('referrer_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  referredUserId: text('referred_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  referredIdx: uniqueIndex('referral_redemptions_referred_idx').on(t.referredUserId),
+  referrerIdx: index('referral_redemptions_referrer_idx').on(t.referrerUserId, t.createdAt),
+}));

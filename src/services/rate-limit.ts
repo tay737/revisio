@@ -48,6 +48,8 @@ const RULES = {
   totp: { bucket: 'totp', windowSec: 900, max: 10 },
   /** Analytics beacons: page views legitimately burst on navigation. */
   eventsIp: { bucket: 'events-ip', windowSec: 60, max: 120 },
+  /** Public sample-deck grading: unauthenticated compute, per source IP. */
+  sampleGrade: { bucket: 'sample-grade', windowSec: 60, max: 30 },
 } satisfies Record<string, RateLimitRule>;
 
 export type RateLimitKind = keyof typeof RULES;

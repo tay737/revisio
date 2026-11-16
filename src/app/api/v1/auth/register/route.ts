@@ -8,6 +8,8 @@ import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
 import { sendVerificationEmail } from '@/services/email';
 import { ApiError, ok, route } from '@/services/api';
 import { takeRateLimitAttempt, clientIp } from '@/services/rate-limit';
+import { redeemReferralCode } from '@/services/acquisition';
+import { recordServerEvent } from '@/services/analytics';
 
 export const POST = route(async (req: NextRequest) => {
   // One wall per source IP: account creation is the seed of every abuse
@@ -16,10 +18,11 @@ export const POST = route(async (req: NextRequest) => {
   await takeRateLimitAttempt('registerIp', clientIp(req));
   const body = await req.json().catch(() => null);
   if (!body) throw new ApiError(400, 'bad_request', 'Invalid JSON body.');
-  const { email, password, name, role, requestedRole: requestedRoleInput, note, ageConsent, dateOfBirth, subjectIds, classCode } = body as {
+  const { email, password, name, role, requestedRole: requestedRoleInput, note, ageConsent, dateOfBirth, subjectIds, classCode, referralCode, ref } = body as {
     email?: string; password?: string; name?: string; role?: 'student' | 'teacher' | 'developer';
     requestedRole?: 'student' | 'teacher' | 'developer'; note?: string;
     ageConsent?: boolean; dateOfBirth?: string; subjectIds?: string[]; classCode?: string;
+    referralCode?: string; ref?: string;
   };
 
   // Every rejection names the control it belongs under (`ApiError.field`), so
@@ -110,6 +113,15 @@ export const POST = route(async (req: NextRequest) => {
         select id, ${user.id}::text from classes where upper(join_code) = ${classCode.toUpperCase()} limit 1`);
     }
   }
+
+  // Peer referral attribution (#20): the code rides the register body from
+  // /register?ref=… — `ref` is the URL param name, `referralCode` the explicit
+  // field. Invalid, self and replayed codes attribute nothing.
+  const referred = await redeemReferralCode(referralCode ?? ref, user.id);
+  await recordServerEvent('signup_completed', user.id, {
+    referred,
+    classJoined: typeof classCode === 'string' && classCode.length > 0,
+  });
 
   const token = await issueEmailToken(user.id, 'verify');
   await sendVerificationEmail(user.email, token);
