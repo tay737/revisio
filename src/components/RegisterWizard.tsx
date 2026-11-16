@@ -66,7 +66,13 @@ function passwordStrength(pw: string): { score: number; label: string } {
  * be created before anything is sent. Enter advances the step (it is one form),
  * so keyboard users never need the mouse to move through it.
  */
-export default function RegisterWizard({ initialClassCode = '' }: { initialClassCode?: string }) {
+export default function RegisterWizard({
+  initialClassCode = '',
+  initialReferralCode = '',
+}: {
+  initialClassCode?: string;
+  initialReferralCode?: string;
+}) {
   const [role, setRole] = useState<Role>('student');
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -79,6 +85,11 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
   // education-level state removed (see note above).
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [classCode, setClassCode] = useState(initialClassCode.toUpperCase().slice(0, 6));
+  // Peer referral (#20): seeded from /register?ref=…, editable on the account
+  // step, posted as `referralCode`. Validation is advisory — the server never
+  // rejects a bad code, it simply does not attribute.
+  const [referralCode, setReferralCode] = useState(initialReferralCode.trim().toUpperCase().slice(0, 16));
+  const [refStatus, setRefStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [error, setError] = useState('');
   // A problem the server pinned to one control, rendered beneath that control
@@ -105,6 +116,26 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
       .then((d) => setSubjects(d.subjects ?? []))
       .catch(() => undefined);
   }, []);
+
+  // Debounced existence check against the public validate endpoint. Short
+  // input is treated as "not yet" rather than invalid — the learner may still
+  // be typing. A failed check goes back to idle: the register POST does not
+  // depend on this answer.
+  useEffect(() => {
+    const code = referralCode.trim();
+    if (code.length < 4) {
+      setRefStatus('idle');
+      return;
+    }
+    setRefStatus('checking');
+    const timer = setTimeout(() => {
+      fetch(`/api/v1/referrals/validate?code=${encodeURIComponent(code)}`)
+        .then((r) => (r.ok ? r.json() : { valid: false }))
+        .then((d: { valid?: boolean }) => setRefStatus(d.valid ? 'valid' : 'invalid'))
+        .catch(() => setRefStatus('idle'));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [referralCode]);
 
   // Move focus to the new step's heading so a screen reader announces it and
   // the keyboard starts where the learner is. Skipped on first paint.
@@ -197,6 +228,7 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
         note: student ? undefined : note,
         subjectIds: student ? subjectIds : undefined,
         classCode: student && classCode ? classCode : undefined,
+        referralCode: referralCode.trim() || undefined,
         dateOfBirth: student ? dateOfBirth : undefined,
         ageConsent: student && underConsentAge ? guardianConsent : undefined,
       });
@@ -429,6 +461,28 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
                       <span className="t-fine text-muted-foreground">{password ? strength.label : ''}</span>
                     </div>
                   </div>
+                  <div>
+                    <Field icon="join" label="Friend's invite code (optional)" htmlFor="referralCode">
+                      <Input
+                        id="referralCode"
+                        className="pl-11 uppercase tracking-[0.15em]"
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                        maxLength={16}
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="e.g. K7M2QXAB"
+                      />
+                    </Field>
+                    {refStatus === 'valid' && (
+                      <p className="t-fine mt-1.5 text-muted-foreground">That code checks out.</p>
+                    )}
+                    {refStatus === 'invalid' && (
+                      <p className="t-fine mt-1.5 text-muted-foreground">
+                        We couldn&apos;t find that code — check it with your friend, or clear the field. You can still continue.
+                      </p>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -574,6 +628,9 @@ export default function RegisterWizard({ initialClassCode = '' }: { initialClass
                   )}
                   <ReviewRow label="Name" value={name.trim()} onEdit={() => goTo(at('account'))} />
                   <ReviewRow label="Email" value={email.trim()} onEdit={() => goTo(at('account'))} />
+                  {referralCode.trim() && (
+                    <ReviewRow label="Friend's code" value={referralCode.trim()} onEdit={() => goTo(at('account'))} />
+                  )}
                   {role === 'student'
                     ? dateOfBirth && (
                         <ReviewRow label="Date of birth" value={dateOfBirth} onEdit={() => goTo(at('profile'))} />

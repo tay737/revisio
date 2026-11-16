@@ -5,12 +5,14 @@ import { AuthShell } from '@/components/AuthShell';
 export default function RegisterPage({
   searchParams,
 }: {
-  searchParams: { class?: string };
+  searchParams: { class?: string; ref?: string };
 }) {
   // /register?class=B7K2QM arrives from a classroom invite link (/join/<code>);
   // the wizard seeds the optional class-code field so the learner only has to
-  // confirm it on the review step.
+  // confirm it on the review step. ?ref=CODE is a peer referral link (#20) —
+  // same seeding, posted as referralCode at submit.
   const classCode = (searchParams.class ?? '').trim().toUpperCase();
+  const referralCode = (searchParams.ref ?? '').trim().toUpperCase();
   return (
     <AuthShell
       footer={
@@ -19,7 +21,7 @@ export default function RegisterPage({
         </Link>
       }
     >
-      <RegisterWizard initialClassCode={classCode} />
+      <RegisterWizard initialClassCode={classCode} initialReferralCode={referralCode} />
     </AuthShell>
   );
 }
