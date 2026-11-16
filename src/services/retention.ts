@@ -903,7 +903,7 @@ export async function sendConnection(userId: string, input: Record<string, unkno
   const id = crypto.randomUUID();
   await db.insert(studyConnections).values({ id, pairKey, requesterId: userId, addresseeId: target.id, kind, status: 'pending' });
   const targetUser = await publicUser(target.id);
-  await recordNotification(target.id, { kind: 'social', title: `${targetUser?.name ?? 'Someone'} wants to study with you`, body: 'Accept to add them to your private study circle.', href: '/progress' });
+  await recordNotification(target.id, { kind: 'social', title: `${targetUser?.name ?? 'Someone'} wants to study with you`, body: 'Accept to add them to your private study circle.', href: '/social' });
   return { id, status: 'pending', kind, direction: 'outgoing' };
 }
 
@@ -1029,7 +1029,7 @@ export async function createGuardianLink(userId: string, input: Record<string, u
     return listGuardianLinks(userId);
   }
   await db.insert(guardianLinks).values({ id: crypto.randomUUID(), studentId: userId, guardianId: guardian.id, status: 'pending' });
-  await recordNotification(guardian.id, { kind: 'social', title: 'A learner shared a study summary with you', body: 'Accept to see their progress summary.', href: '/progress' });
+  await recordNotification(guardian.id, { kind: 'social', title: 'A learner shared a study summary with you', body: 'Accept to see their progress summary.', href: '/social' });
   return listGuardianLinks(userId);
 }
 

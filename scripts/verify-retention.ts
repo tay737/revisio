@@ -401,6 +401,7 @@ try {
   check('DOB-less overview shows consent', (await getSocialOverview(adult)).consentSocial === true);
   const adultSend = await sendConnection(adult, { userId: target });
   check('DOB-less sendConnection works', adultSend.status === 'pending', adultSend.status ?? 'none');
+  check('social notification href is /social', (await notices(target)).some((n) => n.kind === 'social' && n.href === '/social'));
   // Last: PATCH replaces the whole blob, so grant analytics only after every
   // social-dependent check above has run.
   const adultAnalytics = await patchSocial(adult, { analytics: true });
