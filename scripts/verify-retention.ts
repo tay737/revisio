@@ -18,6 +18,8 @@
  *                  /consent refuses the grant, overview/board hide social,
  *                  send/accept 403, decline stays allowed, DOB-less
  *                  accounts unaffected
+ *   scoped goals (#13) → reviews/correct goals honor scope.examPlanId /
+ *                  topicIds / subjectId; unscoped counts everything
  *
  * Run against a LOCAL test DB, never prod:
  *   DATABASE_URL=postgres://localhost:5432/revisio_verify \
@@ -30,11 +32,11 @@ import { NextRequest } from 'next/server';
 import { db, closeDb } from '../src/db/client';
 import {
   achievements, cardUserStates, cards, examPlans, leagueMemberships,
-  notificationDeliveries, notificationPrefs, notifications, streaks,
-  studyConnections, subjects, topics, userAchievements, users,
+  notificationDeliveries, notificationPrefs, notifications, reviewLogs, streaks,
+  studyConnections, subjects, topics, userAchievements, userGoals, users, xpEvents,
 } from '../src/db/schema';
 import {
-  friendBoard, getSocialOverview, processRetentionReminders,
+  createGoal, friendBoard, getSocialOverview, listGoals, processRetentionReminders,
   respondConnection, sendConnection, updateNotificationPrefs,
 } from '../src/services/retention';
 import { weekBounds } from '../src/domain/ranked';
@@ -85,7 +87,7 @@ const notices = (userId: string) =>
   db.select().from(notifications).where(eq(notifications.userId, userId));
 
 const fixtureUserIds: string[] = [];
-const fixtureContentIds = { subject: '', topic: '', card: '', achievement: '' };
+const fixtureContentIds = { subject: '', topic: '', card: '', topic2: '', card2: '', achievement: '' };
 
 try {
   // ── shared content fixture: one public card that can be "due" ──────────
@@ -100,6 +102,18 @@ try {
   await db.insert(cards).values({
     id: fixtureContentIds.card, topicId: fixtureContentIds.topic,
     kind: 'flashcard', prompt: 'verify prompt', visibility: 'public',
+  });
+  // Second topic+card in the SAME subject — lets scoped-goal checks tell
+  // topic-level (2 reviews) from subject-level (5 reviews) scopes apart.
+  fixtureContentIds.topic2 = `${MARK}-topic2`;
+  fixtureContentIds.card2 = `${MARK}-card2`;
+  await db.insert(topics).values({
+    id: fixtureContentIds.topic2, subjectId: fixtureContentIds.subject,
+    name: `${MARK} two`, slug: `${MARK}-two`, visibility: 'public',
+  });
+  await db.insert(cards).values({
+    id: fixtureContentIds.card2, topicId: fixtureContentIds.topic2,
+    kind: 'flashcard', prompt: 'verify prompt 2', visibility: 'public',
   });
   const dueState = (userId: string) =>
     db.insert(cardUserStates).values({
@@ -335,6 +349,38 @@ try {
   check('DOB-less overview shows consent', (await getSocialOverview(adult)).consentSocial === true);
   const adultSend = await sendConnection(adult, { userId: target });
   check('DOB-less sendConnection works', adultSend.status === 'pending', adultSend.status ?? 'none');
+
+  // ── 8. #13 scoped goals: reviews/correct honor scope ────────────────────
+  const goalUser = await seedUser('goals', { channel: 'in_app', triggers: ALL_OFF });
+  fixtureUserIds.push(goalUser);
+  const reviewRow = (n: number, cardId: string) => ({
+    id: `${MARK}-rev-${n}`, userId: goalUser, cardId,
+    rating: 'good' as const, mode: 'daily' as const,
+    graded: { correct: true, feedbackKind: 'exact' },
+  });
+  await db.insert(reviewLogs).values([
+    reviewRow(1, fixtureContentIds.card), reviewRow(2, fixtureContentIds.card),
+    reviewRow(3, fixtureContentIds.card2), reviewRow(4, fixtureContentIds.card2), reviewRow(5, fixtureContentIds.card2),
+  ]);
+  const goalPlanId = `${MARK}-goal-plan`;
+  await db.insert(examPlans).values({
+    id: goalPlanId, userId: goalUser, title: 'Scoped Exam', examDate: isoDay(10),
+    topicIds: [fixtureContentIds.topic], dailyTarget: 10, status: 'active',
+  });
+
+  const goalProgressFor = async (title: string) =>
+    (await listGoals(goalUser)).find((g) => g.title === title);
+
+  await createGoal(goalUser, { kind: 'reviews', title: 'Exam reviews', target: 2, scope: { examPlanId: goalPlanId } });
+  await createGoal(goalUser, { kind: 'reviews', title: 'Topic reviews', target: 2, scope: { topicIds: [fixtureContentIds.topic] } });
+  await createGoal(goalUser, { kind: 'reviews', title: 'Subject reviews', target: 5, scope: { subjectId: fixtureContentIds.subject } });
+  await createGoal(goalUser, { kind: 'reviews', title: 'All reviews', target: 5 });
+
+  check('examPlanId scope counts plan topics only', (await goalProgressFor('Exam reviews'))?.progress === 2, JSON.stringify((await goalProgressFor('Exam reviews'))?.progress));
+  check('examPlanId scope completes at target', (await goalProgressFor('Exam reviews'))?.completed === true);
+  check('topicIds scope counts topic only', (await goalProgressFor('Topic reviews'))?.progress === 2);
+  check('subjectId scope counts whole subject', (await goalProgressFor('Subject reviews'))?.progress === 5);
+  check('unscoped goal counts all reviews', (await goalProgressFor('All reviews'))?.progress === 5);
 } finally {
   // ── cleanup: every fixture row, children first ──────────────────────────
   for (const u of fixtureUserIds) {
@@ -345,12 +391,17 @@ try {
     await db.delete(leagueMemberships).where(eq(leagueMemberships.userId, u));
     await db.delete(streaks).where(eq(streaks.userId, u));
     await db.delete(cardUserStates).where(eq(cardUserStates.userId, u));
+    await db.delete(reviewLogs).where(eq(reviewLogs.userId, u));
+    await db.delete(userGoals).where(eq(userGoals.userId, u));
+    await db.delete(xpEvents).where(eq(xpEvents.userId, u));
     await db.delete(notificationPrefs).where(eq(notificationPrefs.userId, u));
     await db.delete(userAchievements).where(eq(userAchievements.userId, u));
     await db.delete(users).where(eq(users.id, u));
   }
   if (fixtureContentIds.card) await db.delete(cards).where(eq(cards.id, fixtureContentIds.card));
+  if (fixtureContentIds.card2) await db.delete(cards).where(eq(cards.id, fixtureContentIds.card2));
   if (fixtureContentIds.topic) await db.delete(topics).where(eq(topics.id, fixtureContentIds.topic));
+  if (fixtureContentIds.topic2) await db.delete(topics).where(eq(topics.id, fixtureContentIds.topic2));
   if (fixtureContentIds.subject) await db.delete(subjects).where(eq(subjects.id, fixtureContentIds.subject));
   if (fixtureContentIds.achievement) await db.delete(achievements).where(eq(achievements.id, fixtureContentIds.achievement));
   console.log('cleanup: all fixture rows removed');

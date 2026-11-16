@@ -617,7 +617,8 @@ export async function listChallenges(userId: string, now = new Date()) {
 const GOAL_KINDS = ['reviews', 'correct', 'xp', 'streak', 'topics_mastered', 'exam_score'] as const;
 type GoalKind = typeof GOAL_KINDS[number];
 
-async function goalProgress(userId: string, kind: GoalKind) {
+async function goalProgress(userId: string, goal: { kind: GoalKind; scope: Record<string, unknown> | null }) {
+  const kind = goal.kind;
   if (kind === 'streak') {
     const [row] = await db.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, userId)).limit(1);
     return row?.current ?? 0;
@@ -634,6 +635,33 @@ async function goalProgress(userId: string, kind: GoalKind) {
   const correctOnly = kind === 'correct';
   const conditions = [eq(reviewLogs.userId, userId)];
   if (correctOnly) conditions.push(sql`(${reviewLogs.graded} ->> 'correct')::boolean is true`);
+  // Scope narrows reviews/correct to a slice of the library: an exam plan's
+  // topics, an explicit topic list, or a whole subject. Anything else (xp,
+  // streak, …) is inherently unscoped. An examPlanId belonging to someone
+  // else resolves to zero topics — progress 0, never a leak.
+  const scope = goal.scope ?? {};
+  let topicIds: string[] | null = null;
+  if (typeof scope.examPlanId === 'string') {
+    const [plan] = await db.select({ topicIds: examPlans.topicIds }).from(examPlans)
+      .where(and(eq(examPlans.id, scope.examPlanId), eq(examPlans.userId, userId))).limit(1);
+    topicIds = plan?.topicIds ?? [];
+  } else if (Array.isArray(scope.topicIds) && scope.topicIds.every((t) => typeof t === 'string')) {
+    topicIds = scope.topicIds as string[];
+  } else if (typeof scope.topicId === 'string') {
+    topicIds = [scope.topicId];
+  }
+  const subjectId = typeof scope.subjectId === 'string' ? scope.subjectId : null;
+  if (topicIds || subjectId) {
+    const [row] = await db.select({ c: sql<number>`count(*)::int` })
+      .from(reviewLogs)
+      .innerJoin(cards, eq(cards.id, reviewLogs.cardId))
+      .innerJoin(topics, eq(topics.id, cards.topicId))
+      .where(and(
+        ...conditions,
+        topicIds ? inArray(cards.topicId, topicIds) : eq(topics.subjectId, subjectId!),
+      ));
+    return row?.c ?? 0;
+  }
   const [row] = await db.select({ c: sql<number>`count(*)::int` }).from(reviewLogs).where(and(...conditions));
   return row?.c ?? 0;
 }
@@ -644,7 +672,7 @@ export async function listGoals(userId: string) {
   const now = new Date();
   const out = [];
   for (const goal of rows) {
-    const progress = await goalProgress(userId, goal.kind as GoalKind);
+    const progress = await goalProgress(userId, { kind: goal.kind as GoalKind, scope: goal.scope });
     const completed = progress >= goal.target;
     if (completed && !goal.completedAt) {
       await db.update(userGoals).set({ completedAt: now, updatedAt: now }).where(eq(userGoals.id, goal.id));
