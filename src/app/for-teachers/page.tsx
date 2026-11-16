@@ -11,11 +11,7 @@ import { cn } from '@/lib/utils';
  * Teacher classes are the sharpest differentiator vs Anki/Quizlet (see
  * docs/MARKETING-AUDIT-2026-11-16.md §5): real classrooms, rosters and
  * per-student progress — none of which the flashcard incumbents offer.
- *
- * COPY SLOTS: writer drafts are in flight. Every string below is factual
- * placeholder copy describing only shipped behaviour — replace wholesale
- * when the writer's version lands; the structure (sections, anchors, CTAs)
- * is the contract.
+ * Copy: docs/COPY-DRAFTS-2026-11-16.md §#27.
  */
 export const metadata: Metadata = {
   title: 'For teachers · Revisio',
@@ -25,52 +21,65 @@ export const metadata: Metadata = {
 
 const HERO = {
   eyebrow: 'For teachers',
-  // COPY SLOT (#27): writer draft pending
-  heading: 'Revision that runs itself, for every student in the room.',
-  // COPY SLOT (#27): writer draft pending
-  lead: 'Create a class, share a join code, and watch each student’s spaced-repetition queue do the work. Progress lands on your dashboard — no spreadsheets, no chasing.',
+  heading: 'Set the class. Revisio does the chasing.',
+  lead: 'Create a class, share a join code, and every student’s review queue builds itself. You see who is keeping up and who is coasting — without collecting anyone’s planner.',
+};
+
+const HOW_IT_WORKS = {
+  heading: 'How a class uses it',
+  steps: [
+    'You create the class and share the join code.',
+    'Students join and revise ten minutes a day — the queue schedules itself.',
+    'You check the dashboard: who is due, who is slipping, which topic needs a re-teach.',
+  ],
 };
 
 const SECTIONS: {
   icon: IconName;
-  // COPY SLOT (#27): writer draft pending — titles/bodies below
   title: string;
   body: string;
   points: string[];
 }[] = [
   {
     icon: 'class',
-    title: 'Classes in a minute',
-    body: 'Create a class and share its join code. Students register or sign in and join with the code — no invites, no email lists.',
+    title: 'A class in a minute',
+    body: 'Create a class and share its join code. Students register or sign in and join with the code — no invites, no email lists, no IT ticket.',
     points: ['Join codes you can rotate', 'Add or remove students yourself', 'One class per subject'],
   },
   {
     icon: 'notes',
-    title: 'Content students actually revise',
-    body: 'Publish topics to your class subject. Every card stays linked to its note, so a wrong answer is a teaching moment, not a dead end.',
-    points: ['Public topics for your subject', 'Notes behind every card', 'Students’ queues build themselves'],
+    title: 'Content they will actually revise',
+    body: 'Publish topics to your class subject. Every card stays linked to its note, so when a student slips the fix is one tap away — not a re-teach in front of the room.',
+    points: ['Topics published to your class', 'Notes behind every card', 'Queues that build themselves'],
   },
   {
     icon: 'progress',
     title: 'Progress you can act on',
-    body: 'See each student’s reviews, accuracy and weak topics — the same mastery data the student sees, rolled up for the class.',
-    points: ['Per-student progress sheets', 'Weak-topic visibility', 'Attendance-free evidence of revision'],
+    body: 'Each student’s reviews, accuracy and weak topics land on your dashboard — the same mastery data they see, rolled up for the class.',
+    points: ['Per-student progress', 'Weak-topic visibility', 'Evidence of revision, not attendance'],
   },
 ];
 
 const FAQS: { q: string; a: string }[] = [
-  // COPY SLOT (#27): writer draft pending — questions chosen from the audit's objection list
   {
     q: 'Do students need their own accounts?',
     a: 'Yes — each student registers with the class join code. That is what makes their progress visible to you.',
   },
   {
     q: 'Is there a cost for classrooms?',
-    a: 'Revisio is free to start. Class features are part of the same product — no separate licence.',
+    a: 'Revisio is free while it is in alpha, and class features are part of the same product — no separate licence.',
+  },
+  {
+    q: 'Do I have to write the cards?',
+    a: 'No. Publish topics and notes; cards are built from them and stay linked back to the source, so a student who slips can re-read the note that failed them.',
+  },
+  {
+    q: 'What can I see about my students?',
+    a: 'Names and progress for students in your class: reviews, accuracy and weak topics. Nothing outside the class is visible to you.',
   },
   {
     q: 'Which subjects are covered?',
-    a: 'GCSE, A-level and university subjects, plus anything you publish yourself as a teacher.',
+    a: 'GCSE, A-level and university subjects, plus anything you publish yourself for your class.',
   },
 ];
 
@@ -121,9 +130,26 @@ export default function ForTeachersPage() {
           </div>
         </TileBand>
 
+        {/* How a class uses it — three steps */}
+        <TileBand tone="parchment" id="how" >
+          <div className="mx-auto max-w-3xl">
+            <h2 className="t-display-sm">{HOW_IT_WORKS.heading}</h2>
+            <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+              {HOW_IT_WORKS.steps.map((step, i) => (
+                <li key={step} className="flex items-start gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-card t-caption-s font-bold">
+                    {i + 1}
+                  </span>
+                  <span className="t-caption leading-relaxed">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </TileBand>
+
         {/* Feature sections — one band per capability, anchors for deep links */}
         {SECTIONS.map((section, i) => (
-          <TileBand key={section.title} tone={i % 2 === 0 ? 'parchment' : 'light'} id={`feature-${i + 1}`}>
+          <TileBand key={section.title} tone={i % 2 === 0 ? 'light' : 'parchment'} id={`feature-${i + 1}`}>
             <div className="mx-auto max-w-3xl">
               <span className="grid h-11 w-11 place-items-center rounded-full bg-card">
                 <Icon name={section.icon} size={20} />
@@ -148,7 +174,7 @@ export default function ForTeachersPage() {
         ))}
 
         {/* Teacher FAQ — mirrors the landing FAQ pattern */}
-        <TileBand tone="light" id="faq">
+        <TileBand tone="parchment" id="faq">
           <div className="mx-auto max-w-2xl">
             <h2 className="t-display">Questions teachers ask</h2>
             <div className="mt-6 divide-y divide-border rounded-lg border border-border bg-card">
@@ -168,9 +194,9 @@ export default function ForTeachersPage() {
         {/* Close */}
         <TileBand tone="dark" id="close">
           <div className="mx-auto my-auto max-w-2xl py-10 text-center">
-            <h2 className="t-display">Set up your class today.</h2>
+            <h2 className="t-display">Your class is one join code away.</h2>
             <p className="mx-auto mt-4 max-w-md t-body text-muted-foreground">
-              Free to start. Your first class takes a minute.
+              Free while in alpha. Your first class takes a minute.
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
               <Link href="/register" className={buttonVariants({ variant: 'primary', size: 'lg' })}>

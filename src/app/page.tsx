@@ -67,31 +67,48 @@ const FACTS: { value: string; short: string; label: string }[] = [
 const COMPANION_LINE = 'Nothing is due. You are ahead.';
 
 /** Landing FAQ (#28) — objections a student actually has, per the marketing
- *  audit §6. COPY SLOTS: writer drafts are in flight; answers below are
- *  factual placeholders covering only shipped behaviour — replace wholesale
- *  when the writer's version lands. Rendered with native <details> so the
- *  section needs no client JS. */
+ *  audit §6. Copy: docs/COPY-DRAFTS-2026-11-16.md §#28. Rendered with native
+ *  <details> so the section needs no client JS. */
 const FAQS: { q: string; a: string }[] = [
-  // COPY SLOT (#28): writer draft pending
+  {
+    q: 'What is Revisio?',
+    a: 'A revision app for students with real exams — GCSE, A-level and university. It turns your notes and topics into review cards and schedules each one to come back right before you would forget it.',
+  },
   {
     q: 'Is Revisio free?',
-    a: 'Yes — free to start, with no card required up front.',
+    a: 'Yes — free while it is in alpha, and there is no card needed to sign up. Pricing has not been decided yet; when it is, we will say so plainly rather than surprise anyone.',
   },
   {
-    q: 'Does it work offline?',
-    a: 'Your review queue is cached on your device, so you can revise without signal and sync when you are back online.',
-  },
-  {
-    q: 'Which subjects and exams are covered?',
-    a: 'GCSE, A-level and university subjects, with past papers marked against the real scheme.',
+    q: 'How does spaced repetition work?',
+    a: 'Every card you get right comes back later; every card you get wrong comes back sooner. After a few weeks the gaps widen until keeping a fact costs you seconds, not hours. You never plan it — the queue is already built when you open the app.',
   },
   {
     q: 'Do I have to make my own cards?',
-    a: 'Cards are generated from the notes and topics you study — you revise, Revisio schedules what comes back.',
+    a: 'No. Cards are built from the notes and topics you study, and every card links back to the note it came from — a wrong answer is a chance to re-read, not a dead end.',
   },
   {
-    q: 'Is my data private?',
-    a: 'Analytics and marketing are off unless you opt in, and guardian summaries only exist if you accept a link. See the privacy policy for the full picture.',
+    q: 'Which subjects and exams are covered?',
+    a: 'GCSE, A-level and university subjects, with past papers marked against the real scheme. If your teacher publishes topics for your class, they show up in your subjects too.',
+  },
+  {
+    q: 'Does it work offline?',
+    a: 'Yes. Your review queue is cached on your device, so you can revise on a train or a dead zone and sync when you are back online.',
+  },
+  {
+    q: 'Is there an app for iPhone or Android?',
+    a: 'There are iOS and Android apps, but they are in alpha and not in the app stores yet. The web app works in any mobile browser in the meantime, including offline review.',
+  },
+  {
+    q: 'How does marking work?',
+    a: 'Cloze and multiple-choice cards are marked the moment you submit. Past papers are marked against the real mark scheme, question by question, and exam sessions pace you through a timed paper.',
+  },
+  {
+    q: 'Is Revisio safe for under-18s?',
+    a: 'It is built for learners aged 13 and over. Under-13 accounts need a parent or guardian to confirm consent at sign-up, analytics and marketing are off unless you opt in, and there is no advertising network. The privacy policy has the full picture.',
+  },
+  {
+    q: 'Can my teacher see my revision?',
+    a: 'Only if you join their class. A teacher sees your name and progress as a member of their class; the rest of your account stays yours. Leaderboards are optional and under your control.',
   },
 ];
 
