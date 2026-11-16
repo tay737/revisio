@@ -244,6 +244,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ]),
                 const SecurityPanel(),
                 const ConsentPanel(),
+                const RemindersPanel(),
                 const DataPanel(),
                 _Section('Preferences', [
                   _SwitchTile(

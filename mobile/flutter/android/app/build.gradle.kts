@@ -6,12 +6,17 @@ plugins {
 
 android {
     namespace = "app.revisio.revisio"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications 23 compiles against SDK 37; compileSdk is
+    // backward compatible and independent of targetSdk.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications requires desugaring for scheduled
+        // notifications on older Android versions.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -42,6 +47,10 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

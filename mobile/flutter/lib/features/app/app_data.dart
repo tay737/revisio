@@ -60,6 +60,14 @@ final consentProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.read(apiClientProvider).getConsent();
 });
 
+/// `GET /notifications/prefs` — reminder prefs + notification consent, the
+/// contract the local-reminder scheduler consumes.
+final notificationPrefsProvider =
+    FutureProvider<NotificationPrefsResponse>((ref) async {
+      ref.watch(authProvider);
+      return ref.read(apiClientProvider).notificationPrefs();
+    });
+
 /// Topics under one subject (`/content?subjectId=`) — the Learn subject
 /// screen's list, with per-topic spec refs.
 final subjectTopicsProvider = FutureProvider.family<List<Topic>, String>((

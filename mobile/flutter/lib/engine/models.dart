@@ -980,6 +980,78 @@ class Prefs {
   };
 }
 
+/// `GET/PUT /api/v1/notifications/prefs` — the reminder contract the server
+/// already defines (`src/services/retention.ts`). Local delivery is a client
+/// detail; `channel` stays a server-delivery concept and is not overloaded.
+class NotificationPrefs {
+  final bool enabled;
+  final String localTime;
+  final String timezone;
+  final String? quietStart;
+  final String? quietEnd;
+  final Map<String, bool> triggers;
+  final String channel;
+  final String? updatedAt;
+
+  const NotificationPrefs({
+    this.enabled = false,
+    this.localTime = '18:00',
+    this.timezone = 'UTC',
+    this.quietStart,
+    this.quietEnd,
+    this.triggers = const {},
+    this.channel = 'email',
+    this.updatedAt,
+  });
+
+  factory NotificationPrefs.fromJson(Map<String, dynamic> json) =>
+      NotificationPrefs(
+        enabled: json['enabled'] == true,
+        localTime: json['localTime'] as String? ?? '18:00',
+        timezone: json['timezone'] as String? ?? 'UTC',
+        quietStart: json['quietStart'] as String?,
+        quietEnd: json['quietEnd'] as String?,
+        triggers: (json['triggers'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k as String, v == true),
+        ),
+        channel: json['channel'] as String? ?? 'email',
+        updatedAt: json['updatedAt'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled,
+    'localTime': localTime,
+    'timezone': timezone,
+    if (quietStart != null) 'quietStart': quietStart,
+    if (quietEnd != null) 'quietEnd': quietEnd,
+    'triggers': triggers,
+    'channel': channel,
+  };
+}
+
+/// The prefs endpoint's envelope: prefs plus the account facts the client
+/// needs to decide whether reminders are even allowed to be offered.
+class NotificationPrefsResponse {
+  final NotificationPrefs prefs;
+  final String? email;
+  final bool consentNotifications;
+
+  const NotificationPrefsResponse({
+    required this.prefs,
+    this.email,
+    this.consentNotifications = false,
+  });
+
+  factory NotificationPrefsResponse.fromJson(Map<String, dynamic> json) =>
+      NotificationPrefsResponse(
+        prefs: NotificationPrefs.fromJson(
+          (json['prefs'] as Map?)?.cast<String, dynamic>() ?? const {},
+        ),
+        email: json['email'] as String?,
+        consentNotifications: json['consentNotifications'] == true,
+      );
+}
+
 class SubjectRef {
   final String id;
   final String name;

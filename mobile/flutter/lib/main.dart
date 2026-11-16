@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +9,7 @@ import 'features/app/deep_links.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/app/theme_mode.dart';
 import 'features/app/version_gate.dart';
+import 'features/notifications/local_reminders.dart';
 
 void main() {
   runApp(const ProviderScope(child: RevisioApp()));
@@ -27,7 +30,13 @@ class _RevisioAppState extends ConsumerState<RevisioApp> {
   void initState() {
     super.initState();
     _links = DeepLinkHandler(ref);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _links.start());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _links.start();
+      LocalReminders.instance.onPayload = (path) {
+        ref.read(routerProvider).push(path);
+      };
+      unawaited(LocalReminders.instance.warmUp());
+    });
   }
 
   @override
@@ -39,6 +48,9 @@ class _RevisioAppState extends ConsumerState<RevisioApp> {
   @override
   Widget build(BuildContext context) {
     ref.listen(authProvider, (_, next) => _links.onAuthChanged(next));
+    // Re-arms (or clears) the daily local reminder whenever the signed-in
+    // data changes — app open, sync, finished session, prefs save, sign-out.
+    ref.watch(reminderSyncProvider);
     if (!_gateChecked) {
       _gateChecked = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {

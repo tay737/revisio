@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,6 +18,7 @@ import '../../design/tokens.dart';
 import '../../services/api_client.dart';
 import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
+import '../notifications/local_reminders.dart';
 import '../../design/revisio_icons.dart';
 
 /// The web palettes, verbatim — a colour the server rejects is a 400.
@@ -827,6 +829,468 @@ class _DataPanelState extends ConsumerState<DataPanel> {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ── reminders (#11) ─────────────────────────────────────────────────────────
+
+/// Reminder prefs — the same `/api/v1/notifications/prefs` document the web
+/// RemindersSection edits. On mobile the master switch also arms the local
+/// scheduler (`LocalReminders`); email delivery stays server-side. Local
+/// notifications use the device clock, so the timezone field is shown but not
+/// editable — the stored value still feeds the email channel.
+class RemindersPanel extends ConsumerStatefulWidget {
+  const RemindersPanel({super.key});
+
+  @override
+  ConsumerState<RemindersPanel> createState() => _RemindersPanelState();
+}
+
+class _RemindersPanelState extends ConsumerState<RemindersPanel> {
+  static const _triggers = [
+    ('dueCards', 'Cards due', 'A nudge when reviews are waiting.'),
+    ('streakRisk', 'Streak at risk', 'When a day is about to slip.'),
+    (
+      'seasonEnding',
+      'Season ending',
+      'Before the weekly lobby closes.',
+    ),
+    ('achievement', 'Achievements', 'When you earn a badge.'),
+    (
+      'weeklyRecap',
+      'Weekly recap',
+      'A Monday summary of your week — counts only, no content.',
+    ),
+  ];
+
+  NotificationPrefsResponse? _data;
+  NotificationPrefs? _prefs;
+  String? _deviceTz;
+  bool _saving = false;
+  bool _saved = false;
+  bool _permissionDenied = false;
+  String? _error;
+  bool _consentNeeded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      // The secure-storage interceptor ahead of the request can stall where
+      // the plugin is absent — bound the whole read so the panel can never
+      // sit on its spinner forever.
+      final result = await ref
+          .read(apiClientProvider)
+          .notificationPrefs()
+          .timeout(const Duration(seconds: 15));
+      String? tzName;
+      try {
+        // The platform channel can stall (e.g. under tests); never let it
+        // hold the whole panel on its spinner.
+        tzName = (await FlutterTimezone.getLocalTimezone()
+                .timeout(const Duration(seconds: 2)))
+            .identifier;
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _data = result;
+        // Same prefill as web: a learner who never saved gets their own
+        // timezone rather than the server's UTC default.
+        _prefs = result.prefs.updatedAt == null && tzName != null
+            ? NotificationPrefs(
+                enabled: result.prefs.enabled,
+                localTime: result.prefs.localTime,
+                timezone: tzName,
+                quietStart: result.prefs.quietStart,
+                quietEnd: result.prefs.quietEnd,
+                triggers: result.prefs.triggers,
+                channel: result.prefs.channel,
+              )
+            : result.prefs;
+        _deviceTz = tzName;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'We could not load your reminder settings.');
+      }
+    }
+  }
+
+  void _set(NotificationPrefs Function(NotificationPrefs p) update) {
+    setState(() {
+      final p = _prefs;
+      if (p != null) _prefs = update(p);
+      _saved = false;
+      _error = null;
+      _consentNeeded = false;
+      _permissionDenied = false;
+    });
+  }
+
+  String _hhmm(int minutes) =>
+      '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
+      '${(minutes % 60).toString().padLeft(2, '0')}';
+
+  int _parse(String value, int fallback) {
+    final parts = value.split(':');
+    if (parts.length != 2) return fallback;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return fallback;
+    return h * 60 + m;
+  }
+
+  Future<void> _pickTime(String label, int current, void Function(int) apply) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: current ~/ 60,
+        minute: current % 60,
+      ),
+    );
+    if (picked != null && mounted) {
+      apply(picked.hour * 60 + picked.minute);
+    }
+  }
+
+  Future<void> _save() async {
+    final p = _prefs;
+    if (p == null) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+      _consentNeeded = false;
+      _permissionDenied = false;
+    });
+    // Contextual permission ask: only when the user is switching reminders
+    // on, never at launch. A denial doesn't block the save — the account
+    // prefs are still true; the notice explains delivery stays off.
+    if (p.enabled) {
+      final granted = await LocalReminders.instance.ensurePermission();
+      if (!granted && mounted) setState(() => _permissionDenied = true);
+    } else {
+      await LocalReminders.instance.cancelAll();
+    }
+    try {
+      final result = await ref
+          .read(apiClientProvider)
+          .updateNotificationPrefs({
+            'enabled': p.enabled,
+            'localTime': p.localTime,
+            'timezone': p.timezone,
+            'quietStart': p.quietStart,
+            'quietEnd': p.quietEnd,
+            'triggers': p.triggers,
+            // Preserved verbatim — no channel UI until server push exists.
+            'channel': p.channel,
+          });
+      ref.invalidate(notificationPrefsProvider);
+      if (!mounted) return;
+      setState(() {
+        _data = result;
+        _prefs = result.prefs;
+        _saved = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (e is ApiError && e.status == 409) {
+          _consentNeeded = true;
+        } else {
+          _error = 'We could not save your reminder settings.';
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _prefs;
+    if (p == null) {
+      return PanelCard(
+        title: 'Reminders',
+        children: [
+          if (_error != null)
+            Text(
+              _error!,
+              style: TypeScale.fine.copyWith(color: context.destructive),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    final quietOn = p.quietStart != null || p.quietEnd != null;
+    final consentOff = _data != null && !_data!.consentNotifications;
+
+    return PanelCard(
+      title: 'Reminders',
+      children: [
+        Text(
+          'A gentle nudge when cards are due or your streak is at risk. '
+          'Delivered on this device and by email. Off unless you switch it on.',
+          style: TypeScale.caption.copyWith(color: context.mutedForeground),
+        ),
+        const SizedBox(height: 8),
+        PanelSwitch(
+          title: 'Reminders',
+          subtitle: _data?.email != null
+              ? 'On this device and sent to ${_data!.email}.'
+              : 'On this device and by email.',
+          value: p.enabled,
+          onChanged: (v) => _set(
+            (prefs) => NotificationPrefs(
+              enabled: v,
+              localTime: prefs.localTime,
+              timezone: prefs.timezone,
+              quietStart: prefs.quietStart,
+              quietEnd: prefs.quietEnd,
+              triggers: prefs.triggers,
+              channel: prefs.channel,
+              updatedAt: prefs.updatedAt,
+            ),
+          ),
+        ),
+        if (consentOff)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Reminders need notification consent — turn on Notifications '
+              'under How we use your data, save, then come back here.',
+              style: TypeScale.fine.copyWith(color: context.mutedForeground),
+            ),
+          ),
+        if (_consentNeeded)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Notifications are still off under How we use your data — '
+              'enable them there first.',
+              style: TypeScale.fine.copyWith(color: context.destructive),
+            ),
+          ),
+        if (_permissionDenied)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Notifications are turned off for Revisio in system settings — '
+              'enable them there for reminders to arrive.',
+              style: TypeScale.fine.copyWith(color: context.mutedForeground),
+            ),
+          ),
+        const SizedBox(height: 8),
+        _TimeRow(
+          label: 'Send at',
+          value: p.localTime,
+          onTap: () => _pickTime(
+            'Send at',
+            _parse(p.localTime, 18 * 60),
+            (m) => _set(
+              (prefs) => NotificationPrefs(
+                enabled: prefs.enabled,
+                localTime: _hhmm(m),
+                timezone: prefs.timezone,
+                quietStart: prefs.quietStart,
+                quietEnd: prefs.quietEnd,
+                triggers: prefs.triggers,
+                channel: prefs.channel,
+                updatedAt: prefs.updatedAt,
+              ),
+            ),
+          ),
+        ),
+        _InfoRow(
+          label: 'Timezone',
+          value: _deviceTz ?? p.timezone,
+          subtitle: 'This device\u2019s clock sets the send time.',
+        ),
+        PanelSwitch(
+          title: 'Quiet hours',
+          subtitle: 'No reminders while you sleep or study.',
+          value: quietOn,
+          onChanged: (v) => _set(
+            (prefs) => NotificationPrefs(
+              enabled: prefs.enabled,
+              localTime: prefs.localTime,
+              timezone: prefs.timezone,
+              quietStart: v ? (prefs.quietStart ?? '22:00') : null,
+              quietEnd: v ? (prefs.quietEnd ?? '08:00') : null,
+              triggers: prefs.triggers,
+              channel: prefs.channel,
+              updatedAt: prefs.updatedAt,
+            ),
+          ),
+        ),
+        if (quietOn) ...[
+          _TimeRow(
+            label: 'From',
+            value: p.quietStart ?? '22:00',
+            onTap: () => _pickTime(
+              'Quiet hours from',
+              _parse(p.quietStart ?? '22:00', 22 * 60),
+              (m) => _set(
+                (prefs) => NotificationPrefs(
+                  enabled: prefs.enabled,
+                  localTime: prefs.localTime,
+                  timezone: prefs.timezone,
+                  quietStart: _hhmm(m),
+                  quietEnd: prefs.quietEnd,
+                  triggers: prefs.triggers,
+                  channel: prefs.channel,
+                  updatedAt: prefs.updatedAt,
+                ),
+              ),
+            ),
+          ),
+          _TimeRow(
+            label: 'Until',
+            value: p.quietEnd ?? '08:00',
+            onTap: () => _pickTime(
+              'Quiet hours until',
+              _parse(p.quietEnd ?? '08:00', 8 * 60),
+              (m) => _set(
+                (prefs) => NotificationPrefs(
+                  enabled: prefs.enabled,
+                  localTime: prefs.localTime,
+                  timezone: prefs.timezone,
+                  quietStart: prefs.quietStart,
+                  quietEnd: _hhmm(m),
+                  triggers: prefs.triggers,
+                  channel: prefs.channel,
+                  updatedAt: prefs.updatedAt,
+                ),
+              ),
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            'WHAT TO REMIND ME ABOUT',
+            style: TypeScale.eyebrow.copyWith(color: context.mutedForeground),
+          ),
+        ),
+        for (final t in _triggers)
+          PanelSwitch(
+            title: t.$2,
+            subtitle: t.$3,
+            value: p.triggers[t.$1] != false,
+            onChanged: (v) => _set(
+              (prefs) => NotificationPrefs(
+                enabled: prefs.enabled,
+                localTime: prefs.localTime,
+                timezone: prefs.timezone,
+                quietStart: prefs.quietStart,
+                quietEnd: prefs.quietEnd,
+                triggers: {...prefs.triggers, t.$1: v},
+                channel: prefs.channel,
+                updatedAt: prefs.updatedAt,
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? 'Saving…' : 'Save reminders'),
+        ),
+        if (_saved)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Saved.',
+              style: TypeScale.fine.copyWith(color: context.mutedForeground),
+            ),
+          ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _error!,
+              style: TypeScale.fine.copyWith(color: context.destructive),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: TypeScale.body)),
+          TextButton(onPressed: onTap, child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.subtitle,
+  });
+
+  final String label;
+  final String value;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TypeScale.body),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: TypeScale.fine.copyWith(
+                      color: context.mutedForeground,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Text(value, style: TypeScale.body),
+        ],
+      ),
     );
   }
 }

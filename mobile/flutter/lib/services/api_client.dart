@@ -652,6 +652,29 @@ class RevisioApi {
     return response.data ?? {};
   }
 
+  /// `GET /notifications/prefs` — reminder prefs plus the consent fact that
+  /// decides whether the client may schedule anything at all.
+  Future<NotificationPrefsResponse> notificationPrefs() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/notifications/prefs'),
+    );
+    return NotificationPrefsResponse.fromJson(response.data ?? {});
+  }
+
+  /// `PUT /notifications/prefs` — send only changed keys; absent keys keep
+  /// their stored value server-side.
+  Future<NotificationPrefsResponse> updateNotificationPrefs(
+    Map<String, dynamic> patch,
+  ) async {
+    final response = await authenticated(
+      () => _dio.put<Map<String, dynamic>>(
+        '/api/v1/notifications/prefs',
+        data: patch,
+      ),
+    );
+    return NotificationPrefsResponse.fromJson(response.data ?? {});
+  }
+
   /// The joined-class list behind the join-code field.
   Future<List<Map<String, dynamic>>> myClassesList() async {
     final response = await authenticated(
