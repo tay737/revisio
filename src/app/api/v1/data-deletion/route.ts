@@ -1,9 +1,15 @@
 import 'server-only';
 
 import { NextRequest } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, refreshTokens, emailTokens, userSubjects, userAchievements, cardUserStates, streaks, approvalRequests, mediaAssets } from '@/db/schema';
+import {
+  users, refreshTokens, emailTokens, userSubjects, userAchievements, cardUserStates, streaks,
+  approvalRequests, mediaAssets, streakEvents, notificationPrefs, notifications,
+  notificationDeliveries, examPlans, userChallenges, userGoals, referralCodes,
+  deckSubscriptions, classMemberships, studyConnections, guardianLinks,
+  referralRedemptions,
+} from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { issueDeletionConfirmation, verifyDeletionConfirmation } from '@/services/data-deletion';
 import { deleteMediaObject } from '@/services/storage';
@@ -28,16 +34,50 @@ import { deleteMediaObject } from '@/services/storage';
 // └─────────────────────────────────────────────────────────────────────────┘
 
 
-/** The tables that reference `users` and must be cleared before `users` is. */
+/** The tables that reference `users` and must be cleared before `users` is.
+ *  Because the user row is anonymised rather than deleted, the FK cascades
+ *  never fire — every user-keyed table has to be named here. This covers the
+ *  retention layer (0016), acquisition (0017), deck subscriptions and class
+ *  memberships; learning records (review_logs, xp_events, exam_attempts) stay
+ *  under the existing retention policy. */
 const CASCADE_AFTER_USERS = [
   userSubjects,
   userAchievements,
   cardUserStates,
   streaks,
+  streakEvents,
   approvalRequests,
   emailTokens,
   refreshTokens,
+  notificationPrefs,
+  notifications,
+  // Deliveries carry the recipient address inside `detail` — deleting the row
+  // is the only way the email leaves with the account.
+  notificationDeliveries,
+  examPlans,
+  userChallenges,
+  userGoals,
+  referralCodes,
+  deckSubscriptions,
+  classMemberships,
 ];
+
+/** Tables keyed by a user on *both* ends — severed symmetrically so neither
+ *  side keeps a live link to (or stats about) the deleted account. */
+const CASCADE_BY_PAIR = [
+  {
+    table: studyConnections,
+    columns: [studyConnections.requesterId, studyConnections.addresseeId],
+  },
+  {
+    table: guardianLinks,
+    columns: [guardianLinks.studentId, guardianLinks.guardianId],
+  },
+  {
+    table: referralRedemptions,
+    columns: [referralRedemptions.referrerUserId, referralRedemptions.referredUserId],
+  },
+] as const;
 
 export const DELETE = route(async (req: NextRequest) => {
   // The caller is identified by their session and the destructive request
@@ -115,6 +155,9 @@ export const DELETE = route(async (req: NextRequest) => {
     await tx.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.userId, user.id));
     for (const table of CASCADE_AFTER_USERS) {
       await tx.delete(table).where(eq(table.userId, user.id));
+    }
+    for (const { table, columns } of CASCADE_BY_PAIR) {
+      await tx.delete(table).where(or(...columns.map((c) => eq(c, user.id))));
     }
 
     await tx.update(users).set({

@@ -36,6 +36,13 @@ function consentChoices(consent: unknown) {
   return consentFromBlob(consent).choices;
 }
 
+/** Live `social` consent for a user — revocation must stop every social
+ *  surface immediately, so reads re-check rather than trusting stored state. */
+async function socialConsentOn(userId: string) {
+  const [user] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, userId)).limit(1);
+  return consentChoices(user?.consent).social;
+}
+
 async function requireActiveUser(userId: string) {
   const [row] = await db.select({ id: users.id, status: users.status }).from(users).where(eq(users.id, userId)).limit(1);
   if (!row || row.status !== 'active') throw new ApiError(403, 'forbidden', 'Account not active.');
@@ -603,6 +610,9 @@ export async function getSocialOverview(userId: string) {
   await requireActiveUser(userId);
   const [user] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, userId)).limit(1);
   const socialConsent = consentChoices(user?.consent).social;
+  // Revoked consent stops rendering social data; connection rows persist so
+  // re-consenting restores them, and severance actions stay consent-exempt.
+  if (!socialConsent) return { consentSocial: false, connections: [] };
   const links = await db.select().from(studyConnections)
     .where(and(
       or(eq(studyConnections.requesterId, userId), eq(studyConnections.addresseeId, userId)),
@@ -681,14 +691,22 @@ export async function respondConnection(userId: string, id: string, action: stri
 
 export async function friendBoard(userId: string) {
   await requireActiveUser(userId);
+  if (!(await socialConsentOn(userId))) return [];
   const links = await db.select().from(studyConnections)
     .where(and(eq(studyConnections.status, 'accepted'), or(eq(studyConnections.requesterId, userId), eq(studyConnections.addresseeId, userId))));
+  const otherIds = links.map((l) => (l.requesterId === userId ? l.addresseeId : l.requesterId));
+  // A friend who revoked social consent drops off this board too — their data
+  // stops being shared even though the connection row survives.
+  const consentRows = otherIds.length
+    ? await db.select({ id: users.id, consent: users.consent }).from(users).where(inArray(users.id, otherIds))
+    : [];
+  const friendConsent = new Map(consentRows.map((r) => [r.id, consentChoices(r.consent).social]));
   const weekStart = mondayUtc(new Date());
   const entries = [];
   for (const link of links) {
     const otherId = link.requesterId === userId ? link.addresseeId : link.requesterId;
     const other = await publicUser(otherId);
-    if (!other || other.leaderboardOptOut) continue;
+    if (!other || other.leaderboardOptOut || !friendConsent.get(otherId)) continue;
     const [[xp], [streak]] = await Promise.all([
       db.select({ c: sql<number>`coalesce(sum(${xpEvents.amount}),0)::int` }).from(xpEvents).where(and(eq(xpEvents.userId, otherId), gte(xpEvents.occurredAt, weekStart))),
       db.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, otherId)).limit(1),
@@ -725,6 +743,7 @@ function mondayUtc(d: Date): Date {
 
 export async function listGuardianLinks(userId: string) {
   await requireActiveUser(userId);
+  if (!(await socialConsentOn(userId))) throw new ApiError(409, 'conflict', 'Social features require social consent.');
   const asStudent = await db.select().from(guardianLinks).where(eq(guardianLinks.studentId, userId));
   const asGuardian = await db.select().from(guardianLinks).where(eq(guardianLinks.guardianId, userId));
   const out = [];
@@ -741,7 +760,9 @@ export async function listGuardianLinks(userId: string) {
 
 export async function createGuardianLink(userId: string, input: Record<string, unknown>) {
   await requireActiveUser(userId);
-  // Only the learner can open a summary link — that act is the consent.
+  // Opening a summary link is the learner's consent act — but it still sits
+  // under the `social` purpose, so the toggle must be on as well.
+  if (!(await socialConsentOn(userId))) throw new ApiError(409, 'conflict', 'Social features require social consent.');
   let guardian: { id: string } | undefined;
   if (input.guardianId) {
     [guardian] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, String(input.guardianId)), eq(users.status, 'active'))).limit(1);
@@ -773,10 +794,16 @@ export async function respondGuardianLink(userId: string, id: string, action: st
   const now = new Date();
   if (action === 'accept') {
     if (link.guardianId !== userId) throw new ApiError(403, 'forbidden', 'Only the guardian can accept.');
+    // Accepting opts the guardian into a social surface; decline/revoke stay
+    // consent-exempt so a link can always be severed.
+    if (!(await socialConsentOn(userId))) throw new ApiError(409, 'conflict', 'Social consent is required to accept.');
     await db.update(guardianLinks).set({ status: 'accepted', respondedAt: now }).where(eq(guardianLinks.id, id));
   } else if (action === 'decline' || action === 'revoke') {
     const status = action === 'decline' ? 'declined' : 'revoked';
     await db.update(guardianLinks).set({ status, respondedAt: now }).where(eq(guardianLinks.id, id));
+    // Severance works without consent, but the links list is consent-gated —
+    // ack instead of failing the response after the write already landed.
+    if (!(await socialConsentOn(userId))) return { ok: true };
   } else {
     throw new ApiError(400, 'bad_request', 'action must be accept, decline or revoke.');
   }
@@ -785,6 +812,11 @@ export async function respondGuardianLink(userId: string, id: string, action: st
 
 export async function guardianSummary(userId: string, studentId: string) {
   await requireActiveUser(userId);
+  // Both sides must currently hold social consent: the guardian to view, the
+  // learner because their data is what flows. Revocation on either side
+  // stops the summary — the link row surviving is not permission.
+  if (!(await socialConsentOn(userId))) throw new ApiError(403, 'forbidden', 'Social consent is required to view summaries.');
+  if (!(await socialConsentOn(studentId))) throw new ApiError(404, 'not_found', 'No accepted summary link for this learner.');
   const [link] = await db.select().from(guardianLinks)
     .where(and(eq(guardianLinks.guardianId, userId), eq(guardianLinks.studentId, studentId), eq(guardianLinks.status, 'accepted'))).limit(1);
   if (!link) throw new ApiError(404, 'not_found', 'No accepted summary link for this learner.');
