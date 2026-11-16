@@ -314,7 +314,7 @@ export default function CramClient() {
               )}
 
               {result && (
-                <div className={`mt-5 rounded-[11px] px-4 py-3.5 ${result.verdict.correct ? 'bg-good/10' : 'bg-destructive/10'}`}>
+                <div className={`mt-5 rounded-md px-4 py-3.5 ${result.verdict.correct ? 'bg-good/10' : 'bg-destructive/10'}`}>
                   <div className={`flex items-center gap-2 t-lead-airy font-semibold ${result.verdict.correct ? 'text-good-strong' : 'text-destructive-ink'}`}>
                     <Icon name={result.verdict.correct ? 'reviewed' : 'close'} size={18} />
                     {result.verdict.correct ? 'Correct' : 'Not quite'}
@@ -396,7 +396,7 @@ export default function CramClient() {
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <Label>Notes to show</Label>
-            <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1" role="group" aria-label="Notes to show">
+            <div className="flex gap-1 rounded-md border border-border/70 bg-card/60 p-1" role="group" aria-label="Notes to show">
               {(['summary', 'detailed'] as const).map((d) => (
                 <button
                   key={d}

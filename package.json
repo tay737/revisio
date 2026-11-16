@@ -53,7 +53,8 @@
     "audit:staff": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/staff-audit.ts",
     "probe:admin-insights": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/admin-insights-probe.ts",
     "probe:teacher-insights": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/e2e/teacher-insights-probe.ts",
-    "eval:schedulers": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/eval-schedulers.ts"
+    "eval:schedulers": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/eval-schedulers.ts",
+    "verify:copy": "tsx scripts/verify-copy.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",
