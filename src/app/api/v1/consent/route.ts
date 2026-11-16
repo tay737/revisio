@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import { users, studyConnections, guardianLinks } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { consentFromBlob } from '@/lib/consent';
+import { isUnderAge } from '@/lib/age';
 import type { NextRequest } from 'next/server';
 
 /** GET /api/v1/consent — current consent state for the signed-in user. */
@@ -53,9 +54,14 @@ export const PATCH = route(async (req: NextRequest) => {
   // Sever-on-withdrawal (DPO Amendment B): social true→false ends every study
   // link and summary share in the same transaction. Re-consent starts fresh —
   // nothing silently reactivates.
-  const [current] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, user.id)).limit(1);
+  const [current] = await db.select({ consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, user.id)).limit(1);
   const wasSocial = consentFromBlob(current?.consent).choices.social === true;
   const isSocial = choices.social === true;
+  // #36: under-13 accounts registered under guardian consent may not self-grant
+  // the social purpose. Withdrawal stays allowed — only the grant is refused.
+  if (isSocial && isUnderAge(current?.dateOfBirth)) {
+    throw new ApiError(403, 'social_underage', 'Social features are not available on guardian-consented accounts.');
+  }
   const sever = wasSocial && !isSocial;
 
   await db.transaction(async (tx) => {

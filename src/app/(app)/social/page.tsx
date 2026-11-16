@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useMe } from '@/lib/useMe';
 
 type ConnectionUser = { id: string; name: string; username: string | null; avatarColor: string | null };
 type Connection = {
@@ -62,6 +63,8 @@ function PersonChip({ user }: { user: ConnectionUser | null }) {
  * API 409s without it, so the page explains the gate instead of failing.
  */
 export default function SocialPage() {
+  const { me } = useMe();
+  const underAge = me?.isUnderAge === true;
   const { data, mutate, isLoading } = useSWR<SocialData>('/api/v1/social', api.get, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
@@ -193,22 +196,28 @@ export default function SocialPage() {
            (docs/COPY-SOCIAL-CONSENT-2026-11-16.md §1); the severance line
            reflects backend's delete-on-withdraw, not keep-and-hide. */
         <Card className="p-5">
-          <h2 className="t-strong">Social is off</h2>
+          <h2 className="t-strong">{underAge ? 'Social is not available on this account' : 'Social is off'}</h2>
           <p className="t-caption mt-2 text-muted-foreground">
-            Study circle — buddies, accountability partners and guardian summaries — sits behind the Social switch in Settings. Nothing here is shared while it is off.
+            {underAge
+              ? 'This account was registered with guardian consent, so study links, friend boards and guardian summaries stay off — only a parent or guardian can change that.'
+              : 'Study circle — buddies, accountability partners and guardian summaries — sits behind the Social switch in Settings. Nothing here is shared while it is off.'}
           </p>
-          <p className="t-caption mt-2 text-muted-foreground">
-            Turning Social on lets people you link see your name, username and avatar, and shows a private weekly board of XP and streak for your circle — never public, never the leaderboard. A guardian summary shares review counts, accuracy, streak and topics mastered over the last 30 days, only with someone you choose, and only while they accept.
-          </p>
-          <p className="t-caption mt-2 text-muted-foreground">
-            Turning Social off ends your study links and summary shares.
-          </p>
-          <Link
-            href="/settings#how-we-use-your-data"
-            className="mt-3 inline-flex min-h-11 items-center t-caption font-semibold text-foreground underline underline-offset-4"
-          >
-            Open Settings
-          </Link>
+          {!underAge && (
+            <>
+              <p className="t-caption mt-2 text-muted-foreground">
+                Turning Social on lets people you link see your name, username and avatar, and shows a private weekly board of XP and streak for your circle — never public, never the leaderboard. A guardian summary shares review counts, accuracy, streak and topics mastered over the last 30 days, only with someone you choose, and only while they accept.
+              </p>
+              <p className="t-caption mt-2 text-muted-foreground">
+                Turning Social off ends your study links and summary shares.
+              </p>
+              <Link
+                href="/settings#how-we-use-your-data"
+                className="mt-3 inline-flex min-h-11 items-center t-caption font-semibold text-foreground underline underline-offset-4"
+              >
+                Open Settings
+              </Link>
+            </>
+          )}
         </Card>
       ) : (
       <>

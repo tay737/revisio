@@ -10,6 +10,7 @@ import { totalXpFor } from '@/services/study';
 import { todayStats } from '@/services/stats';
 import { validateUsername, DEFAULT_VISIBILITY } from '@/services/profile';
 import { normalisePronouns, pronounsProblem } from '@/lib/pronouns';
+import { isUnderAge } from '@/lib/age';
 // The palettes come from `lib/colors`, not from the avatar *component*. The
 // component is `'use client'` and re-exports the same constants for the form's
 // convenience, so importing them from there in a route handler makes
@@ -91,6 +92,9 @@ export const GET = route(async (req: NextRequest) => {
       status: row.status,
       totpEnabled: row.totpEnabled,
       leaderboardOptOut: row.leaderboardOptOut,
+      // #36: true only for accounts registered under guardian consent (DOB is
+      // stored solely for under-13s). Lets the client explain, not just fail.
+      isUnderAge: isUnderAge(row.dateOfBirth),
       prefs: row.prefs,
       subjects: subsRes,
       gamification: { totalXp, level, intoLevel, forNext, streak: streakRow?.current ?? 0, bestStreak: streakRow?.best ?? 0, streakFreezes: streakRow?.freezes ?? 0 },

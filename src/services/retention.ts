@@ -14,6 +14,7 @@ import {
   type StreakEventKind, type StreakState,
 } from '@/domain/retention';
 import { consentFromBlob } from '@/lib/consent';
+import { isUnderAge } from '@/lib/age';
 import { sendRetentionEmail } from '@/services/email';
 import { enrolledSubjectIds, studiableCard, studiableCardIn } from '@/services/visibility';
 import { seasonAt, seasonConfigs } from '@/domain/seasons';
@@ -38,10 +39,12 @@ function consentChoices(consent: unknown) {
 }
 
 /** Live `social` consent for a user — revocation must stop every social
- *  surface immediately, so reads re-check rather than trusting stored state. */
+ *  surface immediately, so reads re-check rather than trusting stored state.
+ *  Under-13 accounts (guardian consent recorded at registration, DOB stored)
+ *  can never hold effective social consent — #36. */
 async function socialConsentOn(userId: string) {
-  const [user] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, userId)).limit(1);
-  return consentChoices(user?.consent).social;
+  const [user] = await db.select({ consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, userId)).limit(1);
+  return consentChoices(user?.consent).social && !isUnderAge(user?.dateOfBirth);
 }
 
 async function requireActiveUser(userId: string) {
@@ -822,8 +825,8 @@ export async function reflectExamPlan(userId: string, id: string, input: Record<
 
 export async function getSocialOverview(userId: string) {
   await requireActiveUser(userId);
-  const [user] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, userId)).limit(1);
-  const socialConsent = consentChoices(user?.consent).social;
+  const [user] = await db.select({ consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, userId)).limit(1);
+  const socialConsent = consentChoices(user?.consent).social && !isUnderAge(user?.dateOfBirth);
   // Revoked consent stops rendering social data; connection rows persist so
   // re-consenting restores them, and severance actions stay consent-exempt.
   if (!socialConsent) return { consentSocial: false, connections: [] };
@@ -848,7 +851,8 @@ export async function getSocialOverview(userId: string) {
 
 export async function sendConnection(userId: string, input: Record<string, unknown>) {
   await requireActiveUser(userId);
-  const [user] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await db.select({ consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, userId)).limit(1);
+  if (isUnderAge(user?.dateOfBirth)) throw new ApiError(403, 'forbidden', 'Social features are not available on guardian-consented accounts.');
   if (!consentChoices(user?.consent).social) throw new ApiError(409, 'conflict', 'Social features require social consent.');
   let target: { id: string } | undefined;
   if (input.userId) {
@@ -885,7 +889,8 @@ export async function respondConnection(userId: string, id: string, action: stri
   const now = new Date();
   if (action === 'accept') {
     if (!isAddressee) throw new ApiError(403, 'forbidden', 'Only the recipient can accept.');
-    const [user] = await db.select({ consent: users.consent }).from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await db.select({ consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(eq(users.id, userId)).limit(1);
+    if (isUnderAge(user?.dateOfBirth)) throw new ApiError(403, 'forbidden', 'Social features are not available on guardian-consented accounts.');
     if (!consentChoices(user?.consent).social) throw new ApiError(409, 'conflict', 'Social consent is required to accept.');
     await db.update(studyConnections).set({ status: 'accepted', respondedAt: now }).where(eq(studyConnections.id, id));
   } else if (action === 'decline') {
@@ -912,9 +917,9 @@ export async function friendBoard(userId: string) {
   // A friend who revoked social consent drops off this board too — their data
   // stops being shared even though the connection row survives.
   const consentRows = otherIds.length
-    ? await db.select({ id: users.id, consent: users.consent }).from(users).where(inArray(users.id, otherIds))
+    ? await db.select({ id: users.id, consent: users.consent, dateOfBirth: users.dateOfBirth }).from(users).where(inArray(users.id, otherIds))
     : [];
-  const friendConsent = new Map(consentRows.map((r) => [r.id, consentChoices(r.consent).social]));
+  const friendConsent = new Map(consentRows.map((r) => [r.id, consentChoices(r.consent).social && !isUnderAge(r.dateOfBirth)]));
   const weekStart = mondayUtc(new Date());
   const entries = [];
   for (const link of links) {

@@ -31,7 +31,11 @@ export function ConsentSection() {
     if (!me) return;
     let active = true;
     void api.get<{ consent: unknown }>('/api/v1/consent').then((result) => {
-      if (active) setState(consentFromBlob(result.consent));
+      if (!active) return;
+      const loaded = consentFromBlob(result.consent);
+      // #36: a stale social:true can never be re-affirmed on a guardian-consented
+      // account — show it off so Save doesn't send a grant the API refuses.
+      setState(me.isUnderAge ? { ...loaded, choices: { ...loaded.choices, social: false } } : loaded);
     }).catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'We could not load your saved choices.');
     });
@@ -85,25 +89,31 @@ export function ConsentSection() {
           </div>
           <span className="t-caption shrink-0">Always on</span>
         </div>
-        {PURPOSES.map(({ key, label, description }) => (
+        {PURPOSES.map(({ key, label, description }) => {
+          // #36: guardian-consented (under-13) accounts cannot self-grant the
+          // social purpose — show the switch off and say why, don't let it save.
+          const underAgeLocked = key === 'social' && me.isUnderAge;
+          return (
           <div key={key} className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">
               <label htmlFor={`consent-${key}`} className="t-caption font-semibold">{label}</label>
-              <p className="t-caption text-muted-foreground">{description}</p>
+              <p className="t-caption text-muted-foreground">{underAgeLocked ? 'Not available on guardian-consented accounts.' : description}</p>
             </div>
             <button
               id={`consent-${key}`}
               type="button"
               role="switch"
-              aria-checked={state.choices[key]}
+              aria-checked={underAgeLocked ? false : state.choices[key]}
               aria-label={label}
+              disabled={underAgeLocked}
               onClick={() => change(key, !state.choices[key])}
-              className={`relative h-7 w-12 shrink-0 rounded-pill transition-colors ${state.choices[key] ? 'bg-good' : 'bg-border-strong'}`}
+              className={`relative h-7 w-12 shrink-0 rounded-pill transition-colors disabled:opacity-50 ${underAgeLocked ? 'bg-border-strong' : state.choices[key] ? 'bg-good' : 'bg-border-strong'}`}
             >
-              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm ${state.choices[key] ? 'left-[22px]' : 'left-0.5'}`} aria-hidden="true" />
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm ${!underAgeLocked && state.choices[key] ? 'left-[22px]' : 'left-0.5'}`} aria-hidden="true" />
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
         <Button type="button" variant="primary" onClick={() => void save()} disabled={saving}>
