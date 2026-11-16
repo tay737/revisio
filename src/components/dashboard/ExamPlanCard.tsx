@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Field } from '@/components/AuthForm';
+import { Field } from '@/components/ui/field';
 import { useMe } from '@/lib/useMe';
 
 type Reflection = { score?: number; maxScore?: number; note?: string; reflectedAt?: string };
