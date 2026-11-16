@@ -36,7 +36,7 @@ import {
   studyConnections, subjects, topics, userAchievements, userGoals, users, xpEvents,
 } from '../src/db/schema';
 import {
-  createGoal, friendBoard, getSocialOverview, listGoals, processRetentionReminders,
+  createGoal, createGuardianLink, friendBoard, getSocialOverview, listGoals, listGuardianLinks, processRetentionReminders,
   respondConnection, sendConnection, updateNotificationPrefs,
 } from '../src/services/retention';
 import { weekBounds } from '../src/domain/ranked';
@@ -343,6 +343,13 @@ try {
   let u13DeclineOk = true;
   try { await respondConnection(u13, connDecline, 'decline'); } catch { u13DeclineOk = false; }
   check('u13 decline stays consent-exempt', u13DeclineOk);
+
+  let u13LinksStatus = 0;
+  try { await listGuardianLinks(u13); } catch (e) { u13LinksStatus = e instanceof ApiError ? e.status : -1; }
+  check('u13 guardian links list gated', u13LinksStatus === 409, `status ${u13LinksStatus}`);
+  let u13LinkCreateStatus = 0;
+  try { await createGuardianLink(u13, {}); } catch (e) { u13LinkCreateStatus = e instanceof ApiError ? e.status : -1; }
+  check('u13 guardian link create gated', u13LinkCreateStatus === 409, `status ${u13LinkCreateStatus}`);
 
   const adultPatch = await patchSocial(adult, { social: true });
   check('DOB-less PATCH social allowed', adultPatch.status === 200, `status ${adultPatch.status}`);
