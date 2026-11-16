@@ -4,6 +4,7 @@ import PwaRegister from '@/components/PwaRegister';
 import { MotionProvider } from '@/components/ui/motion/motion-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { CookieConsentBanner } from '@/components/cookie-banner';
+import { AnalyticsTracker } from '@/components/analytics/tracker';
 import { ReviewSessionProvider } from '@/components/ReviewSessionContext';
 import { themeScript } from '@/lib/theme';
 import './globals.css';
@@ -26,6 +27,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://revisio-srs.vercel.app'),
   title: 'Revisio: Learn it once',
   description: 'Spaced repetition, a daily queue and a rank worth defending.',
   manifest: '/manifest.webmanifest',
@@ -66,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </MotionProvider>
           <PwaRegister />
           <CookieConsentBanner />
+          <AnalyticsTracker />
         </ReviewSessionProvider>
       </body>
     </html>

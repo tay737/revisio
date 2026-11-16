@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { Icon } from '@/components/ui/icons';
 import { cn } from '@/lib/utils';
+import { track } from '@/lib/analytics';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -71,15 +72,18 @@ export function ReviewDemo() {
       setResult('correct');
       setXp((x) => x + XP_PER_CORRECT);
       setStreak((s) => s + 1);
+      track('demo_review_submit', { result: 'correct' });
     } else {
       setResult('wrong');
       setStreak(0);
+      track('demo_review_submit', { result: 'wrong' });
     }
   }
 
   function next() {
     if (index + 1 >= CARDS.length) {
       setDone(true);
+      track('demo_review_complete');
       return;
     }
     setIndex((i) => i + 1);

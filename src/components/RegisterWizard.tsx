@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { api, ApiClientError } from '@/lib/api';
+import { track } from '@/lib/analytics';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/Notice';
@@ -64,7 +65,7 @@ function passwordStrength(pw: string): { score: number; label: string } {
  * be created before anything is sent. Enter advances the step (it is one form),
  * so keyboard users never need the mouse to move through it.
  */
-export default function RegisterWizard() {
+export default function RegisterWizard({ initialClassCode = '' }: { initialClassCode?: string }) {
   const [role, setRole] = useState<Role>('student');
   const [stepIndex, setStepIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -76,7 +77,7 @@ export default function RegisterWizard() {
   const [note, setNote] = useState('');
   // education-level state removed (see note above).
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
-  const [classCode, setClassCode] = useState('');
+  const [classCode, setClassCode] = useState(initialClassCode.toUpperCase().slice(0, 6));
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [error, setError] = useState('');
   // A problem the server pinned to one control, rendered beneath that control
@@ -97,6 +98,7 @@ export default function RegisterWizard() {
   const strength = passwordStrength(password);
 
   useEffect(() => {
+    track('signup_started');
     fetch('/api/v1/auth/subjects-public')
       .then((r) => (r.ok ? r.json() : { subjects: [] }))
       .then((d) => setSubjects(d.subjects ?? []))
@@ -197,6 +199,7 @@ export default function RegisterWizard() {
         dateOfBirth: student ? dateOfBirth : undefined,
         ageConsent: student && underConsentAge ? guardianConsent : undefined,
       });
+      track('signup_completed', { role });
       setResult(
         data.verifyUrl
           ? {

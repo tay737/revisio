@@ -46,6 +46,8 @@ const RULES = {
   verifySend: { bucket: 'verify-send', windowSec: 3600, max: 5 },
   /** 2FA attempts per account: TOTP codes are 6 digits and worth guessing slowly. */
   totp: { bucket: 'totp', windowSec: 900, max: 10 },
+  /** Analytics beacons: page views legitimately burst on navigation. */
+  eventsIp: { bucket: 'events-ip', windowSec: 60, max: 120 },
 } satisfies Record<string, RateLimitRule>;
 
 export type RateLimitKind = keyof typeof RULES;

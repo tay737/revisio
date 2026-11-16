@@ -26,6 +26,7 @@
     "verify:seasons": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-seasons.ts",
     "verify:pronouns": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-pronouns.ts",
     "verify:season-write": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-season-write.ts",
+    "verify:analytics": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-analytics.ts",
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",
     "native:android:apk": "cd mobile/android && ./gradlew :app:assembleDebug",

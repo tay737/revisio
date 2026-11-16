@@ -6,6 +6,7 @@ import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { buttonVariants } from '@/lib/button-variants';
+import { track } from '@/lib/analytics';
 
 /**
  * The forgetting curve, made touchable.
@@ -66,6 +67,7 @@ export function ForgettingCurve() {
     setStability((s) => Math.max(0.5, s * r.factor));
     setDays(0);
     setLastRating(id);
+    track('demo_curve_rate', { rating: id });
   }
 
   return (

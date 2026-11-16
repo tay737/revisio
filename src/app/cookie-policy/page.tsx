@@ -45,7 +45,7 @@ const CATEGORIES = [
     id: 'analytics',
     name: 'Analytics',
     purpose: 'Usage metrics',
-    note: 'Anonymous, aggregated data on how people use the Service, used to improve it. No personal content is measured. We do not load an optional analytics service today; if we introduce one it runs only after this consent is given, and this page names it first.',
+    note: 'Anonymous usage metrics that help us improve the Service. We run our own first-party event pipeline — no third-party analytics service, no fingerprinting, no advertising identifiers. When you accept, the Service stores a random anonymous identifier in your browser’s local storage and sends small named events (page views, button taps, sign-up steps) to our own server. The full event list is in docs/ANALYTICS-EVENTS.md; your IP address is used only to rate-limit the endpoint and is never stored.',
   },
   {
     id: 'marketing',
