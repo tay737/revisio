@@ -77,6 +77,24 @@ void main() {
         expect(actual.actionLabel, expected['actionLabel']);
       });
     }
+
+    test('welcome actionPath follows role', () {
+      copy.CompanionSnapshot snap(String role) => (
+        name: 'Ada Lovelace',
+        role: role,
+        due: 0,
+        reviewed: 0,
+        correct: 0,
+        streak: 0,
+        bestStreak: 0,
+        level: 1,
+        subjects: const <String>[],
+        totalXp: 0,
+        rankLabel: null,
+      );
+      expect(copy.companionFor(snap('student')).actionPath, '/learn');
+      expect(copy.companionFor(snap('teacher')).actionPath, '/library');
+    });
   });
 
   group('sessionSummary', () {

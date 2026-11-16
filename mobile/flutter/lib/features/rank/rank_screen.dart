@@ -791,11 +791,11 @@ class _TheLadder extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _Caption(
-            rank.isApex
+            'Measured against ${season.label.toLowerCase()}. '
+            '${rank.isApex
                 ? 'Top of the ladder. Holding it for ninety days is the hard part.'
-                : 'Measured against ${season.label.toLowerCase()}. '
-                      'Next rung in ${rank.remaining} RP · about ${ranked.reviewsForRp(rank.remaining)} reviews. '
-                      'The ladder resets when the season does.',
+                : 'Next rung in ${rank.remaining} RP · about ${ranked.reviewsForRp(rank.remaining)} reviews. '
+                      'The ladder resets when the season does.'}',
           ),
         ],
       ),
@@ -1247,7 +1247,7 @@ class _LobbyTab extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          'Your name is hidden. Your RP still moves. ',
+                          'You’re off every board. Your rank, XP and streak are untouched — only the comparisons stop. ',
                           style: TypeScale.caption.copyWith(height: 1.4),
                         ),
                         Semantics(

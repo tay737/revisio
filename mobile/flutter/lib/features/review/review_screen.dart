@@ -282,6 +282,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _answer.clear();
         _selectedOptionId = null;
         _ended = false;
+        _answered = 0;
+        _correct = 0;
+        _sessionXp = 0;
+        _anyOffline = false;
+        _queuedOffline = false;
+        _offlineMode = false;
         _startXp = null;
         _latestXp = null;
         _promotionFired = false;
@@ -310,6 +316,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _answer.clear();
         _selectedOptionId = null;
         _ended = false;
+        _answered = 0;
+        _correct = 0;
+        _sessionXp = 0;
+        _anyOffline = false;
+        _queuedOffline = false;
+        _offlineMode = false;
         _startXp = null;
         _latestXp = null;
         _promotionFired = false;
@@ -412,7 +424,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     }
     final startXp = _startXp;
     final latestXp = _latestXp;
-    final change = startXp != null && latestXp != null
+    final change = startXp != null && latestXp != null && !_anyOffline
         ? rankChange(startXp, latestXp)
         : null;
     _firePromotionOnce(change);

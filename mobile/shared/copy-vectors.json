@@ -903,7 +903,7 @@
       "filled": 14,
       "daysLeft": 1,
       "rankLabel": "Silver II",
-      "expected": "3 of 30. You are inside the promotion zone. Today is the last day; holding this seat moves you up a rung."
+      "expected": "3 of 30. You're inside the promotion zone. Today is the last day; holding this seat moves you up a rung."
     },
     {
       "zone": "demotion",
