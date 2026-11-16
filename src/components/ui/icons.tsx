@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
   Award,
   BadgeCheck,
+  Bell,
   BookOpen,
   CalendarCheck,
   CalendarClock,
@@ -171,6 +172,8 @@ export const icons = {
   photo: ImagePlus,
   /** Concept filters. */
   filter: ListFilter,
+  /** The in-app notification centre (#11). */
+  bell: Bell,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;
