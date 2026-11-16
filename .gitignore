@@ -38,3 +38,22 @@ artifacts/
 .agentsroom/transfer-context-*.txt
 .agentsroom/handoff-context-*.txt
 .devin/mcp_config.json
+
+# Agent tooling and generated working docs — local only, never committed
+/.agents/
+/.agentsroom/
+/.claude/
+/.freebuff/
+docs/*AUDIT*.md
+docs/*REVIEW*.md
+docs/*RESEARCH*.md
+docs/*REPORT*.md
+docs/*REWRITE*.md
+docs/*HANDOFF*.md
+docs/*BRIEF*.md
+docs/COMPETITION-SAFETY-*.md
+docs/FLUTTER-UI-REPLICA-SPEC-*.md
+docs/COPY-DRAFTS-*.md
+docs/MICROCOPY-*.md
+docs/review/
+docs/superpowers/
