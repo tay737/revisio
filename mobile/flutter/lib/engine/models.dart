@@ -1163,6 +1163,96 @@ class GuardianSummary {
   }
 }
 
+// ── exam countdown & reflection (#17) ───────────────────────────────────────
+
+/// The post-exam reflection the student logs — score, out-of and a note.
+/// Saved by `POST /exam-plans/:id/reflect`, which also completes the plan.
+class ExamReflection {
+  final double? score;
+  final double? maxScore;
+  final String? note;
+  final String? reflectedAt;
+
+  const ExamReflection({this.score, this.maxScore, this.note, this.reflectedAt});
+
+  factory ExamReflection.fromJson(Map<String, dynamic> json) =>
+      ExamReflection(
+        score: (json['score'] as num?)?.toDouble(),
+        maxScore: (json['maxScore'] as num?)?.toDouble(),
+        note: json['note'] as String?,
+        reflectedAt: json['reflectedAt'] as String?,
+      );
+}
+
+/// A topic the plan still needs — the card chips the three weakest.
+class ExamWeakTopic {
+  final String id;
+  final String name;
+  final int remaining;
+
+  const ExamWeakTopic({this.id = '', this.name = '', this.remaining = 0});
+
+  factory ExamWeakTopic.fromJson(Map<String, dynamic> json) => ExamWeakTopic(
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    remaining: (json['remaining'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// `GET /exam-plans` row — the server-computed pace summary the countdown
+/// card renders: days left, topics remaining, per-day need, on-track flag.
+class ExamPlan {
+  final String id;
+  final String title;
+  final String examDate; // YYYY-MM-DD calendar date
+  final String? subjectId;
+  final int dailyTarget;
+  final String status; // active | completed | archived
+  final ExamReflection? reflection;
+  final int daysLeft;
+  final int topicsTotal;
+  final int topicsRemaining;
+  final int perDayNeeded;
+  final bool onTrack;
+  final List<ExamWeakTopic> weakestTopics;
+
+  const ExamPlan({
+    this.id = '',
+    this.title = '',
+    this.examDate = '',
+    this.subjectId,
+    this.dailyTarget = 10,
+    this.status = 'active',
+    this.reflection,
+    this.daysLeft = 0,
+    this.topicsTotal = 0,
+    this.topicsRemaining = 0,
+    this.perDayNeeded = 0,
+    this.onTrack = false,
+    this.weakestTopics = const [],
+  });
+
+  factory ExamPlan.fromJson(Map<String, dynamic> json) => ExamPlan(
+    id: json['id'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    examDate: json['examDate'] as String? ?? '',
+    subjectId: json['subjectId'] as String?,
+    dailyTarget: (json['dailyTarget'] as num?)?.toInt() ?? 10,
+    status: json['status'] as String? ?? 'active',
+    reflection: json['reflection'] is Map<String, dynamic>
+        ? ExamReflection.fromJson(json['reflection'] as Map<String, dynamic>)
+        : null,
+    daysLeft: (json['daysLeft'] as num?)?.toInt() ?? 0,
+    topicsTotal: (json['topicsTotal'] as num?)?.toInt() ?? 0,
+    topicsRemaining: (json['topicsRemaining'] as num?)?.toInt() ?? 0,
+    perDayNeeded: (json['perDayNeeded'] as num?)?.toInt() ?? 0,
+    onTrack: json['onTrack'] == true,
+    weakestTopics: (json['weakestTopics'] as List? ?? [])
+        .map((t) => ExamWeakTopic.fromJson(t as Map<String, dynamic>))
+        .toList(),
+  );
+}
+
 // ── the account ─────────────────────────────────────────────────────────────
 
 /// The seven per-field switches from `services/profile.ts`.

@@ -19,6 +19,7 @@ import '../../engine/srs.dart';
 import '../app/app_data.dart';
 import '../nav/rank_crest.dart';
 import '../rank/rank_strip.dart';
+import 'exam_plan_card.dart';
 import 'retention_cards.dart';
 
 class TodayScreen extends ConsumerWidget {
@@ -95,11 +96,13 @@ class _TodayBody extends StatelessWidget {
         _StrengthCard(srs: me.srs),
         const SizedBox(height: 16),
 
-        // ── 2¾. Student cards: challenges + goals (#13). Staff accounts
-        // have no review queue to pace; each card also self-gates and
-        // fails quiet like the web. ──────────────────────────────────
+        // ── 2¾. Student cards: challenges, exam countdown, goals (#13/#17).
+        // Staff accounts have no review queue to pace; each card also
+        // self-gates and fails quiet like the web. ──────────────────
         if (me.role == 'student') ...[
           const ChallengesCard(),
+          const SizedBox(height: 16),
+          const ExamPlanCard(),
           const SizedBox(height: 16),
           const GoalsCard(),
           const SizedBox(height: 16),

@@ -112,4 +112,30 @@ void main() {
     expect(s.topicsMastered, 4);
     expect(GuardianSummary.fromJson(const {}).hasCounts, isFalse);
   });
+
+  test('ExamPlan parses pace summary, weakest topics and reflection', () {
+    final p = ExamPlan.fromJson(const {
+      'id': 'p1',
+      'title': 'GCSE Maths — Paper 1',
+      'examDate': '2026-12-05',
+      'subjectId': 's1',
+      'dailyTarget': 8,
+      'status': 'active',
+      'daysLeft': 19,
+      'topicsTotal': 12,
+      'topicsRemaining': 7,
+      'perDayNeeded': 1,
+      'onTrack': true,
+      'weakestTopics': [
+        {'id': 't1', 'name': 'Quadratics', 'remaining': 3},
+      ],
+      'reflection': {'score': 72, 'maxScore': 100, 'note': 'Cram worked.'},
+    });
+    expect(p.daysLeft, 19);
+    expect(p.perDayNeeded, 1);
+    expect(p.onTrack, isTrue);
+    expect(p.weakestTopics.single.name, 'Quadratics');
+    expect(p.reflection?.score, 72);
+    expect(ExamPlan.fromJson(const {'id': 'p2'}).reflection, isNull);
+  });
 }

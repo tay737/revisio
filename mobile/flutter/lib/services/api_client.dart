@@ -776,6 +776,64 @@ class RevisioApi {
     return GuardianSummary.fromJson(response.data ?? {});
   }
 
+  // ── exam countdown & reflection (#17) ────────────────────────────────────
+
+  /// `GET /exam-plans` — every plan with its live pace summary.
+  Future<List<ExamPlan>> examPlans() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/exam-plans'),
+    );
+    return ((response.data?['plans'] as List?) ?? [])
+        .map((p) => ExamPlan.fromJson(p as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// `POST /exam-plans` — returns the created plan's summary.
+  Future<ExamPlan> createExamPlan(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/exam-plans', data: body),
+    );
+    return ExamPlan.fromJson(
+      (response.data?['plan'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+  }
+
+  /// `PATCH /exam-plans/:id` — title/date/subject/topicIds/dailyTarget/status.
+  Future<ExamPlan> updateExamPlan(String id, Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () =>
+          _dio.patch<Map<String, dynamic>>('/api/v1/exam-plans/$id', data: body),
+    );
+    return ExamPlan.fromJson(
+      (response.data?['plan'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+  }
+
+  /// `DELETE /exam-plans/:id` — archives the plan server-side (the countdown
+  /// truly stops), returns the refreshed list.
+  Future<List<ExamPlan>> deleteExamPlan(String id) async {
+    final response = await authenticated(
+      () => _dio.delete<Map<String, dynamic>>('/api/v1/exam-plans/$id'),
+    );
+    return ((response.data?['plans'] as List?) ?? [])
+        .map((p) => ExamPlan.fromJson(p as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// `POST /exam-plans/:id/reflect` — logs score/maxScore/note and completes
+  /// the plan. An empty body still closes it ("Just close it").
+  Future<ExamPlan> reflectExamPlan(String id, Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/exam-plans/$id/reflect',
+        data: body,
+      ),
+    );
+    return ExamPlan.fromJson(
+      (response.data?['plan'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+  }
+
   /// The joined-class list behind the join-code field.
   Future<List<Map<String, dynamic>>> myClassesList() async {
     final response = await authenticated(
