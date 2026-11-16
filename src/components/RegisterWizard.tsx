@@ -9,7 +9,7 @@ import { heroProps } from '@/lib/hero-test';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/Notice';
-import { Field } from '@/components/AuthForm';
+import { Field } from '@/components/ui/field';
 import { DUR, EASE, SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { isUnderAge, isValidDateOfBirth } from '@/lib/age';
