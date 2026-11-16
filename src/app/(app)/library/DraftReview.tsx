@@ -130,7 +130,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
       onDone(
         d.status === 'accepted'
           ? `${d.inserted} ${d.inserted === 1 ? 'card' : 'cards'} added to “${picked?.name ?? 'the topic'}”.`
-          : `${d.inserted} of ${d.proposed} proposed added to “${picked?.name ?? 'the topic'}” . The rest were discarded.`,
+          : `${d.inserted} of ${d.proposed} proposed added to “${picked?.name ?? 'the topic'}”. The rest were discarded.`,
       );
       setProposal(null);
       setSource('');
