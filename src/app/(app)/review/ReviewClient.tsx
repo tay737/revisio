@@ -823,7 +823,7 @@ export default function ReviewClient() {
                     aria-label="Session options"
                     className="card absolute right-0 top-full z-20 mt-1 w-60 p-3"
                   >
-                    <p className="t-fine font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="t-fine font-semibold text-muted-foreground">
                       Cards per session
                     </p>
                     <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Session length">
@@ -1335,11 +1335,7 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
           good ? 'text-good-strong' : 'text-destructive-ink'
         }`}
       >
-        <span
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-            good ? 'bg-good text-white' : 'bg-destructive text-white'
-          }`}
-        >
+        <span className="grid h-7 w-7 shrink-0 place-items-center">
           <Icon name={good ? 'correct' : 'close'} size={16} strokeWidth={3} />
         </span>
         {good ? (softened ? 'Correct, with a nudge' : 'Correct') : 'Not quite'}
@@ -1388,14 +1384,14 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
 
       {card.kind === 'flashcard' && result.modelAnswer && (
         <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
-          <span className="t-eyebrow">Model answer</span>
+          <span className="t-fine font-semibold text-muted-foreground">Model answer</span>
           <p className="mt-0.5 t-caption text-foreground">{result.modelAnswer}</p>
         </div>
       )}
 
       {result.explanation && (
         <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
-          <span className="t-eyebrow">Why</span>
+          <span className="t-fine font-semibold text-muted-foreground">Why</span>
           <p className="mt-0.5 t-caption text-foreground">{result.explanation}</p>
         </div>
       )}

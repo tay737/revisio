@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
-import { ScrollProgress } from '@/components/ui/scroll-progress';
 import PageSkeleton from '@/components/PageSkeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { Markdown } from '@/components/Markdown';
@@ -114,7 +113,6 @@ export default function TopicScreen() {
 
   return (
     <div className="space-y-6">
-      <ScrollProgress className="h-0.5 !bg-none bg-foreground" />
 
       <nav aria-label="Breadcrumb">
         <Link
