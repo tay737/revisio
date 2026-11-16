@@ -82,7 +82,7 @@ export function ReferralCard() {
       </div>
 
       <p className="t-caption mt-2 text-muted-foreground">
-        Share your link — anyone who signs up through it counts as your invite.
+        Share your link. Anyone who signs up through it counts as your invite.
       </p>
 
       <div className="mt-3 flex items-center gap-2">
@@ -104,7 +104,7 @@ export function ReferralCard() {
       <p className="t-fine mt-1.5 truncate text-muted-foreground">{referral.shareUrl}</p>
       {copyFailed && (
         <p className="t-fine mt-1.5 text-muted-foreground">
-          Copy didn&apos;t work — select the link above and copy it by hand.
+          Copy didn&apos;t work. Select the link above and copy it by hand.
         </p>
       )}
 
@@ -112,7 +112,7 @@ export function ReferralCard() {
         <div className="mt-3 rounded-md border border-border bg-secondary/50 px-3 py-2.5">
           <p className="t-caption-s">Rotate the code?</p>
           <p className="t-caption mt-0.5 text-muted-foreground">
-            The current code stops working — links you have already shared will not count new sign-ups. Invites already counted stay.
+            The current code stops working. Links you have already shared will not count new sign-ups. Invites already counted stay.
           </p>
           <div className="mt-2 flex items-center gap-2">
             <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => void rotate()}>

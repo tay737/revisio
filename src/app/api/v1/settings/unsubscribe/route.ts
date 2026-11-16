@@ -78,7 +78,7 @@ export const GET = route(async (req: NextRequest) => {
 
   return page(
     'Stop these emails?',
-    `<p>This will turn off ${PURPOSES_STOPPED} for this account. Messages about your account itself — verification, password resets — keep arriving.</p>
+    `<p>This will turn off ${PURPOSES_STOPPED} for this account. Messages about your account itself (verification, password resets) keep arriving.</p>
      <form method="post" action="/api/v1/settings/unsubscribe" style="margin:20px 0 0">
        <input type="hidden" name="token" value="${token.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}">
        <button type="submit" style="min-height:44px;padding:10px 18px;border:0;border-radius:10px;background:#1c1a17;color:#fff;font-size:1rem;cursor:pointer">

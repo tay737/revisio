@@ -41,7 +41,7 @@ export const POST = route(async (req: NextRequest) => {
       // The PUT is the only thing that puts bytes in the bucket; a confirm
       // without it would pin a key that 404s forever. Check before recording.
       if (!(await mediaObjectExists(key))) {
-        throw new ApiError(400, 'upload_missing', 'The file is not in storage yet — finish the upload, then confirm.');
+        throw new ApiError(400, 'upload_missing', 'The file is not in storage yet. Finish the upload, then confirm.');
       }
       const sizeBytes = Math.round(Number(body.sizeBytes ?? 0));
       await replaceProfileImage(user.id, kind, { key, contentType, sizeBytes });

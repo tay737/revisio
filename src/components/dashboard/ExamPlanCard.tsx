@@ -220,7 +220,7 @@ export function ExamPlanCard() {
               id="examPlanTitle"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="GCSE Maths — Paper 1"
+              placeholder="GCSE Maths: Paper 1"
               maxLength={120}
               required
             />
@@ -235,7 +235,7 @@ export function ExamPlanCard() {
                   onChange={(e) => setExamDate(e.target.value)}
                   required
                 />
-                <p className="t-fine mt-1 text-muted-foreground">Today or later — the countdown starts the day you save it.</p>
+                <p className="t-fine mt-1 text-muted-foreground">Today or later. The countdown starts the day you save it.</p>
               </>
             </Field>
             <Field icon="target" label="Daily target (topics)" htmlFor="examPlanTarget">
@@ -290,7 +290,7 @@ export function ExamPlanCard() {
           </p>
           <p className="t-fine mt-1 text-muted-foreground">
             {plan.perDayNeeded > 0
-              ? `About ${plan.perDayNeeded} topics a day keeps you on pace${plan.onTrack ? ' — you are on track.' : '.'}`
+              ? `About ${plan.perDayNeeded} topics a day keeps you on pace${plan.onTrack ? ' . You are on track.' : '.'}`
               : 'Every topic is mastered. Well ahead of the date.'}
           </p>
           {plan.weakestTopics.length > 0 && (
@@ -325,7 +325,7 @@ export function ExamPlanCard() {
       ) : (
         <div className="mt-3">
           <p className="t-caption text-muted-foreground">
-            Pick an exam date and Revisio paces your topics to it — how many a day, what is left, where you are weakest.
+            Pick an exam date and Revisio paces your topics to it: how many a day, what is left, where you are weakest.
           </p>
           <Button variant="secondary" size="sm" className="mt-3 gap-1.5" onClick={() => { setEditing(null); setCreating(true); }}>
             <Icon name="add" size={14} />
@@ -364,7 +364,7 @@ export function ExamPlanCard() {
             )}
           </div>
           <p className="t-caption mt-1 text-muted-foreground">
-            {pastPlan.title} — sat {examDateLabel(pastPlan.examDate)}. A minute of honesty here is what makes the next countdown smarter.
+            {pastPlan.title}, sat {examDateLabel(pastPlan.examDate)}. A minute of honesty here is what makes the next countdown smarter.
           </p>
           {pastPlan.reflection ? (
             <p className="t-caption mt-2 text-muted-foreground">

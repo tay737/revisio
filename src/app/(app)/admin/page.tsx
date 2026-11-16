@@ -370,7 +370,7 @@ export default function AdminPage() {
           <Badge variant="chip">{data?.subjects.length ?? 0}</Badge>
         </div>
         <p className="t-caption mt-1 text-muted-foreground">
-          The course a topic hangs from. Renaming keeps its topics; deleting removes everything under it. Maths practice is a standalone tool — turning it on opens /practice for that subject and changes nothing about reviews or XP.
+          The course a topic hangs from. Renaming keeps its topics; deleting removes everything under it. Maths practice is a standalone tool. Turning it on opens /practice for that subject and changes nothing about reviews or XP.
         </p>
         <div className="mt-3 space-y-2">
           {data?.subjects.map((s) => (
@@ -849,7 +849,7 @@ export default function AdminPage() {
                                               key={a.id}
                                               type="button"
                                               aria-disabled={held}
-                                              title={held ? `${a.name} — already granted` : a.description}
+                                              title={held ? `${a.name}: already granted` : a.description}
                                               className={`chip gap-1 ${held ? 'chip-active' : ''}`}
                                               onClick={() => {
                                                 if (held) return;
@@ -898,7 +898,7 @@ export default function AdminPage() {
                                 </div>
                                 {classOpen && (
                                   <div className="inset flex flex-wrap gap-1 rounded-md p-2.5">
-                                    {(data?.classes.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">No classes exist yet — a teacher can create one.</span>}
+                                    {(data?.classes.length ?? 0) === 0 && <span className="t-fine text-muted-foreground">No classes exist yet. A teacher can create one.</span>}
                                     {data?.classes
                                       .filter((c) => !c.members.some((m) => m.userId === u.id))
                                       .map((c) => (

@@ -19,7 +19,7 @@ import { buttonVariants } from '@/lib/button-variants';
 export const metadata: Metadata = {
   title: 'Subjects · Revisio',
   description:
-    'Every subject on Revisio — spaced-repetition notes and review queues for GCSE, A-level and university.',
+    'Every subject on Revisio: spaced-repetition notes and review queues for GCSE, A-level and university.',
 };
 
 export const dynamic = 'force-dynamic';

@@ -281,11 +281,11 @@ export function ContentManager() {
               {c.kind === 'cloze' && (
                 <>
                   <div>
-                    <Label htmlFor={`c-text-${c.id}`}>Sentence — ____ marks the blank</Label>
+                    <Label htmlFor={`c-text-${c.id}`}>Sentence: ____ marks the blank</Label>
                     <Input id={`c-text-${c.id}`} value={c.textWithBlank ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].textWithBlank = e.target.value; })} />
                   </div>
                   <div>
-                    <Label htmlFor={`c-ans-${c.id}`}>Accepted answers — one per line</Label>
+                    <Label htmlFor={`c-ans-${c.id}`}>Accepted answers: one per line</Label>
                     <Textarea
                       id={`c-ans-${c.id}`}
                       rows={2}
@@ -324,7 +324,7 @@ export function ContentManager() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`c-kw-${c.id}`}>Key points — one per line, * to require</Label>
+                    <Label htmlFor={`c-kw-${c.id}`}>Key points: one per line, * to require</Label>
                     <Textarea
                       id={`c-kw-${c.id}`}
                       rows={3}
@@ -342,7 +342,7 @@ export function ContentManager() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`c-min-${c.id}`}>Key points needed — 0 means keyword mode</Label>
+                    <Label htmlFor={`c-min-${c.id}`}>Key points needed: 0 means keyword mode</Label>
                     <Input
                       id={`c-min-${c.id}`}
                       type="number"
@@ -367,7 +367,7 @@ export function ContentManager() {
                     <Textarea id={`c-q-${c.id}`} rows={2} value={c.question ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].question = e.target.value; })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Options — tick the correct one</Label>
+                    <Label>Options: tick the correct one</Label>
                     {(c.options ?? []).map((o, oi) => (
                       <div key={o.id} className="flex items-center gap-2">
                         <input

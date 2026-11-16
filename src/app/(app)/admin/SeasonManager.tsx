@@ -371,7 +371,7 @@ function SeasonEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="t-strong">
           Season {d.number}
-          {d.name && <span className="font-normal text-muted-foreground"> — {d.name}</span>}
+          {d.name && <span className="font-normal text-muted-foreground">, {d.name}</span>}
         </h3>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
@@ -447,9 +447,9 @@ function SeasonEditor({
             onChange={(e) => setD({ ...d, state: e.target.value as Draft['state'] })}
             className="mt-1.5"
           >
-            <option value="draft">Draft — not yet live</option>
-            <option value="active">Active — the live season</option>
-            <option value="closed">Closed — finished, kept for the record</option>
+            <option value="draft">Draft (not yet live)</option>
+            <option value="active">Active (the live season)</option>
+            <option value="closed">Closed (finished, kept for the record)</option>
           </NativeSelect>
         </label>
         <div className="flex items-end">
@@ -461,7 +461,7 @@ function SeasonEditor({
       </div>
 
       {/* The one switch on this panel that can change somebody's rank, so it
-          says plainly what it does. Season 1 has it on: everyone keeps the RP
+          says plainly what it does. Season 1 has it on: everyone keeps the rank points
           they have actually earned. Turning it on for a later season would
           mean the reset never happens. */}
       <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-border px-3.5 py-3">

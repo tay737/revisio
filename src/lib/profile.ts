@@ -210,10 +210,10 @@ export function lobbyLine(input: {
     // still placing, a lobby too small for bands, and a viewer waiting below
     // the filled seats. Only the first one is about placement.
     if (filled < LOBBY_ZONE_MIN) {
-      return `${position} of ${filled}. A small lobby this week — bands start at ${LOBBY_ZONE_MIN} seated. No stakes yet; keep going.`;
+      return `${position} of ${filled}. A small lobby this week. Bands start at ${LOBBY_ZONE_MIN} seated. No stakes yet; keep going.`;
     }
     if (position > filled) {
-      return `${position} overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies.`;
+      return `${position} overall. The lobby seats 30. Keep reviewing and the table reshuffles as everyone studies.`;
     }
     return `We are still placing you. A few more reviews and we will seat you in a ${rankLabel} lobby.`;
   }
@@ -221,7 +221,7 @@ export function lobbyLine(input: {
     return `${position} of ${size}. You're inside the promotion zone. ${days}; holding this seat moves you up a rung.`;
   }
   if (zone === 'demotion') {
-    return `${position} of ${size}. You're in the drop zone. ${days}; one session pulls you clear, and nothing is lost — your RP stays.`;
+    return `${position} of ${size}. You're in the drop zone. ${days}; one session pulls you clear, and nothing is lost. Your rank points stay.`;
   }
   return `${position} of ${size}. Safe, and close enough to the promotion band to take it. ${days}.`;
 }
