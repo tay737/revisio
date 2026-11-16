@@ -9,6 +9,7 @@ import { track } from '@/lib/analytics';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { SPRING, transition } from '@/lib/motion';
 
 /**
  * A working review, sized for the landing page — now running on the real
@@ -217,10 +218,10 @@ export function ReviewDemo() {
         {/* Progress along the top of the card, the same hairline the app shows. */}
         <div className="absolute inset-x-0 top-0 h-1 bg-secondary" aria-hidden>
           <motion.div
-            className="h-full bg-foreground"
+            className="h-full w-full origin-left bg-foreground"
             initial={false}
-            animate={{ width: `${progressPct}%` }}
-            transition={{ type: 'spring', stiffness: 180, damping: 26 }}
+            animate={{ scaleX: progressPct / 100 }}
+            transition={SPRING.meter}
           />
         </div>
 
@@ -238,8 +239,8 @@ export function ReviewDemo() {
               key="done"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
+              exit={{ opacity: 0, y: -8, transition: transition.exit }}
+              transition={transition.base}
               className="mt-5 text-center"
             >
               <p className="t-display-sm">{total} cards. Nice.</p>
@@ -256,7 +257,8 @@ export function ReviewDemo() {
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, transition: transition.exit }}
+              transition={transition.quick}
               className="mt-5 space-y-3"
               aria-busy="true"
               aria-label="Loading a sample card"
@@ -270,8 +272,8 @@ export function ReviewDemo() {
               key={card.id}
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              exit={{ opacity: 0, x: -24, transition: transition.exit }}
+              transition={transition.base}
             >
               {card.kind === 'cloze' ? (
                 <p className="t-tagline mt-4 leading-snug">

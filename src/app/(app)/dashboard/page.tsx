@@ -106,7 +106,7 @@ export default function DashboardPage() {
     <div className="space-y-4">
       {/* ── 1. The hero: greeting, one line, one green button ─────────────── */}
       <TilePanel tone="dark" className="relative overflow-hidden p-5 sm:p-7">
-        <p className="t-eyebrow">{greetingFor(me.name)}</p>
+        <p className="t-body text-muted-foreground">{greetingFor(me.name)}</p>
 
         <div className="-my-1 mt-1">
           <h1 className="t-display">{openers(started)[0]}</h1>
