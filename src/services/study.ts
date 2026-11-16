@@ -15,6 +15,7 @@ import { recordNotification, recordStreakEvents } from '@/services/retention';
 import { enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
 import { recordServerEvent } from '@/services/analytics';
 import { examAwareEnabled, examDatesForUser, type ExamDateEntry } from '@/services/exam-schedule';
+import { requiredAssignmentTopicIds } from '@/services/class-assignments';
 
 // ── algorithms config (dev-tunable via feature flag payload) ────────────────
 
@@ -69,7 +70,11 @@ function srsFields(state: { stage: string; intervalDays: number } | null | undef
 }
 
 export async function buildDailyQueue(userId: string, limit = 20, topicId?: string): Promise<QueueCard[]> {
-  const [enrolled, examOn] = await Promise.all([enrolledSubjectIds(userId), examAwareEnabled()]);
+  const [enrolled, examOn, assignedTopics] = await Promise.all([
+    enrolledSubjectIds(userId),
+    examAwareEnabled(),
+    requiredAssignmentTopicIds(userId),
+  ]);
   const now = new Date();
   // #4: active exam plans flattened to topicId → nearest exam date. Empty map
   // (flag off or no plans) leaves the queue byte-for-byte as before.
@@ -118,10 +123,10 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
         ...(topicId ? [eq(cards.topicId, topicId)] : [])
       )
     )
-    // Wider fetch when exam pull-forward is active: JS re-sorts and re-slices
+    // Wider fetch when reprioritisation is active: JS re-sorts and re-slices
     // below, so the SQL limit must leave headroom for cards it will drop.
     .orderBy(sql`CASE WHEN ${cardUserStates.cardId} IS NULL THEN 0 ELSE 1 END`, cardUserStates.dueAt, cards.createdAt)
-    .limit(maxExamDate ? limit * 4 : limit);
+    .limit(maxExamDate || assignedTopics.size > 0 ? limit * 4 : limit);
 
   const mapped = rows.map(({ card, topic, subject, state }) => ({
     id: card.id,
@@ -145,26 +150,36 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
     _topicId: topic.id,
   }));
 
-  if (!maxExamDate) return mapped.slice(0, limit).map(stripInternal);
+  // #5: reprioritisation path runs when exams OR required class assignments
+  // apply; with neither, the SQL order is returned untouched.
+  if (!maxExamDate && assignedTopics.size === 0) return mapped.slice(0, limit).map(stripInternal);
 
   // Per-topic eligibility: a pulled-forward card stays only if its own exam
   // day is on/after its due date (UTC calendar day, same convention as
   // daysUntil). Everything else keeps the plain `dueAt <= now` rule.
   const nowDay = now.toISOString().slice(0, 10);
-  const eligible = mapped.filter((c) => {
-    if (!c.dueAt) return true; // new card
-    const dueDay = c.dueAt.toISOString().slice(0, 10);
-    if (dueDay <= nowDay) return true;
-    const exam = examMap.get(c._topicId);
-    return !!exam && dueDay <= exam.examDate;
-  });
+  const eligible = maxExamDate
+    ? mapped.filter((c) => {
+        if (!c.dueAt) return true; // new card
+        const dueDay = c.dueAt.toISOString().slice(0, 10);
+        if (dueDay <= nowDay) return true;
+        const exam = examMap.get(c._topicId);
+        return !!exam && dueDay <= exam.examDate;
+      })
+    : mapped;
 
-  // Nearest exam first; within an exam band, new cards then earliest due.
-  // Non-exam cards keep their original relative order at the back.
-  const rank = (c: (typeof mapped)[number]) => c.examDaysLeft ?? Number.MAX_SAFE_INTEGER;
+  // Priority bands: exam-urgent topics, then required class assignments,
+  // then everything else. Within a band: nearest exam first (exam band), new
+  // cards before reviewed, then earliest due.
+  const band = (c: (typeof mapped)[number]) =>
+    c.examDaysLeft != null ? 0 : assignedTopics.has(c.topicId) ? 1 : 2;
   eligible.sort((a, b) => {
-    const d = rank(a) - rank(b);
-    if (d !== 0) return d;
+    const bd = band(a) - band(b);
+    if (bd !== 0) return bd;
+    if (band(a) === 0) {
+      const d = (a.examDaysLeft ?? 0) - (b.examDaysLeft ?? 0);
+      if (d !== 0) return d;
+    }
     const aNew = a.dueAt === null ? 0 : 1;
     const bNew = b.dueAt === null ? 0 : 1;
     if (aNew !== bNew) return aNew - bNew;
@@ -590,7 +605,7 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
 export async function buildCramQueue(userId: string, topicIds: string[], maxPerTopic: number): Promise<QueueCard[]> {
   if (topicIds.length === 0) return [];
   const condition = studiableCardIn(userId, topicIds);
-  const examOn = await examAwareEnabled();
+  const [examOn, assignedTopics] = await Promise.all([examAwareEnabled(), requiredAssignmentTopicIds(userId)]);
   const examMap: Map<string, ExamDateEntry> = examOn ? await examDatesForUser(userId) : new Map();
 
   // One query per topic rather than one query with a shared LIMIT.
@@ -611,12 +626,13 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     ),
   );
 
-  // #4: cram groups order by nearest exam date — the topic with the closest
-  // paper gets its block first. Topics without an exam date keep their
-  // requested order at the back (stable sort).
+  // #4/#5: cram groups order by nearest exam date, then required class
+  // assignments, then the requested order (stable sort).
+  const band = (topicId: string, days: number) =>
+    days !== Number.MAX_SAFE_INTEGER ? 0 : assignedTopics.has(topicId) ? 1 : 2;
   const groups = perTopic
-    .map((rows, i) => ({ rows, days: examMap.get(topicIds[i])?.daysLeft ?? Number.MAX_SAFE_INTEGER }))
-    .sort((a, b) => a.days - b.days);
+    .map((rows, i) => ({ rows, topicId: topicIds[i], days: examMap.get(topicIds[i])?.daysLeft ?? Number.MAX_SAFE_INTEGER }))
+    .sort((a, b) => band(a.topicId, a.days) - band(b.topicId, b.days) || a.days - b.days);
 
   return groups.flatMap((g) => g.rows).map(({ card, topic, subject, state }) => ({
     id: card.id,
