@@ -290,7 +290,7 @@ export function ExamPlanCard() {
           </p>
           <p className="t-fine mt-1 text-muted-foreground">
             {plan.perDayNeeded > 0
-              ? `About ${plan.perDayNeeded} topics a day keeps you on pace${plan.onTrack ? ' . You are on track.' : '.'}`
+              ? `About ${plan.perDayNeeded} topics a day keeps you on pace${plan.onTrack ? '. You are on track.' : '.'}`
               : 'Every topic is mastered. Well ahead of the date.'}
           </p>
           {plan.weakestTopics.length > 0 && (
