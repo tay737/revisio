@@ -66,6 +66,35 @@ const FACTS: { value: string; short: string; label: string }[] = [
 
 const COMPANION_LINE = 'Nothing is due. You are ahead.';
 
+/** Landing FAQ (#28) — objections a student actually has, per the marketing
+ *  audit §6. COPY SLOTS: writer drafts are in flight; answers below are
+ *  factual placeholders covering only shipped behaviour — replace wholesale
+ *  when the writer's version lands. Rendered with native <details> so the
+ *  section needs no client JS. */
+const FAQS: { q: string; a: string }[] = [
+  // COPY SLOT (#28): writer draft pending
+  {
+    q: 'Is Revisio free?',
+    a: 'Yes — free to start, with no card required up front.',
+  },
+  {
+    q: 'Does it work offline?',
+    a: 'Your review queue is cached on your device, so you can revise without signal and sync when you are back online.',
+  },
+  {
+    q: 'Which subjects and exams are covered?',
+    a: 'GCSE, A-level and university subjects, with past papers marked against the real scheme.',
+  },
+  {
+    q: 'Do I have to make my own cards?',
+    a: 'Cards are generated from the notes and topics you study — you revise, Revisio schedules what comes back.',
+  },
+  {
+    q: 'Is my data private?',
+    a: 'Analytics and marketing are off unless you opt in, and guardian summaries only exist if you accept a link. See the privacy policy for the full picture.',
+  },
+];
+
 export default function LandingPage() {
   return (
     <LandingCtaTracker>
@@ -94,8 +123,14 @@ export default function LandingPage() {
             <a href="#rank" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
               Rank
             </a>
+            <a href="#faq" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
+              FAQ
+            </a>
             <Link href="/subjects" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
               Subjects
+            </Link>
+            <Link href="/for-teachers" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
+              Teachers
             </Link>
           </nav>
 
@@ -293,6 +328,24 @@ export default function LandingPage() {
           </div>
         </TileBand>
 
+        {/* ── FAQ: objections, answered (#28) ─────────────────────────────── */}
+        <TileBand tone="parchment" id="faq" className="landing-section">
+          <div className="mx-auto max-w-2xl">
+            <h2 className="t-display">Questions, answered.</h2>
+            <div className="mt-6 divide-y divide-border rounded-lg border border-border bg-card">
+              {FAQS.map((item) => (
+                <details key={item.q} className="group px-5 py-4">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 t-body font-medium [&::-webkit-details-marker]:hidden">
+                    {item.q}
+                    <Icon name="expand" size={16} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+                  </summary>
+                  <p className="mt-3 t-caption leading-relaxed text-muted-foreground">{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </TileBand>
+
         {/* ── Close and footer, one screen ─────────────────────────────────── */}
         <TileBand tone="dark" id="close" className="landing-close">
           <div className="flex flex-1 flex-col">
@@ -331,6 +384,9 @@ export default function LandingPage() {
                 </Link>
                 <Link href="/accessibility" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
                   Accessibility
+                </Link>
+                <Link href="/for-teachers" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
+                  For teachers
                 </Link>
                 <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
                   Log in
