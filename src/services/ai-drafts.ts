@@ -45,7 +45,7 @@ export async function proposeDraft(
   const sourceText = input.sourceText?.trim() ?? '';
   if (!sourceText) throw new ApiError(400, 'bad_request', 'Paste the source text first.');
   if (sourceText.length > MAX_SOURCE_CHARS) {
-    throw new ApiError(400, 'bad_request', `Source text is too long — keep it under ${MAX_SOURCE_CHARS.toLocaleString()} characters for a v1 draft.`);
+    throw new ApiError(400, 'bad_request', `Source text is too long. Keep it under ${MAX_SOURCE_CHARS.toLocaleString()} characters for a v1 draft.`);
   }
   if (input.targetTopicId) {
     const [t] = await db.select({ id: topics.id }).from(topics).where(eq(topics.id, input.targetTopicId)).limit(1);
@@ -95,7 +95,7 @@ export async function acceptDraft(
     throw new ApiError(409, 'conflict', 'This draft was already decided.');
   }
   const topicId = input.topicId ?? draft.targetTopicId;
-  if (!topicId) throw new ApiError(400, 'bad_request', 'topicId required — pick where the cards land.');
+  if (!topicId) throw new ApiError(400, 'bad_request', 'topicId required. Pick where the cards land.');
   const topic = await loadEditableTopic(user, topicId);
 
   const proposed = ((draft.payload as { cards?: CardInput[] }).cards ?? []) as CardInput[];

@@ -167,13 +167,13 @@ export default function DashboardPage() {
           <span className="font-semibold text-foreground">
             Mastery streak: {streaks.mastery.current} {streaks.mastery.current === 1 ? 'day' : 'days'}
           </span>
-          {' — '}
+          {'. '}
           {streaks.mastery.current === 0
             ? 'No verified-correct day yet. The first one starts it.'
             : streaks.mastery.current === gam.streak
               ? 'Level with your activity streak.'
               : streaks.mastery.current < gam.streak
-                ? `Your activity streak is ${gam.streak - streaks.mastery.current} ${gam.streak - streaks.mastery.current === 1 ? 'day' : 'days'} longer — mastery counts verified-correct days only.`
+                ? `Your activity streak is ${gam.streak - streaks.mastery.current} ${gam.streak - streaks.mastery.current === 1 ? 'day' : 'days'} longer. Mastery counts verified-correct days only.`
                 : 'Counts days with a verified-correct review only.'}
         </p>
       )}

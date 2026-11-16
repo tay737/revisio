@@ -156,7 +156,7 @@ export default function SocialPage() {
     guardianAct(async () => {
       await api.post('/api/v1/social/guardian', { action: 'create', guardianUsername: guardianUsername.trim().replace(/^@/, '') });
       setGuardianUsername('');
-    }, 'Summary link sent — they need to accept it.');
+    }, 'Summary link sent. They need to accept it.');
 
   const guardianRespond = (linkId: string, response: string) =>
     guardianAct(
@@ -190,7 +190,7 @@ export default function SocialPage() {
         <PageHeader
           icon="join"
           title="Study circle"
-          subtitle="Buddies and accountability partners — private, never on the public leaderboard."
+          subtitle="Buddies and accountability partners: private, never on the public leaderboard."
         />
         <Card className="p-6 text-center">
           <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
@@ -209,7 +209,7 @@ export default function SocialPage() {
       <PageHeader
         icon="join"
         title="Study circle"
-        subtitle="Buddies and accountability partners — private, never on the public leaderboard."
+        subtitle="Buddies and accountability partners: private, never on the public leaderboard."
       />
 
       <Notice tone="bad" show={!!error}>{error}</Notice>
@@ -224,13 +224,13 @@ export default function SocialPage() {
           <h2 className="t-strong">{underAge ? 'Social is not available on this account' : 'Social is off'}</h2>
           <p className="t-caption mt-2 text-muted-foreground">
             {underAge
-              ? 'This account was registered with guardian consent, so study links, friend boards and guardian summaries stay off — only a parent or guardian can change that.'
-              : 'Study circle — buddies, accountability partners and guardian summaries — sits behind the Social switch in Settings. Nothing here is shared while it is off.'}
+              ? 'This account was registered with guardian consent, so study links, friend boards and guardian summaries stay off. Only a parent or guardian can change that.'
+              : 'Study circle (buddies, accountability partners and guardian summaries) sits behind the Social switch in Settings. Nothing here is shared while it is off.'}
           </p>
           {!underAge && (
             <>
               <p className="t-caption mt-2 text-muted-foreground">
-                Turning Social on lets people you link see your name, username and avatar, and shows a private weekly board of XP and streak for your circle — never public, never the leaderboard. A guardian summary shares review counts, accuracy, streak and topics mastered over the last 30 days, only with someone you choose, and only while they accept.
+                Turning Social on lets people you link see your name, username and avatar, and shows a private weekly board of XP and streak for your circle: never public, never the leaderboard. A guardian summary shares review counts, accuracy, streak and topics mastered over the last 30 days, only with someone you choose, and only while they accept.
               </p>
               <p className="t-caption mt-2 text-muted-foreground">
                 Turning Social off ends your study links and summary shares.
@@ -310,7 +310,7 @@ export default function SocialPage() {
                 </span>
                 {confirming === `${c.id}:block` && (
                   <span className="basis-full t-fine text-muted-foreground">
-                    Blocking is permanent — they won’t be able to find you again.
+                    Blocking is permanent. They won’t be able to find you again.
                   </span>
                 )}
               </li>
@@ -334,7 +334,7 @@ export default function SocialPage() {
         <h2 className="t-strong">Your circle</h2>
         {accepted.length === 0 ? (
           <p className="t-caption mt-2 text-muted-foreground">
-            Nobody yet. Send a request above — they appear here once they accept.
+            Nobody yet. Send a request above. They appear here once they accept.
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-border/60">
@@ -378,7 +378,7 @@ export default function SocialPage() {
           </p>
           {board.length === 0 ? (
             <p className="t-caption mt-3 text-muted-foreground">
-              Nobody in your circle is sharing weekly stats right now — they may have boards turned off in Settings.
+              Nobody in your circle is sharing weekly stats right now. They may have boards turned off in Settings.
             </p>
           ) : (
           <ul className="mt-3 divide-y divide-border/60">
@@ -405,7 +405,7 @@ export default function SocialPage() {
       <Card className="p-5">
         <h2 className="t-strong">Guardian summary</h2>
         <p className="t-caption mt-1 text-muted-foreground">
-          Share a read-only progress summary with a parent or guardian. They see reviews, accuracy, streak and topics mastered — nothing else, and only while the link is accepted.
+          Share a read-only progress summary with a parent or guardian. They see reviews, accuracy, streak and topics mastered: nothing else, and only while the link is accepted.
         </p>
 
         {guardianLoadError && guardianData === undefined && (

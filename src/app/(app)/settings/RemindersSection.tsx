@@ -31,7 +31,7 @@ const TRIGGERS: { key: string; label: string; hint: string }[] = [
   { key: 'streakRisk', label: 'Streak at risk', hint: 'When a day is about to slip.' },
   { key: 'seasonEnding', label: 'Season ending', hint: 'Before the weekly lobby closes.' },
   { key: 'achievement', label: 'Achievements', hint: 'When you earn a badge.' },
-  { key: 'weeklyRecap', label: 'Weekly recap', hint: 'A Monday summary of your week — counts only, no content.' },
+  { key: 'weeklyRecap', label: 'Weekly recap', hint: 'A Monday summary of your week: counts only, no content.' },
   { key: 'leagueEnding', label: 'League week ending', hint: 'Before your league week closes.' },
   { key: 'examCountdown', label: 'Exam countdown', hint: 'As a saved exam date gets close.' },
 ];
@@ -227,7 +227,7 @@ export function RemindersSection() {
         {consentNeeded && (
           <div className="py-3">
             <Notice tone="bad">
-              The server still sees notifications as off — enable{' '}
+              The server still sees notifications as off. Enable{' '}
               <a href="#how-we-use-your-data" className="font-semibold underline underline-offset-2">
                 Notifications
               </a>{' '}

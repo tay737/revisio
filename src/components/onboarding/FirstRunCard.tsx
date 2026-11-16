@@ -185,7 +185,7 @@ export function FirstRunCard({ me }: { me: Me }) {
       </ol>
 
       <p className="t-fine mt-3 border-t border-border pt-3 text-muted-foreground">
-        Your queue is the cards you are about to forget — a few each day keeps them fresh.
+        Your queue is the cards you are about to forget. A few each day keeps them fresh.
       </p>
     </Card>
   );

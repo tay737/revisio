@@ -244,7 +244,7 @@ export function ReviewDemo() {
             >
               <p className="t-display-sm">{total} cards. Nice.</p>
               <p className="mt-2 t-body text-muted-foreground">
-                You earned <span className="num text-foreground">{xp}</span> XP in one sitting — on real cards from the
+                You earned <span className="num text-foreground">{xp}</span> XP in one sitting, on real cards from the
                 public catalogue, graded by the same rules the app uses.
               </p>
               <Button variant="secondary" type="button" onClick={restart} className="mt-5">
@@ -359,7 +359,7 @@ export function ReviewDemo() {
                   </span>
                 )}
                 {gradeError && (
-                  <span className="text-destructive-ink">Couldn&apos;t mark that just now — try Check again.</span>
+                  <span className="text-destructive-ink">Couldn&apos;t mark that just now. Try Check again.</span>
                 )}
               </div>
 

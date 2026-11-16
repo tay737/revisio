@@ -263,7 +263,7 @@ function RankPage() {
                 {data.bestWeek && (
                   <p className="t-fine mt-1.5 text-muted-foreground">
                     {data.xpThisWeek > data.bestWeek.xp
-                      ? `Your best week: ${data.bestWeek.xp} XP — and this week is already past it.`
+                      ? `Your best week: ${data.bestWeek.xp} XP, and this week is already past it.`
                       : `Your best week: ${data.bestWeek.xp} XP (${weekRangeLabel(new Date(`${data.bestWeek.weekStart}T00:00:00Z`))}).`}
                   </p>
                 )}
@@ -288,7 +288,7 @@ function RankPage() {
                     <div className="flex items-start gap-3 rounded-md bg-secondary p-3.5">
                       <Icon name="private" size={17} className="mt-0.5 shrink-0" />
                       <p className="t-caption leading-snug">
-                        You&rsquo;re off every board. Your rank, XP and streak are untouched — only the
+                        You&rsquo;re off every board. Your rank, XP and streak are untouched. Only the
                         comparisons stop.{' '}
                         <button
                           type="button"
@@ -432,7 +432,7 @@ function RankPage() {
           <h2 className="t-tagline">Last week</h2>
           {recap.reviews === 0 ? (
             <p className="t-caption mt-1 text-muted-foreground">
-              A quiet week — no reviews logged. Your schedule kept your place; nothing was lost.
+              A quiet week. No reviews logged. Your schedule kept your place; nothing was lost.
             </p>
           ) : (
             <ul className="mt-2 space-y-1">
@@ -451,7 +451,7 @@ function RankPage() {
               )}
               <li className="t-caption text-muted-foreground">
                 {recap.streak.freezes > 0
-                  ? `${recap.streak.freezes} streak ${recap.streak.freezes === 1 ? 'freeze' : 'freezes'} banked — one earned every 7 days.`
+                  ? `${recap.streak.freezes} streak ${recap.streak.freezes === 1 ? 'freeze' : 'freezes'} banked, one earned every 7 days.`
                   : 'Streak freezes: one earned every 7 days, up to 3 banked.'}
               </li>
             </ul>

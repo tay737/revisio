@@ -437,7 +437,7 @@ export default function CramClient() {
         </div>
 
         <p className="t-caption text-muted-foreground">
-          Cram is for the gaps — the topics you know you will be asked but have not locked in. It is deliberate practice, not a substitute for the daily reviews that actually move things.
+          Cram is for the gaps. The topics you know you will be asked but have not locked in. It is deliberate practice, not a substitute for the daily reviews that actually move things.
         </p>
         <Button variant="primary" className="w-full gap-2" disabled={picked.size === 0 || starting} onClick={start}>
           <Icon name="start" size={18} />
