@@ -188,23 +188,31 @@ export const DELETE = route(async (req: NextRequest) => {
     await tx.delete(examPapers).where(and(eq(examPapers.ownerId, user.id), eq(examPapers.visibility, 'private')));
     // math_sets has no visibility — an owned set is private by definition.
     await tx.delete(mathSets).where(eq(mathSets.ownerId, user.id));
-    // Owned subjects go only when no other owner has topics inside them;
-    // otherwise the subject is shared structure and keeps living, unattributed.
+    // Strip attribution from retained shared content BEFORE the subject pass:
+    // ownerId is nullable, and stripping first means the survival check sees
+    // the post-erasure topic set — a subject holding only the user's own
+    // public topics must survive unattributed, not delete its subtree.
+    for (const t of [topics, lessons, cards, examQuestions, examPapers] as const) {
+      await tx.update(t).set({ ownerId: null }).where(and(eq(t.ownerId, user.id), sql`${t.visibility} <> 'private'`));
+    }
+    // Owned subjects go only when nothing references them any more. Every
+    // child below cascades on subject delete — topics (with their lessons,
+    // cards, questions and sets), exam papers, classes and other learners'
+    // enrollments — so "empty" means empty across all of them, not just
+    // foreign-owned topics.
     const ownedSubjects = await tx.select({ id: subjects.id }).from(subjects).where(eq(subjects.ownerId, user.id));
     for (const s of ownedSubjects) {
-      const [foreign] = await tx
-        .select({ c: sql<number>`count(*)::int` })
-        .from(topics)
-        .where(and(eq(topics.subjectId, s.id), sql`(${topics.ownerId} is null or ${topics.ownerId} <> ${user.id})`));
-      if ((foreign?.c ?? 0) === 0) {
+      const countIn = async (table: typeof topics | typeof examPapers | typeof classes | typeof userSubjects) => {
+        const [row] = await tx.select({ c: sql<number>`count(*)::int` }).from(table).where(eq(table.subjectId, s.id));
+        return row?.c ?? 0;
+      };
+      const remaining =
+        (await countIn(topics)) + (await countIn(examPapers)) + (await countIn(classes)) + (await countIn(userSubjects));
+      if (remaining === 0) {
         await tx.delete(subjects).where(eq(subjects.id, s.id));
       } else {
         await tx.update(subjects).set({ ownerId: null }).where(eq(subjects.id, s.id));
       }
-    }
-    // Strip attribution from retained shared content (ownerId is nullable).
-    for (const t of [topics, lessons, cards, examQuestions, examPapers] as const) {
-      await tx.update(t).set({ ownerId: null }).where(and(eq(t.ownerId, user.id), sql`${t.visibility} <> 'private'`));
     }
 
     // Teacher/creator provenance (DPO item B): classes and assignments are
