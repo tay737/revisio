@@ -13,6 +13,7 @@ import { RankStrip } from '@/components/rank/RankStrip';
 import { StrengthCard } from '@/components/insights/StrengthCard';
 import { ChallengesCard } from '@/components/dashboard/ChallengesCard';
 import { ExamPlanCard } from '@/components/dashboard/ExamPlanCard';
+import { GoalsCard } from '@/components/dashboard/GoalsCard';
 import { companionFor, greetingFor, openers } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Badge } from '@/components/ui/badge';
@@ -158,6 +159,7 @@ export default function DashboardPage() {
         <div className="grid gap-3 lg:grid-cols-2">
           <ChallengesCard />
           <ExamPlanCard />
+          <GoalsCard />
         </div>
       )}
 

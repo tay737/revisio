@@ -8,8 +8,11 @@ import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Field } from '@/components/AuthForm';
 import { useMe } from '@/lib/useMe';
+
+type Reflection = { score?: number; maxScore?: number; note?: string; reflectedAt?: string };
 
 type ExamPlan = {
   id: string;
@@ -23,7 +26,16 @@ type ExamPlan = {
   onTrack: boolean;
   dailyTarget: number;
   weakestTopics: { id: string; name: string; remaining: number }[];
+  reflection: Reflection | null;
 };
+
+/** Local-calendar check: the server clamps daysLeft at 0, so "the exam was
+ *  yesterday" has to be read off the date itself. */
+function examPassed(plan: ExamPlan): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(`${plan.examDate}T00:00:00`) < today;
+}
 
 /**
  * Exam countdown (#17) — the nearest active plan's deadline, pace and weakest
@@ -43,6 +55,11 @@ export function ExamPlanCard() {
   const [dailyTarget, setDailyTarget] = useState('10');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [score, setScore] = useState('');
+  const [maxScore, setMaxScore] = useState('');
+  const [note, setNote] = useState('');
+  const [reflectBusy, setReflectBusy] = useState(false);
+  const [reflectError, setReflectError] = useState('');
 
   const load = () => {
     api.get<{ plans: ExamPlan[] }>('/api/v1/exam-plans')
@@ -53,9 +70,36 @@ export function ExamPlanCard() {
 
   if (me?.role !== 'student' || plans === null) return null;
 
-  const plan = plans
-    .filter((p) => p.daysLeft >= 0)
-    .sort((a, b) => a.daysLeft - b.daysLeft)[0] ?? null;
+  const upcoming = plans
+    .filter((p) => !examPassed(p))
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+  const plan = upcoming[0] ?? null;
+  // The most recent plan whose exam date has passed still sits 'active' until
+  // the student reflects — that is the post-exam prompt (#17).
+  const pastPlan = plans
+    .filter(examPassed)
+    .sort((a, b) => b.examDate.localeCompare(a.examDate))[0] ?? null;
+
+  const reflect = async () => {
+    if (!pastPlan) return;
+    setReflectBusy(true);
+    setReflectError('');
+    try {
+      await api.post(`/api/v1/exam-plans/${pastPlan.id}/reflect`, {
+        score: score.trim() === '' ? undefined : Number(score),
+        maxScore: maxScore.trim() === '' ? undefined : Number(maxScore),
+        note: note.trim() === '' ? undefined : note.trim(),
+      });
+      setScore('');
+      setMaxScore('');
+      setNote('');
+      load();
+    } catch (e) {
+      setReflectError(e instanceof Error ? e.message : 'Could not save the reflection.');
+    } finally {
+      setReflectBusy(false);
+    }
+  };
 
   const create = async () => {
     setBusy(true);
@@ -192,6 +236,84 @@ export function ExamPlanCard() {
           </Link>{' '}
           focuses the next session.
         </p>
+      )}
+
+      {pastPlan && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="t-strong">The exam has been and gone</p>
+          <p className="t-caption mt-1 text-muted-foreground">
+            {pastPlan.title} — sat {pastPlan.examDate}. A minute of honesty here is what makes the next countdown smarter.
+          </p>
+          {pastPlan.reflection ? (
+            <p className="t-caption mt-2 text-muted-foreground">
+              {pastPlan.reflection.score !== undefined
+                ? `You logged ${pastPlan.reflection.score}${pastPlan.reflection.maxScore ? `/${pastPlan.reflection.maxScore}` : ''}. `
+                : 'Reflection saved. '}
+              {pastPlan.reflection.note
+                ? `“${pastPlan.reflection.note.length > 140 ? `${pastPlan.reflection.note.slice(0, 140)}…` : pastPlan.reflection.note}”`
+                : ''}
+            </p>
+          ) : (
+            <form
+              className="mt-3 space-y-3"
+              onSubmit={(e) => { e.preventDefault(); void reflect(); }}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field icon="target" label="Score (optional)" htmlFor="reflectScore">
+                  <Input
+                    id="reflectScore"
+                    type="number"
+                    min={0}
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    placeholder="72"
+                  />
+                </Field>
+                <Field icon="gauge" label="Out of (optional)" htmlFor="reflectMax">
+                  <Input
+                    id="reflectMax"
+                    type="number"
+                    min={1}
+                    value={maxScore}
+                    onChange={(e) => setMaxScore(e.target.value)}
+                    placeholder="100"
+                  />
+                </Field>
+              </div>
+              <Field icon="notes" label="What helped, what didn't (optional)" htmlFor="reflectNote">
+                <Textarea
+                  id="reflectNote"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Cram mode the week before worked. Wish I'd started the essay topics earlier."
+                  maxLength={2000}
+                  rows={3}
+                />
+              </Field>
+              {reflectError && <p className="t-caption text-destructive-ink">{reflectError}</p>}
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" size="sm" disabled={reflectBusy}>
+                  {reflectBusy ? 'Saving…' : 'Save reflection'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={reflectBusy}
+                  onClick={() => {
+                    setReflectBusy(true);
+                    api.post(`/api/v1/exam-plans/${pastPlan.id}/reflect`, {})
+                      .then(load)
+                      .catch(() => setReflectError('Could not close the plan.'))
+                      .finally(() => setReflectBusy(false));
+                  }}
+                >
+                  Just close it
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
     </Card>
   );
