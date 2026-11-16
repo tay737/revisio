@@ -14,8 +14,10 @@ import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../engine/copy.dart' as copy;
 import '../../engine/models.dart';
+import '../../engine/ranked.dart';
 import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
+import '../nav/rank_crest.dart';
 import '../../services/api_client.dart';
 import '../../design/revisio_icons.dart';
 
@@ -66,6 +68,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   int _correct = 0;
   int _answered = 0;
   int _sessionXp = 0;
+  // The rank report needs both ends of the session: XP before the first card
+  // and after the last. Both come off the server's own totals rather than
+  // being accumulated locally, so the report cannot disagree with /me.
+  int? _startXp;
+  int? _latestXp;
   bool _ended = false;
   bool _queuedOffline = false;
   bool _anyOffline = false;
@@ -165,11 +172,18 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         store.dropCardFromPack(card.id);
       }
       if (!mounted) return;
+      final xpAwarded = (result['xpAwarded'] as num?)?.toInt() ?? 0;
+      final totalXp = (result['totalXp'] as num?)?.toInt();
       setState(() {
         _result = result;
         _phase = _Phase.feedback;
         _answered += 1;
-        _sessionXp += (result['xpAwarded'] as int?) ?? 0;
+        _sessionXp += xpAwarded;
+        if (totalXp != null) {
+          final before = totalXp - xpAwarded;
+          _startXp ??= before < 0 ? 0 : before;
+          _latestXp = totalXp;
+        }
         if ((result['verdict'] as Map?)?['correct'] == true) _correct += 1;
         _queuedOffline = false;
         _submitError = null;
@@ -249,6 +263,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _answer.clear();
         _selectedOptionId = null;
         _ended = false;
+        _startXp = null;
+        _latestXp = null;
         _watch = Stopwatch()..start();
       });
     } catch (_) {
@@ -274,6 +290,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _answer.clear();
         _selectedOptionId = null;
         _ended = false;
+        _startXp = null;
+        _latestXp = null;
         _watch = Stopwatch()..start();
       });
     } catch (_) {
@@ -346,10 +364,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         onBack: _finish,
       );
     }
+    final startXp = _startXp;
+    final latestXp = _latestXp;
     return _SessionReport(
       correct: _correct,
       done: _answered,
       sessionXp: _sessionXp,
+      change: startXp != null && latestXp != null
+          ? rankChange(startXp, latestXp)
+          : null,
       queuedOffline: _anyOffline,
       ended: _ended,
       onAgain: _loadMore,
@@ -510,7 +533,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: inFeedback
               ? RevisioButton(
-                  onPressed: _index + 1 >= _cards!.length ? _finish : _next,
+                  // Advancing past the last card lands on the report — the
+                  // web's `finished` state — rather than leaving the screen.
+                  onPressed: _next,
                   child: Text(
                     _index + 1 >= _cards!.length ? 'Done' : 'Next card',
                   ),
@@ -937,15 +962,17 @@ class _ExposureReport extends StatelessWidget {
   }
 }
 
-/// The daily session report — score, XP and the way back to more work. The
-/// web's `SessionReport` also names the rank when a session promoted; the
-/// crest/promotion half needs a before/after rank fetch and is tracked as a
-/// follow-up rather than faked here.
+/// The session report — where the work lands. This is the moment the ranked
+/// system exists for: a session ends and the numbers have to *move*. The crest
+/// names the rank rather than shoving a bar at you: "Promoted to Silver II" is
+/// a sentence you can repeat. Promotion gets the crest and the copy; staying
+/// put gets the exact distance to the next rung.
 class _SessionReport extends StatelessWidget {
   const _SessionReport({
     required this.correct,
     required this.done,
     required this.sessionXp,
+    required this.change,
     required this.queuedOffline,
     required this.ended,
     required this.onAgain,
@@ -956,6 +983,7 @@ class _SessionReport extends StatelessWidget {
   final int correct;
   final int done;
   final int sessionXp;
+  final RankChange? change;
   final bool queuedOffline;
   final bool ended;
   final VoidCallback onAgain;
@@ -964,20 +992,35 @@ class _SessionReport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final change = this.change;
+    final rank = change?.after;
+    final promoted = change?.promoted ?? false;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (rank != null) ...[
+              RankCrest(rank: rank, size: 92),
+              const SizedBox(height: 16),
+            ],
             Text(
-              ended ? 'Session ended' : 'Session complete',
+              promoted
+                  ? 'Promoted to ${change!.after.label}'
+                  : ended
+                  ? 'Session ended'
+                  : 'Session complete',
               style: TypeScale.displaySm,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              queuedOffline
+              promoted
+                  ? change!.tierChanged
+                        ? '$correct of $done correct, and that carried you into a new tier. Everything above this is harder, and worth more.'
+                        : '$correct of $done correct, and the crest moved with it.'
+                  : queuedOffline
                   ? '$done answered — saved offline, will sync.'
                   : copy.sessionSummary(correct, done),
               style: TypeScale.body.copyWith(color: context.mutedForeground),
@@ -990,8 +1033,19 @@ class _SessionReport extends StatelessWidget {
               children: [
                 _ReportChip('$correct/$done correct'),
                 if (sessionXp > 0) _ReportChip('+$sessionXp XP'),
+                if (rank != null) _ReportChip('${rank.points} RP'),
               ],
             ),
+            if (rank != null && !rank.isApex) ...[
+              const SizedBox(height: 12),
+              Text(
+                '${rank.remaining} RP to the next rung · about ${reviewsForRp(rank.remaining)} more reviews.',
+                style: TypeScale.caption.copyWith(
+                  color: context.mutedForeground,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,

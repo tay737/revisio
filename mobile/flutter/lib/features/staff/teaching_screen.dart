@@ -397,12 +397,11 @@ class _ClassCardState extends ConsumerState<_ClassCard> {
                 try {
                   await Clipboard.setData(ClipboardData(text: klass.joinCode));
                   if (!mounted) return;
+                  // No timed reset — a screen reader must not miss a
+                  // confirmation that disappears after two seconds.
                   setState(() {
                     _copied = true;
                     _copyFailed = false;
-                  });
-                  Future.delayed(const Duration(seconds: 2), () {
-                    if (mounted) setState(() => _copied = false);
                   });
                 } catch (_) {
                   if (mounted) {
@@ -452,6 +451,13 @@ class _ClassCardState extends ConsumerState<_ClassCard> {
             ),
           ],
         ),
+        if (_copied) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Join code copied — share it with your class.',
+            style: TypeScale.micro.copyWith(color: context.mutedForeground),
+          ),
+        ],
         if (_copyFailed) ...[
           const SizedBox(height: 4),
           Text(

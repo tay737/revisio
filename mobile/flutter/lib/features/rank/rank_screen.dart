@@ -204,24 +204,31 @@ class _TabBar extends StatelessWidget {
         children: [
           for (final v in views)
             Expanded(
-              child: GestureDetector(
-                onTap: () => onSelect(v),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: v == selected ? context.card : Colors.transparent,
-                    borderRadius: BorderRadius.circular(RadiusTokens.pill),
-                  ),
-                  child: Text(
-                    labels[v]!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TypeScale.caption.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: v == selected
-                          ? context.foreground
-                          : context.mutedForeground,
+              child: Semantics(
+                button: true,
+                selected: v == selected,
+                label: labels[v]!,
+                child: GestureDetector(
+                  onTap: () => onSelect(v),
+                  child: AnimatedContainer(
+                    duration: context.reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 150),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: v == selected ? context.card : Colors.transparent,
+                      borderRadius: BorderRadius.circular(RadiusTokens.pill),
+                    ),
+                    child: Text(
+                      labels[v]!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TypeScale.caption.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: v == selected
+                            ? context.foreground
+                            : context.mutedForeground,
+                      ),
                     ),
                   ),
                 ),
@@ -1240,14 +1247,18 @@ class _LobbyTab extends StatelessWidget {
                           'Your name is hidden. Your RP still moves. ',
                           style: TypeScale.caption.copyWith(height: 1.4),
                         ),
-                        GestureDetector(
-                          onTap: onToggleOptOut,
-                          child: Text(
-                            'Rejoin',
-                            style: TypeScale.caption.copyWith(
-                              fontWeight: FontWeight.w700,
-                              decoration: TextDecoration.underline,
-                              height: 1.4,
+                        Semantics(
+                          button: true,
+                          label: 'Rejoin the boards',
+                          child: GestureDetector(
+                            onTap: onToggleOptOut,
+                            child: Text(
+                              'Rejoin',
+                              style: TypeScale.caption.copyWith(
+                                fontWeight: FontWeight.w700,
+                                decoration: TextDecoration.underline,
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         ),
@@ -1490,28 +1501,33 @@ class _BoardTab extends ConsumerWidget {
                 for (final s in scopes)
                   Padding(
                     padding: const EdgeInsets.only(left: 6),
-                    child: GestureDetector(
-                      onTap: () => onScope(s),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: s == scope
-                              ? context.foreground
-                              : context.secondary,
-                          borderRadius: BorderRadius.circular(
-                            RadiusTokens.pill,
+                    child: Semantics(
+                      button: true,
+                      selected: s == scope,
+                      label: s,
+                      child: GestureDetector(
+                        onTap: () => onScope(s),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
                           ),
-                        ),
-                        child: Text(
-                          s,
-                          style: TypeScale.fine.copyWith(
-                            fontWeight: FontWeight.w600,
+                          decoration: BoxDecoration(
                             color: s == scope
-                                ? context.background
-                                : context.foreground,
+                                ? context.foreground
+                                : context.secondary,
+                            borderRadius: BorderRadius.circular(
+                              RadiusTokens.pill,
+                            ),
+                          ),
+                          child: Text(
+                            s,
+                            style: TypeScale.fine.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: s == scope
+                                  ? context.background
+                                  : context.foreground,
+                            ),
                           ),
                         ),
                       ),
@@ -1567,13 +1583,17 @@ class _BoardTab extends ConsumerWidget {
                   ),
                 ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: onToggleOptOut,
-              child: Text(
-                optOut ? 'Join the boards' : 'Hide me from the boards',
-                style: TypeScale.caption.copyWith(
-                  fontWeight: FontWeight.w500,
-                  decoration: TextDecoration.underline,
+            Semantics(
+              button: true,
+              label: optOut ? 'Join the boards' : 'Hide me from the boards',
+              child: GestureDetector(
+                onTap: onToggleOptOut,
+                child: Text(
+                  optOut ? 'Join the boards' : 'Hide me from the boards',
+                  style: TypeScale.caption.copyWith(
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
             ),

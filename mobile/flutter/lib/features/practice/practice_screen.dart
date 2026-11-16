@@ -531,28 +531,36 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                           'mixed',
                         ])
                           Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _difficulty = d),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _difficulty == d
-                                      ? context.foreground
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(
-                                    RadiusTokens.sm,
+                            child: Semantics(
+                              button: true,
+                              selected: _difficulty == d,
+                              label: 'Difficulty $d',
+                              child: GestureDetector(
+                                onTap: () => setState(() => _difficulty = d),
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minHeight: kTouchTarget,
                                   ),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  d,
-                                  style: TypeScale.caption.copyWith(
-                                    fontWeight: FontWeight.w600,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
                                     color: _difficulty == d
-                                        ? context.background
-                                        : context.foreground,
+                                        ? context.foreground
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(
+                                      RadiusTokens.sm,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    d,
+                                    style: TypeScale.caption.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: _difficulty == d
+                                          ? context.background
+                                          : context.foreground,
+                                    ),
                                   ),
                                 ),
                               ),

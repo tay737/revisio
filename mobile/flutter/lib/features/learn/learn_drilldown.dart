@@ -288,7 +288,9 @@ class _SubjectBody extends StatelessWidget {
                         ),
                         AnimatedRotation(
                           turns: specsOpen ? 0.25 : 0,
-                          duration: const Duration(milliseconds: 150),
+                          duration: context.reduceMotion
+                              ? Duration.zero
+                              : const Duration(milliseconds: 150),
                           child: RevisioIcon(
                             'expand',
                             size: 16,
@@ -300,7 +302,9 @@ class _SubjectBody extends StatelessWidget {
                   ),
                 ),
                 AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
+                  duration: context.reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
                   alignment: Alignment.topCenter,
                   child: specsOpen
                       ? Container(
