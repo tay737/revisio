@@ -83,6 +83,15 @@ const REPLICATED_TABLES = [
   'season_results',
   'class_memberships',
   'imports',
+  'streak_events',
+  'notification_prefs',
+  'notifications',
+  'notification_deliveries',
+  'exam_plans',
+  'user_challenges',
+  'user_goals',
+  'study_connections',
+  'guardian_links',
   'audit_log',
 ] as const;
 

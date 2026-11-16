@@ -150,17 +150,22 @@ export const GET = route(async (req: NextRequest) => {
     // ── the weekly lobby ────────────────────────────────────────────────────
     // Thirty seats, ordered by the week's XP. Every member's rank label needs
     // their *lifetime* XP, which is one grouped query rather than thirty.
+    //
+    // Opted-out learners are excluded HERE, in the where clause, not filtered
+    // after the fact: a hidden name that still occupies a seat is not hidden,
+    // it is anonymous — and it would still push real members down the table.
+    // The XP board and the season board already filter `optOut`; the lobby was
+    // the one board that leaked it (docs/COMPETITION-SAFETY-2026-11-16.md C1).
     const week = weekBounds();
     const lobbyRows = await rdb
       .select({
         userId: leagueMemberships.userId,
         name: users.name,
-        optOut: users.leaderboardOptOut,
         xp: leagueMemberships.xpWeek,
       })
       .from(leagueMemberships)
       .innerJoin(users, eq(leagueMemberships.userId, users.id))
-      .where(eq(leagueMemberships.weekStart, week.weekStart))
+      .where(and(eq(leagueMemberships.weekStart, week.weekStart), eq(users.leaderboardOptOut, false)))
       .orderBy(desc(leagueMemberships.xpWeek))
       .limit(30);
 

@@ -16,6 +16,7 @@ export type ConsentKey =
   | 'notifications' // in-app and email notifications (non-essential)
   | 'profile' // profile fields shown on the public profile (privacy toggles)
   | 'school' // class/account data a parent/guardian consents to for a learner
+  | 'social' // peer study links and friend boards (opt-in, never public)
   | 'research'; // anonymised product research and improvement
 
 export type ConsentChoice = Record<ConsentKey, boolean>;
@@ -50,6 +51,7 @@ export const EMPTY_CONSENT: ConsentState = {
     notifications: false,
     profile: false,
     school: false,
+    social: false,
     research: false,
   },
   summary: null,
@@ -84,6 +86,8 @@ export function purposeDescription(key: ConsentKey): string {
       return 'A record of your profile visibility choice. The switches that control what visitors see are under Privacy in Settings.';
     case 'school':
       return 'A record of your choice about class data. It applies only if you join a class.';
+    case 'social':
+      return 'Peer study links, accountability partners and private friend boards.';
     case 'research':
       return 'Anonymised product research and improvement.';
   }
@@ -99,6 +103,7 @@ export function consentSummary(state: ConsentState): string {
     state.choices.preferences ? 'preferences=granted' : 'preferences=denied',
     state.choices.profile ? 'profile=granted' : 'profile=denied',
     state.choices.school ? 'school=granted' : 'school=denied',
+    state.choices.social ? 'social=granted' : 'social=denied',
     state.choices.research ? 'research=granted' : 'research=denied',
   ];
   return `consent-${state.version}-${parts.join(',')}-${state.updatedAt}`;

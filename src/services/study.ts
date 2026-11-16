@@ -9,8 +9,11 @@ import {
 import { gradeClozeWithPolicy, gradeFlashcard, gradeMcq, type AcceptedAnswer, type Verdict } from '@/domain/grading';
 import { resolveClozeMarking } from '@/services/grading-policy';
 import { getScheduler, newCardState, srsInfoForState, srsLevelFor, srsLevelInfo, type Rating } from '@/domain/srs';
-import { evaluateAchievements, levelForXp, nextStreak, utcDateKey, xpForReview } from '@/domain/gamification';
+import { evaluateAchievements, levelForXp, utcDateKey, xpForReview } from '@/domain/gamification';
+import { nextStreakState, type StreakEvent } from '@/domain/retention';
+import { recordNotification, recordStreakEvents } from '@/services/retention';
 import { enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
+import { recordServerEvent } from '@/services/analytics';
 
 // ── algorithms config (dev-tunable via feature flag payload) ────────────────
 
@@ -44,6 +47,12 @@ export type QueueCard = {
   /** BunPro-style strength rung 1–12, derived from the scheduler state. */
   srsLevel: number;
   srsLabel: string;
+  /** Scheduler fields the "why is this due" line reads. Null on a card the
+   *  learner has never reviewed. */
+  dueAt: Date | null;
+  lastReviewedAt: Date | null;
+  reps: number;
+  lapses: number;
   // answers are sent for cloze/flashcard only after grading (see submitReview);
   // for the queue we never send accepted answers to the client.
 };
@@ -55,7 +64,7 @@ function srsFields(state: { stage: string; intervalDays: number } | null | undef
   return { srsLevel: info.level, srsLabel: info.label };
 }
 
-export async function buildDailyQueue(userId: string, limit = 20): Promise<QueueCard[]> {
+export async function buildDailyQueue(userId: string, limit = 20, topicId?: string): Promise<QueueCard[]> {
   const enrolled = await enrolledSubjectIds(userId);
   const now = new Date();
 
@@ -84,7 +93,10 @@ export async function buildDailyQueue(userId: string, limit = 20): Promise<Queue
         or(
           isNull(cardUserStates.cardId),
           sql`${cardUserStates.dueAt} <= ${now.toISOString()}`
-        )!
+        )!,
+        // Weak-topic review (#18): scope the same due queue to one topic so a
+        // recommendation can be acted on in one tap.
+        ...(topicId ? [eq(cards.topicId, topicId)] : [])
       )
     )
     .orderBy(sql`CASE WHEN ${cardUserStates.cardId} IS NULL THEN 0 ELSE 1 END`, cardUserStates.dueAt, cards.createdAt)
@@ -103,6 +115,10 @@ export async function buildDailyQueue(userId: string, limit = 20): Promise<Queue
     options: card.kind === 'mcq' ? card.options ?? null : null,
     stage: state?.stage ?? 'new',
     ...srsFields(state),
+    dueAt: state?.dueAt ?? null,
+    lastReviewedAt: state?.lastReviewedAt ?? null,
+    reps: state?.reps ?? 0,
+    lapses: state?.lapses ?? 0,
   }));
 }
 
@@ -132,6 +148,8 @@ export type SubmitReviewResult = {
   totalXp: number;
   level: number;
   streak: number;
+  streakFreezes: number;
+  streakEvents: { kind: string; meta?: Record<string, unknown> }[];
   newAchievements: { id: string; name: string; icon: string; description: string }[];
   nextDueAt: string;
   /** Strength rung the card now holds, so the verdict can say where it moved. */
@@ -200,6 +218,8 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   // 3) XP + streak (skip in exam mode; exam scoring handled separately)
   let xpAwarded = 0;
   let streakCurrent = 0;
+  let streakFreezes = 0;
+  let streakEventList: StreakEvent[] = [];
   if (input.mode !== 'exam') {
     const [timesTodayRes, streakRes] = await Promise.all([
       db
@@ -210,19 +230,27 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     ]);
     const timesToday = timesTodayRes;
     const [streakRow] = streakRes;
-    const cur = streakRow ?? { current: 0, best: 0, lastActiveDate: null };
-    const updated = nextStreak(cur, utcDateKey());
-    streakCurrent = updated.current;
+    const cur = {
+      current: streakRow?.current ?? 0,
+      best: streakRow?.best ?? 0,
+      lastActiveDate: streakRow?.lastActiveDate ?? null,
+      freezes: streakRow?.freezes ?? 0,
+    };
+    const updated = nextStreakState(cur, utcDateKey());
+    streakCurrent = updated.state.current;
+    streakFreezes = updated.state.freezes;
+    streakEventList = updated.events;
     await db
       .insert(streaks)
-      .values({ userId, current: updated.current, best: updated.best, lastActiveDate: updated.lastActiveDate })
-      .onConflictDoUpdate({ target: streaks.userId, set: { current: updated.current, best: updated.best, lastActiveDate: updated.lastActiveDate } });
+      .values({ userId, current: updated.state.current, best: updated.state.best, lastActiveDate: updated.state.lastActiveDate, freezes: updated.state.freezes })
+      .onConflictDoUpdate({ target: streaks.userId, set: { current: updated.state.current, best: updated.state.best, lastActiveDate: updated.state.lastActiveDate, freezes: updated.state.freezes } });
+    await recordStreakEvents(userId, updated.events);
 
     xpAwarded = xpForReview({
       cardKind: card.kind,
       correct: verdict.correct,
       nearMiss: verdict.feedbackKind === 'near_miss',
-      streakDays: updated.current,
+      streakDays: updated.state.current,
       timesToday: (timesToday[0]?.c ?? 0) + 1,
     });
     if (xpAwarded > 0) {
@@ -243,8 +271,20 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     durationMs: input.durationMs ?? 0, xpAwarded,
   });
 
-  // 5) achievements
+  // 5) achievements + in-app notifications for streak/achievement moments
   const newAchievements = await checkAchievements(userId, verdict.correct);
+  for (const a of newAchievements) {
+    await recordNotification(userId, { kind: 'achievement', title: `Achievement unlocked: ${a.name}`, body: a.description, href: '/progress' });
+  }
+  for (const e of streakEventList) {
+    if (e.kind === 'freeze_used') {
+      await recordNotification(userId, { kind: 'streak', title: 'Streak freeze used', body: 'A freeze covered a missed day — your streak is still alive.', href: '/dashboard' });
+    } else if (e.kind === 'comeback') {
+      await recordNotification(userId, { kind: 'streak', title: 'Back for another run', body: 'A new streak starts today. Your best is still yours.', href: '/dashboard' });
+    } else if (e.kind === 'freeze_earned') {
+      await recordNotification(userId, { kind: 'streak', title: 'Streak freeze earned', body: 'You banked a freeze for a rest day.', href: '/dashboard' });
+    }
+  }
 
   const primary = answersRes.find((a) => a.isPrimary) ?? answersRes[0];
   // The rung the card holds after this review — cram mode leaves the schedule
@@ -258,7 +298,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     primaryAnswer: card.kind === 'cloze' ? primary?.text : undefined,
     modelAnswer: card.kind === 'flashcard' ? primary?.text : undefined,
     explanation: card.explanationMd || undefined,
-    xpAwarded, totalXp, level, streak: streakCurrent, newAchievements,
+    xpAwarded, totalXp, level, streak: streakCurrent, streakFreezes, streakEvents: streakEventList, newAchievements,
     nextDueAt: (scheduling?.dueAt ?? new Date()).toISOString(),
     srsLevel: srsLevelFor(nextSrsState),
     srsLabel: srsLevelInfo(srsLevelFor(nextSrsState)).label,
@@ -312,6 +352,10 @@ async function checkAchievements(userId: string, lastCorrect: boolean) {
   const ownedIds = new Set(owned.map((o) => o.id));
 
   const [reviewCount] = await db.select({ c: sql<number>`count(*)` }).from(reviewLogs).where(eq(reviewLogs.userId, userId));
+  // The funnel's last step: this count already includes the review just
+  // inserted, so exactly 1 means the learner's first ever. Server-side because
+  // the client cannot know — and it fires for every review mode alike.
+  if ((reviewCount?.c ?? 0) === 1) void recordServerEvent('first_review_completed', userId);
   const [streakRow] = await db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1);
   const totalXp = await totalXpFor(userId);
 
@@ -425,6 +469,10 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
       options: card.kind === 'mcq' ? card.options ?? null : null,
       stage: state?.stage ?? 'new',
       ...srsFields(state),
+      dueAt: state?.dueAt ?? null,
+      lastReviewedAt: state?.lastReviewedAt ?? null,
+      reps: state?.reps ?? 0,
+      lapses: state?.lapses ?? 0,
     })),
     progress: { met, total, remaining: Math.max(0, total - met) },
   };
@@ -467,6 +515,10 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     options: card.kind === 'mcq' ? card.options ?? null : null,
     stage: state?.stage ?? 'new',
     ...srsFields(state),
+    dueAt: state?.dueAt ?? null,
+    lastReviewedAt: state?.lastReviewedAt ?? null,
+    reps: state?.reps ?? 0,
+    lapses: state?.lapses ?? 0,
   }));
 }
 

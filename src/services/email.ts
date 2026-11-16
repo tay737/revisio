@@ -148,3 +148,53 @@ export async function sendEmailChangeEmail(to: string, token: string): Promise<v
     throw new Error(`Email delivery failed: ${error.message}`);
   }
 }
+
+/**
+ * Non-essential retention mail (study queue, streak, season). Privacy-safe by
+ * construction: the caller passes only generic title/body — never subject,
+ * topic, question or answer text — and the unsubscribe headers let a mailbox
+ * opt out without a session.
+ */
+export async function sendRetentionEmail(
+  userId: string,
+  to: string,
+  input: { subject: string; title: string; body: string; ctaLabel?: string; ctaUrl?: string },
+): Promise<void> {
+  const mailer = resend();
+  const url = input.ctaUrl ?? `${appUrl()}/dashboard`;
+  const cta = input.ctaLabel ?? 'Open Revisio';
+  if (!mailer) {
+    console.log(`[email] (no RESEND_API_KEY — console mode) retention "${input.subject}" for ${to}: ${url}`);
+    return;
+  }
+  const { error } = await mailer.emails.send({
+    from,
+    to,
+    subject: input.subject,
+    headers: unsubscribeHeaders(userId),
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <div style="font-size:20px;font-weight:800;margin-bottom:16px">Revisio</div>
+        <p style="color:#111827;font-size:16px;font-weight:600;margin:0 0 8px">${escapeHtml(input.title)}</p>
+        <p style="color:#374151;line-height:1.6;margin:0 0 24px">${escapeHtml(input.body)}</p>
+        <p style="margin:0 0 16px">
+          <a href="${escapeHtml(url)}" style="background:#000000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">${escapeHtml(cta)}</a>
+        </p>
+        <p style="color:#6b7280;font-size:13px;line-height:1.6">You're getting this because you turned on study reminders. <a href="${escapeHtml(unsubscribeUrl(userId) ?? url)}" style="color:#6b7280">Turn them off</a> any time in Settings.</p>
+      </div>`,
+    text: `${input.title}\n\n${input.body}\n\n${cta}: ${url}\n\nYou're getting this because you turned on study reminders. Turn them off any time in Settings.`,
+  });
+  if (error) {
+    console.error(`[email] failed to send retention mail to ${to}:`, error);
+    throw new Error(`Email delivery failed: ${error.message}`);
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

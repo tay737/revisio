@@ -389,6 +389,8 @@ export const streaks = pgTable('streaks', {
   current: integer('current').notNull().default(0),
   best: integer('best').notNull().default(0),
   lastActiveDate: text('last_active_date'), // YYYY-MM-DD (UTC)
+  /** Banked streak freezes, earned every 7 days and spent on missed days. */
+  freezes: integer('freezes').notNull().default(0),
 });
 
 export const achievements = pgTable('achievements', {
@@ -602,4 +604,151 @@ export const userProfileBadges = pgTable('user_profile_badges', {
   grantedAt: timestamp('granted_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   pk: uniqueIndex('user_profile_badges_pk').on(t.userId, t.badgeId),
+}));
+
+// ── retention (epic #9) ─────────────────────────────────────────────────────
+// Streak history, opt-in reminders, challenges/goals, exam plans and safe
+// social links. Every table cascades from `users` so account erasure removes
+// the learner's retention footprint with the account.
+
+/** Append-only streak history: freezes earned/spent, gaps and recoveries. */
+export const streakEvents = pgTable('streak_events', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['milestone', 'freeze_earned', 'freeze_used', 'gap', 'comeback', 'repair'] }).notNull(),
+  streakBefore: integer('streak_before').notNull().default(0),
+  streakAfter: integer('streak_after').notNull().default(0),
+  meta: jsonb('meta').$type<Record<string, unknown>>(),
+  occurredAt: timestamp('occurred_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  userTimeIdx: index('streak_events_user_time_idx').on(t.userId, t.occurredAt),
+}));
+
+/** Per-learner reminder settings. Disabled by default; quiet hours optional. */
+export const notificationPrefs = pgTable('notification_prefs', {
+  userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').notNull().default(false),
+  /** Local wall-clock send time, HH:mm. */
+  localTime: text('local_time').notNull().default('18:00'),
+  timezone: text('timezone').notNull().default('UTC'),
+  quietStart: text('quiet_start'), // HH:mm, inclusive
+  quietEnd: text('quiet_end'),     // HH:mm, exclusive
+  /** Which retention triggers may notify: dueCards | streakRisk | seasonEnding | achievement */
+  triggers: jsonb('triggers').$type<Record<string, boolean>>().notNull().default(sql`'{"dueCards":true,"streakRisk":true,"seasonEnding":true,"achievement":true}'::jsonb`),
+  channel: text('channel', { enum: ['email', 'push', 'in_app'] }).notNull().default('email'),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+});
+
+/** In-app notification centre rows. Read state is per device-agnostic. */
+export const notifications = pgTable('notifications', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(), // due_cards|streak_risk|season_ending|achievement|streak|goal|challenge|exam|social
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  href: text('href').notNull().default('/dashboard'),
+  readAt: timestamp('read_at', { mode: 'date' }),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  userTimeIdx: index('notifications_user_time_idx').on(t.userId, t.createdAt),
+}));
+
+/** Delivery ledger: one row per attempted send, deduped by (user, kind, key). */
+export const notificationDeliveries = pgTable('notification_deliveries', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  channel: text('channel').notNull().default('email'),
+  dedupeKey: text('dedupe_key').notNull(),
+  status: text('status', { enum: ['sent', 'suppressed', 'failed'] }).notNull().default('sent'),
+  detail: jsonb('detail').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  dedupeIdx: uniqueIndex('notification_deliveries_dedupe_idx').on(t.userId, t.kind, t.dedupeKey),
+  userIdx: index('notification_deliveries_user_idx').on(t.userId, t.createdAt),
+}));
+
+/** A learner's exam countdown + pre-exam revision plan. */
+export const examPlans = pgTable('exam_plans', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subjectId: text('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  /** Local calendar date, YYYY-MM-DD. */
+  examDate: text('exam_date').notNull(),
+  topicIds: jsonb('topic_ids').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  dailyTarget: integer('daily_target').notNull().default(10),
+  status: text('status', { enum: ['active', 'completed', 'archived'] }).notNull().default('active'),
+  /** Post-exam reflection: score, note, when it was written. */
+  reflection: jsonb('reflection').$type<{ score?: number; maxScore?: number; note?: string; reflectedAt?: string }>(),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('exam_plans_user_idx').on(t.userId, t.status),
+}));
+
+/** Per-period progress on a static challenge definition (see domain/retention). */
+export const userChallenges = pgTable('user_challenges', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  challengeId: text('challenge_id').notNull(),
+  /** YYYY-MM-DD for daily; the Monday date for weekly. */
+  periodStart: text('period_start').notNull(),
+  progress: integer('progress').notNull().default(0),
+  target: integer('target').notNull(),
+  completedAt: timestamp('completed_at', { mode: 'date' }),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  pk: uniqueIndex('user_challenges_pk').on(t.userId, t.challengeId, t.periodStart),
+  userIdx: index('user_challenges_user_idx').on(t.userId, t.periodStart),
+}));
+
+/** A personal goal with a live-computed progress read. */
+export const userGoals = pgTable('user_goals', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['reviews', 'correct', 'xp', 'streak', 'topics_mastered', 'exam_score'] }).notNull(),
+  title: text('title').notNull(),
+  target: integer('target').notNull(),
+  /** Optional scope, e.g. { subjectId } or { topicId }. */
+  scope: jsonb('scope').$type<Record<string, unknown>>(),
+  /** Local calendar date, YYYY-MM-DD. */
+  deadline: text('deadline'),
+  completedAt: timestamp('completed_at', { mode: 'date' }),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('user_goals_user_idx').on(t.userId, t.completedAt),
+}));
+
+/** Peer study links: buddies and accountability partners, both opt-in. */
+export const studyConnections = pgTable('study_connections', {
+  id: text('id').primaryKey(),
+  /** Sorted "a:b" pair key — one row per pair, whichever direction asked. */
+  pairKey: text('pair_key').notNull(),
+  requesterId: text('requester_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  addresseeId: text('addressee_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['buddy', 'accountability'] }).notNull().default('buddy'),
+  status: text('status', { enum: ['pending', 'accepted', 'declined', 'blocked'] }).notNull().default('pending'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  respondedAt: timestamp('responded_at', { mode: 'date' }),
+}, (t) => ({
+  pairIdx: uniqueIndex('study_connections_pair_idx').on(t.pairKey),
+  requesterIdx: index('study_connections_requester_idx').on(t.requesterId, t.status),
+  addresseeIdx: index('study_connections_addressee_idx').on(t.addresseeId, t.status),
+}));
+
+/** Guardian/teacher summary links. The learner consents before any summary flows. */
+export const guardianLinks = pgTable('guardian_links', {
+  id: text('id').primaryKey(),
+  studentId: text('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  guardianId: text('guardian_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['pending', 'accepted', 'declined', 'revoked'] }).notNull().default('pending'),
+  /** What the guardian may see: reviews, streak, accuracy — minimised set only. */
+  scope: jsonb('scope').$type<Record<string, boolean>>().notNull().default(sql`'{"reviews":true,"streak":true,"accuracy":true}'::jsonb`),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  respondedAt: timestamp('responded_at', { mode: 'date' }),
+}, (t) => ({
+  pairIdx: uniqueIndex('guardian_links_pair_idx').on(t.studentId, t.guardianId),
+  studentIdx: index('guardian_links_student_idx').on(t.studentId, t.status),
+  guardianIdx: index('guardian_links_guardian_idx').on(t.guardianId, t.status),
 }));
