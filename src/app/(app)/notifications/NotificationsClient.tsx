@@ -126,12 +126,13 @@ export function NotificationsClient() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={cn('block truncate t-caption', unread ? 'font-semibold' : 'text-muted-foreground')}>
+                      {unread && <span className="sr-only">Unread — </span>}
                       {n.title}
                     </span>
                     {n.body && <span className="mt-0.5 block t-fine text-muted-foreground">{n.body}</span>}
                     <span className="mt-1 block t-fine text-muted-foreground">{when(n.createdAt)}</span>
                   </span>
-                  {unread && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-good" aria-label="Unread" />}
+                  {unread && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-good" aria-hidden="true" />}
                 </>
               );
               const cls = 'flex items-start gap-3 px-4 py-3 transition-colors hover:bg-secondary/40';

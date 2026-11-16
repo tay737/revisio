@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
+import { DashboardCardSkeleton } from '@/components/dashboard/DashboardCardSkeleton';
 import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -36,7 +37,8 @@ export function ChallengesCard() {
     return () => { live = false; };
   }, []);
 
-  if (!challenges || challenges.length === 0) return null;
+  if (challenges === null) return <DashboardCardSkeleton />;
+  if (challenges.length === 0) return null;
 
   const daily = challenges.filter((c) => c.def.period === 'daily');
   const weekly = challenges.filter((c) => c.def.period === 'weekly');

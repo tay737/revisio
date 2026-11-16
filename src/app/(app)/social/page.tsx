@@ -79,6 +79,7 @@ export default function SocialPage() {
   const [kind, setKind] = useState<'buddy' | 'accountability'>('buddy');
   const [guardianUsername, setGuardianUsername] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [summaryFor, setSummaryFor] = useState<string | null>(null);
@@ -131,8 +132,10 @@ export default function SocialPage() {
       setUsername('');
     }, 'Request sent.');
 
-  const respond = (connectionId: string, response: string) =>
-    act(() => api.post('/api/v1/social', { action: 'respond', connectionId, response }), 'Updated.');
+  const respond = async (connectionId: string, response: string) => {
+    await act(() => api.post('/api/v1/social', { action: 'respond', connectionId, response }), 'Updated.');
+    setConfirming(null);
+  };
 
   const guardianAct = async (fn: () => Promise<unknown>, okMessage?: string, consentCopy?: string) => {
     setBusy(true);
@@ -290,10 +293,26 @@ export default function SocialPage() {
                   <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void respond(c.id, 'decline')}>
                     Decline
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void respond(c.id, 'block')}>
-                    Block
-                  </Button>
+                  {confirming === `${c.id}:block` ? (
+                    <>
+                      <Button type="button" size="sm" variant="danger" disabled={busy} onClick={() => void respond(c.id, 'block')}>
+                        Block
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                        Keep
+                      </Button>
+                    </>
+                  ) : (
+                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(`${c.id}:block`)}>
+                      Block
+                    </Button>
+                  )}
                 </span>
+                {confirming === `${c.id}:block` && (
+                  <span className="basis-full t-fine text-muted-foreground">
+                    Blocking is permanent — they won’t be able to find you again.
+                  </span>
+                )}
               </li>
             ))}
             {outgoing.map((c) => (
@@ -323,16 +342,27 @@ export default function SocialPage() {
               <li key={c.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <PersonChip user={c.user} />
                 <Badge variant="chip" className="num shrink-0">{c.kind === 'accountability' ? 'accountability' : 'buddy'}</Badge>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="ml-auto"
-                  disabled={busy}
-                  onClick={() => void respond(c.id, 'remove')}
-                >
-                  Remove
-                </Button>
+                {confirming === `${c.id}:remove` ? (
+                  <span className="ml-auto flex gap-1.5">
+                    <Button type="button" size="sm" variant="danger" disabled={busy} onClick={() => void respond(c.id, 'remove')}>
+                      Remove
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                      Keep
+                    </Button>
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto"
+                    disabled={busy}
+                    onClick={() => setConfirming(`${c.id}:remove`)}
+                  >
+                    Remove
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -397,7 +427,7 @@ export default function SocialPage() {
                   <span className="t-fine text-muted-foreground">wants to see your summary</span>
                   <span className="ml-auto flex gap-2">
                     <Button type="button" size="sm" variant="good" disabled={busy} onClick={() => void guardianRespond(l.id, 'accept')}>
-                      Share
+                      Accept
                     </Button>
                     <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void guardianRespond(l.id, 'decline')}>
                       Decline

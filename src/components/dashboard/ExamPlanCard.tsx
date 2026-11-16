@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
+import { DashboardCardSkeleton } from '@/components/dashboard/DashboardCardSkeleton';
 import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -89,8 +90,9 @@ export function ExamPlanCard() {
   };
   useEffect(load, []);
 
-  if (me?.role !== 'student' || plans === null) {
-    if (me?.role === 'student' && loadError) {
+  if (me?.role !== 'student') return null;
+  if (plans === null) {
+    if (loadError) {
       return (
         <Card>
           <h2 className="t-strong">Exam countdown</h2>
@@ -103,7 +105,7 @@ export function ExamPlanCard() {
         </Card>
       );
     }
-    return null;
+    return <DashboardCardSkeleton />;
   }
 
   const upcoming = plans

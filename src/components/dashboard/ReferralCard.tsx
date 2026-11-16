@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
+import { DashboardCardSkeleton } from '@/components/dashboard/DashboardCardSkeleton';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
 import { useMe } from '@/lib/useMe';
@@ -25,6 +26,7 @@ type Referral = {
 export function ReferralCard() {
   const { me } = useMe();
   const [referral, setReferral] = useState<Referral | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
@@ -34,10 +36,13 @@ export function ReferralCard() {
   useEffect(() => {
     api.get<{ referral: Referral }>('/api/v1/referrals/me')
       .then((d) => setReferral(d.referral))
-      .catch(() => setReferral(null));
+      .catch(() => setReferral(null))
+      .finally(() => setLoaded(true));
   }, []);
 
-  if (me?.role !== 'student' || !referral) return null;
+  if (me?.role !== 'student') return null;
+  if (!loaded) return <DashboardCardSkeleton />;
+  if (!referral) return null;
 
   const copyLink = async () => {
     try {

@@ -276,6 +276,11 @@ export default function DashboardPage() {
               <div>
                 <dt className="t-fine text-muted-foreground">Streak freezes</dt>
                 <dd className="t-strong num mt-0.5">{gam.streakFreezes}</dd>
+                <dd className="t-fine mt-0.5 text-muted-foreground">
+                  <Link href="/progress" className="underline underline-offset-4">
+                    covers a missed day
+                  </Link>
+                </dd>
               </div>
             )}
           </dl>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
+import { DashboardCardSkeleton } from '@/components/dashboard/DashboardCardSkeleton';
 import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,8 @@ export function GoalsCard() {
   };
   useEffect(load, []);
 
-  if (me?.role !== 'student' || goals === null || loadError) return null;
+  if (me?.role !== 'student') return null;
+  if (goals === null) return loadError ? null : <DashboardCardSkeleton />;
 
   const open = goals.filter((g) => !g.completed);
   const done = goals.filter((g) => g.completed);
