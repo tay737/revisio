@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { api, setToken, ApiClientError } from '@/lib/api';
-import { Icon, type IconName } from '@/components/ui/icons';
+import { Icon } from '@/components/ui/icons';
+import { Field } from '@/components/ui/field';
 import { SPRING } from '@/lib/motion';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
@@ -39,14 +40,13 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const [totp, setTotp] = useState('');
   const [mfaStage, setMfaStage] = useState(false);
   const [error, setError] = useState('');
+  // A problem the server pinned to one control, rendered beneath that control
+  // instead of in the form-level notice (same pattern as RegisterWizard).
+  const [fieldError, setFieldError] = useState<{ field: string; message: string } | null>(null);
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const [devLink, setDevLink] = useState('');
-  // Errors are announced by a live region *and* tied to the controls they
-  // concern, so a screen-reader user hears which field is wrong rather than a
-  // sentence floating somewhere after the form.
-  const errorId = 'auth-error';
   const emailRef = useRef<HTMLInputElement>(null);
   const totpRef = useRef<HTMLInputElement>(null);
 
@@ -59,6 +59,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldError(null);
     setInfo('');
     setBusy(true);
     try {
@@ -96,7 +97,15 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
       }
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'email_unverified') setUnverifiedEmail(email);
-      else {
+      else if (
+        err instanceof ApiClientError &&
+        err.field &&
+        ['email', 'password', 'totp'].includes(err.field) &&
+        (err.field !== 'totp' || mfaStage)
+      ) {
+        setFieldError({ field: err.field, message: err.message });
+        document.getElementById(err.field)?.focus();
+      } else {
         setError(err instanceof Error ? err.message : 'Something went wrong on our side. Try again in a moment.');
         // Put the caret where the retry belongs: the code field once the second
         // factor is in play, otherwise the first field of the form.
@@ -111,6 +120,7 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
   const resendVerification = async () => {
     setInfo('');
     setError('');
+    setFieldError(null);
     setBusy(true);
     try {
       await api.put('/api/v1/auth/verify-email', { email: unverifiedEmail });
@@ -138,7 +148,13 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
       <p className="t-caption mt-1.5 text-muted-foreground">{subtitle}</p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
-        <Field icon="mail" label="Email" htmlFor="email">
+        <Field
+          icon="mail"
+          label="Email"
+          htmlFor="email"
+          error={fieldError?.field === 'email' ? fieldError.message : undefined}
+          errorId="email-error"
+        >
           <Input
             id="email"
             ref={emailRef}
@@ -153,12 +169,18 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
             spellCheck={false}
             autoCapitalize="none"
             placeholder="you@school.edu"
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
+            aria-invalid={fieldError?.field === 'email' || undefined}
+            aria-describedby={fieldError?.field === 'email' ? 'email-error' : undefined}
           />
         </Field>
 
-        <Field icon="secure" label="Password" htmlFor="password">
+        <Field
+          icon="secure"
+          label="Password"
+          htmlFor="password"
+          error={fieldError?.field === 'password' ? fieldError.message : undefined}
+          errorId="password-error"
+        >
           <Input
             id="password"
             type="password"
@@ -169,8 +191,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
             minLength={8}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             placeholder={mode === 'login' ? 'Your password' : 'At least 8 characters'}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
+            aria-invalid={fieldError?.field === 'password' || undefined}
+            aria-describedby={fieldError?.field === 'password' ? 'password-error' : undefined}
           />
         </Field>
 
@@ -198,7 +220,13 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
               transition={SPRING.soft}
               className="overflow-hidden"
             >
-              <Field icon="private" label="Two-factor code" htmlFor="totp">
+              <Field
+                icon="private"
+                label="Two-factor code"
+                htmlFor="totp"
+                error={fieldError?.field === 'totp' ? fieldError.message : undefined}
+                errorId="totp-error"
+              >
                 <Input
                   id="totp"
                   ref={totpRef}
@@ -208,8 +236,8 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
                   maxLength={6}
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={error ? errorId : undefined}
+                  aria-invalid={fieldError?.field === 'totp' || undefined}
+                  aria-describedby={fieldError?.field === 'totp' ? 'totp-error' : undefined}
                   placeholder="000000"
                 />
               </Field>
@@ -217,11 +245,9 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
           )}
         </AnimatePresence>
 
-        <div id={errorId}>
-          <Notice tone="bad" show={!!error}>
-            {error}
-          </Notice>
-        </div>
+        <Notice tone="bad" show={!!error}>
+          {error}
+        </Notice>
 
         <Notice tone="note" show={!!info}>
           <span>{info}</span>
@@ -286,46 +312,5 @@ export default function AuthForm({ mode, staff }: { mode: 'login' | 'register'; 
         </p>
       )}
     </Card>
-  );
-}
-
-/**
- * Label + leading glyph + control. The glyph is positioned against the control
- * itself (not the whole field) so it stays centred in the pill whatever the
- * label above it does.
- */
-export function Field({
-  icon,
-  label,
-  htmlFor,
-  error,
-  errorId,
-  children,
-}: {
-  icon: IconName;
-  label: string;
-  htmlFor: string;
-  /** The server-named problem for this control, rendered beneath it. */
-  error?: string;
-  errorId?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <Label htmlFor={htmlFor}>
-        {label}
-      </Label>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-          <Icon name={icon} size={17} />
-        </span>
-        {children}
-      </div>
-      {error && (
-        <p id={errorId} role="alert" className="t-fine mt-1.5 font-medium text-destructive-ink">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }
