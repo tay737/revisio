@@ -85,6 +85,13 @@ const List<NavItem> kNav = [
     hint: 'Subjects and topics',
   ),
   NavItem(
+    path: '/social',
+    webHref: '/social',
+    label: 'Circle',
+    icon: 'join',
+    hint: 'Buddies and summaries',
+  ),
+  NavItem(
     path: '/settings',
     webHref: '/settings',
     label: 'Settings',

@@ -993,6 +993,176 @@ class Goal {
   );
 }
 
+// ── study circle (#15) ──────────────────────────────────────────────────────
+
+/// The public-user shape every social surface shares — name, username and
+/// avatar colour only, nothing else leaves the server.
+class SocialUser {
+  final String id;
+  final String name;
+  final String? username;
+  final String? avatarColor;
+
+  const SocialUser({
+    this.id = '',
+    this.name = '',
+    this.username,
+    this.avatarColor,
+  });
+
+  factory SocialUser.fromJson(Map<String, dynamic>? json) => SocialUser(
+    id: json?['id'] as String? ?? '',
+    name: json?['name'] as String? ?? '',
+    username: json?['username'] as String?,
+    avatarColor: json?['avatarColor'] as String?,
+  );
+}
+
+/// A study connection — buddy or accountability partner, pending or accepted.
+class Connection {
+  final String id;
+  final String kind;
+  final String status;
+  final String direction; // 'outgoing' | 'incoming'
+  final SocialUser user;
+
+  const Connection({
+    this.id = '',
+    this.kind = 'buddy',
+    this.status = 'pending',
+    this.direction = 'outgoing',
+    this.user = const SocialUser(),
+  });
+
+  factory Connection.fromJson(Map<String, dynamic> json) => Connection(
+    id: json['id'] as String? ?? '',
+    kind: json['kind'] as String? ?? 'buddy',
+    status: json['status'] as String? ?? 'pending',
+    direction: json['direction'] as String? ?? 'outgoing',
+    user: SocialUser.fromJson(
+      (json['user'] as Map?)?.cast<String, dynamic>(),
+    ),
+  );
+}
+
+/// One row of the private weekly friend board — never the public leaderboard.
+class BoardEntry {
+  final String userId;
+  final String name;
+  final String? username;
+  final int weeklyXp;
+  final int streak;
+  final String kind;
+  final int rank;
+  final bool isSelf;
+
+  const BoardEntry({
+    this.userId = '',
+    this.name = '',
+    this.username,
+    this.weeklyXp = 0,
+    this.streak = 0,
+    this.kind = '',
+    this.rank = 0,
+    this.isSelf = false,
+  });
+
+  factory BoardEntry.fromJson(Map<String, dynamic> json) => BoardEntry(
+    userId: json['userId'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    username: json['username'] as String?,
+    weeklyXp: (json['weeklyXp'] as num?)?.toInt() ?? 0,
+    streak: (json['streak'] as num?)?.toInt() ?? 0,
+    kind: json['kind'] as String? ?? '',
+    rank: (json['rank'] as num?)?.toInt() ?? 0,
+    isSelf: json['isSelf'] == true,
+  );
+}
+
+/// `GET /social` envelope: the consent flag plus connections and board.
+/// When consent is off the API returns empty collections — the flag is what
+/// tells the client to show the gate copy instead of an empty circle.
+class SocialOverview {
+  final bool consentSocial;
+  final List<Connection> connections;
+  final List<BoardEntry> board;
+
+  const SocialOverview({
+    this.consentSocial = false,
+    this.connections = const [],
+    this.board = const [],
+  });
+
+  factory SocialOverview.fromJson(Map<String, dynamic> json) =>
+      SocialOverview(
+        consentSocial: json['consentSocial'] == true,
+        connections: (json['connections'] as List? ?? [])
+            .map((c) => Connection.fromJson(c as Map<String, dynamic>))
+            .toList(),
+        board: (json['board'] as List? ?? [])
+            .map((b) => BoardEntry.fromJson(b as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// A guardian-summary link. `role` is the viewer's side: 'student' means the
+/// link shares *my* summary with this guardian; 'guardian' means I can view
+/// this student's summary.
+class GuardianLink {
+  final String id;
+  final String role;
+  final String status; // pending | accepted | declined | revoked
+  final SocialUser? user;
+
+  const GuardianLink({
+    this.id = '',
+    this.role = '',
+    this.status = '',
+    this.user,
+  });
+
+  factory GuardianLink.fromJson(Map<String, dynamic> json) => GuardianLink(
+    id: json['id'] as String? ?? '',
+    role: json['role'] as String? ?? '',
+    status: json['status'] as String? ?? '',
+    user: json['user'] is Map<String, dynamic>
+        ? SocialUser.fromJson(json['user'] as Map<String, dynamic>)
+        : null,
+  );
+}
+
+/// The 30-day guardian summary — counts only, and only while the link is
+/// accepted on both sides.
+class GuardianSummary {
+  final int? reviews;
+  final int? correct;
+  final int? accuracy;
+  final bool hasCounts;
+  final int? streak;
+  final int topicsMastered;
+
+  const GuardianSummary({
+    this.reviews,
+    this.correct,
+    this.accuracy,
+    this.hasCounts = false,
+    this.streak,
+    this.topicsMastered = 0,
+  });
+
+  factory GuardianSummary.fromJson(Map<String, dynamic> json) {
+    final last30 = (json['last30Days'] as Map?)?.cast<String, dynamic>();
+    return GuardianSummary(
+      reviews: (last30?['reviews'] as num?)?.toInt(),
+      correct: (last30?['correct'] as num?)?.toInt(),
+      accuracy: (last30?['accuracy'] as num?)?.toInt(),
+      hasCounts: last30 != null,
+      streak: (json['streak'] as num?)?.toInt(),
+      topicsMastered: (json['topicsMastered'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 // ── the account ─────────────────────────────────────────────────────────────
 
 /// The seven per-field switches from `services/profile.ts`.
@@ -1228,6 +1398,7 @@ class MeDetail {
   final SrsSummary srs;
   final List<AchievementRef> achievements;
   final String bannerColor;
+  final bool isUnderAge;
 
   const MeDetail({
     this.id = '',
@@ -1253,6 +1424,7 @@ class MeDetail {
     this.srs = const SrsSummary(),
     this.achievements = const [],
     this.bannerColor = 'dusk',
+    this.isUnderAge = false,
   });
 
   factory MeDetail.fromJson(Map<String, dynamic> json) => MeDetail(
@@ -1293,5 +1465,6 @@ class MeDetail {
         .map((a) => AchievementRef.fromJson(a as Map<String, dynamic>))
         .toList(),
     bannerColor: json['bannerColor'] as String? ?? 'dusk',
+    isUnderAge: json['isUnderAge'] == true,
   );
 }

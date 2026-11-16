@@ -28,6 +28,7 @@ import 'features/rank/rank_screen.dart';
 import 'features/cram/cram_screen.dart';
 import 'features/review/review_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/social/social_screen.dart';
 import 'features/staff/admin_screen.dart';
 import 'features/staff/staff_bits.dart';
 import 'features/staff/student_progress_screen.dart';
@@ -157,6 +158,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // Pushed signed-in routes — each sits inside the same AppChrome as the
       // shell, the way every web `(app)` page carries TopBar + BottomNav.
+      GoRoute(
+        path: '/social',
+        builder: (context, state) => const AppChrome(child: SocialScreen()),
+      ),
       GoRoute(
         path: '/settings',
         builder: (context, state) => const AppChrome(child: SettingsScreen()),

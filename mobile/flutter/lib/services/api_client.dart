@@ -726,6 +726,56 @@ class RevisioApi {
           .map((g) => Goal.fromJson(g as Map<String, dynamic>))
           .toList();
 
+  // ── study circle (#15) ───────────────────────────────────────────────────
+
+  /// `GET /social` — consent flag, connections and the private weekly board
+  /// in one envelope. Consent-off returns empty collections, not an error.
+  Future<SocialOverview> socialOverview() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/social'),
+    );
+    return SocialOverview.fromJson(response.data ?? {});
+  }
+
+  /// `POST /social` — `send` a connection request or `respond` to one.
+  /// Callers re-fetch the overview afterwards, like the web's `mutate()`.
+  Future<void> socialAction(Map<String, dynamic> body) async {
+    await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/social', data: body),
+    );
+  }
+
+  /// `GET /social/guardian` — summary links on both sides of the relation.
+  /// 409s when social consent is off.
+  Future<List<GuardianLink>> guardianLinks() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/social/guardian'),
+    );
+    return ((response.data?['links'] as List?) ?? [])
+        .map((l) => GuardianLink.fromJson(l as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// `POST /social/guardian` — `create` a summary link or `respond` to one.
+  Future<void> guardianAction(Map<String, dynamic> body) async {
+    await authenticated(
+      () =>
+          _dio.post<Map<String, dynamic>>('/api/v1/social/guardian', data: body),
+    );
+  }
+
+  /// `GET /social/guardian/summary?studentId=` — the 30-day counts a
+  /// guardian may see while the link is accepted on both sides.
+  Future<GuardianSummary> guardianSummary(String studentId) async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>(
+        '/api/v1/social/guardian/summary',
+        queryParameters: {'studentId': studentId},
+      ),
+    );
+    return GuardianSummary.fromJson(response.data ?? {});
+  }
+
   /// The joined-class list behind the join-code field.
   Future<List<Map<String, dynamic>>> myClassesList() async {
     final response = await authenticated(

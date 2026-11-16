@@ -57,4 +57,59 @@ void main() {
     expect(g.progress, 42);
     expect(Goal.fromJson(const {'id': 'g2'}).deadline, isNull);
   });
+
+  test('SocialOverview parses consent, connections and board', () {
+    final s = SocialOverview.fromJson(const {
+      'consentSocial': true,
+      'connections': [
+        {
+          'id': 'c1',
+          'kind': 'accountability',
+          'status': 'accepted',
+          'direction': 'incoming',
+          'user': {'id': 'u2', 'name': 'Sam', 'username': 'sam', 'avatarColor': 'sky'},
+        },
+      ],
+      'board': [
+        {'userId': 'u2', 'name': 'Sam', 'weeklyXp': 340, 'streak': 6, 'rank': 1},
+        {'userId': 'me', 'name': 'Me', 'weeklyXp': 200, 'streak': 3, 'rank': 2, 'isSelf': true},
+      ],
+    });
+    expect(s.consentSocial, isTrue);
+    expect(s.connections.single.kind, 'accountability');
+    expect(s.connections.single.direction, 'incoming');
+    expect(s.connections.single.user.username, 'sam');
+    expect(s.board.length, 2);
+    expect(s.board[1].isSelf, isTrue);
+    expect(s.board[0].weeklyXp, 340);
+  });
+
+  test('SocialOverview consent-off keeps empty collections', () {
+    final s = SocialOverview.fromJson(const {'consentSocial': false});
+    expect(s.consentSocial, isFalse);
+    expect(s.connections, isEmpty);
+    expect(s.board, isEmpty);
+  });
+
+  test('GuardianLink and GuardianSummary parse both sides', () {
+    final l = GuardianLink.fromJson(const {
+      'id': 'l1',
+      'role': 'student',
+      'status': 'accepted',
+      'user': {'id': 'g1', 'name': 'Pat'},
+    });
+    expect(l.role, 'student');
+    expect(l.user?.name, 'Pat');
+
+    final s = GuardianSummary.fromJson(const {
+      'last30Days': {'reviews': 120, 'correct': 96, 'accuracy': 80},
+      'streak': 12,
+      'topicsMastered': 4,
+    });
+    expect(s.hasCounts, isTrue);
+    expect(s.accuracy, 80);
+    expect(s.streak, 12);
+    expect(s.topicsMastered, 4);
+    expect(GuardianSummary.fromJson(const {}).hasCounts, isFalse);
+  });
 }
