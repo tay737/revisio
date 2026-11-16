@@ -124,7 +124,7 @@ type FirstExposure = {
  *
  * **The one design rule this screen follows:** green means you are earning
  * something. Everything you press *inside* a session is green with a flat bottom
- * lip that compresses under your thumb (docs/DESIGN-DUOLINGO.md), and every
+ * lip that compresses under your thumb (docs/UI-SYSTEM.md), and every
  * action that navigates *away* from the session is ink. That single split is
  * what makes a review feel like a game round rather than a form, and it is why
  * the old `btn btn-primary` blue-on-everything version read as flat.
@@ -132,8 +132,8 @@ type FirstExposure = {
  * The rest is the loop itself, unchanged and now much quieter: one card, one
  * question at display size, one uppercase action, and a verdict that lands as a
  * full-width band — green with a check, or red with the model answer. Enter
- * advances, so a session can be run without the mouse. Confetti is MagicUI's,
- * fired from a ref; it is the only celebratory effect in the app and it is
+ * advances, so a session can be run without the mouse. Confetti is the local
+ * ui/confetti wrapper, fired from a ref; it is the only celebratory effect in the app and it is
  * reserved for a correct answer and for a promotion.
  */
 export default function ReviewClient() {

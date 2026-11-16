@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /**
- * Bands and panels — the section rhythm from docs/DESIGN-UBER.md.
+ * Bands and panels — the section rhythm from docs/UI-SYSTEM.md.
  *
  * The spec divides pages with **surface change, not chrome**: full-bleed bands
  * alternating canvas → ink → canvas, edge to edge, with no border and no shadow

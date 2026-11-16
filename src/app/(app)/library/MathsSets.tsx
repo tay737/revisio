@@ -151,7 +151,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
 
           <div>
             <Label>Concepts in this set ({picked.size})</Label>
-            <div className="max-h-64 space-y-3 overflow-y-auto rounded-[11px] border border-border/70 p-3">
+            <div className="max-h-64 space-y-3 overflow-y-auto rounded-md border border-border/70 p-3">
               {byCategory.map(([category, list]) => (
                 <div key={category}>
                   <span className="t-eyebrow">{category}</span>
@@ -188,7 +188,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Default difficulty</Label>
-              <div className="flex gap-1 rounded-[11px] border border-border/70 bg-card/60 p-1">
+              <div className="flex gap-1 rounded-md border border-border/70 bg-card/60 p-1">
                 {(['easy', 'medium', 'hard', 'mixed'] as const).map((d) => (
                   <button key={d} type="button" onClick={() => setDifficulty(d)} aria-pressed={difficulty === d} className={`segment flex-1 capitalize ${difficulty === d ? 'segment-active' : ''}`}>
                     {d}

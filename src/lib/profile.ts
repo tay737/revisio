@@ -49,8 +49,8 @@ export function greetingFor(name: string, now: Date = new Date()): string {
 }
 
 /**
- * Conversation starters for WordRotate on the dashboard. All are answers to
- * "what is this session actually about", so the rotation never feels random.
+ * Conversation starters for the dashboard hero line. All are answers to
+ * "what is this session actually about", so the first pick never feels random.
  */
 export function openers(snap: Pick<LearnerSnapshot, 'due' | 'streak' | 'level' | 'subjects'>, now: Date = new Date()): string[] {
   const lines: string[] = [];
