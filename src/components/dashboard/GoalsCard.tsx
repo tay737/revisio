@@ -34,6 +34,19 @@ const KINDS: { value: GoalKind; label: string; unit: string }[] = [
 
 const kindMeta = (kind: GoalKind) => KINDS.find((k) => k.value === kind) ?? KINDS[0];
 
+/** Deadline is a plain calendar date — render it as one, not an ISO string.
+ *  Parsed at UTC noon so no timezone can slide it to the previous day. */
+function deadlineLabel(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return d.toLocaleDateString('en-GB', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' as const }),
+  });
+}
+
 type FormState = {
   id: string | null;
   title: string;
@@ -56,6 +69,7 @@ const emptyForm: FormState = { id: null, title: '', kind: 'reviews', target: '',
 export function GoalsCard() {
   const { me } = useMe();
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [form, setForm] = useState<FormState | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,11 +78,11 @@ export function GoalsCard() {
   const load = () => {
     api.get<{ goals: Goal[] }>('/api/v1/goals')
       .then((d) => setGoals(d.goals))
-      .catch(() => setGoals([]));
+      .catch(() => setLoadError(true));
   };
   useEffect(load, []);
 
-  if (me?.role !== 'student' || goals === null) return null;
+  if (me?.role !== 'student' || goals === null || loadError) return null;
 
   const open = goals.filter((g) => !g.completed);
   const done = goals.filter((g) => g.completed);
@@ -136,7 +150,7 @@ export function GoalsCard() {
           <Progress value={pct} className="mt-1" />
           <p className="t-fine mt-1 text-muted-foreground">
             {meta.unit}
-            {g.deadline ? ` · by ${g.deadline}` : ''}
+            {g.deadline ? ` · by ${deadlineLabel(g.deadline)}` : ''}
           </p>
         </div>
         {!g.completed && confirmId !== g.id && (
@@ -147,7 +161,7 @@ export function GoalsCard() {
               onClick={() =>
                 setForm({ id: g.id, title: g.title, kind: g.kind, target: String(g.target), deadline: g.deadline ?? '' })
               }
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="grid h-11 w-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <Icon name="edit" size={14} />
             </button>
@@ -155,7 +169,7 @@ export function GoalsCard() {
               type="button"
               aria-label={`Delete ${g.title}`}
               onClick={() => setConfirmId(g.id)}
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive-ink"
+              className="grid h-11 w-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive-ink"
             >
               <Icon name="remove" size={14} />
             </button>

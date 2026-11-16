@@ -43,7 +43,7 @@ const KIND_ICON: Record<string, IconName> = {
  * "mark all read" clears the badge without touching the list.
  */
 export function NotificationsClient() {
-  const { data, mutate } = useSWR<Centre>('/api/v1/notifications?limit=50', api.get, {
+  const { data, error, mutate } = useSWR<Centre>('/api/v1/notifications?limit=50', api.get, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
   });
@@ -79,7 +79,18 @@ export function NotificationsClient() {
       />
 
       {data === undefined ? (
-        <PageSkeleton />
+        error ? (
+          <Card className="p-6 text-center">
+            <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
+            <p className="t-strong mt-2">We couldn’t load your notifications.</p>
+            <p className="t-caption mt-1 text-muted-foreground">Check your connection and try again.</p>
+            <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => void mutate()}>
+              Try again
+            </Button>
+          </Card>
+        ) : (
+          <PageSkeleton />
+        )
       ) : items.length === 0 ? (
         <Card className="p-6 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary text-muted-foreground">
