@@ -19,6 +19,7 @@ import '../../engine/srs.dart';
 import '../app/app_data.dart';
 import '../nav/rank_crest.dart';
 import '../rank/rank_strip.dart';
+import 'retention_cards.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -93,6 +94,16 @@ class _TodayBody extends StatelessWidget {
         // ── 2½. Strength ───────────────────────────────────────────────
         _StrengthCard(srs: me.srs),
         const SizedBox(height: 16),
+
+        // ── 2¾. Student cards: challenges + goals (#13). Staff accounts
+        // have no review queue to pace; each card also self-gates and
+        // fails quiet like the web. ──────────────────────────────────
+        if (me.role == 'student') ...[
+          const ChallengesCard(),
+          const SizedBox(height: 16),
+          const GoalsCard(),
+          const SizedBox(height: 16),
+        ],
 
         // ── 3. Rank band ───────────────────────────────────────────────
         gamification.when(
@@ -831,6 +842,15 @@ class _SubjectsCard extends StatelessWidget {
                   label: 'Accuracy today',
                   value: accuracy == null ? '–' : '$accuracy%',
                 ),
+                // Same conditional third stat the web dashboard prints —
+                // freezes only appear once one is banked.
+                if (g.streakFreezes > 0) ...[
+                  const SizedBox(width: 24),
+                  _SubjectStat(
+                    label: 'Streak freezes',
+                    value: '${g.streakFreezes}',
+                  ),
+                ],
               ],
             ),
           ),

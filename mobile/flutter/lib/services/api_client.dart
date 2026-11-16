@@ -675,6 +675,57 @@ class RevisioApi {
     return NotificationPrefsResponse.fromJson(response.data ?? {});
   }
 
+  // ── retention cards (#13) ────────────────────────────────────────────────
+
+  /// `GET /challenges` — server-computed daily/weekly challenges. The GET
+  /// itself records progress and pays completion XP, same as web.
+  Future<List<Challenge>> challenges() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/challenges'),
+    );
+    return ((response.data?['challenges'] as List?) ?? [])
+        .map((c) => Challenge.fromJson(c as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// `GET /goals` — personal goals with live progress; reading also completes
+  /// any goal whose target was crossed (XP + notification fire server-side).
+  Future<List<Goal>> goals() async {
+    final response = await authenticated(
+      () => _dio.get<Map<String, dynamic>>('/api/v1/goals'),
+    );
+    return _goalList(response.data);
+  }
+
+  /// `POST /goals` — returns the refreshed list, like every goals write.
+  Future<List<Goal>> createGoal(Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.post<Map<String, dynamic>>('/api/v1/goals', data: body),
+    );
+    return _goalList(response.data);
+  }
+
+  /// `PATCH /goals/:id` — title/target/deadline only; kind is immutable.
+  Future<List<Goal>> updateGoal(String id, Map<String, dynamic> body) async {
+    final response = await authenticated(
+      () => _dio.patch<Map<String, dynamic>>('/api/v1/goals/$id', data: body),
+    );
+    return _goalList(response.data);
+  }
+
+  /// `DELETE /goals/:id` — returns the refreshed list.
+  Future<List<Goal>> deleteGoal(String id) async {
+    final response = await authenticated(
+      () => _dio.delete<Map<String, dynamic>>('/api/v1/goals/$id'),
+    );
+    return _goalList(response.data);
+  }
+
+  List<Goal> _goalList(Map<String, dynamic>? data) =>
+      ((data?['goals'] as List?) ?? [])
+          .map((g) => Goal.fromJson(g as Map<String, dynamic>))
+          .toList();
+
   /// The joined-class list behind the join-code field.
   Future<List<Map<String, dynamic>>> myClassesList() async {
     final response = await authenticated(

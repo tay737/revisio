@@ -920,6 +920,79 @@ class GamificationPayload {
       );
 }
 
+// ── retention cards (#13) ───────────────────────────────────────────────────
+
+/// `GET /challenges` row — a server-computed daily/weekly challenge. Completion
+/// (XP + notification) already happened server-side; this is read-only.
+class Challenge {
+  final String id;
+  final String period;
+  final String title;
+  final String description;
+  final int rewardXp;
+  final int progress;
+  final int target;
+  final bool completed;
+
+  const Challenge({
+    required this.id,
+    this.period = 'daily',
+    this.title = '',
+    this.description = '',
+    this.rewardXp = 0,
+    this.progress = 0,
+    this.target = 0,
+    this.completed = false,
+  });
+
+  factory Challenge.fromJson(Map<String, dynamic> json) {
+    final def = (json['def'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return Challenge(
+      id: def['id'] as String? ?? '',
+      period: def['period'] as String? ?? 'daily',
+      title: def['title'] as String? ?? '',
+      description: def['description'] as String? ?? '',
+      rewardXp: (def['rewardXp'] as num?)?.toInt() ?? 0,
+      progress: (json['progress'] as num?)?.toInt() ?? 0,
+      target: (json['target'] as num?)?.toInt() ?? 0,
+      completed: json['completed'] == true,
+    );
+  }
+}
+
+/// `GET/POST /goals`, `PATCH/DELETE /goals/:id` row — a personal target with
+/// server-recomputed progress. `kind` is immutable after creation (the API
+/// ignores it on update, same as web).
+class Goal {
+  final String id;
+  final String kind;
+  final String title;
+  final int target;
+  final String? deadline;
+  final int progress;
+  final bool completed;
+
+  const Goal({
+    required this.id,
+    this.kind = 'reviews',
+    this.title = '',
+    this.target = 0,
+    this.deadline,
+    this.progress = 0,
+    this.completed = false,
+  });
+
+  factory Goal.fromJson(Map<String, dynamic> json) => Goal(
+    id: json['id'] as String? ?? '',
+    kind: json['kind'] as String? ?? 'reviews',
+    title: json['title'] as String? ?? '',
+    target: (json['target'] as num?)?.toInt() ?? 0,
+    deadline: json['deadline'] as String?,
+    progress: (json['progress'] as num?)?.toInt() ?? 0,
+    completed: json['completed'] == true,
+  );
+}
+
 // ── the account ─────────────────────────────────────────────────────────────
 
 /// The seven per-field switches from `services/profile.ts`.
@@ -1071,6 +1144,7 @@ class Gamification {
   final int forNext;
   final int streak;
   final int bestStreak;
+  final int streakFreezes;
 
   const Gamification({
     this.totalXp = 0,
@@ -1079,6 +1153,7 @@ class Gamification {
     this.forNext = 0,
     this.streak = 0,
     this.bestStreak = 0,
+    this.streakFreezes = 0,
   });
 
   factory Gamification.fromJson(Map<String, dynamic> json) => Gamification(
@@ -1088,6 +1163,7 @@ class Gamification {
     forNext: json['forNext'] as int? ?? 0,
     streak: json['streak'] as int? ?? 0,
     bestStreak: json['bestStreak'] as int? ?? 0,
+    streakFreezes: json['streakFreezes'] as int? ?? 0,
   );
 }
 
