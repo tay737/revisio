@@ -41,6 +41,8 @@ const KIND_ICON: Record<string, IconName> = {
   goal: 'target',
   goalReached: 'target',
   social: 'person',
+  recap: 'week',
+  weekly_recap: 'week',
 };
 
 /**

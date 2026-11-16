@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
+import useSWR from 'swr';
+import { api } from '@/lib/api';
 import { learnerSnapshot, useMe } from '@/lib/useMe';
 import { useRanked } from '@/lib/useRanked';
 import { Icon, type IconName } from '@/components/ui/icons';
@@ -65,6 +67,14 @@ const ACTIONS: Action[] = [
 export default function DashboardPage() {
   const { me, error, loading } = useMe();
   const { ranked } = useRanked('weekly');
+  // The mastery track is opt-in (#8): only fetch its numbers when the
+  // learner switched it on, so the default dashboard pays nothing.
+  const masteryOn = me?.prefs?.streakMastery === true;
+  const { data: streaks } = useSWR<{ mastery: { current: number; best: number } | null }>(
+    masteryOn ? '/api/v1/streaks' : null,
+    api.get,
+    { revalidateOnFocus: false, shouldRetryOnError: false },
+  );
 
   const started = useMemo(() => {
     if (!me) return null;
@@ -148,6 +158,25 @@ export default function DashboardPage() {
         />
         <Stat icon="xp" label="Total XP" value={gam.totalXp} />
       </div>
+
+      {/* Mastery streak (#8): a sub-line under the four numbers, only for
+          learners who opted in. The difference line is information, never a
+          comparison that reads as a rebuke. */}
+      {masteryOn && streaks?.mastery && (
+        <p className="t-fine text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Mastery streak: {streaks.mastery.current} {streaks.mastery.current === 1 ? 'day' : 'days'}
+          </span>
+          {' — '}
+          {streaks.mastery.current === 0
+            ? 'No verified-correct day yet. The first one starts it.'
+            : streaks.mastery.current === gam.streak
+              ? 'Level with your activity streak.'
+              : streaks.mastery.current < gam.streak
+                ? `Your activity streak is ${gam.streak - streaks.mastery.current} ${gam.streak - streaks.mastery.current === 1 ? 'day' : 'days'} longer — mastery counts verified-correct days only.`
+                : 'Counts days with a verified-correct review only.'}
+        </p>
+      )}
 
       {/* ── 2½. Strength: how strong the queue actually is ─────────────── */}
       

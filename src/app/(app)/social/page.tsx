@@ -89,12 +89,18 @@ export default function SocialPage() {
   const board = data?.board ?? [];
   const links = guardianData?.links ?? [];
 
-  const fail = (e: unknown) => {
+  // Writer-vetted consent strings (docs/COPY-SOCIAL-CONSENT-2026-11-16.md §2):
+  // the actor's own switch is what 409/403-consent means — name the setting,
+  // say what to do, never blame the counterparty.
+  const CONSENT_GENERIC = 'Social is off on your account. Enable Social under How we use your data in Settings, save, then try again.';
+  const CONSENT_GUARDIAN_ACCEPT = 'You need Social turned on to accept a summary link. Enable it under How we use your data in Settings, save, then accept again.';
+  const CONSENT_SUMMARY_VIEW = 'You need Social turned on to view summaries. Enable it under How we use your data in Settings, save, then try again.';
+
+  const fail = (e: unknown, consentCopy = CONSENT_GENERIC) => {
     // Consent gates come back as 409 on writes and 403 on the summary read —
-    // both mean the same thing to the person clicking: their Social switch
-    // (or their counterparty's, for accept) is off.
+    // both mean the same thing to the person clicking.
     if (e instanceof ApiClientError && (e.status === 409 || (e.status === 403 && /consent/i.test(e.message)))) {
-      setError('Social features need consent — enable Social under How we use your data in Settings, save, then try again.');
+      setError(consentCopy);
     } else {
       setError(e instanceof Error ? e.message : 'That did not go through.');
     }
@@ -125,7 +131,7 @@ export default function SocialPage() {
   const respond = (connectionId: string, response: string) =>
     act(() => api.post('/api/v1/social', { action: 'respond', connectionId, response }), 'Updated.');
 
-  const guardianAct = async (fn: () => Promise<unknown>, okMessage?: string) => {
+  const guardianAct = async (fn: () => Promise<unknown>, okMessage?: string, consentCopy?: string) => {
     setBusy(true);
     setError('');
     setNotice('');
@@ -134,7 +140,7 @@ export default function SocialPage() {
       setNotice(okMessage ?? 'Done.');
       await mutateGuardian();
     } catch (e) {
-      fail(e);
+      fail(e, consentCopy);
     } finally {
       setBusy(false);
     }
@@ -147,7 +153,11 @@ export default function SocialPage() {
     }, 'Summary link sent — they need to accept it.');
 
   const guardianRespond = (linkId: string, response: string) =>
-    guardianAct(() => api.post('/api/v1/social/guardian', { action: 'respond', linkId, response }), 'Updated.');
+    guardianAct(
+      () => api.post('/api/v1/social/guardian', { action: 'respond', linkId, response }),
+      'Updated.',
+      response === 'accept' ? CONSENT_GUARDIAN_ACCEPT : undefined,
+    );
 
   const viewSummary = async (studentId: string) => {
     if (!studentId) return;
@@ -158,7 +168,7 @@ export default function SocialPage() {
       setSummary(result);
       setSummaryFor(studentId);
     } catch (e) {
-      fail(e);
+      fail(e, CONSENT_SUMMARY_VIEW);
     } finally {
       setBusy(false);
     }
@@ -179,20 +189,25 @@ export default function SocialPage() {
 
       {consentOff ? (
         /* Consent off: the API returns empty collections, which would read as
-           "no friends yet" — a lie about the reason. Explain the gate instead
-           and point at the one switch that opens it. */
+           "no friends yet" — a lie about the reason. Writer-vetted strings
+           (docs/COPY-SOCIAL-CONSENT-2026-11-16.md §1); the severance line
+           reflects backend's delete-on-withdraw, not keep-and-hide. */
         <Card className="p-5">
-          <h2 className="t-strong">Study circle is off</h2>
+          <h2 className="t-strong">Social is off</h2>
           <p className="t-caption mt-2 text-muted-foreground">
-            Buddies, accountability partners, the private weekly board and guardian summaries all sit behind one switch.
-            Turn on Social under How we use your data in Settings and this page fills in — nothing is shared until you do.
-            Existing connections and guardian links can be managed by temporarily enabling Social.
+            Study circle — buddies, accountability partners and guardian summaries — sits behind the Social switch in Settings. Nothing here is shared while it is off.
+          </p>
+          <p className="t-caption mt-2 text-muted-foreground">
+            Turning Social on lets people you link see your name, username and avatar, and shows a private weekly board of XP and streak for your circle — never public, never the leaderboard. A guardian summary shares review counts, accuracy, streak and topics mastered over the last 30 days, only with someone you choose, and only while they accept.
+          </p>
+          <p className="t-caption mt-2 text-muted-foreground">
+            Turning Social off ends your study links and summary shares.
           </p>
           <Link
             href="/settings#how-we-use-your-data"
             className="mt-3 inline-flex min-h-11 items-center t-caption font-semibold text-foreground underline underline-offset-4"
           >
-            Open privacy settings
+            Open Settings
           </Link>
         </Card>
       ) : (
@@ -386,6 +401,9 @@ export default function SocialPage() {
               autoCapitalize="none"
               spellCheck={false}
             />
+            <p className="t-caption mt-1.5 text-muted-foreground">
+              They will need Social turned on in their own Settings before they can accept the link.
+            </p>
           </div>
           <Button type="button" variant="secondary" disabled={busy || !guardianUsername.trim()} onClick={() => void addGuardian()}>
             Share summary

@@ -282,6 +282,36 @@ const SECTIONS = [
           </ul>
         </section>
         <section className="mt-3 border-l-2 border-border pl-3">
+          <h3 className="t-caption-s mb-1">Study circle and guardian summaries</h3>
+          <p className="t-fine">
+            Two optional features share your progress with people you choose. Both
+            sit behind the Social switch in Settings and are off unless you turn
+            them on.
+          </p>
+          <ul className="mt-1 list-disc pl-5 space-y-1 t-caption leading-relaxed">
+            <li>
+              <span className="font-semibold">Study circle.</span> If you turn on
+              Social, you can link with other learners by username. Linked learners
+              see your name, username and avatar, and a private weekly board shows
+              XP and streak for your circle only — it is never public and never
+              includes the public leaderboard. You can remove anyone, decline or
+              block requests, or turn Social off at any time.
+            </li>
+            <li>
+              <span className="font-semibold">Guardian summaries.</span> You can
+              share a read-only progress summary — reviews, accuracy, streak and
+              topics mastered over the last 30 days — with a parent or guardian you
+              choose. Only they see it, only while the link is accepted, and you
+              can stop sharing at any time. We cannot check that the person you
+              name is a guardian.
+            </li>
+          </ul>
+          <p className="t-fine mt-2">
+            Turning Social off ends your study links and summary shares. Deleting
+            your account removes them too.
+          </p>
+        </section>
+        <section className="mt-3 border-l-2 border-border pl-3">
           <h3 className="t-caption-s mb-1">Legal requests</h3>
           <p className="t-fine">
             Where the law, a court or a valid legal process requires it, we may

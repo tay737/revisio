@@ -15,6 +15,7 @@ import { ImportDeck } from './ImportDeck';
 import { MathsSets } from './MathsSets';
 import { ClozeMarking } from './ClozeMarking';
 import { GenerateCloze } from './GenerateCloze';
+import { DraftReview } from './DraftReview';
 import { useMe } from '@/lib/useMe';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Card } from '@/components/ui/card';
@@ -169,6 +170,12 @@ export default function LibraryPage() {
             <Icon name="rocket" size={15} />
             Generate
           </TabsTrigger>
+          {isStaff && (
+            <TabsTrigger value="draft" className="min-w-0 px-2">
+              <Icon name="spec" size={15} />
+              Draft
+            </TabsTrigger>
+          )}
           <TabsTrigger value="maths" className="min-w-0 px-2">
             <Icon name="practice" size={15} />
             Maths
@@ -308,6 +315,25 @@ export default function LibraryPage() {
             </div>
           </Card>
         </TabsContent>
+
+        {/* ── AI draft (staff only; the API 403s everyone else) ──────────── */}
+        {isStaff && (
+        <TabsContent value="draft">
+          <Card>
+            <h2 className="t-strong">Draft cards from your own text</h2>
+            <p className="t-caption mt-1 text-muted-foreground">
+              Paste notes or a lesson transcript and the model proposes cloze, flashcard and multiple-choice cards.
+              You edit or discard each one — nothing is added until you accept, and accepted cards keep the topic's visibility.
+            </p>
+            <div className="mt-5">
+              <DraftReview
+                topics={topics.map((t) => ({ id: t.id, name: t.name, subjectName: t.subjectName ?? '' }))}
+                onDone={(m) => { say(m); load(); }}
+              />
+            </div>
+          </Card>
+        </TabsContent>
+        )}
 
         {/* ── Maths sets ──────────────────────────────────────────────────── */}
         <TabsContent value="maths">

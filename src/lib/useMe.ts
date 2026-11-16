@@ -63,7 +63,7 @@ export interface Me {
   status: string;
   totpEnabled: boolean;
   leaderboardOptOut: boolean;
-  prefs: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean } | null;
+  prefs: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean; streakMastery?: boolean } | null;
   subjects: { id: string; name: string; slug?: string }[];
   gamification: {
     totalXp: number;

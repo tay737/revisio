@@ -31,6 +31,7 @@ const TRIGGERS: { key: string; label: string; hint: string }[] = [
   { key: 'streakRisk', label: 'Streak at risk', hint: 'When a day is about to slip.' },
   { key: 'seasonEnding', label: 'Season ending', hint: 'Before the weekly lobby closes.' },
   { key: 'achievement', label: 'Achievements', hint: 'When you earn a badge.' },
+  { key: 'weeklyRecap', label: 'Weekly recap', hint: 'A Monday summary of your week — counts only, no content.' },
 ];
 
 function detectedTimezone(): string {

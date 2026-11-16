@@ -625,6 +625,20 @@ function SettingsBody({
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
+              <label htmlFor="pref-mastery" className="t-caption font-semibold">Mastery streak</label>
+              <p className="t-caption text-muted-foreground">
+                A second streak that only counts verified-correct review days. Your streak counts every day you revise; this one is stricter — a day counts only when a daily or learn review comes back correct. Near misses and cram sessions don&apos;t. It is a signal, not a score: no XP, no rewards, and it never changes your regular streak. Off unless you switch it on.
+              </p>
+            </div>
+            <Toggle
+              id="pref-mastery"
+              on={me.prefs?.streakMastery ?? false}
+              onChange={(v) => savePrefs({ streakMastery: v })}
+              label="Mastery streak"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
               <label htmlFor="pref-board" className="t-caption font-semibold">Show me on leaderboards and study boards</label>
               <p className="t-caption text-muted-foreground">Includes your study circle's private board — off removes you from every comparison, everywhere. Your rank is unaffected either way.</p>
             </div>

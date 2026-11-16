@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
+import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { api, downloadFile } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
@@ -60,6 +61,20 @@ const VIEWS = [
 ] as const;
 
 type View = (typeof VIEWS)[number]['id'];
+
+/** GET /api/v1/weekly-recap — last Monday-start week's counts. The privacy
+ *  contract is counts and streak numbers only: no subject, topic or card
+ *  content ever reaches this payload's card. */
+type WeeklyRecap = {
+  weekStart: string;
+  reviews: number;
+  verifiedReviews: number;
+  accuracyPct: number | null;
+  daysActive: number;
+  cardsMastered: number;
+  streak: { current: number; best: number; freezes: number };
+  masteryStreak: { current: number; best: number } | null;
+};
 
 const SCOPES = ['daily', 'weekly', 'monthly'] as const;
 
@@ -142,6 +157,13 @@ function RankPage() {
 
   const exportAs = (format: 'csv' | 'json') =>
     downloadFile(`/api/v1/exports?format=${format}`, `revisio-transcript.${format}`);
+
+  // Last week's counts (#8) — a quiet card at the foot of the page; a failed
+  // fetch simply leaves it out rather than rendering a fake empty week.
+  const { data: recap } = useSWR<WeeklyRecap>('/api/v1/weekly-recap', api.get, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  });
 
   if (loading && !ranked) return <PageSkeleton />;
 
@@ -402,6 +424,39 @@ function RankPage() {
             </div>
           </Card>
         </>
+      )}
+
+      {/* ── Last week (#8) — counts only, per the recap privacy contract ── */}
+      {recap && (
+        <Card as="section">
+          <h2 className="t-tagline">Last week</h2>
+          {recap.reviews === 0 ? (
+            <p className="t-caption mt-1 text-muted-foreground">
+              A quiet week — no reviews logged. Your schedule kept your place; nothing was lost.
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-1">
+              <li className="t-caption text-muted-foreground">{recap.daysActive} {recap.daysActive === 1 ? 'day' : 'days'} active</li>
+              <li className="t-caption text-muted-foreground">
+                {recap.reviews} {recap.reviews === 1 ? 'review' : 'reviews'}
+                {recap.accuracyPct !== null && ` · ${recap.accuracyPct}% accurate`}
+              </li>
+              {recap.cardsMastered > 0 && (
+                <li className="t-caption text-muted-foreground">
+                  {recap.cardsMastered} {recap.cardsMastered === 1 ? 'card' : 'cards'} newly mastered
+                </li>
+              )}
+              {recap.masteryStreak && recap.masteryStreak.current > 0 && (
+                <li className="t-caption text-muted-foreground">Mastery streak: {recap.masteryStreak.current} days</li>
+              )}
+              <li className="t-caption text-muted-foreground">
+                {recap.streak.freezes > 0
+                  ? `${recap.streak.freezes} streak ${recap.streak.freezes === 1 ? 'freeze' : 'freezes'} banked — one earned every 7 days.`
+                  : 'Streak freezes: one earned every 7 days, up to 3 banked.'}
+              </li>
+            </ul>
+          )}
+        </Card>
       )}
 
       {/* ── Transcript ─────────────────────────────────────────────────────── */}
