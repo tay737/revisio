@@ -14,6 +14,10 @@
  *                  topicsRemaining === 0; dedupe per plan+daysLeft
  *   weeklyRecap  → in_app users get the recap notification once and no
  *                  ':email' delivery; email users get both
+ *   under-13 (#36) → stored social consent cannot grant social: PATCH
+ *                  /consent refuses the grant, overview/board hide social,
+ *                  send/accept 403, decline stays allowed, DOB-less
+ *                  accounts unaffected
  *
  * Run against a LOCAL test DB, never prod:
  *   DATABASE_URL=postgres://localhost:5432/revisio_verify \
@@ -21,15 +25,22 @@
  */
 import 'dotenv/config';
 
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
+import { NextRequest } from 'next/server';
 import { db, closeDb } from '../src/db/client';
 import {
   achievements, cardUserStates, cards, examPlans, leagueMemberships,
   notificationDeliveries, notificationPrefs, notifications, streaks,
-  subjects, topics, userAchievements, users,
+  studyConnections, subjects, topics, userAchievements, users,
 } from '../src/db/schema';
-import { processRetentionReminders, updateNotificationPrefs } from '../src/services/retention';
+import {
+  friendBoard, getSocialOverview, processRetentionReminders,
+  respondConnection, sendConnection, updateNotificationPrefs,
+} from '../src/services/retention';
 import { weekBounds } from '../src/domain/ranked';
+import { socialPairKey } from '../src/domain/retention';
+import { signAccessToken } from '../src/services/auth';
+import { PATCH as patchConsent } from '../src/app/api/v1/consent/route';
 import { ApiError } from '../src/services/api';
 
 let failures = 0;
@@ -50,7 +61,7 @@ const TODAY = new Date();
 const NOW = atUtc(TODAY);
 const isoDay = (offset: number) => new Date(NOW.getTime() + offset * 86_400_000).toISOString().slice(0, 10);
 
-async function seedUser(tag: string, opts: { channel: string; triggers: Record<string, boolean> }) {
+async function seedUser(tag: string, opts: { channel: string; triggers: Record<string, boolean>; user?: Record<string, unknown>; consent?: Record<string, unknown> }) {
   const id = `${MARK}-${tag}`;
   await db.insert(users).values({
     id,
@@ -58,7 +69,8 @@ async function seedUser(tag: string, opts: { channel: string; triggers: Record<s
     name: `Verify ${tag}`,
     passwordHash: 'verify',
     status: 'active',
-    consent: { version: 1, choices: { notifications: true } },
+    consent: opts.consent ?? { version: 1, choices: { notifications: true } },
+    ...opts.user,
   });
   await db.insert(notificationPrefs).values({
     userId: id, enabled: true, localTime: '18:00', timezone: 'UTC',
@@ -263,9 +275,70 @@ try {
   check('email recap gets weekly_recap notice', emailRecapNotices.some((n) => n.kind === 'weekly_recap'));
   const emailRecapD = await deliveries(recapEmail);
   check('email recap :email delivery sent', emailRecapD.some((r) => r.dedupeKey.endsWith(':email') && r.status === 'sent' && r.channel === 'email'));
+
+  // ── 7. #36 under-13 social enforcement ──────────────────────────────────
+  // u13 holds a consent blob that already says social:true — enforcement must
+  // override stored state, not just refuse new grants.
+  const u13 = await seedUser('u13', {
+    channel: 'in_app', triggers: ALL_OFF,
+    user: { dateOfBirth: '2015-06-01', ageConsent: true },
+    consent: { version: 1, choices: { social: true, notifications: true } },
+  });
+  const adult = await seedUser('adult', {
+    channel: 'in_app', triggers: ALL_OFF,
+    consent: { version: 1, choices: { social: true, notifications: true } },
+  });
+  const target = await seedUser('target', {
+    channel: 'in_app', triggers: ALL_OFF,
+    consent: { version: 1, choices: { social: true, notifications: true } },
+  });
+  fixtureUserIds.push(u13, adult, target);
+
+  const patchSocial = async (userId: string, choices: Record<string, boolean>) => {
+    const token = await signAccessToken({ id: userId, email: `${userId}@verify.invalid`, role: 'student', totpEnabled: false });
+    const req = new NextRequest('http://verify.local/api/v1/consent', {
+      method: 'PATCH',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ choices }),
+    });
+    return patchConsent(req, { params: {} });
+  };
+
+  const u13Patch = await patchSocial(u13, { social: true });
+  const u13PatchBody = (await u13Patch.json().catch(() => null)) as { error?: { code?: string } } | null;
+  check('u13 PATCH social grant refused', u13Patch.status === 403);
+  check('u13 PATCH error code', u13PatchBody?.error?.code === 'social_underage', u13PatchBody?.error?.code ?? 'none');
+
+  const u13Overview = await getSocialOverview(u13);
+  check('u13 overview hides social despite stored consent', u13Overview.consentSocial === false && u13Overview.connections.length === 0);
+  check('u13 friend board empty', (await friendBoard(u13)).length === 0);
+
+  let u13SendStatus = 0;
+  try { await sendConnection(u13, { userId: target }); } catch (e) { u13SendStatus = e instanceof ApiError ? e.status : -1; }
+  check('u13 sendConnection 403', u13SendStatus === 403, `status ${u13SendStatus}`);
+
+  const connAccept = `${MARK}-conn-accept`;
+  const connDecline = `${MARK}-conn-decline`;
+  await db.insert(studyConnections).values([
+    { id: connAccept, pairKey: socialPairKey(target, u13), requesterId: target, addresseeId: u13, kind: 'buddy', status: 'pending' },
+    { id: connDecline, pairKey: `${MARK}-pair2`, requesterId: target, addresseeId: u13, kind: 'buddy', status: 'pending' },
+  ]);
+  let u13AcceptStatus = 0;
+  try { await respondConnection(u13, connAccept, 'accept'); } catch (e) { u13AcceptStatus = e instanceof ApiError ? e.status : -1; }
+  check('u13 connection accept 403', u13AcceptStatus === 403, `status ${u13AcceptStatus}`);
+  let u13DeclineOk = true;
+  try { await respondConnection(u13, connDecline, 'decline'); } catch { u13DeclineOk = false; }
+  check('u13 decline stays consent-exempt', u13DeclineOk);
+
+  const adultPatch = await patchSocial(adult, { social: true });
+  check('DOB-less PATCH social allowed', adultPatch.status === 200, `status ${adultPatch.status}`);
+  check('DOB-less overview shows consent', (await getSocialOverview(adult)).consentSocial === true);
+  const adultSend = await sendConnection(adult, { userId: target });
+  check('DOB-less sendConnection works', adultSend.status === 'pending', adultSend.status ?? 'none');
 } finally {
   // ── cleanup: every fixture row, children first ──────────────────────────
   for (const u of fixtureUserIds) {
+    await db.delete(studyConnections).where(or(eq(studyConnections.requesterId, u), eq(studyConnections.addresseeId, u)));
     await db.delete(notificationDeliveries).where(eq(notificationDeliveries.userId, u));
     await db.delete(notifications).where(eq(notifications.userId, u));
     await db.delete(examPlans).where(eq(examPlans.userId, u));
