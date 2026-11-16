@@ -130,7 +130,9 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
     return {
       tone: 'welcome',
       line: `Nothing here yet, ${firstName(snap.name)}. Ten minutes on one topic is enough to start.`,
-      action: { label: 'Pick a topic', href: '/library' },
+      // Students land in the catalogue; staff land in their own content.
+      // (/library is the authoring tool — wrong door for a new learner.)
+      action: { label: 'Pick a topic', href: snap.role === 'student' ? '/learn' : '/library' },
     };
   }
 

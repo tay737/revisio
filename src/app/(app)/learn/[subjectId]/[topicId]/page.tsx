@@ -14,6 +14,7 @@ import { SPRING } from '@/lib/motion';
 import { buttonVariants } from '@/lib/button-variants';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { markNotesRead } from '@/lib/onboarding';
 
 type Lesson = { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string };
 
@@ -71,8 +72,11 @@ export default function TopicScreen() {
     const cached = window.localStorage.getItem('revisio.noteDensity');
     if (cached === 'detailed' || cached === 'summary') setDensity(cached);
     api
-      .get<{ prefs?: { noteDensity?: 'detailed' | 'summary' } | null }>('/api/v1/me')
+      .get<{ id?: string; prefs?: { noteDensity?: 'detailed' | 'summary' } | null }>('/api/v1/me')
       .then((d) => {
+        // "Read the notes" on the first-run checklist is done the moment a
+        // topic's notes have actually rendered for this account.
+        if (d.id) markNotesRead(d.id);
         const owned = d.prefs?.noteDensity;
         if (owned === 'detailed' || owned === 'summary') {
           setDensity(owned);

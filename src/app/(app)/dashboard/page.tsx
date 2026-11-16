@@ -8,6 +8,7 @@ import { Icon, type IconName } from '@/components/ui/icons';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { TilePanel } from '@/components/ui/tile';
 import { Companion } from '@/components/companion';
+import { FirstRunCard } from '@/components/onboarding/FirstRunCard';
 import { RankStrip } from '@/components/rank/RankStrip';
 import { StrengthCard } from '@/components/insights/StrengthCard';
 import { companionFor, greetingFor, openers } from '@/lib/profile';
@@ -124,6 +125,11 @@ export default function DashboardPage() {
           </div>
         )}
       </TilePanel>
+
+      {/* ── 1½. First run: the guided path for a student who has never
+          graded a card. Self-gates on role + srs.totalCards, so it costs
+          nothing for anyone past activation. ── */}
+      <FirstRunCard me={me} />
 
       {/* ── 2. Four numbers ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
