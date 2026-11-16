@@ -1,0 +1,30 @@
+name: Retention reminders
+
+# Opt-in study reminders (#11). The Vercel Hobby cron only runs daily, so the
+# per-learner local send windows are driven by this GitHub Actions schedule —
+# same pattern as sync-ping.yml. The endpoint itself decides who is due, so a
+# missed tick only delays a reminder, never duplicates one.
+#
+# Requires the repo secret CRON_SECRET to match the production env var.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Dispatch retention reminders
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/v1/cron/retention
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET" || { echo "CRON_SECRET repo secret is not set"; exit 1; }
+          curl -fsS --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://revisio-srs.vercel.app/api/v1/cron/retention?limit=200"
