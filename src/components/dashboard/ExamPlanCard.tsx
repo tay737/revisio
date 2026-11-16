@@ -185,23 +185,29 @@ export function ExamPlanCard() {
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field icon="clock" label="Date" htmlFor="examPlanDate">
-              <Input
-                id="examPlanDate"
-                type="date"
-                value={examDate}
-                onChange={(e) => setExamDate(e.target.value)}
-                required
-              />
+              <>
+                <Input
+                  id="examPlanDate"
+                  type="date"
+                  value={examDate}
+                  onChange={(e) => setExamDate(e.target.value)}
+                  required
+                />
+                <p className="t-fine mt-1 text-muted-foreground">Today or later — the countdown starts the day you save it.</p>
+              </>
             </Field>
             <Field icon="target" label="Daily target (topics)" htmlFor="examPlanTarget">
-              <Input
-                id="examPlanTarget"
-                type="number"
-                min={1}
-                max={50}
-                value={dailyTarget}
-                onChange={(e) => setDailyTarget(e.target.value)}
-              />
+              <>
+                <Input
+                  id="examPlanTarget"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={dailyTarget}
+                  onChange={(e) => setDailyTarget(e.target.value)}
+                />
+                <p className="t-fine mt-1 text-muted-foreground">How many topics a day you can realistically give it. Revisio compares this with what the date needs.</p>
+              </>
             </Field>
           </div>
           {me.subjects.length > 0 && (
@@ -219,6 +225,7 @@ export function ExamPlanCard() {
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+              <p className="t-fine mt-1 text-muted-foreground">Narrow it to one subject, or leave it open.</p>
             </Field>
           )}
           {error && <p className="t-caption text-destructive-ink">{error}</p>}

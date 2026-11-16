@@ -180,6 +180,7 @@ export default function CramClient() {
         <h1 className="t-tagline mt-4">Cram session done</h1>
         <p className="t-body mt-2 text-muted-foreground">{sessionSummary(score.correct, score.total)}</p>
         <p className="t-caption mt-2 text-muted-foreground">Nothing about your review schedule changed.</p>
+        <p className="t-fine mt-1 text-muted-foreground">Scores here are practice signal, not predictions.</p>
         <div className="mt-5 flex justify-center gap-2">
           <Button
             type="button"
@@ -435,6 +436,9 @@ export default function CramClient() {
           </div>
         </div>
 
+        <p className="t-caption text-muted-foreground">
+          Cram is for the gaps — the topics you know you will be asked but have not locked in. It is deliberate practice, not a substitute for the daily reviews that actually move things.
+        </p>
         <Button variant="primary" className="w-full gap-2" disabled={picked.size === 0 || starting} onClick={start}>
           <Icon name="start" size={18} />
           {starting ? 'Building your session…' : 'Start cram session'}
