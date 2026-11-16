@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import {
   cards, cardUserStates, examAttempts, examPlans, guardianLinks,
@@ -59,9 +59,10 @@ async function publicUser(userId: string) {
 // ── streak protection (#12) ─────────────────────────────────────────────────
 
 export async function getStreakSummary(userId: string) {
-  const [[row], events] = await Promise.all([
+  const [[row], events, [me]] = await Promise.all([
     db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1),
     db.select().from(streakEvents).where(eq(streakEvents.userId, userId)).orderBy(desc(streakEvents.occurredAt)).limit(25),
+    db.select({ prefs: users.prefs }).from(users).where(eq(users.id, userId)).limit(1),
   ]);
   const state: StreakState = {
     current: row?.current ?? 0,
@@ -69,9 +70,13 @@ export async function getStreakSummary(userId: string) {
     lastActiveDate: row?.lastActiveDate ?? null,
     freezes: row?.freezes ?? 0,
   };
-  const comeback = events.find((e) => e.kind === 'comeback');
+  const comeback = events.find((e) => e.kind === 'comeback' && e.meta?.track !== 'mastery');
+  const masteryOn = me?.prefs?.streakMastery === true;
   return {
     ...state,
+    mastery: masteryOn
+      ? { current: row?.masteryCurrent ?? 0, best: row?.masteryBest ?? 0, lastActiveDate: row?.masteryLastActiveDate ?? null }
+      : null,
     events: events.map((e) => ({
       id: e.id, kind: e.kind, streakBefore: e.streakBefore, streakAfter: e.streakAfter,
       meta: e.meta ?? null, occurredAt: e.occurredAt.toISOString(),
@@ -101,7 +106,7 @@ export const DEFAULT_NOTIFICATION_PREFS = {
   timezone: 'UTC',
   quietStart: null as string | null,
   quietEnd: null as string | null,
-  triggers: { dueCards: true, streakRisk: true, seasonEnding: true, achievement: true } as Record<string, boolean>,
+  triggers: { dueCards: true, streakRisk: true, seasonEnding: true, achievement: true, weeklyRecap: false } as Record<string, boolean>,
   channel: 'email' as const,
 };
 
@@ -277,6 +282,27 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
       }
     }
 
+    // Weekly recap (#8): on the learner's local Monday, summarise the UTC
+    // week that just ended. In-app notification always; email only when the
+    // weeklyRecap trigger is explicitly on (opt-in, off by default).
+    if (isLocalMonday(prefs.timezone, now)) {
+      const recap = await buildWeeklyRecap(user.id, now);
+      const appDelivery = await claimDelivery(user.id, 'weekly_recap', 'in_app', `${recap.weekStart}:app`);
+      if (appDelivery) {
+        await recordNotification(user.id, { kind: 'recap', title: 'Your week in Revisio', body: recap.line, href: '/progress' });
+        await db.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: appDelivery.attempt } }).where(eq(notificationDeliveries.id, appDelivery.id));
+      }
+      if (triggers.weeklyRecap === true) {
+        candidates.push({
+          kind: 'weekly_recap',
+          title: 'Your week in Revisio',
+          body: recap.line,
+          href: '/progress',
+          dedupe: `${recap.weekStart}:email`,
+        });
+      }
+    }
+
     for (const candidate of candidates) {
       attempted++;
       const delivery = await claimDelivery(user.id, candidate.kind, prefs.channel, candidate.dedupe);
@@ -320,6 +346,85 @@ async function claimDelivery(userId: string, kind: string, channel: string, dedu
   if (existing.createdAt.getTime() > Date.now() - 10 * 60_000) return null;
   await db.update(notificationDeliveries).set({ status: 'failed', detail: { attempt, stage: 'claimed' } }).where(eq(notificationDeliveries.id, existing.id));
   return { id: existing.id, attempt };
+}
+
+// ── weekly recap (#8) ───────────────────────────────────────────────────────
+
+function isLocalMonday(timezone: string, now: Date) {
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(now) === 'Mon';
+  } catch {
+    return false;
+  }
+}
+
+export type WeeklyRecap = {
+  /** Monday (YYYY-MM-DD, UTC) of the recapped week — also the dedupe key. */
+  weekStart: string;
+  reviews: number;
+  verifiedReviews: number;
+  accuracyPct: number | null;
+  daysActive: number;
+  cardsMastered: number;
+  topMissedTopic: { id: string; name: string } | null;
+  streak: { current: number; best: number; freezes: number };
+  masteryStreak: { current: number; best: number } | null;
+  /** Privacy-safe one-liner — counts and streak numbers only, no content. */
+  line: string;
+};
+
+/** Recap of the last complete Monday–Sunday UTC week. Activity and mastery
+ *  stay two honest numbers — never blended into one score. */
+export async function buildWeeklyRecap(userId: string, now = new Date()): Promise<WeeklyRecap> {
+  const thisMonday = mondayUtc(now);
+  const prevMonday = new Date(thisMonday.getTime() - 7 * 86_400_000);
+  const weekStart = prevMonday.toISOString().slice(0, 10);
+  const [logs, [mastered], [streakRow], [me], missed] = await Promise.all([
+    db.select({ mode: reviewLogs.mode, graded: reviewLogs.graded, reviewedAt: reviewLogs.reviewedAt })
+      .from(reviewLogs)
+      .where(and(eq(reviewLogs.userId, userId), gte(reviewLogs.reviewedAt, prevMonday), lt(reviewLogs.reviewedAt, thisMonday))),
+    db.select({ c: sql<number>`count(*)::int` }).from(cardUserStates)
+      .where(and(eq(cardUserStates.userId, userId), eq(cardUserStates.stage, 'mastered'),
+        gte(cardUserStates.lastReviewedAt, prevMonday), lt(cardUserStates.lastReviewedAt, thisMonday))),
+    db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1),
+    db.select({ prefs: users.prefs }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ topicId: topics.id, name: topics.name, c: sql<number>`count(*)::int` })
+      .from(reviewLogs)
+      .innerJoin(cards, eq(cards.id, reviewLogs.cardId))
+      .innerJoin(topics, eq(topics.id, cards.topicId))
+      .where(and(eq(reviewLogs.userId, userId), gte(reviewLogs.reviewedAt, prevMonday), lt(reviewLogs.reviewedAt, thisMonday),
+        sql`(${reviewLogs.graded} ->> 'correct')::boolean = false`))
+      .groupBy(topics.id, topics.name)
+      .orderBy(desc(sql`count(*)`))
+      .limit(1),
+  ]);
+
+  const reviews = logs.length;
+  const correct = logs.filter((l) => l.graded?.correct === true).length;
+  const verifiedReviews = logs.filter((l) => (l.mode === 'daily' || l.mode === 'learn') && l.graded?.correct === true).length;
+  const daysActive = new Set(logs.map((l) => l.reviewedAt.toISOString().slice(0, 10))).size;
+  const masteryOn = me?.prefs?.streakMastery === true;
+  const parts = [
+    `${daysActive} day${daysActive === 1 ? '' : 's'} active`,
+    `${reviews} review${reviews === 1 ? '' : 's'}`,
+  ];
+  if (reviews > 0) parts.push(`${Math.round((correct / reviews) * 100)}% accurate`);
+  const masteredCount = mastered?.c ?? 0;
+  if (masteredCount > 0) parts.push(`${masteredCount} card${masteredCount === 1 ? '' : 's'} newly mastered`);
+  const masteryCurrent = streakRow?.masteryCurrent ?? 0;
+  if (masteryOn && masteryCurrent > 0) parts.push(`mastery streak ${masteryCurrent}`);
+  return {
+    weekStart,
+    reviews,
+    verifiedReviews,
+    accuracyPct: reviews > 0 ? Math.round((correct / reviews) * 100) : null,
+    daysActive,
+    cardsMastered: masteredCount,
+    topMissedTopic: missed[0] ? { id: missed[0].topicId, name: missed[0].name } : null,
+    streak: { current: streakRow?.current ?? 0, best: streakRow?.best ?? 0, freezes: streakRow?.freezes ?? 0 },
+    masteryStreak: masteryOn ? { current: masteryCurrent, best: streakRow?.masteryBest ?? 0 } : null,
+    line: parts.join(' · '),
+  };
 }
 
 // ── challenges & goals (#13) ────────────────────────────────────────────────

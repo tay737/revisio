@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-
 import { db } from '@/db/client';
 import {
   cards, cardAnswers, cardUserStates, examQuestions, examPapers, lessons, reviewLogs, streaks, subjects,
-  topics, userAchievements, userTopicStates, xpEvents, achievements,
+  topics, userAchievements, userTopicStates, users, xpEvents, achievements,
   leagueMemberships, examAttempts, featureFlags,
 } from '@/db/schema';
 import { gradeClozeWithPolicy, gradeFlashcard, gradeMcq, type AcceptedAnswer, type Verdict } from '@/domain/grading';
@@ -204,6 +204,8 @@ export type SubmitReviewResult = {
   level: number;
   streak: number;
   streakFreezes: number;
+  /** Opt-in mastery streak (#8); null when the learner hasn't enabled it. */
+  masteryStreak: { current: number; best: number } | null;
   streakEvents: { kind: string; meta?: Record<string, unknown> }[];
   newAchievements: { id: string; name: string; icon: string; description: string }[];
   nextDueAt: string;
@@ -275,13 +277,15 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   let streakCurrent = 0;
   let streakFreezes = 0;
   let streakEventList: StreakEvent[] = [];
+  let masteryStreak: { current: number; best: number } | null = null;
   if (input.mode !== 'exam') {
-    const [timesTodayRes, streakRes] = await Promise.all([
+    const [timesTodayRes, streakRes, prefsRes] = await Promise.all([
       db
         .select({ c: sql<number>`count(*)` })
         .from(reviewLogs)
         .where(and(eq(reviewLogs.userId, userId), eq(reviewLogs.cardId, card.id), gte(reviewLogs.reviewedAt, startOfToday()))),
       db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1),
+      db.select({ prefs: users.prefs }).from(users).where(eq(users.id, userId)).limit(1),
     ]);
     const timesToday = timesTodayRes;
     const [streakRow] = streakRes;
@@ -291,14 +295,61 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
       lastActiveDate: streakRow?.lastActiveDate ?? null,
       freezes: streakRow?.freezes ?? 0,
     };
-    const updated = nextStreakState(cur, utcDateKey());
+    const today = utcDateKey();
+    const updated = nextStreakState(cur, today);
     streakCurrent = updated.state.current;
     streakFreezes = updated.state.freezes;
     streakEventList = updated.events;
+
+    // Mastery streak (#8): opt-in via users.prefs.streakMastery; increments
+    // only on a verified review — mode daily|learn AND graded correct.
+    // cram reviews don't move the retention schedule, exam bypasses streaks.
+    const mode = input.mode ?? 'daily';
+    const masteryOn = prefsRes[0]?.prefs?.streakMastery === true;
+    let masterySet: { masteryCurrent: number; masteryBest: number; masteryLastActiveDate: string | null } | null = null;
+    if (masteryOn && verdict.correct && (mode === 'daily' || mode === 'learn')) {
+      const mUpdated = nextStreakState(
+        {
+          current: streakRow?.masteryCurrent ?? 0,
+          best: streakRow?.masteryBest ?? 0,
+          lastActiveDate: streakRow?.masteryLastActiveDate ?? null,
+          freezes: cur.freezes,
+        },
+        today,
+      );
+      masterySet = {
+        masteryCurrent: mUpdated.state.current,
+        masteryBest: mUpdated.state.best,
+        masteryLastActiveDate: mUpdated.state.lastActiveDate,
+      };
+      masteryStreak = { current: mUpdated.state.current, best: mUpdated.state.best };
+      const masteryEvents = mUpdated.events.map((e) => ({
+        ...e,
+        meta: { ...(e.meta ?? {}), track: 'mastery' as const },
+      }));
+      streakEventList = [...streakEventList, ...masteryEvents];
+      // Shared freeze bank: both tracks started from the same balance, so the
+      // smaller result already reflects the larger gap — coverage is never
+      // double-spent and freezes are never invented.
+      streakFreezes = Math.min(updated.state.freezes, mUpdated.state.freezes);
+      await recordStreakEvents(userId, masteryEvents);
+    }
+
     await db
       .insert(streaks)
-      .values({ userId, current: updated.state.current, best: updated.state.best, lastActiveDate: updated.state.lastActiveDate, freezes: updated.state.freezes })
-      .onConflictDoUpdate({ target: streaks.userId, set: { current: updated.state.current, best: updated.state.best, lastActiveDate: updated.state.lastActiveDate, freezes: updated.state.freezes } });
+      .values({
+        userId, current: updated.state.current, best: updated.state.best,
+        lastActiveDate: updated.state.lastActiveDate, freezes: streakFreezes,
+        ...(masterySet ?? {}),
+      })
+      .onConflictDoUpdate({
+        target: streaks.userId,
+        set: {
+          current: updated.state.current, best: updated.state.best,
+          lastActiveDate: updated.state.lastActiveDate, freezes: streakFreezes,
+          ...(masterySet ?? {}),
+        },
+      });
     await recordStreakEvents(userId, updated.events);
 
     xpAwarded = xpForReview({
@@ -332,6 +383,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     await recordNotification(userId, { kind: 'achievement', title: `Achievement unlocked: ${a.name}`, body: a.description, href: '/progress' });
   }
   for (const e of streakEventList) {
+    if (e.meta?.track === 'mastery') continue; // mastery track is a signal, not a lever — no push copy in v1
     if (e.kind === 'freeze_used') {
       await recordNotification(userId, { kind: 'streak', title: 'Streak freeze used', body: 'A freeze covered a missed day — your streak is still alive.', href: '/dashboard' });
     } else if (e.kind === 'comeback') {
@@ -353,7 +405,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     primaryAnswer: card.kind === 'cloze' ? primary?.text : undefined,
     modelAnswer: card.kind === 'flashcard' ? primary?.text : undefined,
     explanation: card.explanationMd || undefined,
-    xpAwarded, totalXp, level, streak: streakCurrent, streakFreezes, streakEvents: streakEventList, newAchievements,
+    xpAwarded, totalXp, level, streak: streakCurrent, streakFreezes, masteryStreak, streakEvents: streakEventList, newAchievements,
     nextDueAt: (scheduling?.dueAt ?? new Date()).toISOString(),
     srsLevel: srsLevelFor(nextSrsState),
     srsLabel: srsLevelInfo(srsLevelFor(nextSrsState)).label,
@@ -590,12 +642,89 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
 // ── exam simulator ──────────────────────────────────────────────────────────
 
 export async function buildExam(userId: string, topicIds: string[], questionCount = 5) {
+  // Interleaved build (#8): stratified across topics instead of first-N oldest.
+  // Each topic gets a guaranteed seat, remaining seats go to topics weighted by
+  // recent misses; within a topic, questions introducing unseen AO buckets are
+  // preferred. Deterministic per (user, topic set, count) so a retry rebuilds
+  // the same paper.
   const rows = await db
     .select()
     .from(examQuestions)
     .where(and(inArray(examQuestions.topicId, topicIds), eq(examQuestions.visibility, 'public')))
-    .orderBy(asc(examQuestions.createdAt))
-    .limit(questionCount);
+    .orderBy(asc(examQuestions.createdAt));
+  if (rows.length <= questionCount) return toExamPayload(rows);
+
+  const missRows = await db
+    .select({ topicId: cards.topicId, c: sql<number>`count(*)::int` })
+    .from(reviewLogs)
+    .innerJoin(cards, eq(cards.id, reviewLogs.cardId))
+    .where(and(
+      eq(reviewLogs.userId, userId),
+      inArray(cards.topicId, topicIds),
+      gte(reviewLogs.reviewedAt, new Date(Date.now() - 30 * 86_400_000)),
+      sql`(${reviewLogs.graded} ->> 'correct')::boolean = false`,
+    ))
+    .groupBy(cards.topicId);
+  const missWeight = new Map(missRows.map((r) => [r.topicId, r.c]));
+
+  const byTopic = new Map<string, typeof rows>();
+  for (const q of rows) {
+    const list = byTopic.get(q.topicId) ?? [];
+    list.push(q);
+    byTopic.set(q.topicId, list);
+  }
+  const rng = seededRng(`${userId}:${[...topicIds].sort().join(',')}:${questionCount}`);
+  const active = [...byTopic.keys()]
+    .filter((t) => byTopic.get(t)!.length > 0)
+    .sort((a, b) => (missWeight.get(b) ?? 0) - (missWeight.get(a) ?? 0) || a.localeCompare(b));
+
+  // Guaranteed coverage seat per topic, then weighted remainder by misses.
+  const alloc = new Map<string, number>();
+  let remaining = questionCount;
+  for (const t of active) {
+    alloc.set(t, 1);
+    remaining -= 1;
+  }
+  const totalWeight = active.reduce((s, t) => s + 1 + (missWeight.get(t) ?? 0), 0);
+  const quotas = active.map((t) => {
+    const w = 1 + (missWeight.get(t) ?? 0);
+    return { t, exact: (remaining * w) / totalWeight, floor: Math.floor((remaining * w) / totalWeight) };
+  });
+  for (const qota of quotas) {
+    const extra = Math.min(qota.floor, byTopic.get(qota.t)!.length - 1);
+    alloc.set(qota.t, (alloc.get(qota.t) ?? 0) + Math.max(0, extra));
+  }
+  let left = questionCount - [...alloc.values()].reduce((s, n) => s + n, 0);
+  for (const qota of quotas.sort((a, b) => (b.exact - b.floor) - (a.exact - a.floor))) {
+    while (left > 0 && (alloc.get(qota.t) ?? 0) < byTopic.get(qota.t)!.length) {
+      alloc.set(qota.t, (alloc.get(qota.t) ?? 0) + 1);
+      left -= 1;
+    }
+    if (left <= 0) break;
+  }
+
+  // Deal each topic's allocation: unseen AO buckets first, then seeded order.
+  const picked: typeof rows = [];
+  const seenAo = new Set<string>();
+  for (const t of active) {
+    const want = Math.min(alloc.get(t) ?? 0, questionCount - picked.length);
+    if (want <= 0) continue;
+    const queue = [...byTopic.get(t)!];
+    for (let i = queue.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [queue[i], queue[j]] = [queue[j], queue[i]];
+    }
+    const fresh = queue.filter((q) => (q.aoSplit ?? []).some((a) => !seenAo.has(a.ao)));
+    const rest = queue.filter((q) => !(q.aoSplit ?? []).some((a) => !seenAo.has(a.ao)));
+    for (const q of [...fresh, ...rest].slice(0, want)) {
+      picked.push(q);
+      for (const a of q.aoSplit ?? []) seenAo.add(a.ao);
+    }
+  }
+  return toExamPayload(picked);
+}
+
+function toExamPayload(rows: (typeof examQuestions.$inferSelect)[]) {
   return rows.map((q) => ({
     id: q.id,
     kind: q.kind,
@@ -611,6 +740,23 @@ export async function buildExam(userId: string, topicIds: string[], questionCoun
     specRefs: q.specRefs,
     // mark scheme, keywords and model answer stay server-side until submission
   }));
+}
+
+/** Deterministic PRNG (mulberry32) seeded from a string — stable paper builds. */
+function seededRng(seed: string) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  let a = h >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 /**

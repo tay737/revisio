@@ -53,7 +53,7 @@ export const users = pgTable('users', {
   ageConsent: boolean('age_consent').notNull().default(false),
   dateOfBirth: text('date_of_birth'),
   prefs: jsonb('prefs')
-    .$type<{ noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean }>()
+    .$type<{ noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean; streakMastery?: boolean }>()
     .notNull()
     .default(sql`'{}'::jsonb`),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
@@ -391,6 +391,13 @@ export const streaks = pgTable('streaks', {
   lastActiveDate: text('last_active_date'), // YYYY-MM-DD (UTC)
   /** Banked streak freezes, earned every 7 days and spent on missed days. */
   freezes: integer('freezes').notNull().default(0),
+  /** Opt-in mastery streak (#8): consecutive days with a verified review
+   *  (mode daily|learn AND graded correct). Shares the freeze bank — the
+   *  bank keeps the smaller post-transition value so coverage is never
+   *  double-spent. Null until the learner first enables it. */
+  masteryCurrent: integer('mastery_current').notNull().default(0),
+  masteryBest: integer('mastery_best').notNull().default(0),
+  masteryLastActiveDate: text('mastery_last_active_date'), // YYYY-MM-DD (UTC)
 });
 
 export const achievements = pgTable('achievements', {
@@ -800,4 +807,49 @@ export const deckSubscriptions = pgTable('deck_subscriptions', {
 }, (t) => ({
   pk: uniqueIndex('deck_subscriptions_pk').on(t.userId, t.deckTopicId),
   deckIdx: index('deck_subscriptions_deck_idx').on(t.deckTopicId),
+}));
+
+/** A topic deck a teacher assigns to a class (#5). `required` drives queue
+ *  priority; completion is derived from review_logs, never stored. */
+export const classAssignments = pgTable('class_assignments', {
+  id: text('id').primaryKey(),
+  classId: text('class_id').notNull().references(() => classes.id, { onDelete: 'cascade' }),
+  topicId: text('topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+  /** Local calendar date, YYYY-MM-DD; null = no deadline. */
+  dueDate: text('due_date'),
+  noteDensity: text('note_density', { enum: ['light', 'standard', 'deep'] }).notNull().default('standard'),
+  required: boolean('required').notNull().default(true),
+  note: text('note').notNull().default(''),
+  createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  classTopicIdx: uniqueIndex('class_assignments_class_topic_idx').on(t.classId, t.topicId),
+  classIdx: index('class_assignments_class_idx').on(t.classId),
+}));
+
+// ── AI draft pipeline (#7, v1) ──────────────────────────────────────────────
+// A draft is a *proposal*, never content: the model's CardInput[] sits in
+// `payload` until a teacher accepts (cards are written then, `generated: true`)
+// or rejects. `model` + `promptVersion` make a bad batch identifiable; the
+// status stream is the pilot's accept/edit/reject metric. Ephemeral working
+// state — deliberately NOT in the mirror's sync trigger list.
+
+export const aiDrafts = pgTable('ai_drafts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** Where accept writes by default; the accept call may override. */
+  targetTopicId: text('target_topic_id').references(() => topics.id, { onDelete: 'set null' }),
+  model: text('model').notNull(),
+  promptVersion: text('prompt_version').notNull(),
+  status: text('status', { enum: ['proposed', 'accepted', 'partial', 'rejected'] }).notNull().default('proposed'),
+  payload: jsonb('payload').$type<{ cards: unknown[] }>().notNull(),
+  sourceChars: integer('source_chars').notNull().default(0),
+  decidedBy: text('decided_by').references(() => users.id, { onDelete: 'set null' }),
+  decidedAt: timestamp('decided_at', { mode: 'date' }),
+  /** Optional free-text reason captured on reject. */
+  decisionNote: text('decision_note'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('ai_drafts_user_idx').on(t.userId, t.createdAt),
+  statusIdx: index('ai_drafts_status_idx').on(t.status),
 }));

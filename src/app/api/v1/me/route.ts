@@ -117,7 +117,7 @@ export const PATCH = route(async (req: NextRequest) => {
     bannerColor?: string;
     profileVisibility?: Partial<ProfileVisibility>;
     leaderboardOptOut?: boolean;
-    prefs?: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean };
+    prefs?: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean; streakMastery?: boolean };
   };
   const update: Record<string, unknown> = {};
 
