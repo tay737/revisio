@@ -25,6 +25,7 @@ type ExamPlan = {
   perDayNeeded: number;
   onTrack: boolean;
   dailyTarget: number;
+  subjectId: string | null;
   weakestTopics: { id: string; name: string; remaining: number }[];
   reflection: Reflection | null;
 };
@@ -62,6 +63,7 @@ export function ExamPlanCard() {
   const { me } = useMe();
   const [plans, setPlans] = useState<ExamPlan[] | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<ExamPlan | null>(null);
   const [title, setTitle] = useState('');
   const [examDate, setExamDate] = useState('');
   const [subjectId, setSubjectId] = useState('');
@@ -114,20 +116,42 @@ export function ExamPlanCard() {
     }
   };
 
-  const create = async () => {
+  const resetForm = () => {
+    setCreating(false);
+    setEditing(null);
+    setTitle('');
+    setExamDate('');
+    setSubjectId('');
+    setDailyTarget('10');
+    setError('');
+  };
+
+  const startEdit = (p: ExamPlan) => {
+    setEditing(p);
+    setCreating(false);
+    setTitle(p.title);
+    setExamDate(p.examDate.slice(0, 10));
+    setSubjectId(p.subjectId ?? '');
+    setDailyTarget(String(p.dailyTarget));
+    setError('');
+  };
+
+  const save = async () => {
     setBusy(true);
     setError('');
+    const body = {
+      title: title.trim(),
+      examDate,
+      subjectId: subjectId || null,
+      dailyTarget: Number(dailyTarget) || 10,
+    };
     try {
-      await api.post('/api/v1/exam-plans', {
-        title: title.trim(),
-        examDate,
-        subjectId: subjectId || null,
-        dailyTarget: Number(dailyTarget) || 10,
-      });
-      setCreating(false);
-      setTitle('');
-      setExamDate('');
-      setSubjectId('');
+      if (editing) {
+        await api.patch(`/api/v1/exam-plans/${editing.id}`, body);
+      } else {
+        await api.post('/api/v1/exam-plans', body);
+      }
+      resetForm();
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the plan.');
@@ -145,33 +169,10 @@ export function ExamPlanCard() {
         )}
       </div>
 
-      {plan ? (
-        <div className="mt-3">
-          <p className="t-body font-medium">{plan.title}</p>
-          <p className="t-caption mt-1 text-muted-foreground">
-            {plan.daysLeft === 0
-              ? 'The exam is today.'
-              : `${plan.daysLeft} ${plan.daysLeft === 1 ? 'day' : 'days'} to go · ${plan.topicsRemaining} of ${plan.topicsTotal} topics still open`}
-          </p>
-          <p className="t-fine mt-1 text-muted-foreground">
-            {plan.perDayNeeded > 0
-              ? `About ${plan.perDayNeeded} topics a day keeps you on pace${plan.onTrack ? ' — you are on track.' : '.'}`
-              : 'Every topic is mastered. Well ahead of the date.'}
-          </p>
-          {plan.weakestTopics.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {plan.weakestTopics.map((t) => (
-                <Badge variant="chip-soft" key={t.id}>
-                  {t.name} · {t.remaining} left
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : creating ? (
+      {editing || creating ? (
         <form
           className="mt-3 space-y-3"
-          onSubmit={(e) => { e.preventDefault(); void create(); }}
+          onSubmit={(e) => { e.preventDefault(); void save(); }}
         >
           <Field icon="exam" label="Exam or test" htmlFor="examPlanTitle">
             <Input
@@ -231,26 +232,52 @@ export function ExamPlanCard() {
           {error && <p className="t-caption text-destructive-ink">{error}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={busy || !title.trim() || !examDate}>
-              {busy ? 'Saving…' : 'Start the countdown'}
+              {busy ? 'Saving…' : editing ? 'Save changes' : 'Start the countdown'}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setCreating(false)}>
-              Not now
+            <Button type="button" variant="ghost" size="sm" onClick={resetForm}>
+              {editing ? 'Cancel' : 'Not now'}
             </Button>
           </div>
         </form>
+      ) : plan ? (
+        <div className="mt-3">
+          <p className="t-body font-medium">{plan.title}</p>
+          <p className="t-caption mt-1 text-muted-foreground">
+            {plan.daysLeft === 0
+              ? 'The exam is today.'
+              : `${plan.daysLeft} ${plan.daysLeft === 1 ? 'day' : 'days'} to go · ${plan.topicsRemaining} of ${plan.topicsTotal} topics still open`}
+          </p>
+          <p className="t-fine mt-1 text-muted-foreground">
+            {plan.perDayNeeded > 0
+              ? `About ${plan.perDayNeeded} topics a day keeps you on pace${plan.onTrack ? ' — you are on track.' : '.'}`
+              : 'Every topic is mastered. Well ahead of the date.'}
+          </p>
+          {plan.weakestTopics.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {plan.weakestTopics.map((t) => (
+                <Badge variant="chip-soft" key={t.id}>
+                  {t.name} · {t.remaining} left
+                </Badge>
+              ))}
+            </div>
+          )}
+          <Button variant="ghost" size="sm" className="mt-2" onClick={() => startEdit(plan)}>
+            Edit
+          </Button>
+        </div>
       ) : (
         <div className="mt-3">
           <p className="t-caption text-muted-foreground">
             Pick an exam date and Revisio paces your topics to it — how many a day, what is left, where you are weakest.
           </p>
-          <Button variant="secondary" size="sm" className="mt-3 gap-1.5" onClick={() => setCreating(true)}>
+          <Button variant="secondary" size="sm" className="mt-3 gap-1.5" onClick={() => { setEditing(null); setCreating(true); }}>
             <Icon name="add" size={14} />
             Set an exam date
           </Button>
         </div>
       )}
 
-      {plan && (
+      {plan && !editing && (
         <p className="t-fine mt-3 border-t border-border pt-3 text-muted-foreground">
           A date makes the queue personal.{' '}
           <Link href="/cram" className="text-foreground underline underline-offset-4">
