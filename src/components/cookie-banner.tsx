@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { applyConsentChange, blankConsent, consentFromBlob, purposeDescription, type ConsentKey, type ConsentState } from '@/lib/consent';
+import { notifyConsentChange, readStoredConsent, writeConsentRecord } from '@/lib/consent-storage';
 import { api, getToken } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Button } from '@/components/ui/button';
@@ -29,14 +30,6 @@ export type UserConsent = ConsentState;
  * The guard is read from localStorage so it works before any fetch; it never
  * gates access to the Service — it only gates the *banner*.
  */
-const BANNER_KEY = 'revisio.cookie-consent';
-
-interface StoredConsentRecord {
-  version: number;
-  decidedAt: string;
-  consent: UserConsent;
-}
-
 /** True when the current path is explicitly exempt from the consent banner. */
 function isBannerExempt(path: string): boolean {
   return (
@@ -45,33 +38,6 @@ function isBannerExempt(path: string): boolean {
     path.startsWith('/terms') ||
     path.startsWith('/accessibility')
   );
-}
-
-function readStoredConsent(): { consent: UserConsent; decidedAt: string | null; failed: boolean } {
-  try {
-    const raw = localStorage.getItem(BANNER_KEY);
-    if (!raw) return { consent: blankConsent(), decidedAt: null, failed: false };
-    const record = JSON.parse(raw) as { consent?: unknown; choices?: unknown; decidedAt?: unknown; show?: unknown };
-    const consent = consentFromBlob(record.consent ?? record.choices ?? record);
-    const decidedAt = typeof record.decidedAt === 'string'
-      ? record.decidedAt
-      : record.show === false
-        ? consent.updatedAt
-        : null;
-    return { consent, decidedAt, failed: false };
-  } catch {
-    return { consent: blankConsent(), decidedAt: null, failed: true };
-  }
-}
-
-function writeConsentRecord(consent: UserConsent, decidedAt = consent.updatedAt): boolean {
-  try {
-    const record: StoredConsentRecord = { version: 1, decidedAt, consent };
-    localStorage.setItem(BANNER_KEY, JSON.stringify(record));
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -171,6 +137,7 @@ export function CookieConsentBanner() {
           setSaved(next);
           setDismissed(true);
           writeConsentRecord(next, remote.decidedAt);
+          notifyConsentChange();
           setSyncError(false);
         } else if (localDecisionAt) {
           await api.patch('/api/v1/consent', {
@@ -226,6 +193,7 @@ export function CookieConsentBanner() {
       setError('Your browser blocked storage. These choices are active for this visit only; allow site storage to keep them.');
       return;
     }
+    notifyConsentChange();
     setStorageError(false);
     setDismissed(true);
     setSyncError(false);

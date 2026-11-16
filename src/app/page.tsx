@@ -6,6 +6,7 @@ import { Icon, type IconName } from '@/components/ui/icons';
 import { ReviewDemo } from '@/components/landing/review-demo';
 import { ForgettingCurve } from '@/components/landing/forgetting-curve';
 import { HeroEnter, HeroItem } from '@/components/landing/hero-enter';
+import { LandingCtaTracker } from '@/components/landing/cta-tracker';
 import { rankFor } from '@/domain/ranked';
 import { Card } from '@/components/ui/card';
 import { buttonVariants } from '@/lib/button-variants';
@@ -56,6 +57,7 @@ const COMPANION_LINE = 'Nothing is due. You are ahead.';
 
 export default function LandingPage() {
   return (
+    <LandingCtaTracker>
     <div className="min-h-viewport bg-background">
       <a href="#main" className="skip-link">
         Skip to content
@@ -81,6 +83,9 @@ export default function LandingPage() {
             <a href="#rank" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
               Rank
             </a>
+            <Link href="/subjects" className="inline-flex min-h-11 items-center rounded-pill px-3 t-caption-s text-muted-foreground hover:text-foreground">
+              Subjects
+            </Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -97,7 +102,7 @@ export default function LandingPage() {
 
       <main id="main" tabIndex={-1}>
         {/* ── Hero: what it is, who it is for, one fact, the real thing ────── */}
-        <TileBand tone="light" className="landing-hero">
+        <TileBand tone="light" id="hero" className="landing-hero">
           <div className="grid items-center gap-6 sm:gap-8 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
             <HeroEnter>
               <HeroItem>
@@ -264,7 +269,7 @@ export default function LandingPage() {
         </TileBand>
 
         {/* ── Close and footer, one screen ─────────────────────────────────── */}
-        <TileBand tone="dark" className="landing-close">
+        <TileBand tone="dark" id="close" className="landing-close">
           <div className="flex flex-1 flex-col">
             <div className="mx-auto my-auto max-w-2xl py-6 text-center">
               <h2 className="t-display">Start with one card today.</h2>
@@ -311,5 +316,6 @@ export default function LandingPage() {
         </TileBand>
       </main>
     </div>
+    </LandingCtaTracker>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { applyConsentChange, blankConsent, consentFromBlob, type ConsentKey, type ConsentState } from '@/lib/consent';
+import { notifyConsentChange, writeConsentRecord } from '@/lib/consent-storage';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -53,7 +54,12 @@ export function ConsentSection() {
         updatedAt: next.updatedAt,
         choices: next.choices,
       });
-      setState(consentFromBlob(result.consent));
+      const nextState = consentFromBlob(result.consent);
+      setState(nextState);
+      // The banner and the analytics gate read the device record, not the
+      // account one — mirror the saved choice locally so all three agree.
+      writeConsentRecord(nextState);
+      notifyConsentChange();
       setSaved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'We could not save your choices.');

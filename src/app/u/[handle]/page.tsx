@@ -15,6 +15,7 @@ import { ProfileBadgeChip } from '@/components/ui/profile-badge';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { buttonVariants } from '@/lib/button-variants';
+import { ShareProfileButton } from '@/components/ShareProfileButton';
 import { cn } from '@/lib/utils';
 
 /**
@@ -34,9 +35,21 @@ export async function generateMetadata({ params }: { params: { handle: string } 
   const profile = await getPublicProfile(params.handle, null);
   if (!profile) return { title: 'Profile · Revisio' };
   const display = profile.nickname || profile.name || profile.username || 'Learner';
+  // Open Graph turns the profile URL into a shareable card: whoever receives
+  // the link sees rank, XP and subjects in the preview without visiting.
+  const description =
+    profile.bio ??
+    `${display} is studying on Revisio${profile.gamification ? ` — ${profile.gamification.rankLabel}, ${profile.gamification.totalXp} XP` : ''}.`;
   return {
     title: `${display} · Revisio`,
-    description: profile.bio ?? `${display} is studying on Revisio.`,
+    description,
+    openGraph: {
+      title: `${display} · Revisio`,
+      description,
+      url: `/u/${params.handle}`,
+      siteName: 'Revisio',
+      type: 'profile',
+    },
   };
 }
 
@@ -99,10 +112,13 @@ export default async function ProfilePage({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="t-display min-w-0 truncate">{display}</h1>
           {owner && (
-            <Link href="/settings" className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'shrink-0 gap-1.5')}>
-              <Icon name="edit" size={14} />
-              Edit profile
-            </Link>
+            <span className="flex shrink-0 items-center gap-2">
+              <ShareProfileButton handle={params.handle} />
+              <Link href="/settings" className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'gap-1.5')}>
+                <Icon name="edit" size={14} />
+                Edit profile
+              </Link>
+            </span>
           )}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">

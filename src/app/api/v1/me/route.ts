@@ -61,7 +61,7 @@ export const GET = route(async (req: NextRequest) => {
 
     const [row] = rowRes;
     if (!row) return null;
-    const [streakRow] = await rdb.select({ current: streaks.current, best: streaks.best }).from(streaks).where(eq(streaks.userId, user.id)).limit(1);
+    const [streakRow] = await rdb.select({ current: streaks.current, best: streaks.best, freezes: streaks.freezes }).from(streaks).where(eq(streaks.userId, user.id)).limit(1);
     const totalXp = xpRes;
     const { level, intoLevel, forNext } = levelForXp(totalXp);
     const stats = statsRes;
@@ -93,7 +93,7 @@ export const GET = route(async (req: NextRequest) => {
       leaderboardOptOut: row.leaderboardOptOut,
       prefs: row.prefs,
       subjects: subsRes,
-      gamification: { totalXp, level, intoLevel, forNext, streak: streakRow?.current ?? 0, bestStreak: streakRow?.best ?? 0 },
+      gamification: { totalXp, level, intoLevel, forNext, streak: streakRow?.current ?? 0, bestStreak: streakRow?.best ?? 0, streakFreezes: streakRow?.freezes ?? 0 },
       today,
       srs: { levels: srsLevels, avgLevel: avgSrsLevel, totalCards: srsTotal },
       achievements: achRes,
