@@ -218,7 +218,7 @@ function SeasonClock({
           )}
           {mine.placed && !mine.rank.isApex && (
             <p className="mt-2 t-caption text-muted-foreground">
-              {mine.rank.remaining} RP to the next rung · about {reviewsForRp(mine.rank.remaining)} more
+              {mine.rank.remaining} rank points (RP) to the next rung · about {reviewsForRp(mine.rank.remaining)} more
               reviews.
             </p>
           )}

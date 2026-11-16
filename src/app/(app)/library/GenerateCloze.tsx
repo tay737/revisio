@@ -95,7 +95,7 @@ export function GenerateCloze({ topics, onDone }: { topics: TopicOption[]; onDon
           <NativeSelect id="gen-topic" value={topicId} onChange={(e) => { setTopicId(e.target.value); setProposals(null); setError(''); }}>
             <option value="">Choose a topic…</option>
             {topics.map((t) => (
-              <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName} — ${t.name}` : t.name}</option>
+              <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName}: ${t.name}` : t.name}</option>
             ))}
           </NativeSelect>
           <p className="t-caption mt-1.5 text-muted-foreground">

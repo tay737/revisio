@@ -75,9 +75,9 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
   const fail = (e: unknown) => {
     if (e instanceof ApiClientError) {
       if (e.status === 403) setError('AI drafts are for teachers and developers.');
-      else if (e.status === 429) setError('Too many drafts this hour — try again later.');
+      else if (e.status === 429) setError('Too many drafts this hour. Try again later.');
       else if (e.status === 503) setError('AI drafting is not configured on this deployment.');
-      else if (e.status === 502) setError('The model returned something unusable — try again, or shorten the source.');
+      else if (e.status === 502) setError('The model returned something unusable. Try again, or shorten the source.');
       else setError(e.message);
     } else {
       setError(e instanceof Error ? e.message : 'That did not go through.');
@@ -130,7 +130,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
       onDone(
         d.status === 'accepted'
           ? `${d.inserted} ${d.inserted === 1 ? 'card' : 'cards'} added to “${picked?.name ?? 'the topic'}”.`
-          : `${d.inserted} of ${d.proposed} proposed added to “${picked?.name ?? 'the topic'}” — the rest were discarded.`,
+          : `${d.inserted} of ${d.proposed} proposed added to “${picked?.name ?? 'the topic'}”. The rest were discarded.`,
       );
       setProposal(null);
       setSource('');
@@ -147,7 +147,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
     setError('');
     try {
       await api.post(`/api/v1/drafts/${proposal.draftId}/reject`, {});
-      onDone('Draft discarded — nothing was added.');
+      onDone('Draft discarded. Nothing was added.');
       setProposal(null);
       setSource('');
     } catch (e) {
@@ -174,7 +174,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
           placeholder="Paste the lesson notes, a transcript, or the section the cards should come from."
         />
         <p className={`t-caption mt-1 ${overLimit ? 'text-destructive-ink' : 'text-muted-foreground'}`}>
-          {source.length.toLocaleString()} / {MAX_SOURCE.toLocaleString()} characters — the model only uses this text.
+          {source.length.toLocaleString()} / {MAX_SOURCE.toLocaleString()} characters. The model only uses this text.
         </p>
       </div>
 
@@ -184,11 +184,11 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
           <NativeSelect id="draft-topic" value={topicId} onChange={(e) => setTopicId(e.target.value)}>
             <option value="">Choose where accepted cards land…</option>
             {topicOptions.map((t) => (
-              <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName} — ${t.name}` : t.name}</option>
+              <option key={t.id} value={t.id}>{t.subjectName ? `${t.subjectName}: ${t.name}` : t.name}</option>
             ))}
           </NativeSelect>
           <p className="t-caption mt-1.5 text-muted-foreground">
-            {picked ? `Accepted cards join “${picked.name}” with its current visibility.` : 'Pick a topic before accepting — the draft itself does not need one.'}
+            {picked ? `Accepted cards join “${picked.name}” with its current visibility.` : 'Pick a topic before accepting. The draft itself does not need one.'}
           </p>
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -229,7 +229,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
             label="Discard draft"
             icon="remove"
             title="Discard this draft?"
-            message="Nothing was added — the proposal cannot be reopened."
+            message="Nothing was added. The proposal cannot be reopened."
             confirmLabel="Discard"
             onConfirm={() => void reject()}
           />
@@ -276,7 +276,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
                       value={join(c.answers)}
                       onChange={(e) => patch(i, { answers: lines(e.target.value) })}
                       aria-label="Accepted answers, one per line"
-                      placeholder="Accepted answers — one per line"
+                      placeholder="Accepted answers: one per line"
                     />
                   </>
                 )}
@@ -293,7 +293,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
                       value={join(c.answers)}
                       onChange={(e) => patch(i, { answers: lines(e.target.value) })}
                       aria-label="Answer, one per line"
-                      placeholder="Answer — the first line is the primary one"
+                      placeholder="Answer: the first line is the primary one"
                     />
                   </>
                 )}
@@ -310,7 +310,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
                       value={join(c.options)}
                       onChange={(e) => patch(i, { options: lines(e.target.value) })}
                       aria-label="Options, one per line"
-                      placeholder="Options — one per line"
+                      placeholder="Options: one per line"
                     />
                     <NativeSelect
                       value={String(c.correctIdx ?? 0)}
@@ -332,7 +332,7 @@ export function DraftReview({ topics, onDone }: { topics: TopicOption[]; onDone:
       {proposal && proposal.cards.length > 0 && (
         <p className="t-caption text-muted-foreground">
           Cloze blanks use <span className="font-mono">____</span>; the first accepted answer is the primary one.
-          Multiple-choice options and the correct pick are edited as a set — keep them in step.
+          Multiple-choice options and the correct pick are edited as a set. Keep them in step.
         </p>
       )}
     </div>

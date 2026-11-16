@@ -121,16 +121,16 @@ object Copy {
                 // 'pending' covers three quiet states: still placing, a lobby
                 // too small for bands, and a viewer below the filled seats.
                 filled < RankLadder.LOBBY_ZONE_MIN ->
-                    "$position of $filled. A small lobby this week — bands start at ${RankLadder.LOBBY_ZONE_MIN} seated. No stakes yet; keep going."
+                    "$position of $filled. A small lobby this week. Bands start at ${RankLadder.LOBBY_ZONE_MIN} seated. No stakes yet; keep going."
                 position > filled ->
-                    "$position overall. The lobby seats 30 — keep reviewing and the table reshuffles as everyone studies."
+                    "$position overall. The lobby seats 30. Keep reviewing and the table reshuffles as everyone studies."
                 else ->
                     "We are still placing you. A few more reviews and we will seat you in a $rankLabel lobby."
             }
             "promotion" ->
-                "$position of $size. You are inside the promotion zone. $days; holding this seat moves you up a rung."
+                "$position of $size. You're inside the promotion zone. $days; holding this seat moves you up a rung."
             "demotion" ->
-                "$position of $size. You're in the drop zone. $days; one session pulls you clear, and nothing is lost — your RP stays."
+                "$position of $size. You're in the drop zone. $days; one session pulls you clear, and nothing is lost. Your rank points stay."
             else ->
                 "$position of $size. Safe, and close enough to the promotion band to take it. $days."
         }

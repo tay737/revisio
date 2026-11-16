@@ -100,7 +100,7 @@ export default async function JoinPage({ params }: { params: { code: string } })
         )}
       </Card>
       <p className="t-fine mt-4 text-center text-muted-foreground">
-        Class codes are six letters and numbers. They are shared by your teacher — never posted publicly.
+        Class codes are six letters and numbers. They are shared by your teacher, never posted publicly.
       </p>
     </div>
   );

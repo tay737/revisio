@@ -111,7 +111,7 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
         <p style="margin:24px 0">
           <a href="${url}" style="background:#000000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Choose a new password</a>
         </p>
-        <p style="color:#6b7280;font-size:13px;line-height:1.6">This link works once and expires in 30 minutes. If you didn't ask for it, ignore this email — your password is unchanged.</p>
+        <p style="color:#6b7280;font-size:13px;line-height:1.6">This link works once and expires in 30 minutes. If you didn't ask for it, ignore this email. Your password is unchanged.</p>
       </div>`,
     text: `Reset your Revisio password: ${url} (single use, expires in 30 minutes). If you didn't ask for this, ignore the email.`,
   });
@@ -139,7 +139,7 @@ export async function sendEmailChangeEmail(to: string, token: string): Promise<v
         <p style="margin:24px 0">
           <a href="${url}" style="background:#000000;color:#fff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:600;display:inline-block">Confirm new email</a>
         </p>
-        <p style="color:#6b7280;font-size:13px;line-height:1.6">This link expires in 24 hours. If you didn't request this, your account is unchanged — ignore the email.</p>
+        <p style="color:#6b7280;font-size:13px;line-height:1.6">This link expires in 24 hours. If you didn't request this, your account is unchanged. Ignore the email.</p>
       </div>`,
     text: `Confirm your new Revisio email: ${url} (expires in 24 hours)`,
   });

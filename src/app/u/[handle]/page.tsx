@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: { params: { handle: string } 
   // the link sees rank, XP and subjects in the preview without visiting.
   const description =
     profile.bio ??
-    `${display} is studying on Revisio${profile.gamification ? ` — ${profile.gamification.rankLabel}, ${profile.gamification.totalXp} XP` : ''}.`;
+    `${display} is studying on Revisio${profile.gamification ? `: ${profile.gamification.rankLabel}, ${profile.gamification.totalXp} XP` : ''}.`;
   return {
     title: `${display} · Revisio`,
     description,

@@ -168,12 +168,12 @@ export async function buildInsights(userId: string) {
       t.missCount > 0
         ? `${t.missCount} miss${t.missCount === 1 ? '' : 'es'} in the last 30 days`
         : t.lapses > 0
-          ? `${t.lapses} lapse${t.lapses === 1 ? '' : 's'} — cards keep slipping back`
+          ? `${t.lapses} lapse${t.lapses === 1 ? '' : 's'}. Cards keep slipping back`
           : t.masteryPct < 50
             ? `only ${t.masteryPct}% of its cards are mastered`
             : due > 0
               ? `${due} card${due === 1 ? '' : 's'} due now`
-              : 'shaky — worth a review pass';
+              : 'shaky. Worth a review pass';
     return { ...t, dueCount: due, reason };
   });
 

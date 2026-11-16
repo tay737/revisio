@@ -16,20 +16,20 @@ import { cn } from '@/lib/utils';
 export const metadata: Metadata = {
   title: 'For teachers · Revisio',
   description:
-    'Run revision for your whole class on Revisio — classes, rosters and per-student progress built in.',
+    'Run revision for your whole class on Revisio: classes, rosters and per-student progress built in.',
 };
 
 const HERO = {
   eyebrow: 'For teachers',
   heading: 'Set the class. Revisio does the chasing.',
-  lead: 'Create a class, share a join code, and every student’s review queue builds itself. You see who is keeping up and who is coasting — without collecting anyone’s planner.',
+  lead: 'Create a class, share a join code, and every student’s review queue builds itself. You see who is keeping up and who is coasting, without collecting anyone’s planner.',
 };
 
 const HOW_IT_WORKS = {
   heading: 'How a class uses it',
   steps: [
     'You create the class and share the join code.',
-    'Students join and revise ten minutes a day — the queue schedules itself.',
+    'Students join and revise ten minutes a day. The queue schedules itself.',
     'You check the dashboard: who is due, who is slipping, which topic needs a re-teach.',
   ],
 };
@@ -43,19 +43,19 @@ const SECTIONS: {
   {
     icon: 'class',
     title: 'A class in a minute',
-    body: 'Create a class and share its join code. Students register or sign in and join with the code — no invites, no email lists, no IT ticket.',
+    body: 'Create a class and share its join code. Students register or sign in and join with the code: no invites, no email lists, no IT ticket.',
     points: ['Join codes you can rotate', 'Add or remove students yourself', 'Rename or delete a class anytime'],
   },
   {
     icon: 'notes',
     title: 'Content they will actually revise',
-    body: 'Publish topics to your class subject. Every card stays linked to its note, so when a student slips the fix is one tap away — not a re-teach in front of the room.',
+    body: 'Publish topics to your class subject. Every card stays linked to its note, so when a student slips the fix is one tap away, not a re-teach in front of the room.',
     points: ['Topics published to your class', 'Notes behind every card', 'Queues that build themselves'],
   },
   {
     icon: 'progress',
     title: 'Progress you can act on',
-    body: 'Each student’s reviews, accuracy and weak topics land on your dashboard — the same mastery data they see, rolled up for the class.',
+    body: 'Each student’s reviews, accuracy and weak topics land on your dashboard (the same mastery data they see, rolled up for the class).',
     points: ['Per-student progress', 'Weak-topic visibility', 'Evidence of revision, not attendance'],
   },
 ];
@@ -63,11 +63,11 @@ const SECTIONS: {
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'Do students need their own accounts?',
-    a: 'Yes — each student registers with the class join code. That is what makes their progress visible to you.',
+    a: 'Yes, each student registers with the class join code. That is what makes their progress visible to you.',
   },
   {
     q: 'Is there a cost for classrooms?',
-    a: 'Revisio is free while it is in alpha, and class features are part of the same product — no separate licence.',
+    a: 'Revisio is free while it is in alpha, and class features are part of the same product, with no separate licence.',
   },
   {
     q: 'Do I have to write the cards?',

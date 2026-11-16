@@ -312,7 +312,7 @@ const BASE_CONCEPTS: Concept[] = [
           `$\\frac{${a}}{${d}} + \\frac{${b}}{${d}} = ?$  (give your answer as a fraction)`,
           a + b,
           d,
-          `Same denominator: add the numerators — ${a} + ${b} = ${a + b}, so $\\frac{${a + b}}{${d}}$${fracDisplay(n, dd) !== `${a + b}/${d}` ? `, which simplifies to $\\frac{${n}}{${dd}}$` : ''}.`,
+          `Same denominator: add the numerators: ${a} + ${b} = ${a + b}, so $\\frac{${a + b}}{${d}}$${fracDisplay(n, dd) !== `${a + b}/${d}` ? `, which simplifies to $\\frac{${n}}{${dd}}$` : ''}.`,
           [fracDisplay(a * b, d), fracDisplay(a + b, d * 2), fracDisplay(Math.abs(a - b), d)],
         );
       },
@@ -547,7 +547,7 @@ const BASE_CONCEPTS: Concept[] = [
     id: 'unit-conversion',
     name: 'Unit conversion',
     category: 'Measures',
-    description: 'Metric lengths, masses, capacities — and area/volume factors.',
+    description: 'Metric lengths, masses, capacities and area/volume factors.',
     marks: [1, 1, 2],
     gen: {
       easy: (r) => {
