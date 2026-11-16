@@ -90,7 +90,10 @@ export default function SocialPage() {
   const links = guardianData?.links ?? [];
 
   const fail = (e: unknown) => {
-    if (e instanceof ApiClientError && e.status === 409) {
+    // Consent gates come back as 409 on writes and 403 on the summary read —
+    // both mean the same thing to the person clicking: their Social switch
+    // (or their counterparty's, for accept) is off.
+    if (e instanceof ApiClientError && (e.status === 409 || (e.status === 403 && /consent/i.test(e.message)))) {
       setError('Social features need consent — enable Social under How we use your data in Settings, save, then try again.');
     } else {
       setError(e instanceof Error ? e.message : 'That did not go through.');
@@ -171,18 +174,29 @@ export default function SocialPage() {
         subtitle="Buddies and accountability partners — private, never on the public leaderboard."
       />
 
-      {consentOff && (
-        <Notice tone="note">
-          Social features are off. Enable{' '}
-          <Link href="/settings#how-we-use-your-data" className="font-semibold underline underline-offset-2">
-            Social
-          </Link>{' '}
-          under How we use your data in Settings, save, then come back.
-        </Notice>
-      )}
       <Notice tone="bad" show={!!error}>{error}</Notice>
       <Notice tone="good" show={!!notice}>{notice}</Notice>
 
+      {consentOff ? (
+        /* Consent off: the API returns empty collections, which would read as
+           "no friends yet" — a lie about the reason. Explain the gate instead
+           and point at the one switch that opens it. */
+        <Card className="p-5">
+          <h2 className="t-strong">Study circle is off</h2>
+          <p className="t-caption mt-2 text-muted-foreground">
+            Buddies, accountability partners, the private weekly board and guardian summaries all sit behind one switch.
+            Turn on Social under How we use your data in Settings and this page fills in — nothing is shared until you do.
+            Existing connections and guardian links can be managed by temporarily enabling Social.
+          </p>
+          <Link
+            href="/settings#how-we-use-your-data"
+            className="mt-3 inline-flex min-h-11 items-center t-caption font-semibold text-foreground underline underline-offset-4"
+          >
+            Open privacy settings
+          </Link>
+        </Card>
+      ) : (
+      <>
       {/* ── Add someone ─────────────────────────────────────────────────── */}
       <Card className="p-5">
         <h2 className="t-strong">Add someone</h2>
@@ -420,6 +434,8 @@ export default function SocialPage() {
           </div>
         )}
       </Card>
+      </>
+      )}
     </div>
   );
 }
