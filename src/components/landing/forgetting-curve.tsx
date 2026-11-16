@@ -74,13 +74,13 @@ export function ForgettingCurve() {
     <Card className="!p-5 shadow-[var(--shadow-card)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="t-fine uppercase tracking-[0.08em] text-muted-foreground">Recall now</p>
+          <p className="t-eyebrow">Recall now</p>
           <p className="num t-num mt-1 leading-none" aria-live="polite">
             {recallPct}%
           </p>
         </div>
         <div className="text-right">
-          <p className="t-fine uppercase tracking-[0.08em] text-muted-foreground">Next review</p>
+          <p className="t-eyebrow">Next review</p>
           <p className="mt-1 t-lead-airy font-semibold">
             {isDue ? 'Due now' : `In ${Math.max(1, Math.round(nextDueDays - days))} days`}
           </p>
