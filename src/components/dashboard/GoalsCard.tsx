@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Field } from '@/components/AuthForm';
+import { Field } from '@/components/ui/field';
 import { Progress } from '@/components/ui/progress';
 import { useMe } from '@/lib/useMe';
 
