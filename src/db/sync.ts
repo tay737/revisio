@@ -1177,12 +1177,34 @@ async function applyOne(client: Pool | import('pg').PoolClient, event: SyncEvent
   await upsertRow(client, event.table_name, def, event.row_data);
 }
 
+/**
+ * #52 §3, DPO-approved 2026-11-17: the Neon mirror never holds second-factor
+ * secrets. Every `users` row written by the apply path — event drain
+ * (`applyOne`), missing-parent pull (`tryParentPull`) and backfill
+ * (`applyUpserts`) all funnel through `upsertRow` — has `totp_secret`
+ * forced to NULL and `recovery_codes` to `[]`, so a mirror rebuild cannot
+ * re-populate them either. The primary is untouched: every TOTP read
+ * (login, /2fa, data-deletion) stays on the primary. `email` stays
+ * replicated by deliberate DPO ruling — `/me` and leaderboards read it off
+ * the mirror — which means mirror promotion requires users re-enrolling
+ * 2FA; promotion is rebuild-not-failover under #52 anyway.
+ *
+ * The apply path only ever writes the Neon mirror post-#52 (replication is
+ * one-way, the mirror has no capture triggers), so the redaction is
+ * unconditional here rather than target-gated.
+ */
+const MIRROR_REDACTED: Record<string, Record<string, unknown>> = {
+  users: { totp_secret: null, recovery_codes: [] },
+};
+
 async function upsertRow(
   client: Pool | import('pg').PoolClient,
   tableName: string,
   def: TableDef,
   row: Record<string, unknown>,
 ): Promise<void> {
+  const redacted = MIRROR_REDACTED[tableName];
+  if (redacted) row = { ...row, ...redacted };
   const cols: string[] = [];
   const values: string[] = [];
   for (const col of def.columns) {
