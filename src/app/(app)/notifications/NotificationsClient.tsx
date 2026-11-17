@@ -22,7 +22,8 @@ type CentreItem = {
   createdAt: string;
 };
 
-type Centre = { notifications: CentreItem[]; unread: number };
+type CentreCursor = { createdAt: string; id: string };
+type Centre = { notifications: CentreItem[]; unread: number; nextCursor: CentreCursor | null };
 
 /** Kind → glyph; anything the backend adds later falls back to the bell.
  *  The retention cron records `due_cards` / `season_ending`; other features
@@ -51,17 +52,33 @@ const KIND_ICON: Record<string, IconName> = {
  * "mark all read" clears the badge without touching the list.
  */
 export function NotificationsClient() {
-  const { data, error, mutate } = useSWR<Centre>('/api/v1/notifications?limit=50', api.get, {
+  const PAGE = 50;
+  const { data, error, mutate } = useSWR<Centre>(`/api/v1/notifications?limit=${PAGE}`, api.get, {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
   });
   const [busy, setBusy] = useState(false);
+  // Older pages accumulate client-side: SWR owns page one, `older` owns the
+  // rest, and `olderCursor` chains past page one once the learner asks for more.
+  const [older, setOlder] = useState<CentreItem[]>([]);
+  const [olderCursor, setOlderCursor] = useState<CentreCursor | null>(null);
+  const [exhausted, setExhausted] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(false);
 
   const markRead = async (ids?: string[]) => {
     setBusy(true);
     try {
-      const next = await api.post<Centre>('/api/v1/notifications', ids ? { ids } : {});
+      const next = await api.post<Centre>('/api/v1/notifications', { ...(ids ? { ids } : {}), limit: PAGE });
       await mutate(next, { revalidate: false });
+      // Pages past the first are not in the SWR cache — mirror the read state
+      // locally so an opened older item stops looking unread.
+      const now = new Date().toISOString();
+      setOlder((prev) =>
+        ids
+          ? prev.map((n) => (ids.includes(n.id) && !n.readAt ? { ...n, readAt: now } : n))
+          : prev.map((n) => (n.readAt ? n : { ...n, readAt: now })),
+      );
     } catch {
       await mutate();
     } finally {
@@ -70,6 +87,29 @@ export function NotificationsClient() {
   };
 
   const items = data?.notifications ?? [];
+  const allItems = [...items, ...older];
+  const cursor = exhausted ? null : (olderCursor ?? data?.nextCursor ?? null);
+
+  const loadMore = async () => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    setMoreError(false);
+    try {
+      const res = await api.get<Centre>(
+        `/api/v1/notifications?limit=${PAGE}&before=${encodeURIComponent(cursor.createdAt)}&beforeId=${encodeURIComponent(cursor.id)}`,
+      );
+      setOlder((prev) => {
+        const seen = new Set([...items.map((n) => n.id), ...prev.map((n) => n.id)]);
+        return [...prev, ...res.notifications.filter((n) => !seen.has(n.id))];
+      });
+      setOlderCursor(res.nextCursor);
+      if (!res.nextCursor) setExhausted(true);
+    } catch {
+      setMoreError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -112,7 +152,7 @@ export function NotificationsClient() {
       ) : (
         <Card className="divide-y divide-border/60 p-0">
           <ul>
-            {items.map((n) => {
+            {allItems.map((n) => {
               const unread = !n.readAt;
               const inner = (
                 <>
@@ -164,6 +204,24 @@ export function NotificationsClient() {
             })}
           </ul>
         </Card>
+      )}
+
+      {data !== undefined && items.length > 0 && (
+        <div className="flex flex-col items-center gap-2">
+          {cursor && (
+            <Button type="button" variant="secondary" size="sm" disabled={loadingMore} onClick={() => void loadMore()}>
+              {loadingMore ? 'Loading…' : 'Load older notifications'}
+            </Button>
+          )}
+          {moreError && (
+            <p className="t-fine text-muted-foreground" role="status">
+              We couldn’t load older notifications.{' '}
+              <button type="button" className="font-semibold underline underline-offset-2" onClick={() => void loadMore()}>
+                Try again
+              </button>
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

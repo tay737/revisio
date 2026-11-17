@@ -180,23 +180,46 @@ export async function updateNotificationPrefs(userId: string, input: Record<stri
   return getNotificationPrefs(userId);
 }
 
-export async function listNotifications(userId: string, limit = 30) {
-  const rows = await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(Math.min(limit, 100));
-  const unread = rows.filter((r) => !r.readAt).length;
+export async function listNotifications(userId: string, limit = 30, before?: { createdAt: string; id: string }) {
+  const pageSize = Math.min(Math.max(Math.trunc(limit) || 30, 1), 100);
+  const conds = [eq(notifications.userId, userId)];
+  if (before) {
+    const t = new Date(before.createdAt);
+    if (!Number.isNaN(t.getTime())) {
+      // Keyset on (createdAt, id): stable under inserts, unlike OFFSET.
+      conds.push(or(lt(notifications.createdAt, t), and(eq(notifications.createdAt, t), lt(notifications.id, before.id)))!);
+    }
+  }
+  const rows = await db
+    .select()
+    .from(notifications)
+    .where(and(...conds))
+    .orderBy(desc(notifications.createdAt), desc(notifications.id))
+    .limit(pageSize + 1);
+  const hasMore = rows.length > pageSize;
+  const page = rows.slice(0, pageSize);
+  // Unread is a whole-account count, not a page count — the bell badge and
+  // "Mark all read" must not under-report once the list paginates.
+  const [unreadRow] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+  const last = page[page.length - 1];
   return {
-    notifications: rows.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, href: n.href, readAt: n.readAt?.toISOString() ?? null, createdAt: n.createdAt.toISOString() })),
-    unread,
+    notifications: page.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, href: n.href, readAt: n.readAt?.toISOString() ?? null, createdAt: n.createdAt.toISOString() })),
+    unread: unreadRow?.c ?? 0,
+    nextCursor: hasMore && last ? { createdAt: last.createdAt.toISOString(), id: last.id } : null,
   };
 }
 
-export async function markNotificationsRead(userId: string, ids?: string[]) {
+export async function markNotificationsRead(userId: string, ids?: string[], limit = 100) {
   const now = new Date();
   if (ids && ids.length > 0) {
     await db.update(notifications).set({ readAt: now }).where(and(eq(notifications.userId, userId), inArray(notifications.id, ids), isNull(notifications.readAt)));
   } else {
     await db.update(notifications).set({ readAt: now }).where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
   }
-  return listNotifications(userId);
+  return listNotifications(userId, limit);
 }
 
 /** Insert an in-app notification; used by reviews, challenges, goals, social. */
