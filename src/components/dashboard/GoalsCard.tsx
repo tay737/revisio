@@ -149,7 +149,7 @@ export function GoalsCard() {
               {Math.min(g.progress, g.target)}/{g.target}
             </span>
           </div>
-          <Progress value={pct} className="mt-1" />
+          <Progress value={pct} className="mt-1" aria-label={`${g.title} progress`} />
           <p className="t-fine mt-1 text-muted-foreground">
             {meta.unit}
             {g.deadline ? ` · by ${deadlineLabel(g.deadline)}` : ''}
