@@ -153,7 +153,11 @@ export default function LandingPage() {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle className="h-10 w-10" />
-            <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'hidden sm:inline-flex')}>
+            {/* Hidden below lg: at 768–1023 the full nav plus both CTAs needs
+                ~839px and pushed the header 71px past the viewport (design:shots
+                landing-768 overflow). "Start free" still leads; /login stays one
+                tap away through it. */}
+            <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'hidden lg:inline-flex')}>
               Log in
             </Link>
             <Link href="/register" className={buttonVariants({ variant: 'primary' })}>
