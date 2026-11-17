@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type { Pool } from 'pg';
 import { neonConfigured, mirrorHealth } from '@/db/replica';
 import { installSyncInfrastructure, runSync, sharedSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, ensureSyncWriteAccess, type SyncHandles, type SyncDb } from '@/db/sync';
 import { fail, ok, requireUser, route } from '@/services/api';
@@ -42,8 +43,15 @@ export const GET = route(async (req: NextRequest) => {
     return ok({ configured: false, neon: false, pendingPrimary: 0, pendingNeon: 0 });
   }
 
+  // The cron bearer is accepted for `status` too: it is read-only queue
+  // telemetry, and the scheduled health probe (sync-health.yml) has no user
+  // session — only the shared secret.
+  const cronSecret = process.env.CRON_SECRET;
+  const bearer = req.headers.get('authorization');
+  const isCron = Boolean(cronSecret) && bearer === `Bearer ${cronSecret}`;
+
   if (action === 'status') {
-    await requireUser(req, ['developer']);
+    if (!isCron) await requireUser(req, ['developer']);
     const handles = sharedSyncHandles();
     if (!handles?.neon) return ok({ configured: true, neon: false, pendingPrimary: 0, pendingNeon: 0 });
     try {
@@ -51,7 +59,22 @@ export const GET = route(async (req: NextRequest) => {
         countPending(handles.primary),
         countPending(handles.neon),
       ]);
-      return ok({ configured: true, neon: true, mirror: mirrorHealth(), pendingPrimary, pendingNeon });
+      // Telemetry beyond the bare counts (#61): how stale the oldest queued
+      // event is and how far the mirror's review log trails the primary.
+      // Best-effort — a metrics failure must not take the status endpoint
+      // down with it.
+      let telemetry: Record<string, unknown> = {};
+      try {
+        const [oldestPrimary, oldestNeon, lag] = await Promise.all([
+          oldestEventAt(handles.primary.pool),
+          oldestEventAt(handles.neon.pool),
+          reviewLagSeconds(handles.primary.pool, handles.neon.pool),
+        ]);
+        telemetry = { oldestPrimary, oldestNeon, reviewLagSeconds: lag };
+      } catch (e) {
+        telemetry = { telemetryError: e instanceof Error ? e.message : 'metrics failed' };
+      }
+      return ok({ configured: true, neon: true, mirror: mirrorHealth(), pendingPrimary, pendingNeon, ...telemetry });
     } finally {
       await closeSyncHandles(handles);
       globalThis.__revisioSyncHandles = undefined;
@@ -59,9 +82,6 @@ export const GET = route(async (req: NextRequest) => {
   }
 
   // run: the cron's bearer secret, or a developer session.
-  const cronSecret = process.env.CRON_SECRET;
-  const bearer = req.headers.get('authorization');
-  const isCron = Boolean(cronSecret) && bearer === `Bearer ${cronSecret}`;
   if (!isCron) await requireUser(req, ['developer']);
 
   const handles = sharedSyncHandles();
@@ -78,6 +98,24 @@ export const GET = route(async (req: NextRequest) => {
     globalThis.__revisioSyncHandles = undefined;
   }
 });
+
+/** Oldest queued event's capture time on one side, or null when the queue is empty. */
+async function oldestEventAt(pool: Pool): Promise<string | null> {
+  const res = await pool.query(`SELECT min(captured_at) AS oldest FROM _sync_events`);
+  return res.rows[0]?.oldest ? new Date(res.rows[0].oldest).toISOString() : null;
+}
+
+/** Seconds the mirror's newest review trails the primary's; null when either side has none. */
+async function reviewLagSeconds(primary: Pool, neon: Pool): Promise<number | null> {
+  const [p, n] = await Promise.all([
+    primary.query(`SELECT max(reviewed_at) AS latest FROM review_logs`),
+    neon.query(`SELECT max(reviewed_at) AS latest FROM review_logs`),
+  ]);
+  const pLatest = p.rows[0]?.latest ? new Date(p.rows[0].latest).getTime() : null;
+  const nLatest = n.rows[0]?.latest ? new Date(n.rows[0].latest).getTime() : null;
+  if (pLatest == null || nLatest == null) return null;
+  return Math.max(0, Math.round((pLatest - nLatest) / 1000));
+}
 
 async function ensureInfrastructure(handles: SyncHandles): Promise<void> {
   const dbs: SyncDb[] = handles.neon ? [handles.primary, handles.neon] : [handles.primary];
