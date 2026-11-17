@@ -328,6 +328,7 @@ export function ReviewDemo() {
                     spellCheck={false}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
+                    aria-label="Your answer"
                     aria-describedby={feedbackId}
                     aria-invalid={gradeError || undefined}
                     placeholder={card.kind === 'flashcard' ? 'What do you remember?' : 'Type your answer'}
