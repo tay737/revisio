@@ -132,6 +132,29 @@ export async function recordAnalyticsEvents(
 }
 
 /**
+ * Hygiene delete for the lazy funnel table. Raw events are measurement data,
+ * not app state; the window is deliberately conservative and bounded per call.
+ */
+export async function pruneAnalyticsEvents(retentionDays = 90, batch = 5000): Promise<number> {
+  try {
+    await ensureTable();
+    const result = await db.execute(sql`
+      DELETE FROM analytics_events
+      WHERE id IN (
+        SELECT id FROM analytics_events
+        WHERE created_at < now() - (${retentionDays} * interval '1 day')
+        ORDER BY created_at
+        LIMIT ${batch}
+      )
+    `);
+    return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  } catch (e) {
+    console.error('[analytics] prune failed', e);
+    return 0;
+  }
+}
+
+/**
  * Record a server-observed funnel event (no anonymous id — the session is the
  * identity). Used for `first_review_completed`, which the client cannot know
  * is first. Fails open like the batch path.

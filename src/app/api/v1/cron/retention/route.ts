@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { fail, ok } from '@/services/api';
 import { processRetentionReminders } from '@/services/retention';
+import { runRetentionCleanup } from '@/services/retention-cleanup';
 
 export const maxDuration = 60;
 
@@ -18,8 +19,9 @@ async function handler(req: NextRequest) {
     return fail(401, 'unauthorized', 'Cron secret required.');
   }
   const limit = Number(req.nextUrl.searchParams.get('limit') ?? 200);
+  const cleanup = await runRetentionCleanup();
   const result = await processRetentionReminders(new Date(), Number.isFinite(limit) ? limit : 200);
-  return ok({ ok: true, ...result });
+  return ok({ ok: true, ...result, cleanup });
 }
 
 export const GET = handler;
