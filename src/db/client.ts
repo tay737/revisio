@@ -16,7 +16,7 @@ import * as schema from './schema';
 // pool per query, the 200-client ceiling, sessions dying on refresh) is told
 // once in pool.ts, not repeated here.
 
-export { isCapacityError } from './pool';
+export { errorChain, isCapacityError, isConnectionError } from './pool';
 
 type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
 

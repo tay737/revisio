@@ -1,7 +1,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { isCapacityError } from '@/db/client';
+import { errorChain, isCapacityError, isConnectionError } from '@/db/client';
 import { verifyAccessToken, type SessionUser, type Role } from '@/services/auth';
 
 export type { SessionUser };
@@ -30,8 +30,8 @@ export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json(data, privateJson(init));
 }
 
-export function fail(status: number, code: string, message: string, details?: unknown, field?: string) {
-  return NextResponse.json({ error: { code, message, details, field } }, privateJson({ status }));
+export function fail(status: number, code: string, message: string, details?: unknown, field?: string, headers?: Record<string, string>) {
+  return NextResponse.json({ error: { code, message, details, field } }, privateJson({ status, headers }));
 }
 
 /** Extract bearer token from Authorization header. */
@@ -80,7 +80,19 @@ export function route(handler: (req: NextRequest, ctx: { params: Record<string, 
       // between a user tapping again and a user believing the app has died.
       if (isCapacityError(e)) {
         console.error('[api] database is at capacity', e);
-        return fail(503, 'capacity', 'The database is busy. Give it a moment and try again.');
+        return fail(503, 'capacity', 'The database is busy. Give it a moment and try again.', undefined, undefined, { 'Retry-After': '5' });
+      }
+      // A connection-level failure (unreachable, reset, admin shutdown) is the
+      // same "wait, do not retry blindly" answer as capacity — but a longer
+      // one. A credential failure (28P01) is a deploy bug, not a wait, so it
+      // stays a 500.
+      const authFailed = errorChain(e).some((link) => {
+        const l = link as { code?: string; message?: string } | null;
+        return l?.code === '28P01' || /password authentication failed/i.test(l?.message ?? '');
+      });
+      if (!authFailed && isConnectionError(e)) {
+        console.error('[api] database unreachable', e);
+        return fail(503, 'db_unavailable', 'The database is unreachable right now. Try again shortly.', undefined, undefined, { 'Retry-After': '30' });
       }
       console.error('[api]', e);
       return fail(500, 'internal', 'Unexpected server error.');
