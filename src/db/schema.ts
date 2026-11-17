@@ -60,6 +60,7 @@ export const users = pgTable('users', {
 }, (t) => ({
   emailIdx: uniqueIndex('users_email_idx').on(t.email),
   usernameIdx: uniqueIndex('users_username_idx').on(t.username),
+  lowerUsernameIdx: index('users_lower_username_idx').on(sql`lower(${t.username})`),
 }));
 
 /** The fields of a profile whose exposure the owner controls. */
@@ -84,6 +85,7 @@ export const emailTokens = pgTable('email_tokens', {
   usedAt: timestamp('used_at', { mode: 'date' }),
 }, (t) => ({
   tokenIdx: index('email_tokens_hash_idx').on(t.tokenHash),
+  userIdx: index('email_tokens_user_id_idx').on(t.userId),
 }));
 
 export const refreshTokens = pgTable('refresh_tokens', {
@@ -95,6 +97,7 @@ export const refreshTokens = pgTable('refresh_tokens', {
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   tokenIdx: index('refresh_tokens_hash_idx').on(t.tokenHash),
+  userIdx: index('refresh_tokens_user_id_idx').on(t.userId),
 }));
 
 export const approvalRequests = pgTable('approval_requests', {
@@ -106,7 +109,9 @@ export const approvalRequests = pgTable('approval_requests', {
   reviewedBy: text('reviewed_by'),
   decidedAt: timestamp('decided_at', { mode: 'date' }),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-});
+}, (t) => ({
+  userIdx: index('approval_requests_user_id_idx').on(t.userId),
+}));
 
 // ── Content tree: subjects → topics → lessons ───────────────────────────────
 // visibility: public = official or approved; pending_review = awaiting dev
@@ -222,6 +227,7 @@ export const userSubjects = pgTable('user_subjects', {
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   pk: uniqueIndex('user_subjects_pk').on(t.userId, t.subjectId),
+  subjectIdx: index('user_subjects_subject_id_idx').on(t.subjectId),
 }));
 
 export const userTopicStates = pgTable('user_topic_states', {
@@ -235,6 +241,7 @@ export const userTopicStates = pgTable('user_topic_states', {
 }, (t) => ({
   pk: uniqueIndex('user_topic_states_pk').on(t.userId, t.topicId),
   dueIdx: index('user_topic_states_due_idx').on(t.userId, t.dueAt),
+  topicIdx: index('user_topic_states_topic_id_idx').on(t.topicId),
 }));
 
 export const cardUserStates = pgTable('card_user_states', {
@@ -253,6 +260,7 @@ export const cardUserStates = pgTable('card_user_states', {
 }, (t) => ({
   pk: uniqueIndex('card_user_states_pk').on(t.userId, t.cardId),
   dueIdx: index('card_user_states_due_idx').on(t.userId, t.dueAt),
+  cardIdx: index('card_user_states_card_id_idx').on(t.cardId),
 }));
 
 // ── Reviews (append-only ledger) ────────────────────────────────────────────
@@ -290,7 +298,9 @@ export const cramSessions = pgTable('cram_sessions', {
   maxPerTopic: integer('max_per_topic').notNull().default(20),
   noteDensity: text('note_density', { enum: ['detailed', 'summary'] }).notNull().default('detailed'),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-});
+}, (t) => ({
+  userIdx: index('cram_sessions_user_id_idx').on(t.userId),
+}));
 
 // ── Exam simulator ──────────────────────────────────────────────────────────
 
@@ -368,7 +378,9 @@ export const examAttempts = pgTable('exam_attempts', {
   maxScore: integer('max_score').notNull().default(0),
   detail: jsonb('detail').$type<{ questionId: string; userAnswer: string; awarded: number; marks: number; correct: boolean }[]>(),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-});
+}, (t) => ({
+  userCreatedIdx: index('exam_attempts_user_created_idx').on(t.userId, t.createdAt.desc()),
+}));
 
 // ── Gamification ────────────────────────────────────────────────────────────
 
@@ -414,6 +426,7 @@ export const userAchievements = pgTable('user_achievements', {
   unlockedAt: timestamp('unlocked_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   pk: uniqueIndex('user_achievements_pk').on(t.userId, t.achievementId),
+  achievementIdx: index('user_achievements_achievement_id_idx').on(t.achievementId),
 }));
 
 export const leagueMemberships = pgTable('league_memberships', {
@@ -523,6 +536,8 @@ export const classes = pgTable('classes', {
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   codeIdx: uniqueIndex('classes_join_code_idx').on(t.joinCode),
+  teacherIdx: index('classes_teacher_id_idx').on(t.teacherId),
+  subjectIdx: index('classes_subject_id_idx').on(t.subjectId),
 }));
 
 export const classMemberships = pgTable('class_memberships', {
@@ -531,6 +546,7 @@ export const classMemberships = pgTable('class_memberships', {
   joinedAt: timestamp('joined_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   pk: uniqueIndex('class_memberships_pk').on(t.classId, t.userId),
+  userClassIdx: index('class_memberships_user_id_class_id_idx').on(t.userId, t.classId),
 }));
 
 // ── Imports / publishing / feature flags / audit ────────────────────────────
@@ -547,7 +563,9 @@ export const imports = pgTable('imports', {
     errors: { row: number; message: string }[];
   }>(),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
-});
+}, (t) => ({
+  userIdx: index('imports_user_id_idx').on(t.userId),
+}));
 
 export const featureFlags = pgTable('feature_flags', {
   key: text('key').primaryKey(),
@@ -613,6 +631,7 @@ export const userProfileBadges = pgTable('user_profile_badges', {
   grantedAt: timestamp('granted_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   pk: uniqueIndex('user_profile_badges_pk').on(t.userId, t.badgeId),
+  badgeIdx: index('user_profile_badges_badge_id_idx').on(t.badgeId),
 }));
 
 // ── retention (epic #9) ─────────────────────────────────────────────────────
@@ -694,6 +713,7 @@ export const examPlans = pgTable('exam_plans', {
   updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   userIdx: index('exam_plans_user_idx').on(t.userId, t.status),
+  subjectIdx: index('exam_plans_subject_id_idx').on(t.subjectId),
 }));
 
 /** Per-period progress on a static challenge definition (see domain/retention). */
@@ -809,6 +829,7 @@ export const deckSubscriptions = pgTable('deck_subscriptions', {
 }, (t) => ({
   pk: uniqueIndex('deck_subscriptions_pk').on(t.userId, t.deckTopicId),
   deckIdx: index('deck_subscriptions_deck_idx').on(t.deckTopicId),
+  copyTopicIdx: index('deck_subscriptions_copy_topic_idx').on(t.copyTopicId),
 }));
 
 /** A topic deck a teacher assigns to a class (#5). `required` drives queue
@@ -829,6 +850,8 @@ export const classAssignments = pgTable('class_assignments', {
 }, (t) => ({
   classTopicIdx: uniqueIndex('class_assignments_class_topic_idx').on(t.classId, t.topicId),
   classIdx: index('class_assignments_class_idx').on(t.classId),
+  topicIdx: index('class_assignments_topic_id_idx').on(t.topicId),
+  createdByIdx: index('class_assignments_created_by_idx').on(t.createdBy),
 }));
 
 // ── AI draft pipeline (#7, v1) ──────────────────────────────────────────────
@@ -856,4 +879,6 @@ export const aiDrafts = pgTable('ai_drafts', {
 }, (t) => ({
   userIdx: index('ai_drafts_user_idx').on(t.userId, t.createdAt),
   statusIdx: index('ai_drafts_status_idx').on(t.status),
+  targetTopicIdx: index('ai_drafts_target_topic_idx').on(t.targetTopicId),
+  decidedByIdx: index('ai_drafts_decided_by_idx').on(t.decidedBy),
 }));
