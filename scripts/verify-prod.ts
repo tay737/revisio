@@ -31,10 +31,11 @@ function pgConfig(url: string) {
 
 // Tables that live only on the primary by design: created lazily on first
 // use and deliberately outside the replication trigger set (per-DB counters
-// and ephemeral analytics — #52 confirmed they never replicate). Their
-// absence on the mirror is expected, not drift. Add a name here only for a
-// table with NO __sync_trg trigger on the primary.
-const LAZY_TABLES = ['rate_limits', 'analytics_events'] as const;
+// and ephemeral analytics — #52 confirmed they never replicate), plus
+// _sync_events itself, the primary's capture queue that #52 made
+// primary-only. Their absence on the mirror is expected, not drift. Add a
+// name here only for a table with NO __sync_trg trigger on the primary.
+const LAZY_TABLES = ['rate_limits', 'analytics_events', '_sync_events'] as const;
 
 let failures = 0;
 let checks = 0;
