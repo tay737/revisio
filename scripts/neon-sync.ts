@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { installSyncInfrastructure, bootstrapSchemaFromMigration, backfillPrimaryToNeon, runSync, openSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, type SyncHandles } from '../src/db/sync';
+import { installSyncInfrastructure, bootstrapSchemaFromMigration, backfillPrimaryToNeon, runSync, openSyncHandles, closeSyncHandles, countPending, oldestPendingAt, loadPrimaryKeys, type SyncHandles, type SyncDrainStats } from '../src/db/sync';
 
 // ── Neon mirror operator CLI ─────────────────────────────────────────────────
 //
@@ -17,6 +17,13 @@ import { installSyncInfrastructure, bootstrapSchemaFromMigration, backfillPrimar
 // flowing first — run it once, then `init`, then point the app at both.
 
 type Command = 'init' | 'run' | 'status' | 'watch' | 'bootstrap';
+
+function drainStatsLine(label: string, s: SyncDrainStats): string {
+  return (
+    `${label} applied=${s.applied} deferred=${s.deferred} orphans=${s.orphansDropped} ` +
+    `unverified=${s.unverified} retried=${s.retried} ${s.elapsedMs}ms`
+  );
+}
 
 const command = process.argv[2] as Command | undefined;
 const COMMANDS: Command[] = ['init', 'run', 'status', 'watch', 'bootstrap'];
@@ -95,9 +102,18 @@ async function main(): Promise<void> {
     }
 
     if (command === 'status') {
-      const [p, n] = await Promise.all([countPending(handles.primary), countPending(handles.neon)]);
-      console.log(`primary → neon pending: ${p}`);
-      console.log(`neon → primary pending: ${n}`);
+      const [p, n, op, on] = await Promise.all([
+        countPending(handles.primary),
+        countPending(handles.neon),
+        oldestPendingAt(handles.primary),
+        oldestPendingAt(handles.neon),
+      ]);
+      const age = (d: Date | null) => (d ? `${Math.round((Date.now() - d.getTime()) / 1000)}s` : '—');
+      console.log(`primary → neon pending: ${p} (oldest ${age(op)})`);
+      console.log(`neon → primary pending: ${n} (oldest ${age(on)})`);
+      // Deferred events are still pending rows — a non-zero pending count with
+      // a growing oldest age is what "queue empty but events are stuck" looks
+      // like; the per-run deferred breakdown is on `run`.
       return;
     }
 
@@ -111,6 +127,12 @@ async function main(): Promise<void> {
         `drained ${result.drainedPrimaryToNeon} primary→neon, ${result.drainedNeonToPrimary} neon→primary ` +
           `(pending after: ${result.pendingPrimary} primary, ${result.pendingNeon} neon)`,
       );
+      for (const [label, s] of [
+        ['primary→neon', result.primaryToNeon],
+        ['neon→primary', result.neonToPrimary],
+      ] as const) {
+        if (s) console.log(drainStatsLine(label, s));
+      }
       return;
     }
 
@@ -125,6 +147,12 @@ async function main(): Promise<void> {
               `[${new Date().toISOString()}] drained ${result.drainedPrimaryToNeon}→neon, ${result.drainedNeonToPrimary}→primary ` +
                 `(pending: ${result.pendingPrimary}/${result.pendingNeon})`,
             );
+            for (const [label, s] of [
+              ['p→n', result.primaryToNeon],
+              ['n→p', result.neonToPrimary],
+            ] as const) {
+              if (s && (s.deferred > 0 || s.unverified > 0 || s.orphansDropped > 0)) console.log(`  ${label}: ${drainStatsLine(label, s)}`);
+            }
           }
         } catch (e) {
           console.error('[watch] drain failed, retrying next tick:', e instanceof Error ? e.message : e);
