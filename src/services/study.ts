@@ -12,7 +12,8 @@ import { getScheduler, newCardState, srsInfoForState, srsLevelFor, srsLevelInfo,
 import { evaluateAchievements, levelForXp, utcDateKey, xpForReview } from '@/domain/gamification';
 import { nextStreakState, type StreakEvent } from '@/domain/retention';
 import { recordNotification, recordStreakEvents } from '@/services/retention';
-import { enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
+import { ApiError } from '@/services/api';
+import { cardReaches, enrolledSubjectIds, lessonReaches, studiableCard, studiableCardIn, topicReaches } from '@/services/visibility';
 import { recordServerEvent } from '@/services/analytics';
 import { examAwareEnabled, examDatesForUser, type ExamDateEntry } from '@/services/exam-schedule';
 import { requiredAssignmentTopicIds } from '@/services/class-assignments';
@@ -230,12 +231,29 @@ export type SubmitReviewResult = {
 };
 
 export async function submitReview(userId: string, input: SubmitReviewInput): Promise<SubmitReviewResult> {
-  const [cardRes, answersRes] = await Promise.all([
-    db.select().from(cards).where(eq(cards.id, input.cardId)).limit(1),
+  const mode = input.mode ?? 'daily';
+  // Authorization lives here, not just in the routes: a cardId is guessable,
+  // and the queue only *deals* reachable cards — the submit path must refuse
+  // to *accept* one it never should have shown. Daily reviews follow the
+  // queue's rule exactly (enrolment required for content that isn't yours);
+  // cram/learn/exam cards come from topics the user picked by hand, so the
+  // reachability rule is the same one buildCramQueue/buildFirstExposure use.
+  const [enrolled, answersRes] = await Promise.all([
+    mode === 'daily' ? enrolledSubjectIds(userId) : Promise.resolve([] as string[]),
     db.select().from(cardAnswers).where(eq(cardAnswers.cardId, input.cardId)),
   ]);
-  const [card] = cardRes;
-  if (!card) throw new Error('card not found');
+  const reach =
+    mode === 'daily'
+      ? studiableCard(userId, enrolled)
+      : and(cardReaches(userId), topicReaches(userId));
+  const [row] = await db
+    .select({ card: cards })
+    .from(cards)
+    .innerJoin(topics, eq(cards.topicId, topics.id))
+    .where(and(eq(cards.id, input.cardId), reach))
+    .limit(1);
+  const card = row?.card;
+  if (!card) throw new ApiError(404, 'not_found', 'Card not found.');
   const accepted: AcceptedAnswer[] = answersRes.map((a) => ({
     id: a.id, text: a.text, isPrimary: a.isPrimary,
     keywords: a.keywords ?? null, minPoints: a.minPoints ?? null,
@@ -293,7 +311,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   let streakFreezes = 0;
   let streakEventList: StreakEvent[] = [];
   let masteryStreak: { current: number; best: number } | null = null;
-  if (input.mode !== 'exam') {
+  if (mode !== 'exam') {
     const [timesTodayRes, streakRes, prefsRes] = await Promise.all([
       db
         .select({ c: sql<number>`count(*)` })
@@ -319,7 +337,6 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     // Mastery streak (#8): opt-in via users.prefs.streakMastery; increments
     // only on a verified review — mode daily|learn AND graded correct.
     // cram reviews don't move the retention schedule, exam bypasses streaks.
-    const mode = input.mode ?? 'daily';
     const masteryOn = prefsRes[0]?.prefs?.streakMastery === true;
     let masterySet: { masteryCurrent: number; masteryBest: number; masteryLastActiveDate: string | null } | null = null;
     if (masteryOn && verdict.correct && (mode === 'daily' || mode === 'learn')) {
@@ -386,7 +403,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
   // 4) log review (append-only)
   await db.insert(reviewLogs).values({
     id: crypto.randomUUID(), userId, cardId: card.id, sessionId: input.sessionId ?? null,
-    mode: input.mode ?? 'daily', rating: ratingFromVerdict(verdict, card.kind),
+    mode, rating: ratingFromVerdict(verdict, card.kind),
     userAnswer: input.answer ?? input.selectedOptionId ?? null,
     graded: { correct: verdict.correct, feedbackKind: verdict.feedbackKind, matchedAnswerId: verdict.matchedAnswerId, note: verdict.note, similarity: verdict.similarity },
     durationMs: input.durationMs ?? 0, xpAwarded,
@@ -657,7 +674,25 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
 
 // ── exam simulator ──────────────────────────────────────────────────────────
 
+/**
+ * The subset of `topicIds` this user may actually examine — the picker's rule
+ * (`topicReaches`), enforced inside the service so no caller can smuggle an
+ * unreachable id through to the question pool. Order is preserved so the
+ * seeded paper stays deterministic.
+ */
+async function reachableExamTopicIds(userId: string, topicIds: string[]): Promise<string[]> {
+  if (topicIds.length === 0) return [];
+  const rows = await db
+    .select({ id: topics.id })
+    .from(topics)
+    .where(and(inArray(topics.id, topicIds), topicReaches(userId)));
+  const allowed = new Set(rows.map((r) => r.id));
+  return topicIds.filter((id) => allowed.has(id));
+}
+
 export async function buildExam(userId: string, topicIds: string[], questionCount = 5) {
+  const scopedTopicIds = await reachableExamTopicIds(userId, topicIds);
+  if (scopedTopicIds.length === 0) return [];
   // Interleaved build (#8): stratified across topics instead of first-N oldest.
   // Each topic gets a guaranteed seat, remaining seats go to topics weighted by
   // recent misses; within a topic, questions introducing unseen AO buckets are
@@ -666,7 +701,7 @@ export async function buildExam(userId: string, topicIds: string[], questionCoun
   const rows = await db
     .select()
     .from(examQuestions)
-    .where(and(inArray(examQuestions.topicId, topicIds), eq(examQuestions.visibility, 'public')))
+    .where(and(inArray(examQuestions.topicId, scopedTopicIds), eq(examQuestions.visibility, 'public')))
     .orderBy(asc(examQuestions.createdAt));
   if (rows.length <= questionCount) return toExamPayload(rows);
 
@@ -676,7 +711,7 @@ export async function buildExam(userId: string, topicIds: string[], questionCoun
     .innerJoin(cards, eq(cards.id, reviewLogs.cardId))
     .where(and(
       eq(reviewLogs.userId, userId),
-      inArray(cards.topicId, topicIds),
+      inArray(cards.topicId, scopedTopicIds),
       gte(reviewLogs.reviewedAt, new Date(Date.now() - 30 * 86_400_000)),
       sql`(${reviewLogs.graded} ->> 'correct')::boolean = false`,
     ))
@@ -689,7 +724,7 @@ export async function buildExam(userId: string, topicIds: string[], questionCoun
     list.push(q);
     byTopic.set(q.topicId, list);
   }
-  const rng = seededRng(`${userId}:${[...topicIds].sort().join(',')}:${questionCount}`);
+  const rng = seededRng(`${userId}:${[...scopedTopicIds].sort().join(',')}:${questionCount}`);
   const active = [...byTopic.keys()]
     .filter((t) => byTopic.get(t)!.length > 0)
     .sort((a, b) => (missWeight.get(b) ?? 0) - (missWeight.get(a) ?? 0) || a.localeCompare(b));
@@ -810,6 +845,12 @@ export async function getExamPaper(paperId: string, userId?: string) {
 export type ExamSubmission = { questionId: string; answer?: string; selectedOptionId?: string }[];
 
 export async function submitExam(userId: string, topicIds: string[], submission: ExamSubmission) {
+  // Same reachability scope as buildExam: a mixed list must not let questions
+  // from an unreachable topic be graded (or recorded on the attempt).
+  const scopedTopicIds = await reachableExamTopicIds(userId, topicIds);
+  if (scopedTopicIds.length === 0) {
+    return { score: 0, maxScore: 0, detail: [], xpAwarded: 0, aoProfile: [] };
+  }
   // Grade only the questions that were on the built paper (the submission
   // carries one entry per paper question) — not every question in the topic,
   // which would dilute the score with questions the student never saw.
@@ -818,7 +859,7 @@ export async function submitExam(userId: string, topicIds: string[], submission:
     ? await db
         .select()
         .from(examQuestions)
-        .where(and(inArray(examQuestions.topicId, topicIds), inArray(examQuestions.id, askedIds)))
+        .where(and(inArray(examQuestions.topicId, scopedTopicIds), inArray(examQuestions.id, askedIds), eq(examQuestions.visibility, 'public')))
     : [];
   const detail: {
     questionId: string; userAnswer: string; awarded: number; marks: number; correct: boolean; feedback: string;
@@ -876,7 +917,7 @@ export async function submitExam(userId: string, topicIds: string[], submission:
     }
   }
   await db.insert(examAttempts).values({
-    id: crypto.randomUUID(), userId, topicIds, score: Math.round(score * 2), maxScore: maxScore * 2,
+    id: crypto.randomUUID(), userId, topicIds: scopedTopicIds, score: Math.round(score * 2), maxScore: maxScore * 2,
     detail: detail.map((d) => ({ questionId: d.questionId, userAnswer: d.userAnswer, awarded: d.awarded, marks: d.marks, correct: d.correct })),
   });
   // exam XP
