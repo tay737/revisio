@@ -121,13 +121,9 @@ function newRefreshToken() {
 export async function consumeRefreshToken(raw: string) {
   const hash = sha256(raw);
   return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(refreshTokens)
-      .where(and(eq(refreshTokens.tokenHash, hash), gt(refreshTokens.expiresAt, new Date())))
-      .limit(1);
+    const byHash = and(eq(refreshTokens.tokenHash, hash), gt(refreshTokens.expiresAt, new Date()));
+    let [row] = await tx.select().from(refreshTokens).where(byHash).limit(1);
     if (!row) return null;
-    if (row.revokedAt && Date.now() - row.revokedAt.getTime() > REUSE_GRACE_MS) return null;
 
     // Validate the account before issuing a replacement. A rejected refresh
     // must not consume the only usable credential and strand a valid account.
@@ -138,11 +134,44 @@ export async function consumeRefreshToken(raw: string) {
       return { rejection: 'age_consent_required' as const };
     }
 
+    let claimedNow = false;
+    if (!row.revokedAt) {
+      // Atomic claim: `revoked_at IS NULL` in the WHERE lets exactly one
+      // concurrent exchange take a live token. The loser re-reads the row,
+      // sees a fresh revocation and falls into the grace path below.
+      const [claimed] = await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(refreshTokens.id, row.id), isNull(refreshTokens.revokedAt)))
+        .returning();
+      if (claimed) {
+        row = claimed;
+        claimedNow = true;
+      } else {
+        [row] = await tx.select().from(refreshTokens).where(byHash).limit(1);
+        if (!row || !row.revokedAt) return null;
+      }
+    }
+
+    if (row.revokedAt && !claimedNow) {
+      const now = Date.now();
+      if (now - row.revokedAt.getTime() > REUSE_GRACE_MS) return null;
+      // The grace window is single-use: spending it moves `revoked_at` outside
+      // the window (conditioned on the exact value just read, so two concurrent
+      // grace attempts cannot both win). A token therefore yields at most one
+      // live exchange plus one grace exchange — enough for the lost-cookie
+      // retry and the second tab, never a replay loop.
+      const [spent] = await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date(row.revokedAt.getTime() - REUSE_GRACE_MS - 1) })
+        .where(and(eq(refreshTokens.id, row.id), eq(refreshTokens.revokedAt, row.revokedAt)))
+        .returning();
+      if (!spent) return null;
+      row = spent;
+    }
+
     const next = newRefreshToken();
     await tx.insert(refreshTokens).values({ ...next.row, userId: row.userId });
-    if (!row.revokedAt) {
-      await tx.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, row.id));
-    }
     return { user, nextRaw: next.raw };
   });
 }
@@ -199,12 +228,18 @@ export async function issueEmailToken(
 }
 
 export async function consumeEmailToken(raw: string, kind: EmailTokenKind): Promise<string | null> {
+  // Single-statement claim: `used_at IS NULL` in the WHERE means two
+  // concurrent consumes of the same token cannot both succeed — the loser
+  // re-evaluates after the winner commits and matches zero rows.
   const [row] = await db
-    .select()
-    .from(emailTokens)
-    .where(and(eq(emailTokens.tokenHash, sha256(raw)), eq(emailTokens.kind, kind), isNull(emailTokens.usedAt), gt(emailTokens.expiresAt, new Date())))
-    .limit(1);
-  if (!row) return null;
-  await db.update(emailTokens).set({ usedAt: new Date() }).where(eq(emailTokens.id, row.id));
-  return row.userId;
+    .update(emailTokens)
+    .set({ usedAt: new Date() })
+    .where(and(
+      eq(emailTokens.tokenHash, sha256(raw)),
+      eq(emailTokens.kind, kind),
+      isNull(emailTokens.usedAt),
+      gt(emailTokens.expiresAt, new Date()),
+    ))
+    .returning({ userId: emailTokens.userId });
+  return row?.userId ?? null;
 }
