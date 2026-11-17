@@ -29,6 +29,7 @@
     "verify:analytics": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-analytics.ts",
     "verify:ai-drafts": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-ai-drafts.ts",
     "verify:retention": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/verify-retention.ts",
+    "verify:prod": "tsx scripts/verify-prod.ts",
     "hero:readout": "NODE_OPTIONS=\"--import ./scripts/register-stub-loader.mjs\" tsx scripts/hero-readout.ts",
     "vectors:grading": "tsx scripts/native/grading-vectors.ts",
     "native:android:test": "cd mobile/android && ./gradlew test",
