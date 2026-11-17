@@ -16,9 +16,9 @@
  * same database.
  */
 import 'dotenv/config';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, or } from 'drizzle-orm';
 import { db } from '../src/db/client';
-import { cardUserStates, users } from '../src/db/schema';
+import { cards, cardUserStates, examAttempts, topics, users } from '../src/db/schema';
 import { issueRefreshToken } from '../src/services/auth';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:3100';
@@ -371,6 +371,67 @@ async function main() {
     results.every((s) => s === 200 || s === 503),
     [...new Set(results)],
   );
+
+  // ── authorization: unreachable content must not be writable ──────────────
+  //
+  // cardId and topicId are guessable, so the write paths re-check reachability
+  // themselves (services/study.ts). A card inside a private topic owned by
+  // someone else is the fixture: it exists, it is a real row, and this account
+  // has no right to it. Skipped when the database holds no such row.
+  console.log('\nAuthorization');
+  const [foreign] = await db
+    .select({ cardId: cards.id, topicId: topics.id })
+    .from(cards)
+    .innerJoin(topics, eq(cards.topicId, topics.id))
+    .where(and(eq(topics.visibility, 'private'), or(isNull(topics.ownerId), ne(topics.ownerId, user.id))))
+    .limit(1);
+
+  if (!foreign) {
+    console.log('  skip  no private topic owned by another account to probe with');
+  } else {
+    const review = await call('/api/v1/reviews', {
+      method: 'POST',
+      body: JSON.stringify({ cardId: foreign.cardId, answer: 'guess', mode: 'daily' }),
+    });
+    check('reviewing an unreachable card is refused', review.status === 403 || review.status === 404, review.status);
+
+    const reachableTopicId = withCards[0]?.id;
+    if (reachableTopicId) {
+      const mixed = await call<{ paper?: { topicId: string }[] }>('/api/v1/exam', {
+        method: 'POST',
+        body: JSON.stringify({ topicIds: [reachableTopicId, foreign.topicId], questionCount: 10 }),
+      });
+      // 404 is legitimate when the reachable topic has no public exam questions;
+      // a 200 must still contain nothing from the unreachable topic.
+      if (mixed.status === 200) {
+        const leaked = (mixed.body.paper ?? []).filter((q) => q.topicId === foreign.topicId);
+        check('a mixed-topic exam paper excludes the unreachable topic', leaked.length === 0, leaked.length);
+      } else {
+        check('a mixed-topic exam build answers cleanly', mixed.status === 404, mixed.status);
+      }
+
+      // The submit path must scope identically: the recorded attempt may only
+      // name topics the caller can reach.
+      const submitted = await call('/api/v1/exam', {
+        method: 'POST',
+        body: JSON.stringify({ topicIds: [reachableTopicId, foreign.topicId], answers: [] }),
+      });
+      check('submitting a mixed-topic exam answers 200', submitted.status === 200, submitted.status);
+      if (submitted.status === 200) {
+        const [attempt] = await db
+          .select({ topicIds: examAttempts.topicIds })
+          .from(examAttempts)
+          .where(eq(examAttempts.userId, user.id))
+          .orderBy(desc(examAttempts.createdAt))
+          .limit(1);
+        check(
+          'the recorded attempt names only reachable topics',
+          Array.isArray(attempt?.topicIds) && !attempt.topicIds.includes(foreign.topicId),
+          attempt?.topicIds,
+        );
+      }
+    }
+  }
 
   // ── admin ─────────────────────────────────────────────────────────────────
   if (user.role === 'developer') {
