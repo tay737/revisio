@@ -139,8 +139,8 @@ export async function pruneRateLimits(batch = 1000): Promise<number> {
     await ensureTable();
     const result = await db.execute(sql`
       DELETE FROM rate_limits
-      WHERE ctid IN (
-        SELECT ctid FROM rate_limits
+      WHERE "key" IN (
+        SELECT "key" FROM rate_limits
         WHERE window_start < now() - interval '2 days'
         LIMIT ${batch}
       )
