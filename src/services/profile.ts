@@ -85,7 +85,7 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
   const [row] = await db
     .select()
     .from(users)
-    .where(sql`lower(${users.username}) = ${h} or lower(${users.id}::text) = ${h}`)
+    .where(sql`lower(${users.username}) = ${h} or ${users.id} = ${h}`)
     .limit(1);
   if (!row) return null;
   return readReplica(async (rdb) => {
