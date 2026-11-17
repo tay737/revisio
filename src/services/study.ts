@@ -632,6 +632,14 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
 
 // ── cram ────────────────────────────────────────────────────────────────────
 
+/**
+ * The most cards one cram session will deal per topic. The picker advertises
+ * `min(cardCount, CRAM_MAX_PER_TOPIC)` so the number on a topic chip is a
+ * number a session can actually deliver — advertising the raw total promised
+ * questions the route would never deal.
+ */
+export const CRAM_MAX_PER_TOPIC = 50;
+
 export async function buildCramQueue(userId: string, topicIds: string[], maxPerTopic: number): Promise<QueueCard[]> {
   if (topicIds.length === 0) return [];
   const condition = studiableCardIn(userId, topicIds);

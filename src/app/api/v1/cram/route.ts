@@ -3,7 +3,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { cramSessions, lessons, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
-import { buildCramQueue, } from '@/services/study';
+import { buildCramQueue, CRAM_MAX_PER_TOPIC } from '@/services/study';
 import { topicContentCounts } from '@/services/content-ops';
 import { topicReaches } from '@/services/visibility';
 
@@ -31,7 +31,7 @@ export const GET = route(async (req: NextRequest) => {
     topics: rows.map((t) => ({
       ...t,
       lessonCount: counts.get(t.id)?.lessons ?? 0,
-      cardCount: counts.get(t.id)?.cards ?? 0,
+      cardCount: Math.min(counts.get(t.id)?.cards ?? 0, CRAM_MAX_PER_TOPIC),
     })),
   });
 });
@@ -46,7 +46,7 @@ export const POST = route(async (req: NextRequest) => {
     noteDensity?: 'detailed' | 'summary';
   };
   if (!body.topicIds?.length) throw new ApiError(400, 'bad_request', 'Pick at least one topic.');
-  const maxPerTopic = Math.min(50, Math.max(1, body.maxPerTopic ?? 20));
+  const maxPerTopic = Math.min(CRAM_MAX_PER_TOPIC, Math.max(1, body.maxPerTopic ?? 20));
   const noteDensity = body.noteDensity === 'summary' ? 'summary' : 'detailed';
 
   const allowed = await db
