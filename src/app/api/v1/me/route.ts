@@ -43,7 +43,7 @@ export const GET = route(async (req: NextRequest) => {
         .from(userSubjects)
         .innerJoin(subjects, eq(userSubjects.subjectId, subjects.id))
         .where(eq(userSubjects.userId, user.id)),
-      totalXpFor(user.id),
+      totalXpFor(user.id, rdb),
       rdb
         .select({ id: achievements.id, name: achievements.name, icon: achievements.icon, description: achievements.description, unlockedAt: userAchievements.unlockedAt })
         .from(userAchievements)

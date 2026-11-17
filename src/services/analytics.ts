@@ -117,12 +117,13 @@ export async function recordAnalyticsEvents(
   if (!rows.length) return 0;
   try {
     await ensureTable();
-    for (const row of rows) {
-      await db.execute(sql`
-        INSERT INTO analytics_events (id, name, props, path, anonymous_id, user_id)
-        VALUES (${row.id}, ${row.name}, ${row.props ? JSON.stringify(row.props) : null}::jsonb, ${row.path}, ${row.anonymousId}, ${userId})
-      `);
-    }
+    const tuples = rows.map((row) =>
+      sql`(${row.id}, ${row.name}, ${row.props ? JSON.stringify(row.props) : null}::jsonb, ${row.path}, ${row.anonymousId}, ${userId})`,
+    );
+    await db.execute(sql`
+      INSERT INTO analytics_events (id, name, props, path, anonymous_id, user_id)
+      VALUES ${sql.join(tuples, sql`, `)}
+    `);
     return rows.length;
   } catch (e) {
     console.error('[analytics] event insert failed', e);

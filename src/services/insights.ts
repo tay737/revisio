@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { db } from '@/db/client';
+import { readReplica } from '@/db/replica';
 import { cardUserStates, cards, reviewLogs, streaks, subjects, topics, users, xpEvents } from '@/db/schema';
 import { srsInfoForState } from '@/domain/srs';
 import { enrolledSubjectIds } from '@/services/visibility';
@@ -16,18 +16,19 @@ import { enrolledSubjectIds } from '@/services/visibility';
  * the learner's own review loop shows.
  */
 export async function buildInsights(userId: string) {
+  return readReplica(async (q) => {
   const monthAgo = new Date(Date.now() - 30 * 86_400_000);
 
   const [[student], totals, correctnessRows, streakRow, xpRow, dueRows, struggleRows, recentRows, topicMasterRows] = await Promise.all([
-    db
+    q
       .select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1),
     // Lifetime reviews.
-    db.select({ n: sql<number>`count(*)::int` }).from(reviewLogs).where(eq(reviewLogs.userId, userId)),
+    q.select({ n: sql<number>`count(*)::int` }).from(reviewLogs).where(eq(reviewLogs.userId, userId)),
     // Correct / total, lifetime and this month, in one pass.
-    db
+    q
       .select({
         total: sql<number>`count(*)::int`,
         correct: sql<number>`coalesce(sum(case when ${reviewLogs.graded} ->> 'correct' = 'true' then 1 else 0 end), 0)::int`,
@@ -36,11 +37,11 @@ export async function buildInsights(userId: string) {
       })
       .from(reviewLogs)
       .where(eq(reviewLogs.userId, userId)),
-    db.select({ current: streaks.current, best: streaks.best }).from(streaks).where(eq(streaks.userId, userId)).limit(1),
-    db.select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` }).from(xpEvents).where(eq(xpEvents.userId, userId)),
+    q.select({ current: streaks.current, best: streaks.best }).from(streaks).where(eq(streaks.userId, userId)).limit(1),
+    q.select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` }).from(xpEvents).where(eq(xpEvents.userId, userId)),
     // The scheduler state of every card the learner has ever touched, with the
     // card and topic names — the raw material for strength and struggle.
-    db
+    q
       .select({
         cardId: cardUserStates.cardId,
         stage: cardUserStates.stage,
@@ -64,7 +65,7 @@ export async function buildInsights(userId: string) {
       .orderBy(desc(cardUserStates.dueAt)),
     // Where the answers went wrong: cards graded incorrect in the last month,
     // most-missed first. A card may appear several times; the caller aggregates.
-    db
+    q
       .select({
         cardId: reviewLogs.cardId,
         misses: sql<number>`count(*)::int`,
@@ -76,7 +77,7 @@ export async function buildInsights(userId: string) {
       .orderBy(sql`count(*) desc`)
       .limit(12),
     // The last twenty answers, for the "what was actually typed" view.
-    db
+    q
       .select({
         id: reviewLogs.id,
         cardId: reviewLogs.cardId,
@@ -101,7 +102,7 @@ export async function buildInsights(userId: string) {
       .orderBy(desc(reviewLogs.reviewedAt))
       .limit(20),
     // Per-topic health: state counts and a 30-day miss count per topic.
-    db
+    q
       .select({
         topicId: topics.id,
         topicName: topics.name,
@@ -189,7 +190,7 @@ export async function buildInsights(userId: string) {
     cards: number; masteryPct: number; misses: number; status: 'unseen' | 'learning' | 'strong';
   }[] = [];
   if (coverageSubjectIds.length > 0) {
-    const topicRows = await db
+    const topicRows = await q
       .select({ topicId: topics.id, topicName: topics.name, subjectId: subjects.id, subjectName: subjects.name })
       .from(topics)
       .innerJoin(subjects, eq(topics.subjectId, subjects.id))
@@ -283,4 +284,5 @@ export async function buildInsights(userId: string) {
     // not the platform's full catalogue.
     subjects: [...new Map(strengthRows.map((r) => [r.subjectId, { id: r.subjectId, name: r.subjectName }])).values()],
   };
+  });
 }
