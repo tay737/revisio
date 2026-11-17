@@ -103,16 +103,16 @@ export const TIER_ORDER: Tier[] = [
  * data, so the colour has to travel as data.
  */
 const TIER_INK_VAR: Record<Tier, string> = {
-  bronze: 'var(--tier-bronze)',
-  silver: 'var(--tier-silver)',
-  gold: 'var(--tier-gold)',
-  platinum: 'var(--tier-platinum)',
-  emerald: 'var(--tier-emerald)',
-  sapphire: 'var(--tier-sapphire)',
-  diamond: 'var(--tier-diamond)',
-  ruby: 'var(--tier-ruby)',
-  obsidian: 'var(--tier-obsidian)',
-  legend: 'var(--tier-legend)',
+  bronze: 'var(--tier-ink-bronze)',
+  silver: 'var(--tier-ink-silver)',
+  gold: 'var(--tier-ink-gold)',
+  platinum: 'var(--tier-ink-platinum)',
+  emerald: 'var(--tier-ink-emerald)',
+  sapphire: 'var(--tier-ink-sapphire)',
+  diamond: 'var(--tier-ink-diamond)',
+  ruby: 'var(--tier-ink-ruby)',
+  obsidian: 'var(--tier-ink-obsidian)',
+  legend: 'var(--tier-ink-legend)',
 };
 
 const TIER_COLOR_VAR: Record<Tier, string> = {
