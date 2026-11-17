@@ -364,21 +364,64 @@ export async function ensureSyncWriteAccess(db: SyncDb): Promise<void> {
   }
 }
 
-/** Create every app table on a bare database by replaying drizzle/0000_init.sql. */
+/**
+ * Create the full current schema on a bare database by replaying every
+ * drizzle/*.sql migration in filename order. The sync event log and capture
+ * function go in first because later migrations create their own
+ * `sync_capture_event()` triggers (0006 onward); `init` still installs the
+ * trigger set for tables that predate that convention.
+ *
+ * Filename order is the apply order: the duplicate numeric prefixes
+ * (0001_maths_practice before 0001_profile_identity, 0021_ai_drafts before
+ * 0021_erasure_nullable_provenance) are independent — neither pair shares a
+ * dependency, so lexical sort is safe. All files except 0000_init are
+ * idempotent, but this path only runs on a bare target (the caller checks
+ * for `users` first), so 0000's plain CREATE TABLEs are fine.
+ */
 export async function bootstrapSchemaFromMigration(dbs: SyncDb[]): Promise<void> {
-  const { readFileSync } = await import('node:fs');
+  const { readFileSync, readdirSync } = await import('node:fs');
   const { join } = await import('node:path');
-  const migrationPath = join(process.cwd(), 'drizzle', '0000_init.sql');
-  let migrationSql: string;
-  try {
-    migrationSql = readFileSync(migrationPath, 'utf8');
-  } catch {
-    throw new Error(`sync: cannot read ${migrationPath} — run drizzle-kit generate first`);
+  const dir = join(process.cwd(), 'drizzle');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  if (files.length === 0) {
+    throw new Error(`sync: no migrations found in ${dir} — run drizzle-kit generate first`);
   }
   for (const { pool } of dbs) {
     const client = await pool.connect();
     try {
-      await client.query(migrationSql);
+      for (const statement of SYNC_SCHEMA_SQL.split(';')) {
+        if (statement.trim()) await client.query(statement);
+      }
+      await client.query(TRIGGER_FUNCTION_SQL);
+      for (const file of files) {
+        const migrationSql = readFileSync(join(dir, file), 'utf8');
+        try {
+          // Whole-file query = one implicit transaction, which is what we want
+          // for atomicity — except CREATE INDEX CONCURRENTLY files (0022),
+          // which Postgres refuses inside any transaction. Those split on the
+          // drizzle statement-breakpoint markers and run statement-by-statement
+          // in autocommit, matching `psql -f`.
+          if (/CONCURRENTLY/i.test(migrationSql)) {
+            for (const stmt of migrationSql.split(/-->\s*statement-breakpoint/)) {
+              if (stmt.trim()) await client.query(stmt);
+            }
+          } else {
+            await client.query(migrationSql);
+          }
+        } catch (e) {
+          throw new Error(`sync: migration ${file} failed — ${e instanceof Error ? e.message : e}`);
+        }
+      }
+      // Record the replay in the same _migrations ledger apply-migrations.ts
+      // uses, so `neon:bootstrap` and `db:migrate` agree on what a database
+      // has seen — including on future bare targets.
+      await client.query(`CREATE TABLE IF NOT EXISTS _migrations (
+        filename text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      for (const file of files) {
+        await client.query('INSERT INTO _migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+      }
     } finally {
       client.release();
     }

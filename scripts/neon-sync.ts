@@ -8,8 +8,9 @@ import { installSyncInfrastructure, bootstrapSchemaFromMigration, backfillPrimar
 //   tsx scripts/neon-sync.ts status    Pending events per side
 //   tsx scripts/neon-sync.ts watch     Drain every NEON_SYNC_INTERVAL_MS (default 5s) — run
 //                                      this on any always-on box next to the two databases
-//   tsx scripts/neon-sync.ts bootstrap Create the app schema on a bare Neon project (0000_init.sql)
-//                                      and backfill every current row, before enabling NEON_DATABASE_URL
+//   tsx scripts/neon-sync.ts bootstrap Create the full app schema on a bare Neon project
+//                                      (every drizzle/*.sql in order) and backfill every
+//                                      current row, before enabling NEON_DATABASE_URL
 //
 // Requires DATABASE_URL (Supabase primary) and NEON_DATABASE_URL (Neon) in the
 // environment. `bootstrap` is the only command that writes without events
@@ -38,12 +39,30 @@ async function bootstrap(handles: SyncHandles): Promise<void> {
   const neon = handles.neon;
   if (!neon) throw new Error('unreachable');
   // Idempotent: a previous attempt may have created the schema before its
-  // backfill failed, and the generated migration is not IF NOT EXISTS.
-  const existing = await neon.pool.query("SELECT to_regclass('users') AS t");
-  if (existing.rows[0]?.t) {
+  // backfill failed. `users` alone is not proof of a complete schema — a
+  // bootstrap that died mid-replay leaves it behind — so completeness is
+  // judged by the _migrations ledger covering every drizzle/*.sql file.
+  // A users-without-full-ledger state means a partial bootstrap: refuse
+  // rather than silently skip, since re-running 0000_init on it would fail.
+  const { readdirSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const allFiles = readdirSync(join(process.cwd(), 'drizzle')).filter((f) => f.endsWith('.sql')).sort();
+  const hasUsers = await neon.pool.query(`SELECT to_regclass('users') AS u`);
+  const applied = await neon.pool
+    .query(`SELECT count(*)::int AS c FROM _migrations`)
+    .then((r) => r.rows[0]?.c as number)
+    .catch(() => 0); // ledger absent → nothing recorded
+  const complete = Boolean(hasUsers.rows[0]?.u) && applied >= allFiles.length;
+  if (complete) {
     console.log('Neon already has the app schema — skipping creation.');
+  } else if (hasUsers.rows[0]?.u) {
+    throw new Error(
+      `Neon has a partial schema (${applied}/${allFiles.length} migrations recorded) — ` +
+        'a previous bootstrap died mid-replay or predates the ledger. Run `npm run db:migrate:baseline` ' +
+        'against it once to adopt the ledger, or drop and re-bootstrap; refusing to skip silently.',
+    );
   } else {
-    console.log('Creating app schema on Neon from drizzle/0000_init.sql …');
+    console.log('Creating app schema on Neon from drizzle/*.sql …');
     await bootstrapSchemaFromMigration([neon]);
     console.log('Schema created.');
   }
