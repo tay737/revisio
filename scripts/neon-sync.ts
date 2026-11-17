@@ -3,9 +3,9 @@ import { installSyncInfrastructure, bootstrapSchemaFromMigration, backfillPrimar
 
 // ── Neon mirror operator CLI ─────────────────────────────────────────────────
 //
-//   tsx scripts/neon-sync.ts init      Install _sync_events + capture triggers on BOTH databases
-//   tsx scripts/neon-sync.ts run       One bidirectional drain (used by cron/CI too)
-//   tsx scripts/neon-sync.ts status    Pending events per side
+//   tsx scripts/neon-sync.ts init      Install _sync_events + capture triggers on the PRIMARY only
+//   tsx scripts/neon-sync.ts run       One primary→neon drain (used by cron/CI too)
+//   tsx scripts/neon-sync.ts status    Pending events on the primary
 //   tsx scripts/neon-sync.ts watch     Drain every NEON_SYNC_INTERVAL_MS (default 5s) — run
 //                                      this on any always-on box next to the two databases
 //   tsx scripts/neon-sync.ts bootstrap Create the full app schema on a bare Neon project
@@ -15,6 +15,8 @@ import { installSyncInfrastructure, bootstrapSchemaFromMigration, backfillPrimar
 // Requires DATABASE_URL (Supabase primary) and NEON_DATABASE_URL (Neon) in the
 // environment. `bootstrap` is the only command that writes without events
 // flowing first — run it once, then `init`, then point the app at both.
+// Replication is one-way (#52): the mirror is read-only, has no capture
+// triggers and no _sync_events table.
 
 type Command = 'init' | 'run' | 'status' | 'watch' | 'bootstrap';
 
@@ -95,22 +97,16 @@ async function main(): Promise<void> {
 
     if (command === 'init') {
       const pkMap = await loadPrimaryKeys(handles.primary);
-      await installSyncInfrastructure([handles.primary, handles.neon], pkMap);
-      console.log('Sync infrastructure installed on both databases.');
+      await installSyncInfrastructure([handles.primary], pkMap);
+      console.log('Sync infrastructure installed on the primary (the mirror is apply-only — no triggers, no event queue).');
       console.log('Next: deploy the app with NEON_DATABASE_URL set, or start `watch`.');
       return;
     }
 
     if (command === 'status') {
-      const [p, n, op, on] = await Promise.all([
-        countPending(handles.primary),
-        countPending(handles.neon),
-        oldestPendingAt(handles.primary),
-        oldestPendingAt(handles.neon),
-      ]);
+      const [p, op] = await Promise.all([countPending(handles.primary), oldestPendingAt(handles.primary)]);
       const age = (d: Date | null) => (d ? `${Math.round((Date.now() - d.getTime()) / 1000)}s` : '—');
       console.log(`primary → neon pending: ${p} (oldest ${age(op)})`);
-      console.log(`neon → primary pending: ${n} (oldest ${age(on)})`);
       // Deferred events are still pending rows — a non-zero pending count with
       // a growing oldest age is what "queue empty but events are stuck" looks
       // like; the per-run deferred breakdown is on `run`.
@@ -123,16 +119,8 @@ async function main(): Promise<void> {
         console.log('nothing to drain');
         return;
       }
-      console.log(
-        `drained ${result.drainedPrimaryToNeon} primary→neon, ${result.drainedNeonToPrimary} neon→primary ` +
-          `(pending after: ${result.pendingPrimary} primary, ${result.pendingNeon} neon)`,
-      );
-      for (const [label, s] of [
-        ['primary→neon', result.primaryToNeon],
-        ['neon→primary', result.neonToPrimary],
-      ] as const) {
-        if (s) console.log(drainStatsLine(label, s));
-      }
+      console.log(`drained ${result.drainedPrimaryToNeon} primary→neon (pending after: ${result.pendingPrimary} primary)`);
+      if (result.primaryToNeon) console.log(drainStatsLine('primary→neon', result.primaryToNeon));
       return;
     }
 
@@ -144,15 +132,11 @@ async function main(): Promise<void> {
           const result = await runSync(handles);
           if (result.ran) {
             console.log(
-              `[${new Date().toISOString()}] drained ${result.drainedPrimaryToNeon}→neon, ${result.drainedNeonToPrimary}→primary ` +
-                `(pending: ${result.pendingPrimary}/${result.pendingNeon})`,
+              `[${new Date().toISOString()}] drained ${result.drainedPrimaryToNeon}→neon ` +
+                `(pending: ${result.pendingPrimary})`,
             );
-            for (const [label, s] of [
-              ['p→n', result.primaryToNeon],
-              ['n→p', result.neonToPrimary],
-            ] as const) {
-              if (s && (s.deferred > 0 || s.unverified > 0 || s.orphansDropped > 0)) console.log(`  ${label}: ${drainStatsLine(label, s)}`);
-            }
+            const s = result.primaryToNeon;
+            if (s && (s.deferred > 0 || s.unverified > 0 || s.orphansDropped > 0)) console.log(`  p→n: ${drainStatsLine('p→n', s)}`);
           }
         } catch (e) {
           console.error('[watch] drain failed, retrying next tick:', e instanceof Error ? e.message : e);
