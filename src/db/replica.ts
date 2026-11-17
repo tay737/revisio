@@ -101,6 +101,16 @@ export async function readReplica<T>(run: (rdb: DrizzleDb) => Promise<T>): Promi
   }
 }
 
+/**
+ * Record that the mirror just answered a query, for `mirrorHealth()`. The
+ * sync status probe queries `handles.neon.pool` directly — bypassing
+ * `readReplica` — so without this stamp a cold instance would report
+ * `unknown` forever even though the mirror is plainly reachable.
+ */
+export function noteMirrorReachable(): void {
+  if (neonConfigured()) circuit().lastOkAt = Date.now();
+}
+
 export type MirrorHealth = {
   configured: boolean;
   state: 'disabled' | 'healthy' | 'degraded' | 'unknown';

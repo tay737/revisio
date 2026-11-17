@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import type { Pool } from 'pg';
-import { neonConfigured, mirrorHealth } from '@/db/replica';
+import { neonConfigured, mirrorHealth, noteMirrorReachable } from '@/db/replica';
 import { installSyncInfrastructure, runSync, sharedSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, ensureSyncWriteAccess, type SyncHandles } from '@/db/sync';
 import { fail, ok, requireUser, route } from '@/services/api';
 
@@ -67,6 +67,9 @@ export const GET = route(async (req: NextRequest) => {
           oldestEventAt(handles.primary.pool),
           reviewLagSeconds(handles.primary.pool, handles.neon.pool),
         ]);
+        // Both queries answered — the mirror is reachable right now. Stamp
+        // the circuit so mirrorHealth() reports 'healthy', not 'unknown'.
+        noteMirrorReachable();
         telemetry = { oldestPrimary, oldestNeon: null, reviewLagSeconds: lag };
       } catch (e) {
         telemetry = { telemetryError: e instanceof Error ? e.message : 'metrics failed' };
