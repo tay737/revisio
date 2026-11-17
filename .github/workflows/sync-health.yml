@@ -1,0 +1,58 @@
+name: Sync health probe
+
+# Alerting for the primary→Neon drain (#61). The 36h stall was invisible
+# because nothing watched the queue; this workflow is the watcher. It polls
+# the read-only status endpoint every 15 minutes and fails — which is what
+# GitHub emails about — when the queue looks sick:
+#
+#   pendingPrimary > 500            backlog accumulating faster than it drains
+#   oldestPrimary  > 30 min old     events are not being applied at all
+#   reviewLagSeconds > 600          mirror trails primary by >10 minutes
+#   mirror != "healthy"             replica circuit is open/unknown
+#   HTTP/parse failure              endpoint or a database is unreachable
+#
+# Thresholds are deliberately loose: the drain is deadline-bounded and the
+# backlog legitimately spikes after imports. A fail here means "look now",
+# not "page someone" — tune in the step env if it gets noisy.
+#
+# Requires the same CRON_SECRET repo secret as sync-ping.yml; status now
+# accepts the cron bearer (read-only telemetry only).
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  probe:
+    name: Sync queue health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check /api/v1/sync?action=status
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET" || { echo "CRON_SECRET repo secret is not set"; exit 1; }
+          body=$(curl -fsS --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://revisio-srs.vercel.app/api/v1/sync?action=status") || {
+            echo "status endpoint unreachable"; exit 1; }
+          echo "$body" | jq .
+          pending=$(echo "$body" | jq -r '.pendingPrimary // 999999')
+          oldest=$(echo "$body" | jq -r '.oldestPrimary // empty')
+          lag=$(echo "$body" | jq -r '.reviewLagSeconds // 0')
+          mirror=$(echo "$body" | jq -r '.mirror.state // "unknown"')
+          stale_min=999999
+          if [ -n "$oldest" ]; then
+            stale_min=$(( ( $(date +%s) - $(date -d "$oldest" +%s) ) / 60 ))
+          fi
+          echo "pending=$pending oldest_age_min=$stale_min lag_s=$lag mirror=$mirror"
+          fail=0
+          [ "$pending" -gt 500 ] && { echo "FAIL: pendingPrimary $pending > 500"; fail=1; }
+          [ "$stale_min" -lt 999999 ] && [ "$stale_min" -gt 30 ] && { echo "FAIL: oldest event ${stale_min}min old"; fail=1; }
+          [ "$lag" -gt 600 ] && { echo "FAIL: review lag ${lag}s > 600"; fail=1; }
+          [ "$mirror" != "healthy" ] && { echo "FAIL: mirror health=$mirror"; fail=1; }
+          exit $fail
