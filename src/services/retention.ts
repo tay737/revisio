@@ -419,8 +419,15 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
       const recap = await buildWeeklyRecap(user.id, now);
       const appDelivery = await claimDelivery(user.id, 'weekly_recap', 'in_app', `${recap.weekStart}:app`);
       if (appDelivery) {
-        await recordNotification(user.id, { kind: 'recap', title: 'Your week in Revisio', body: recap.line, href: '/progress' });
-        await db.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: appDelivery.attempt } }).where(eq(notificationDeliveries.id, appDelivery.id));
+        try {
+          await db.transaction(async (tx) => {
+            await recordNotification(user.id, { kind: 'recap', title: 'Your week in Revisio', body: recap.line, href: '/progress' }, tx);
+            await tx.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: appDelivery.attempt } }).where(eq(notificationDeliveries.id, appDelivery.id));
+          });
+        } catch (err) {
+          await db.update(notificationDeliveries).set({ status: 'failed', detail: { attempt: appDelivery.attempt, error: err instanceof Error ? err.message : 'send failed', sendingAt: new Date().toISOString() } }).where(eq(notificationDeliveries.id, appDelivery.id));
+          failed++;
+        }
       }
       // weeklyRecap is an *email* trigger — in_app/push learners already got
       // the recap notification above, so don't double-deliver it.
@@ -453,11 +460,16 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
             ctaUrl: `${process.env.APP_URL ?? 'http://localhost:3000'}${candidate.href}`,
           });
         }
-        await db.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: delivery.attempt } }).where(eq(notificationDeliveries.id, delivery.id));
-        await recordNotification(user.id, { kind: candidate.kind, title: candidate.title, body: candidate.body, href: candidate.href });
+        // The in-app notification and the 'sent' stamp land in one transaction:
+        // a failure here leaves the row reclaimable instead of flipping an
+        // already-sent delivery back to 'failed' and double-sending the email.
+        await db.transaction(async (tx) => {
+          await recordNotification(user.id, { kind: candidate.kind, title: candidate.title, body: candidate.body, href: candidate.href }, tx);
+          await tx.update(notificationDeliveries).set({ status: 'sent', detail: { attempt: delivery.attempt } }).where(eq(notificationDeliveries.id, delivery.id));
+        });
         sent++;
       } catch (err) {
-        await db.update(notificationDeliveries).set({ status: 'failed', detail: { attempt: delivery.attempt, error: err instanceof Error ? err.message : 'send failed' } }).where(eq(notificationDeliveries.id, delivery.id));
+        await db.update(notificationDeliveries).set({ status: 'failed', detail: { attempt: delivery.attempt, error: err instanceof Error ? err.message : 'send failed', sendingAt: new Date().toISOString() } }).where(eq(notificationDeliveries.id, delivery.id));
         failed++;
       }
     }
@@ -467,10 +479,13 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
 
 /** Claim a delivery slot; returns the row to update, or null when already sent/claimed. */
 async function claimDelivery(userId: string, kind: string, channel: string, dedupeKey: string) {
+  const RETRY_DELAY_MS = 10 * 60_000;
   const id = crypto.randomUUID();
+  const claimId = crypto.randomUUID();
+  const claimedAt = new Date();
   const inserted = await db.insert(notificationDeliveries).values({
-    id, userId, kind, channel, dedupeKey, status: 'failed',
-    detail: { attempt: 1, stage: 'claimed' },
+    id, userId, kind, channel, dedupeKey, status: 'sending',
+    detail: { attempt: 1, stage: 'claimed', claimId, sendingAt: claimedAt.toISOString() },
   }).onConflictDoNothing().returning({ id: notificationDeliveries.id });
   if (inserted.length > 0) return { id, attempt: 1 };
   const [existing] = await db.select().from(notificationDeliveries)
@@ -478,11 +493,28 @@ async function claimDelivery(userId: string, kind: string, channel: string, dedu
     .limit(1);
   if (!existing) return null;
   if (existing.status === 'sent' || existing.status === 'suppressed') return null;
-  const attempt = Number((existing.detail as { attempt?: number } | null)?.attempt ?? 1) + 1;
+  const detail = (existing.detail ?? {}) as { attempt?: number; claimId?: string; sendingAt?: string };
+  const attempt = Number(detail.attempt ?? 1) + 1;
   if (attempt > 3) return null;
-  // Retry only after a short delay so a failing provider is not hammered.
-  if (existing.createdAt.getTime() > Date.now() - 10 * 60_000) return null;
-  await db.update(notificationDeliveries).set({ status: 'failed', detail: { attempt, stage: 'claimed' } }).where(eq(notificationDeliveries.id, existing.id));
+  // Retry only after a short delay so a failing provider is not hammered. The
+  // clock is the last claim stamp: a 'sending' row is a crashed send being
+  // recovered, a 'failed' row its last error.
+  const lastClaim = detail.sendingAt ? Date.parse(detail.sendingAt) : existing.createdAt.getTime();
+  if (lastClaim > Date.now() - RETRY_DELAY_MS) return null;
+  // Atomic reclaim: the claimId guard means two overlapping cron runs cannot
+  // both take the same row — the loser's WHERE stops matching once the winner
+  // commits its fresh claimId.
+  const [won] = await db.update(notificationDeliveries)
+    .set({ status: 'sending', detail: { attempt, stage: 'claimed', claimId, sendingAt: claimedAt.toISOString() } })
+    .where(and(
+      eq(notificationDeliveries.id, existing.id),
+      inArray(notificationDeliveries.status, ['failed', 'sending']),
+      detail.claimId
+        ? sql`${notificationDeliveries.detail} ->> 'claimId' = ${detail.claimId}`
+        : sql`${notificationDeliveries.detail} ->> 'claimId' is null`,
+    ))
+    .returning({ id: notificationDeliveries.id });
+  if (!won) return null;
   return { id: existing.id, attempt };
 }
 
@@ -618,20 +650,31 @@ export async function listChallenges(userId: string, now = new Date()) {
     const periodStart = challengePeriodStart(now, def.period);
     const periodDays = def.period === 'daily' ? 1 : 7;
     const progress = Math.min(def.target, await metricProgress(userId, def.metric, periodStart, periodDays));
-    const [existing] = await db.select().from(userChallenges)
-      .where(and(eq(userChallenges.userId, userId), eq(userChallenges.challengeId, def.id), eq(userChallenges.periodStart, periodStart))).limit(1);
-    const wasCompleted = !!existing?.completedAt;
     const completed = progress >= def.target;
     await db.insert(userChallenges).values({
-      userId, challengeId: def.id, periodStart, progress, target: def.target,
-      completedAt: completed ? (existing?.completedAt ?? now) : null, updatedAt: now,
+      userId, challengeId: def.id, periodStart, progress, target: def.target, updatedAt: now,
     }).onConflictDoUpdate({
       target: [userChallenges.userId, userChallenges.challengeId, userChallenges.periodStart],
-      set: { progress, completedAt: completed ? (existing?.completedAt ?? now) : null, updatedAt: now },
+      set: { progress, target: def.target, updatedAt: now },
     });
-    if (completed && !wasCompleted) {
-      await db.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: def.rewardXp, source: 'achievement', refId: `${def.id}:${periodStart}` });
-      await recordNotification(userId, { kind: 'challenge', title: `Challenge complete: ${def.title}`, body: `${def.description} +${def.rewardXp} XP.`, href: '/progress' });
+    if (completed) {
+      // Atomic completion claim: concurrent readers of this GET all compute
+      // `completed`, but only the call that flips completed_at NULL→now awards
+      // XP and notifies. Before this, every concurrent call saw completed_at
+      // NULL and inserted its own xp_events row.
+      const claimed = await db.update(userChallenges)
+        .set({ completedAt: now, updatedAt: now })
+        .where(and(
+          eq(userChallenges.userId, userId),
+          eq(userChallenges.challengeId, def.id),
+          eq(userChallenges.periodStart, periodStart),
+          isNull(userChallenges.completedAt),
+        ))
+        .returning({ challengeId: userChallenges.challengeId });
+      if (claimed.length > 0) {
+        await db.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: def.rewardXp, source: 'achievement', refId: `${def.id}:${periodStart}` });
+        await recordNotification(userId, { kind: 'challenge', title: `Challenge complete: ${def.title}`, body: `${def.description} +${def.rewardXp} XP.`, href: '/progress' });
+      }
     }
     out.push({ def, periodStart, progress, target: def.target, completed, rewardXp: def.rewardXp });
   }
@@ -700,10 +743,17 @@ export async function listGoals(userId: string) {
   for (const goal of rows) {
     const progress = await goalProgress(userId, { kind: goal.kind as GoalKind, scope: goal.scope });
     const completed = progress >= goal.target;
-    if (completed && !goal.completedAt) {
-      await db.update(userGoals).set({ completedAt: now, updatedAt: now }).where(eq(userGoals.id, goal.id));
-      await db.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: 25, source: 'achievement', refId: `goal:${goal.id}` });
-      await recordNotification(userId, { kind: 'goal', title: `Goal reached: ${goal.title}`, body: 'Nice work — the target is yours.', href: '/progress' });
+    if (completed) {
+      // Same atomic-claim pattern as listChallenges: only the call that flips
+      // completed_at NULL→now awards the goal XP and notification.
+      const claimed = await db.update(userGoals)
+        .set({ completedAt: now, updatedAt: now })
+        .where(and(eq(userGoals.id, goal.id), isNull(userGoals.completedAt)))
+        .returning({ id: userGoals.id });
+      if (claimed.length > 0) {
+        await db.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: 25, source: 'achievement', refId: `goal:${goal.id}` });
+        await recordNotification(userId, { kind: 'goal', title: `Goal reached: ${goal.title}`, body: 'Nice work — the target is yours.', href: '/progress' });
+      }
     }
     out.push({ ...goal, progress, completed, completedAt: completed && !goal.completedAt ? now.toISOString() : goal.completedAt?.toISOString() ?? null });
   }
