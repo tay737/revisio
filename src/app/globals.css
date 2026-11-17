@@ -92,6 +92,21 @@
   --tier-obsidian: #6d5bd0;
   --tier-legend: #d94f96;
 
+  /* The same ten metals *as small text on white*. Most pass 4.5:1 already and
+     alias their fill token; emerald, diamond and legend do not (axe measured
+     diamond at 2.78:1 on the SeasonBoard's .t-fine labels), so they get a
+     darkened sibling in the same hue — the --gold-ink/--info-ink pattern. */
+  --tier-ink-bronze: var(--tier-bronze);
+  --tier-ink-silver: var(--tier-silver);
+  --tier-ink-gold: var(--tier-gold);
+  --tier-ink-platinum: var(--tier-platinum);
+  --tier-ink-emerald: #0d6e45;
+  --tier-ink-sapphire: var(--tier-sapphire);
+  --tier-ink-diamond: #0a6f83;
+  --tier-ink-ruby: var(--tier-ruby);
+  --tier-ink-obsidian: var(--tier-obsidian);
+  --tier-ink-legend: #a8256a;
+
   /* ── The polarity band ──────────────────────────────────────────────────
      Mid-page full-bleed black. In light mode this is Uber's most recognisable
      device; in dark mode it lifts a step off the black page instead of
@@ -166,6 +181,19 @@
   --tier-obsidian: #a294ff;
   --tier-legend: #ff8ec4;
 
+  /* On a dark ground the metals are already light enough to carry text —
+     the ink pair is the same value here. */
+  --tier-ink-bronze: var(--tier-bronze);
+  --tier-ink-silver: var(--tier-silver);
+  --tier-ink-gold: var(--tier-gold);
+  --tier-ink-platinum: var(--tier-platinum);
+  --tier-ink-emerald: var(--tier-emerald);
+  --tier-ink-sapphire: var(--tier-sapphire);
+  --tier-ink-diamond: var(--tier-diamond);
+  --tier-ink-ruby: var(--tier-ruby);
+  --tier-ink-obsidian: var(--tier-obsidian);
+  --tier-ink-legend: var(--tier-legend);
+
   --band: #141414;
   --band-foreground: #ffffff;
   --band-card: #1f1f1f;
@@ -227,6 +255,18 @@
   --tier-ruby: #ff6d80;
   --tier-obsidian: #a294ff;
   --tier-legend: #ff8ec4;
+
+  /* Same rule inside the polarity band: the dark metals already read as text. */
+  --tier-ink-bronze: var(--tier-bronze);
+  --tier-ink-silver: var(--tier-silver);
+  --tier-ink-gold: var(--tier-gold);
+  --tier-ink-platinum: var(--tier-platinum);
+  --tier-ink-emerald: var(--tier-emerald);
+  --tier-ink-sapphire: var(--tier-sapphire);
+  --tier-ink-diamond: var(--tier-diamond);
+  --tier-ink-ruby: var(--tier-ruby);
+  --tier-ink-obsidian: var(--tier-obsidian);
+  --tier-ink-legend: var(--tier-legend);
 }
 
 /* ── Theme mapping ───────────────────────────────────────────────────────────
