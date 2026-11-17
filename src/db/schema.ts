@@ -688,7 +688,7 @@ export const notificationDeliveries = pgTable('notification_deliveries', {
   kind: text('kind').notNull(),
   channel: text('channel').notNull().default('email'),
   dedupeKey: text('dedupe_key').notNull(),
-  status: text('status', { enum: ['sent', 'suppressed', 'failed'] }).notNull().default('sent'),
+  status: text('status', { enum: ['sent', 'suppressed', 'failed', 'sending'] }).notNull().default('sent'),
   detail: jsonb('detail').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
