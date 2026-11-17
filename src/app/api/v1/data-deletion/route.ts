@@ -120,46 +120,24 @@ export const DELETE = route(async (req: NextRequest) => {
   }
 
   // Erasure includes the bytes, not only the pointers. `avatar_url` and
-  // `banner_url` are nulled below, which removes the address of an uploaded
-  // image but leaves the object in the bucket; a stored photograph surviving a
-  // deletion request is not deletion of it. The ledger names every object this
-  // account uploaded (both kinds), so it is read before the row is anonymised,
-  // and each row is removed only once its object is actually gone.
+  // `banner_url` are nulled inside the transaction below, which removes the
+  // address of an uploaded image; the object itself is deleted from the bucket
+  // AFTER the transaction commits. The order is the fix: deleting objects
+  // first meant a failed anonymisation left the user row pointing at bytes
+  // that were already gone. Now a failed transaction leaves objects, ledger
+  // rows and pointers all intact for a clean retry.
   //
-  // A row that survives a failed delete is deliberate: it is the only record
-  // that a file outlived the account, and deleting it would turn a bucket
-  // failure into silence. `media_assets` is therefore not in the cascade list
-  // above - the loop owns it.
+  // Inside the transaction every `media_assets` row is stamped
+  // `delete_failed_at`: that stamp is the retry ledger, so even a crash between
+  // commit and the bucket loop leaves a queue a retry job can find. After
+  // commit each object is removed (one retry covers a blip) and its row is
+  // deleted only once the object is actually gone; a row that survives a
+  // second failure keeps its stamp — the ledger is the queue, and deleting it
+  // would turn a bucket failure into silence.
   const uploads = await db
     .select({ key: mediaAssets.key })
     .from(mediaAssets)
     .where(eq(mediaAssets.userId, user.id));
-  // One retry covers the transient case (a blip, a dropped connection). A
-  // second failure is neither allowed to abort the erasure - the learner loses
-  // their name, email and every other field because storage hiccuped - nor
-  // swallowed: the row stays and is stamped, so the ledger is the queue and a
-  // retry job needs no second table.
-  const stranded: string[] = [];
-  for (const upload of uploads) {
-    const removed =
-      (await deleteMediaObject(upload.key)) || (await deleteMediaObject(upload.key));
-    if (!removed) {
-      await db
-        .update(mediaAssets)
-        .set({ deleteFailedAt: new Date() })
-        .where(and(eq(mediaAssets.userId, user.id), eq(mediaAssets.key, upload.key)));
-      stranded.push(upload.key);
-      continue;
-    }
-    await db
-      .delete(mediaAssets)
-      .where(and(eq(mediaAssets.userId, user.id), eq(mediaAssets.key, upload.key)));
-  }
-  if (stranded.length) {
-    console.error(
-      `[data-deletion] ${stranded.length} object(s) still in the bucket for ${user.id}; rows stamped delete_failed_at`,
-    );
-  }
 
   await db.transaction(async (tx) => {
     // Revoke refresh tokens using the same transaction, then clear attached
@@ -220,6 +198,14 @@ export const DELETE = route(async (req: NextRequest) => {
     await tx.update(classes).set({ teacherId: null }).where(eq(classes.teacherId, user.id));
     await tx.update(classAssignments).set({ createdBy: null }).where(eq(classAssignments.createdBy, user.id));
 
+    // Every uploaded object is now queued for byte deletion: the stamp is the
+    // ledger a retry job reads. Successful deletes below remove the row; only
+    // genuine bucket failures keep it.
+    await tx
+      .update(mediaAssets)
+      .set({ deleteFailedAt: new Date() })
+      .where(eq(mediaAssets.userId, user.id));
+
     await tx.update(users).set({
       status: 'deleted',
       email: `deleted+${user.id}@invalid.example`,
@@ -252,6 +238,29 @@ export const DELETE = route(async (req: NextRequest) => {
       passwordHash: `deleted:${crypto.randomUUID()}`,
     }).where(eq(users.id, user.id));
   });
+
+  // The anonymisation is committed, so the pointers are already gone — now the
+  // bytes go. One retry covers the transient case (a blip, a dropped
+  // connection). A second failure is neither allowed to abort the erasure nor
+  // swallowed: the row keeps its `delete_failed_at` stamp from the transaction
+  // and stays as the queue a retry job reads.
+  const stranded: string[] = [];
+  for (const upload of uploads) {
+    const removed =
+      (await deleteMediaObject(upload.key)) || (await deleteMediaObject(upload.key));
+    if (!removed) {
+      stranded.push(upload.key);
+      continue;
+    }
+    await db
+      .delete(mediaAssets)
+      .where(and(eq(mediaAssets.userId, user.id), eq(mediaAssets.key, upload.key)));
+  }
+  if (stranded.length) {
+    console.error(
+      `[data-deletion] ${stranded.length} object(s) still in the bucket for ${user.id}; rows stamped delete_failed_at`,
+    );
+  }
 
   // The message tracks what actually happened. Images that survived a bucket
   // failure are queued, not gone, and saying otherwise is the one claim this
