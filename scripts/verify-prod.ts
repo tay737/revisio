@@ -29,6 +29,13 @@ function pgConfig(url: string) {
   return { connectionString: url, ssl: isLocal ? undefined : { rejectUnauthorized: false } };
 }
 
+// Tables that live only on the primary by design: created lazily on first
+// use and deliberately outside the replication trigger set (per-DB counters
+// and ephemeral analytics). #52 decides whether they ever replicate; until
+// then their absence on the mirror is expected, not drift. Add a name here
+// only for a table with NO __sync_trg trigger on the primary.
+const LAZY_TABLES = ['rate_limits', 'analytics_events'] as const;
+
 let failures = 0;
 let checks = 0;
 function check(label: string, condition: boolean, detail: unknown = '') {
@@ -149,8 +156,17 @@ async function main() {
     check('no public table has RLS enabled with zero policies (mirror)', mirrorRlsGaps.length === 0, mirrorRlsGaps);
     const mirrorTables = await publicTables(mirror);
     info('mirror public table count', mirrorTables.length);
-    const onlyPrimary = primaryTables.filter((t) => !mirrorTables.includes(t));
+    // Lazy tables are expected primary-only; a lazy name on the mirror
+    // without the primary would still be drift, so onlyPrimary is filtered.
+    const isLazy = (t: string) => (LAZY_TABLES as readonly string[]).includes(t);
+    const onlyPrimary = primaryTables.filter((t) => !mirrorTables.includes(t) && !isLazy(t));
     const onlyMirror = mirrorTables.filter((t) => !primaryTables.includes(t));
+    info(
+      'lazy tables observed',
+      Object.fromEntries(
+        LAZY_TABLES.map((t) => [t, { primary: primaryTables.includes(t), mirror: mirrorTables.includes(t) }]),
+      ),
+    );
     check('public table sets match across databases', onlyPrimary.length === 0 && onlyMirror.length === 0, { onlyPrimary, onlyMirror });
     await mirror.end();
   }
