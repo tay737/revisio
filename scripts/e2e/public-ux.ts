@@ -123,7 +123,14 @@ async function stubApis(context: BrowserContext) {
     const request = route.request();
     report.apiRequests.push(`${request.method()} ${new URL(request.url()).pathname}`);
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
-      report.blockedWrites.push(`${request.method()} ${new URL(request.url()).pathname}`);
+      const path = new URL(request.url()).pathname;
+      // Consented product analytics are a write the suite itself authorized:
+      // the consent section below grants the Analytics purpose, after which
+      // tracker.tsx legitimately emits page_view POSTs on later navigations.
+      // Everything else non-GET is still a blocked write.
+      if (path !== '/api/v1/events') {
+        report.blockedWrites.push(`${request.method()} ${path}`);
+      }
     }
     const body = new URL(request.url()).pathname.endsWith('/auth/subjects-public')
       ? { subjects: [] }
