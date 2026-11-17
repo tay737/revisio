@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
-import { db } from '@/db/client';
+import { db, type Db } from '@/db/client';
 import {
   cards, cardUserStates, examAttempts, examPlans, guardianLinks,
   achievements, leagueMemberships, notificationDeliveries, notificationPrefs, notifications, reviewLogs, seasons,
@@ -93,10 +93,13 @@ export async function getStreakSummary(userId: string) {
   };
 }
 
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+type Executor = Db | Tx;
+
 /** Insert streak history rows produced by `nextStreakState`. */
-export async function recordStreakEvents(userId: string, events: { kind: StreakEventKind; streakBefore: number; streakAfter: number; meta?: Record<string, unknown> }[]) {
+export async function recordStreakEvents(userId: string, events: { kind: StreakEventKind; streakBefore: number; streakAfter: number; meta?: Record<string, unknown> }[], exec: Executor = db) {
   if (events.length === 0) return;
-  await db.insert(streakEvents).values(events.map((e) => ({
+  await exec.insert(streakEvents).values(events.map((e) => ({
     id: crypto.randomUUID(), userId, kind: e.kind,
     streakBefore: e.streakBefore, streakAfter: e.streakAfter, meta: e.meta ?? null,
   })));
@@ -223,9 +226,9 @@ export async function markNotificationsRead(userId: string, ids?: string[], limi
 }
 
 /** Insert an in-app notification; used by reviews, challenges, goals, social. */
-export async function recordNotification(userId: string, input: { kind: string; title: string; body?: string; href?: string }) {
+export async function recordNotification(userId: string, input: { kind: string; title: string; body?: string; href?: string }, exec: Executor = db) {
   const id = crypto.randomUUID();
-  await db.insert(notifications).values({ id, userId, kind: input.kind, title: input.title, body: input.body ?? '', href: input.href ?? '/dashboard' });
+  await exec.insert(notifications).values({ id, userId, kind: input.kind, title: input.title, body: input.body ?? '', href: input.href ?? '/dashboard' });
   return { id, kind: input.kind, title: input.title, body: input.body ?? '', href: input.href ?? '/dashboard', readAt: null, createdAt: new Date().toISOString() };
 }
 

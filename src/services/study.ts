@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
-import { db } from '@/db/client';
+import { db, type Db } from '@/db/client';
 import {
   cards, cardAnswers, cardUserStates, examQuestions, examPapers, lessons, reviewLogs, streaks, subjects,
   topics, userAchievements, userTopicStates, users, xpEvents, achievements,
@@ -284,146 +284,156 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
     : newCardState(algoConfig.default);
   const scheduling = input.mode === 'cram' ? null : scheduler.schedule(prevState, ratingFromVerdict(verdict, card.kind), params, new Date());
 
-  if (scheduling) {
-    await db
-      .insert(cardUserStates)
-      .values({
-        userId, cardId: card.id,
-        stage: scheduling.stage, dueAt: scheduling.dueAt, intervalDays: scheduling.intervalDays,
-        ease: scheduling.ease, stability: scheduling.stability, difficulty: scheduling.difficulty,
-        lapses: scheduling.lapses, reps: scheduling.reps, algorithm: scheduling.algorithm,
-        lastReviewedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [cardUserStates.userId, cardUserStates.cardId],
-        set: {
-          stage: scheduling.stage, dueAt: scheduling.dueAt, intervalDays: scheduling.intervalDays,
-          ease: scheduling.ease, stability: scheduling.stability, difficulty: scheduling.difficulty,
-          lapses: scheduling.lapses, reps: scheduling.reps, algorithm: scheduling.algorithm,
-          lastReviewedAt: new Date(),
-        },
-      });
-  }
-
-  // 3) XP + streak (skip in exam mode; exam scoring handled separately)
+  // Schedule, streak, XP, review log, achievements and notifications are one
+  // unit: a mid-path failure must not leave XP paid without its review log,
+  // or a streak advanced without the review that caused it. Reads that feed
+  // the writes stay outside — they were already snapshots, and the writes
+  // they feed are idempotent upserts.
   let xpAwarded = 0;
   let streakCurrent = 0;
   let streakFreezes = 0;
   let streakEventList: StreakEvent[] = [];
   let masteryStreak: { current: number; best: number } | null = null;
-  if (mode !== 'exam') {
-    const [timesTodayRes, streakRes, prefsRes] = await Promise.all([
-      db
-        .select({ c: sql<number>`count(*)` })
-        .from(reviewLogs)
-        .where(and(eq(reviewLogs.userId, userId), eq(reviewLogs.cardId, card.id), gte(reviewLogs.reviewedAt, startOfToday()))),
-      db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1),
-      db.select({ prefs: users.prefs }).from(users).where(eq(users.id, userId)).limit(1),
-    ]);
-    const timesToday = timesTodayRes;
-    const [streakRow] = streakRes;
-    const cur = {
-      current: streakRow?.current ?? 0,
-      best: streakRow?.best ?? 0,
-      lastActiveDate: streakRow?.lastActiveDate ?? null,
-      freezes: streakRow?.freezes ?? 0,
-    };
-    const today = utcDateKey();
-    const updated = nextStreakState(cur, today);
-    streakCurrent = updated.state.current;
-    streakFreezes = updated.state.freezes;
-    streakEventList = updated.events;
-
-    // Mastery streak (#8): opt-in via users.prefs.streakMastery; increments
-    // only on a verified review — mode daily|learn AND graded correct.
-    // cram reviews don't move the retention schedule, exam bypasses streaks.
-    const masteryOn = prefsRes[0]?.prefs?.streakMastery === true;
-    let masterySet: { masteryCurrent: number; masteryBest: number; masteryLastActiveDate: string | null } | null = null;
-    if (masteryOn && verdict.correct && (mode === 'daily' || mode === 'learn')) {
-      const mUpdated = nextStreakState(
-        {
-          current: streakRow?.masteryCurrent ?? 0,
-          best: streakRow?.masteryBest ?? 0,
-          lastActiveDate: streakRow?.masteryLastActiveDate ?? null,
-          freezes: cur.freezes,
-        },
-        today,
-      );
-      masterySet = {
-        masteryCurrent: mUpdated.state.current,
-        masteryBest: mUpdated.state.best,
-        masteryLastActiveDate: mUpdated.state.lastActiveDate,
-      };
-      masteryStreak = { current: mUpdated.state.current, best: mUpdated.state.best };
-      const masteryEvents = mUpdated.events.map((e) => ({
-        ...e,
-        meta: { ...(e.meta ?? {}), track: 'mastery' as const },
-      }));
-      streakEventList = [...streakEventList, ...masteryEvents];
-      // Shared freeze bank: both tracks started from the same balance, so the
-      // smaller result already reflects the larger gap — coverage is never
-      // double-spent and freezes are never invented.
-      streakFreezes = Math.min(updated.state.freezes, mUpdated.state.freezes);
-      await recordStreakEvents(userId, masteryEvents);
+  let totalXp = 0;
+  let level = 0;
+  let newAchievements: Awaited<ReturnType<typeof checkAchievements>> = [];
+  await db.transaction(async (tx) => {
+    if (scheduling) {
+      await tx
+        .insert(cardUserStates)
+        .values({
+          userId, cardId: card.id,
+          stage: scheduling.stage, dueAt: scheduling.dueAt, intervalDays: scheduling.intervalDays,
+          ease: scheduling.ease, stability: scheduling.stability, difficulty: scheduling.difficulty,
+          lapses: scheduling.lapses, reps: scheduling.reps, algorithm: scheduling.algorithm,
+          lastReviewedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [cardUserStates.userId, cardUserStates.cardId],
+          set: {
+            stage: scheduling.stage, dueAt: scheduling.dueAt, intervalDays: scheduling.intervalDays,
+            ease: scheduling.ease, stability: scheduling.stability, difficulty: scheduling.difficulty,
+            lapses: scheduling.lapses, reps: scheduling.reps, algorithm: scheduling.algorithm,
+            lastReviewedAt: new Date(),
+          },
+        });
     }
 
-    await db
-      .insert(streaks)
-      .values({
-        userId, current: updated.state.current, best: updated.state.best,
-        lastActiveDate: updated.state.lastActiveDate, freezes: streakFreezes,
-        ...(masterySet ?? {}),
-      })
-      .onConflictDoUpdate({
-        target: streaks.userId,
-        set: {
-          current: updated.state.current, best: updated.state.best,
+    // 3) XP + streak (skip in exam mode; exam scoring handled separately)
+    if (mode !== 'exam') {
+      const [timesTodayRes, streakRes, prefsRes] = await Promise.all([
+        tx
+          .select({ c: sql<number>`count(*)` })
+          .from(reviewLogs)
+          .where(and(eq(reviewLogs.userId, userId), eq(reviewLogs.cardId, card.id), gte(reviewLogs.reviewedAt, startOfToday()))),
+        tx.select().from(streaks).where(eq(streaks.userId, userId)).limit(1),
+        tx.select({ prefs: users.prefs }).from(users).where(eq(users.id, userId)).limit(1),
+      ]);
+      const timesToday = timesTodayRes;
+      const [streakRow] = streakRes;
+      const cur = {
+        current: streakRow?.current ?? 0,
+        best: streakRow?.best ?? 0,
+        lastActiveDate: streakRow?.lastActiveDate ?? null,
+        freezes: streakRow?.freezes ?? 0,
+      };
+      const today = utcDateKey();
+      const updated = nextStreakState(cur, today);
+      streakCurrent = updated.state.current;
+      streakFreezes = updated.state.freezes;
+      streakEventList = updated.events;
+
+      // Mastery streak (#8): opt-in via users.prefs.streakMastery; increments
+      // only on a verified review — mode daily|learn AND graded correct.
+      // cram reviews don't move the retention schedule, exam bypasses streaks.
+      const masteryOn = prefsRes[0]?.prefs?.streakMastery === true;
+      let masterySet: { masteryCurrent: number; masteryBest: number; masteryLastActiveDate: string | null } | null = null;
+      if (masteryOn && verdict.correct && (mode === 'daily' || mode === 'learn')) {
+        const mUpdated = nextStreakState(
+          {
+            current: streakRow?.masteryCurrent ?? 0,
+            best: streakRow?.masteryBest ?? 0,
+            lastActiveDate: streakRow?.masteryLastActiveDate ?? null,
+            freezes: cur.freezes,
+          },
+          today,
+        );
+        masterySet = {
+          masteryCurrent: mUpdated.state.current,
+          masteryBest: mUpdated.state.best,
+          masteryLastActiveDate: mUpdated.state.lastActiveDate,
+        };
+        masteryStreak = { current: mUpdated.state.current, best: mUpdated.state.best };
+        const masteryEvents = mUpdated.events.map((e) => ({
+          ...e,
+          meta: { ...(e.meta ?? {}), track: 'mastery' as const },
+        }));
+        streakEventList = [...streakEventList, ...masteryEvents];
+        // Shared freeze bank: both tracks started from the same balance, so the
+        // smaller result already reflects the larger gap — coverage is never
+        // double-spent and freezes are never invented.
+        streakFreezes = Math.min(updated.state.freezes, mUpdated.state.freezes);
+        await recordStreakEvents(userId, masteryEvents, tx);
+      }
+
+      await tx
+        .insert(streaks)
+        .values({
+          userId, current: updated.state.current, best: updated.state.best,
           lastActiveDate: updated.state.lastActiveDate, freezes: streakFreezes,
           ...(masterySet ?? {}),
-        },
+        })
+        .onConflictDoUpdate({
+          target: streaks.userId,
+          set: {
+            current: updated.state.current, best: updated.state.best,
+            lastActiveDate: updated.state.lastActiveDate, freezes: streakFreezes,
+            ...(masterySet ?? {}),
+          },
+        });
+      await recordStreakEvents(userId, updated.events, tx);
+
+      xpAwarded = xpForReview({
+        cardKind: card.kind,
+        correct: verdict.correct,
+        nearMiss: verdict.feedbackKind === 'near_miss',
+        streakDays: updated.state.current,
+        timesToday: (timesToday[0]?.c ?? 0) + 1,
       });
-    await recordStreakEvents(userId, updated.events);
+      if (xpAwarded > 0) {
+        await tx.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: xpAwarded, source: 'review', refId: card.id });
+        await updateLeagueWeek(userId, xpAwarded, tx);
+      }
+    }
 
-    xpAwarded = xpForReview({
-      cardKind: card.kind,
-      correct: verdict.correct,
-      nearMiss: verdict.feedbackKind === 'near_miss',
-      streakDays: updated.state.current,
-      timesToday: (timesToday[0]?.c ?? 0) + 1,
+    // 4) log review (append-only)
+    await tx.insert(reviewLogs).values({
+      id: crypto.randomUUID(), userId, cardId: card.id, sessionId: input.sessionId ?? null,
+      mode, rating: ratingFromVerdict(verdict, card.kind),
+      userAnswer: input.answer ?? input.selectedOptionId ?? null,
+      graded: { correct: verdict.correct, feedbackKind: verdict.feedbackKind, matchedAnswerId: verdict.matchedAnswerId, note: verdict.note, similarity: verdict.similarity },
+      durationMs: input.durationMs ?? 0, xpAwarded,
     });
-    if (xpAwarded > 0) {
-      await db.insert(xpEvents).values({ id: crypto.randomUUID(), userId, amount: xpAwarded, source: 'review', refId: card.id });
-      await updateLeagueWeek(userId, xpAwarded);
+
+    totalXp = await totalXpFor(userId, tx);
+    level = levelForXp(totalXp).level;
+
+    // 5) achievements + in-app notifications for streak/achievement moments
+    newAchievements = await checkAchievements(userId, verdict.correct, tx);
+    for (const a of newAchievements) {
+      await recordNotification(userId, { kind: 'achievement', title: `Achievement unlocked: ${a.name}`, body: a.description, href: '/progress' }, tx);
     }
-  }
-
-  const totalXp = await totalXpFor(userId);
-  const { level } = levelForXp(totalXp);
-
-  // 4) log review (append-only)
-  await db.insert(reviewLogs).values({
-    id: crypto.randomUUID(), userId, cardId: card.id, sessionId: input.sessionId ?? null,
-    mode, rating: ratingFromVerdict(verdict, card.kind),
-    userAnswer: input.answer ?? input.selectedOptionId ?? null,
-    graded: { correct: verdict.correct, feedbackKind: verdict.feedbackKind, matchedAnswerId: verdict.matchedAnswerId, note: verdict.note, similarity: verdict.similarity },
-    durationMs: input.durationMs ?? 0, xpAwarded,
+    for (const e of streakEventList) {
+      if (e.meta?.track === 'mastery') continue; // mastery track is a signal, not a lever — no push copy in v1
+      if (e.kind === 'freeze_used') {
+        await recordNotification(userId, { kind: 'streak', title: 'Streak freeze used', body: 'A freeze covered a missed day — your streak is still alive.', href: '/dashboard' }, tx);
+      } else if (e.kind === 'comeback') {
+        await recordNotification(userId, { kind: 'streak', title: 'Back for another run', body: 'A new streak starts today. Your best is still yours.', href: '/dashboard' }, tx);
+      } else if (e.kind === 'freeze_earned') {
+        await recordNotification(userId, { kind: 'streak', title: 'Streak freeze earned', body: 'You banked a freeze for a rest day.', href: '/dashboard' }, tx);
+      }
+    }
   });
-
-  // 5) achievements + in-app notifications for streak/achievement moments
-  const newAchievements = await checkAchievements(userId, verdict.correct);
-  for (const a of newAchievements) {
-    await recordNotification(userId, { kind: 'achievement', title: `Achievement unlocked: ${a.name}`, body: a.description, href: '/progress' });
-  }
-  for (const e of streakEventList) {
-    if (e.meta?.track === 'mastery') continue; // mastery track is a signal, not a lever — no push copy in v1
-    if (e.kind === 'freeze_used') {
-      await recordNotification(userId, { kind: 'streak', title: 'Streak freeze used', body: 'A freeze covered a missed day — your streak is still alive.', href: '/dashboard' });
-    } else if (e.kind === 'comeback') {
-      await recordNotification(userId, { kind: 'streak', title: 'Back for another run', body: 'A new streak starts today. Your best is still yours.', href: '/dashboard' });
-    } else if (e.kind === 'freeze_earned') {
-      await recordNotification(userId, { kind: 'streak', title: 'Streak freeze earned', body: 'You banked a freeze for a rest day.', href: '/dashboard' });
-    }
-  }
 
   const primary = answersRes.find((a) => a.isPrimary) ?? answersRes[0];
   // The rung the card holds after this review — cram mode leaves the schedule
@@ -459,11 +469,14 @@ function startOfToday(): Date {
   return d;
 }
 
-export async function totalXpFor(userId: string): Promise<number> {
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+type Executor = Db | Tx;
+
+export async function totalXpFor(userId: string, exec: Executor = db): Promise<number> {
   // `::int` is load-bearing: a bare `sum` comes back from node-postgres as a
   // *string*, so the dashboard was adding and comparing text. Every other
   // aggregate in the app is cast; this one was missed.
-  const [row] = await db
+  const [row] = await exec
     .select({ total: sql<number>`coalesce(sum(${xpEvents.amount}), 0)::int` })
     .from(xpEvents)
     .where(eq(xpEvents.userId, userId));
@@ -471,9 +484,9 @@ export async function totalXpFor(userId: string): Promise<number> {
 }
 
 /** Add XP to this week's league lobby. Shared by reviews and maths practice. */
-export async function updateLeagueWeek(userId: string, xp: number) {
+export async function updateLeagueWeek(userId: string, xp: number, exec: Executor = db) {
   const weekStart = mondayOf(new Date()).toISOString().slice(0, 10);
-  await db
+  await exec
     .insert(leagueMemberships)
     .values({ userId, weekStart, xpWeek: xp, league: 'bronze' })
     .onConflictDoUpdate({ target: [leagueMemberships.userId, leagueMemberships.weekStart], set: { xpWeek: sql`${leagueMemberships.xpWeek} + ${xp}` } });
@@ -485,21 +498,21 @@ export function mondayOf(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff));
 }
 
-async function checkAchievements(userId: string, lastCorrect: boolean) {
-  const all = await db.select().from(achievements);
-  const owned = await db.select({ id: userAchievements.achievementId }).from(userAchievements).where(eq(userAchievements.userId, userId));
+async function checkAchievements(userId: string, lastCorrect: boolean, exec: Executor = db) {
+  const all = await exec.select().from(achievements);
+  const owned = await exec.select({ id: userAchievements.achievementId }).from(userAchievements).where(eq(userAchievements.userId, userId));
   const ownedIds = new Set(owned.map((o) => o.id));
 
-  const [reviewCount] = await db.select({ c: sql<number>`count(*)` }).from(reviewLogs).where(eq(reviewLogs.userId, userId));
+  const [reviewCount] = await exec.select({ c: sql<number>`count(*)` }).from(reviewLogs).where(eq(reviewLogs.userId, userId));
   // The funnel's last step: this count already includes the review just
   // inserted, so exactly 1 means the learner's first ever. Server-side because
   // the client cannot know — and it fires for every review mode alike.
   if ((reviewCount?.c ?? 0) === 1) void recordServerEvent('first_review_completed', userId);
-  const [streakRow] = await db.select().from(streaks).where(eq(streaks.userId, userId)).limit(1);
-  const totalXp = await totalXpFor(userId);
+  const [streakRow] = await exec.select().from(streaks).where(eq(streaks.userId, userId)).limit(1);
+  const totalXp = await totalXpFor(userId, exec);
 
   // session facts: last 20 reviews in the last hour
-  const recent = await db
+  const recent = await exec
     .select({ graded: reviewLogs.graded })
     .from(reviewLogs)
     .where(eq(reviewLogs.userId, userId))
@@ -517,7 +530,7 @@ async function checkAchievements(userId: string, lastCorrect: boolean) {
   };
   const unlocked = evaluateAchievements(all.map((a) => ({ id: a.id, rule: a.rule })), facts).filter((id) => !ownedIds.has(id));
   if (unlocked.length === 0) return [];
-  await db.insert(userAchievements).values(unlocked.map((id) => ({ id: crypto.randomUUID(), userId, achievementId: id }))).onConflictDoNothing();
+  await exec.insert(userAchievements).values(unlocked.map((id) => ({ id: crypto.randomUUID(), userId, achievementId: id }))).onConflictDoNothing();
   return all.filter((a) => unlocked.includes(a.id)).map((a) => ({ id: a.id, name: a.name, icon: a.icon, description: a.description }));
 }
 
