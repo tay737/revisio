@@ -45,7 +45,9 @@ async function sharedDecksSubject(userId: string) {
   const slug = makeSlug('shared-decks', userId.slice(0, 8));
   const [existing] = await db.select().from(subjects).where(eq(subjects.slug, slug)).limit(1);
   if (existing) return existing;
-  const [created] = await db
+  // subjects.slug is globally unique: a concurrent first-follow loses the
+  // insert race, does nothing, and re-reads the winner's row.
+  await db
     .insert(subjects)
     .values({
       id: crypto.randomUUID(),
@@ -54,7 +56,8 @@ async function sharedDecksSubject(userId: string) {
       description: 'Private copies of decks you follow from the public library.',
       ownerId: userId,
     })
-    .returning();
+    .onConflictDoNothing({ target: subjects.slug });
+  const [created] = await db.select().from(subjects).where(eq(subjects.slug, slug)).limit(1);
   return created;
 }
 
@@ -174,127 +177,145 @@ export async function followDeck(user: SessionUser, deckTopicId: string) {
 
   const subject = await sharedDecksSubject(user.id);
 
-  // Re-follow after unfollow: the subscription row is gone but the private
-  // copy stayed. Reuse it rather than minting a duplicate — match by name
-  // inside the user's Shared decks subject, most recent wins if legacy
-  // duplicates exist. Content is not re-copied (live propagation is deferred,
-  // so the existing copy is current-enough); the count snapshots refresh so
-  // "updated since you followed" measures from this follow.
-  const [priorCopy] = await db
-    .select({ id: topics.id })
-    .from(topics)
-    .where(
-      and(
-        eq(topics.ownerId, user.id),
-        eq(topics.subjectId, subject.id),
-        eq(topics.visibility, 'private'),
-        eq(topics.name, deck.name),
-      ),
-    )
-    .orderBy(desc(topics.createdAt))
-    .limit(1);
-  if (priorCopy) {
-    const [subscription] = await db
-      .insert(deckSubscriptions)
-      .values({
-        id: crypto.randomUUID(),
-        userId: user.id,
-        deckTopicId,
-        copyTopicId: priorCopy.id,
-        cardsAtFollow: srcCards.length,
-        lessonsAtFollow: srcLessons.length,
-      })
-      .returning();
-    return { subscription, copyTopicId: priorCopy.id, copySubjectId: subject.id, alreadyFollowing: false };
-  }
+  // Copy topic → lessons → cards → answers → subscription is one unit: an
+  // interruption mid-copy must not leave a half-populated private topic, and
+  // the subscription pk (user_id, deck_topic_id) is the real guard against a
+  // concurrent double-follow — the loser rolls its copy back and reports the
+  // winner's subscription instead.
+  const FOLLOW_CONFLICT = 'deck_follow_conflict';
+  try {
+    return await db.transaction(async (tx) => {
+      // Re-follow after unfollow: the subscription row is gone but the private
+      // copy stayed. Reuse it rather than minting a duplicate — match by name
+      // inside the user's Shared decks subject, most recent wins if legacy
+      // duplicates exist. Content is not re-copied (live propagation is
+      // deferred, so the existing copy is current-enough); the count snapshots
+      // refresh so "updated since you followed" measures from this follow.
+      const [priorCopy] = await tx
+        .select({ id: topics.id })
+        .from(topics)
+        .where(
+          and(
+            eq(topics.ownerId, user.id),
+            eq(topics.subjectId, subject.id),
+            eq(topics.visibility, 'private'),
+            eq(topics.name, deck.name),
+          ),
+        )
+        .orderBy(desc(topics.createdAt))
+        .limit(1);
 
-  const copyTopicId = crypto.randomUUID();
-  await db.insert(topics).values({
-    id: copyTopicId,
-    subjectId: subject.id,
-    name: deck.name,
-    slug: makeSlug('deck', deck.name, user.id.slice(0, 8), Date.now().toString(36)),
-    description: deck.description,
-    visibility: 'private',
-    ownerId: user.id,
-    position: 0,
-  });
+      let copyTopicId: string;
+      if (priorCopy) {
+        copyTopicId = priorCopy.id;
+      } else {
+        copyTopicId = crypto.randomUUID();
+        await tx.insert(topics).values({
+          id: copyTopicId,
+          subjectId: subject.id,
+          name: deck.name,
+          slug: makeSlug('deck', deck.name, user.id.slice(0, 8), Date.now().toString(36)),
+          description: deck.description,
+          visibility: 'private',
+          ownerId: user.id,
+          position: 0,
+        });
 
-  // Lessons first — cards point at them through lessonId.
-  const lessonIdMap = new Map<string, string>();
-  for (const [i, l] of srcLessons.entries()) {
-    const newId = crypto.randomUUID();
-    lessonIdMap.set(l.id, newId);
-    await db.insert(lessons).values({
-      id: newId,
-      topicId: copyTopicId,
-      title: l.title,
-      detailedMd: l.detailedMd,
-      summaryMd: l.summaryMd,
-      specRefs: l.specRefs,
-      visibility: 'private',
-      ownerId: user.id,
-      position: i,
+        // Lessons first — cards point at them through lessonId. Batched so a
+        // large deck is a handful of statements, not one per row.
+        const lessonRows = srcLessons.map((l, i) => ({
+          id: crypto.randomUUID(),
+          topicId: copyTopicId,
+          title: l.title,
+          detailedMd: l.detailedMd,
+          summaryMd: l.summaryMd,
+          specRefs: l.specRefs,
+          visibility: 'private' as const,
+          ownerId: user.id,
+          position: i,
+        }));
+        const lessonIdMap = new Map<string, string>();
+        srcLessons.forEach((l, i) => lessonIdMap.set(l.id, lessonRows[i].id));
+        for (let i = 0; i < lessonRows.length; i += 200) {
+          await tx.insert(lessons).values(lessonRows.slice(i, i + 200));
+        }
+
+        const cardRows = srcCards.map((c) => ({
+          id: crypto.randomUUID(),
+          topicId: copyTopicId,
+          lessonId: c.lessonId ? (lessonIdMap.get(c.lessonId) ?? null) : null,
+          kind: c.kind,
+          textWithBlank: c.textWithBlank,
+          prompt: c.prompt,
+          question: c.question,
+          options: c.options,
+          correctOptionId: c.correctOptionId,
+          explanationMd: c.explanationMd,
+          visibility: 'private' as const,
+          ownerId: user.id,
+          generated: c.generated,
+        }));
+        const cardIdMap = new Map<string, string>();
+        srcCards.forEach((c, i) => cardIdMap.set(c.id, cardRows[i].id));
+        for (let i = 0; i < cardRows.length; i += 200) {
+          await tx.insert(cards).values(cardRows.slice(i, i + 200));
+        }
+
+        const srcCardIds = srcCards.map((c) => c.id);
+        const srcAnswers = await tx.select().from(cardAnswers).where(inArray(cardAnswers.cardId, srcCardIds));
+        const answerRows = srcAnswers
+          .map((a) => {
+            const newCardId = cardIdMap.get(a.cardId);
+            return newCardId
+              ? {
+                  id: crypto.randomUUID(),
+                  cardId: newCardId,
+                  text: a.text,
+                  isPrimary: a.isPrimary,
+                  keywords: a.keywords,
+                  minPoints: a.minPoints,
+                }
+              : null;
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+        for (let i = 0; i < answerRows.length; i += 500) {
+          await tx.insert(cardAnswers).values(answerRows.slice(i, i + 500));
+        }
+      }
+
+      const [subscription] = await tx
+        .insert(deckSubscriptions)
+        .values({
+          id: crypto.randomUUID(),
+          userId: user.id,
+          deckTopicId,
+          copyTopicId,
+          cardsAtFollow: srcCards.length,
+          lessonsAtFollow: srcLessons.length,
+        })
+        .onConflictDoNothing({ target: [deckSubscriptions.userId, deckSubscriptions.deckTopicId] })
+        .returning();
+      if (!subscription) {
+        // A concurrent follow committed first: roll the copy back and let the
+        // caller report the winner's subscription.
+        throw new Error(FOLLOW_CONFLICT);
+      }
+      return { subscription, copyTopicId, copySubjectId: subject.id, alreadyFollowing: false };
     });
-  }
-
-  const cardIdMap = new Map<string, string>();
-  for (const c of srcCards) {
-    const newId = crypto.randomUUID();
-    cardIdMap.set(c.id, newId);
-    await db.insert(cards).values({
-      id: newId,
-      topicId: copyTopicId,
-      lessonId: c.lessonId ? (lessonIdMap.get(c.lessonId) ?? null) : null,
-      kind: c.kind,
-      textWithBlank: c.textWithBlank,
-      prompt: c.prompt,
-      question: c.question,
-      options: c.options,
-      correctOptionId: c.correctOptionId,
-      explanationMd: c.explanationMd,
-      visibility: 'private',
-      ownerId: user.id,
-      generated: c.generated,
-    });
-  }
-
-  const srcCardIds = srcCards.map((c) => c.id);
-  if (srcCardIds.length) {
-    const srcAnswers = await db.select().from(cardAnswers).where(inArray(cardAnswers.cardId, srcCardIds));
-    const answerRows = srcAnswers
-      .map((a) => {
-        const newCardId = cardIdMap.get(a.cardId);
-        return newCardId
-          ? {
-              id: crypto.randomUUID(),
-              cardId: newCardId,
-              text: a.text,
-              isPrimary: a.isPrimary,
-              keywords: a.keywords,
-              minPoints: a.minPoints,
-            }
-          : null;
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-    if (answerRows.length) {
-      await db.insert(cardAnswers).values(answerRows);
+  } catch (e) {
+    if (e instanceof Error && e.message === FOLLOW_CONFLICT) {
+      const [existing] = await db
+        .select()
+        .from(deckSubscriptions)
+        .where(and(eq(deckSubscriptions.userId, user.id), eq(deckSubscriptions.deckTopicId, deckTopicId)))
+        .limit(1);
+      if (existing) {
+        const [copy] = await db.select({ subjectId: topics.subjectId }).from(topics).where(eq(topics.id, existing.copyTopicId)).limit(1);
+        return { subscription: existing, copyTopicId: existing.copyTopicId, copySubjectId: copy?.subjectId ?? '', alreadyFollowing: true };
+      }
     }
+    throw e;
   }
-
-  const [subscription] = await db
-    .insert(deckSubscriptions)
-    .values({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      deckTopicId,
-      copyTopicId,
-      cardsAtFollow: srcCards.length,
-      lessonsAtFollow: srcLessons.length,
-    })
-    .returning();
-
-  return { subscription, copyTopicId, copySubjectId: subject.id, alreadyFollowing: false };
 }
 
 /** Unfollow: the subscription goes; the private copy stays — it is the user's now. */
