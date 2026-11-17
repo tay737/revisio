@@ -1,7 +1,7 @@
 import { getTableName, getTableColumns, type Table } from 'drizzle-orm';
 import { Pool } from 'pg';
 import { waitUntil } from '@vercel/functions';
-import { createAppPool } from './pool';
+import { createAppPool, errorChain, isConnectionError } from './pool';
 import * as schema from './schema';
 
 // ── How data streams between Supabase (primary) and Neon (replica) ─────────────
@@ -477,66 +477,181 @@ export async function backfillPrimaryToNeon(
 const REORDER_PASSES = 4;
 const REORDER_WAIT_MS = 120;
 
-type SyncEvent = { seq: string; table_name: string; op: string; pk: string; row_data: Record<string, unknown> | null };
+/**
+ * Events per apply transaction. Small enough that one chunk always fits the
+ * drain budget over cross-region Neon latency (~25 events ≈ low seconds);
+ * large enough that post-chunk verification stays a handful of SELECTs.
+ */
+const APPLY_CHUNK_SIZE = 25;
 
 /**
- * Drain `from._sync_events` into `to`, oldest first, until the source is empty.
- * Returns events applied; consumed events are deleted from the source only
- * after the whole batch succeeds, so a crash replays rather than skips.
+ * Events selected per drain iteration — replaces the old fixed 2,000, which
+ * no budget could ever fit (the 2026-11-16 stall). The drain loop now selects
+ * batch after batch until the deadline, so progress is incremental by
+ * construction. NEON_SYNC_BATCH_SIZE tunes it; clamped so a typo cannot
+ * recreate the stall or degenerate into per-event SELECTs.
  */
-export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap, maxEvents = 2_000): Promise<number> {
+const SYNC_BATCH_SIZE = Math.min(1_000, Math.max(10, Number(process.env.NEON_SYNC_BATCH_SIZE ?? 150)));
+
+/** Connection-class failures (Neon scale-to-zero drops, admin shutdowns) get
+ *  this many jittered-backoff attempts before the run fails. */
+const CONN_RETRY_ATTEMPTS = 3;
+
+type SyncEvent = { seq: string; table_name: string; op: string; pk: string; row_data: Record<string, unknown> | null };
+
+/** Per-direction counters for one drain — the observability hooks #61 alerts on. */
+export type SyncDrainStats = {
+  applied: number;
+  deferred: number;
+  orphansDropped: number;
+  unverified: number;
+  retried: number;
+  elapsedMs: number;
+};
+
+type DeferredEvent = { event: SyncEvent; reason: string };
+type PendingItem = { event: SyncEvent; code: string | null; constraint: string | null };
+type ApplyChunkResult = { applied: SyncEvent[]; deferred: DeferredEvent[]; unverified: number; retried: number };
+type ApplyResult = ApplyChunkResult & { orphansDropped: number };
+
+/** FK constraint → parent mapping, resolved once per constraint per drain call. */
+type FkMapping = { parentTable: string; childCols: string[]; parentCols: string[] };
+type DrainCtx = { parentPullTried: Set<string>; fkCache: Map<string, FkMapping | null> };
+
+/**
+ * Drain `from._sync_events` into `to`, oldest first, until the source is empty
+ * or the deadline passes. Only *applied* seqs are deleted — deferred events
+ * (FK-stranded, malformed, unverified) keep their seqs and retry next run,
+ * which is what turns the old all-or-nothing batch into guaranteed forward
+ * progress: a budget stop loses at most the in-flight chunk.
+ */
+export async function drainEvents(
+  from: SyncDb,
+  to: SyncDb,
+  pkMap: PrimaryKeyMap,
+  opts: { maxEvents?: number; deadline?: number } = {},
+): Promise<SyncDrainStats> {
+  const started = Date.now();
+  const maxEvents = Math.min(1_000, Math.max(10, opts.maxEvents ?? SYNC_BATCH_SIZE));
+  const deadline = opts.deadline ?? started + DRAIN_BUDGET_MS;
+  const stats: SyncDrainStats = { applied: 0, deferred: 0, orphansDropped: 0, unverified: 0, retried: 0, elapsedMs: 0 };
+  const ctx: DrainCtx = { parentPullTried: new Set(), fkCache: new Map() };
+  // Deferred seqs are excluded from later SELECTs in this call: without it a
+  // poisoned event would be re-fetched and re-burn budget on every iteration,
+  // starving newer events behind it (backend review amendment). They retry
+  // fresh on the next drainEvents call.
+  const deferredSeqs = new Set<number>();
+  const deferredLog: string[] = [];
+
   // Collapse bursts before draining: only each row's final state matters
   // (INSERT and UPDATE both land as the same upsert, DELETE as a tombstone),
   // so intermediate events for a pk are dead weight that can only fail —
   // an orphaned INSERT ahead of its own DELETE is exactly what stalled the
   // queue for five weeks in Oct/Nov 2026.
-  await compactSyncEvents(from);
+  await withConnRetry(() => compactSyncEvents(from), deadline, to.label);
 
-  let drained = 0;
-  const deadline = Date.now() + DRAIN_BUDGET_MS;
   for (;;) {
-    const fromClient = await from.pool.connect();
+    if (Date.now() > deadline) break;
     let events: SyncEvent[];
     try {
-      events = (
-        await fromClient.query(
-          `SELECT seq, table_name, op, pk, row_data FROM _sync_events ORDER BY seq ASC LIMIT ${maxEvents}`,
-        )
-      ).rows;
-    } finally {
-      fromClient.release();
+      events = await withConnRetry(() => selectEvents(from, maxEvents, deferredSeqs), deadline, to.label);
+    } catch (e) {
+      if ((e as Error).name === 'SyncBudgetExceeded') break;
+      throw e;
     }
     if (events.length === 0) break;
 
+    let res: ApplyResult;
     try {
-      await applyEventBatch(from, to, events, pkMap, deadline);
+      res = await withConnRetry(() => applyEvents(from, to, events, pkMap, deadline, ctx), deadline, to.label);
     } catch (e) {
-      // Budget exhausted mid-batch: committed passes already landed (replayed
-      // idempotently next run) and this batch's source events stay queued.
+      // Budget exhausted mid-batch: committed chunks already landed (their
+      // seqs simply stay queued and replay idempotently next run) and this
+      // batch's remaining events were never touched.
       if ((e as Error).name === 'SyncBudgetExceeded') break;
       throw e;
     }
 
-    const seqs = events.map((e) => Number(e.seq));
-    const fromClient2 = await from.pool.connect();
-    try {
-      await fromClient2.query('BEGIN');
-      await fromClient2.query(`DELETE FROM _sync_events WHERE seq = ANY($1::bigint[])`, [seqs]);
-      await fromClient2.query('COMMIT');
-    } catch (e) {
-      await fromClient2.query('ROLLBACK').catch(() => undefined);
-      throw e;
-    } finally {
-      fromClient2.release();
+    stats.orphansDropped += res.orphansDropped;
+    stats.unverified += res.unverified;
+    stats.retried += res.retried;
+    if (res.applied.length > 0) {
+      await withConnRetry(
+        () => deleteSyncEventSeqs(from, res.applied.map((e) => Number(e.seq))),
+        deadline,
+        to.label,
+      );
+      stats.applied += res.applied.length;
     }
-    drained += events.length;
-    if (events.length < maxEvents) break;
+    for (const d of res.deferred) {
+      const seq = Number(d.event.seq);
+      if (deferredSeqs.has(seq)) continue;
+      deferredSeqs.add(seq);
+      stats.deferred += 1;
+      if (deferredLog.length < 10) {
+        deferredLog.push(`${d.event.table_name} ${d.event.op} ${d.event.pk} seq=${d.event.seq} (${d.reason})`);
+      }
+    }
     // A backlog larger than one budget should leave the rest for the next
     // tick rather than have the whole invocation killed by the platform's
     // function timeout — which deleted nothing and made no progress at all.
     if (Date.now() > deadline) break;
   }
-  return drained;
+
+  stats.elapsedMs = Date.now() - started;
+  if (deferredLog.length > 0) {
+    console.warn(`[sync] ${stats.deferred} event(s) deferred to next run for ${to.label}: ${deferredLog.join('; ')}`);
+  }
+  return stats;
+}
+
+/** Next batch of queued events, oldest first, minus seqs already deferred this call. */
+async function selectEvents(from: SyncDb, limit: number, exclude: Set<number>): Promise<SyncEvent[]> {
+  const client = await from.pool.connect();
+  try {
+    const res =
+      exclude.size === 0
+        ? await client.query(
+            `SELECT seq, table_name, op, pk, row_data FROM _sync_events ORDER BY seq ASC LIMIT $1`,
+            [limit],
+          )
+        : await client.query(
+            `SELECT seq, table_name, op, pk, row_data FROM _sync_events WHERE seq <> ALL($2::bigint[]) ORDER BY seq ASC LIMIT $1`,
+            [limit, [...exclude]],
+          );
+    return res.rows;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Retry a sync operation on connection-class failures (Neon scale-to-zero
+ * ECONNRESET, admin shutdown 57P01, cannot-connect-now 57P03, 08006) with
+ * jittered backoff, bounded by the run deadline. Each attempt re-acquires
+ * its client from the pool, so a dropped handle is replaced rather than
+ * reused. Safe at this granularity because every wrapped operation is either
+ * a single auto-commit statement or a transaction that rolls back whole —
+ * replay is always idempotent.
+ */
+async function withConnRetry<T>(fn: () => Promise<T>, deadline: number, targetLabel: string): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (e) {
+      if ((e as Error).name === 'SyncBudgetExceeded' || !isRetryableSyncError(e) || attempt >= CONN_RETRY_ATTEMPTS - 1) {
+        throw e;
+      }
+      const wait = 250 * 2 ** attempt + Math.random() * 250;
+      if (Date.now() + wait > deadline) throw syncBudgetError(targetLabel);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
+function isRetryableSyncError(e: unknown): boolean {
+  if (isConnectionError(e)) return true;
+  return errorChain(e).some((link) => (link as { code?: string } | null)?.code === '57P03');
 }
 
 /**
@@ -549,45 +664,38 @@ export async function drainEvents(from: SyncDb, to: SyncDb, pkMap: PrimaryKeyMap
 const DRAIN_BUDGET_MS = Number(process.env.NEON_DRAIN_BUDGET_MS ?? 25_000);
 
 /**
- * Apply one batch in dependency order, retrying rows whose parents are later
- * in the same batch (an UPDATE of `users` after an INSERT of a row referencing
- * it). Up to REORDER_PASSES passes; anything still failing raises so the run
- * is retried wholesale next tick — the source events survive until then.
+ * Apply one selected batch in dependency order (parents first — the
+ * REPLICATED_TABLES sort is unchanged), chunked so each chunk is its own
+ * transaction. Orphans are proven once per batch here, before any chunk
+ * runs: their per-event source SELECTs are the ~0.8s/event cost from the QA
+ * receipt, so running them per chunk would multiply that by the chunk count
+ * (backend review amendment).
  *
- * Each pass is one transaction with the replication flag set locally, so the
- * trigger sees the flag for every statement in it (a `set_config(…, true)`
- * outside an explicit transaction would expire with the statement itself and
- * every replicated write would be re-captured — an echo loop), a pass either
- * lands whole or not at all, and per-event savepoints let FK-stranded rows be
- * parked and retried without aborting the pass.
- *
- * Self-healing: an INSERT/UPDATE whose source row no longer exists is an
- * orphan — its parent (e.g. a deleted test user) is gone on both sides, so it
- * can never apply and would otherwise stall the whole queue forever. Orphans
- * are proven *before* the passes (one SELECT per table for the whole batch —
- * discovering them only after four failed passes costs ~0.5s per event, which
- * let a 2,001-orphan backlog outrun maxDuration in QA's load test), converged
- * on the target with a DELETE by pk, and consumed. The same check repeats
- * after the passes for rows deleted mid-drain; anything whose source row
- * still exists raises and fails the run.
+ * Events that cannot land — FK-stranded after the chunk's reorder passes,
+ * malformed, or failing post-chunk verification — are *deferred*: their
+ * seqs are not consumed and they retry next run. The old code threw here and
+ * failed the whole run, which is how one poison event stalled the queue.
  */
-async function applyEventBatch(
+async function applyEvents(
   from: SyncDb,
   to: SyncDb,
   events: SyncEvent[],
   pkMap: PrimaryKeyMap,
-  deadline = Number.POSITIVE_INFINITY,
-): Promise<void> {
+  deadline: number,
+  ctx: DrainCtx,
+): Promise<ApplyResult> {
+  const result: ApplyResult = { applied: [], deferred: [], orphansDropped: 0, unverified: 0, retried: 0 };
   const { live, orphans } = await partitionOrphans(from, events, pkMap);
   if (orphans.length > 0) {
     await convergeDroppedRows(to, orphans, pkMap);
     await deleteConsumedEvents(from, orphans);
+    result.orphansDropped = orphans.length;
     console.warn(
       `[sync] dropped ${orphans.length} orphaned event(s) for ${to.label} before applying: ` +
         orphans.slice(0, 5).map((e) => `${e.table_name} ${e.op} ${e.pk}`).join('; '),
     );
   }
-  if (live.length === 0) return;
+  if (live.length === 0) return result;
 
   const ordered = [...live].sort((a, b) => {
     const ia = REPLICATED_TABLES.indexOf(a.table_name as (typeof REPLICATED_TABLES)[number]);
@@ -595,32 +703,79 @@ async function applyEventBatch(
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
   });
 
-  let pending = ordered;
-  for (let pass = 0; pass < REORDER_PASSES; pass += 1) {
-    if (Date.now() > deadline) throw syncBudgetError(to);
-    const failed: typeof pending = [];
+  for (let i = 0; i < ordered.length; i += APPLY_CHUNK_SIZE) {
+    if (Date.now() > deadline) throw syncBudgetError(to.label);
+    const chunk = await applyChunk(from, to, ordered.slice(i, i + APPLY_CHUNK_SIZE), pkMap, deadline, ctx);
+    result.applied.push(...chunk.applied);
+    result.deferred.push(...chunk.deferred);
+    result.unverified += chunk.unverified;
+    result.retried += chunk.retried;
+  }
+  return result;
+}
+
+/**
+ * One chunk of up to APPLY_CHUNK_SIZE events: up to REORDER_PASSES
+ * chunk-scoped passes, each pass one transaction with `app.sync_replicated`
+ * set locally and per-event savepoints. FK violations (23503/23505) are
+ * parked and retried; every OTHER per-event error — including the loud
+ * null-row_data and zero-writable-columns throws — defers that one event
+ * and lets the chunk commit, so a single malformed event can never roll
+ * back its neighbours every tick (the same stall shape in miniature).
+ * Only connection-level and budget errors abort the chunk.
+ *
+ * Survivors of the passes get one parent-pull attempt (INSERT/UPDATE +
+ * 23503 only — DELETE ordering stays with the reorder passes, and parents
+ * are never pulled for deletes). Everything else defers with a reason.
+ *
+ * Post-chunk verification then proves consumed ⇒ landed for this chunk's
+ * INSERT/UPDATE rows with one existence SELECT per table. It proves the row
+ * EXISTS, not that values match — value drift stays #61's row-parity job;
+ * nobody should read this as full parity.
+ */
+async function applyChunk(
+  from: SyncDb,
+  to: SyncDb,
+  events: SyncEvent[],
+  pkMap: PrimaryKeyMap,
+  deadline: number,
+  ctx: DrainCtx,
+): Promise<ApplyChunkResult> {
+  const applied: SyncEvent[] = [];
+  const deferred: DeferredEvent[] = [];
+  let unverified = 0;
+  let retried = 0;
+
+  let pending: PendingItem[] = events.map((event) => ({ event, code: null, constraint: null }));
+  for (let pass = 0; pass < REORDER_PASSES && pending.length > 0; pass += 1) {
+    if (Date.now() > deadline) throw syncBudgetError(to.label);
+    const failed: PendingItem[] = [];
+    const succeeded: SyncEvent[] = [];
     const toClient = await to.pool.connect();
     try {
       await toClient.query('BEGIN');
       await toClient.query("SELECT set_config('app.sync_replicated', 'on', true)");
       let savepoint = 0;
-      let i = 0;
-      for (const event of pending) {
-        if ((++i & 127) === 0 && Date.now() > deadline) throw syncBudgetError(to);
+      for (const item of pending) {
+        if (Date.now() > deadline) throw syncBudgetError(to.label);
         const name = `ev_${savepoint++}`;
         try {
           await toClient.query(`SAVEPOINT ${name}`);
-          await applyOne(toClient, event, pkMap);
+          await applyOne(toClient, item.event, pkMap);
           await toClient.query(`RELEASE SAVEPOINT ${name}`);
+          succeeded.push(item.event);
         } catch (e) {
-          // FK violation because the parent row arrives later in this batch, or
-          // a unique conflict whose resolving row is still ahead — park it for
-          // the next pass. Anything else is real; rethrow.
           await toClient.query(`ROLLBACK TO SAVEPOINT ${name}`).catch(() => undefined);
-          const cause = (e as { cause?: { code?: string } }).cause ?? e;
-          const code = (cause as { code?: string }).code;
-          if (code === '23503' || code === '23505') failed.push(event);
-          else throw e;
+          const cause = (e as { cause?: { code?: string; constraint?: string } }).cause ?? e;
+          const code = (cause as { code?: string }).code ?? null;
+          if (code === '23503' || code === '23505') {
+            failed.push({ event: item.event, code, constraint: (cause as { constraint?: string }).constraint ?? null });
+            retried += 1;
+          } else if (isRetryableSyncError(e)) {
+            throw e;
+          } else {
+            deferred.push({ event: item.event, reason: describeApplyError(e) });
+          }
         }
       }
       await toClient.query('COMMIT');
@@ -630,33 +785,177 @@ async function applyEventBatch(
     } finally {
       toClient.release();
     }
-    if (failed.length === 0) return;
+    applied.push(...succeeded);
+    if (failed.length === 0) {
+      pending = [];
+      break;
+    }
     if (pass < REORDER_PASSES - 1) await new Promise((r) => setTimeout(r, REORDER_WAIT_MS));
     pending = failed;
   }
 
-  // Passes exhausted. Partition the survivors: orphans (source row gone —
-  // deleted mid-drain) are converged and consumed here so they can never
-  // stall the queue again; anything whose source row still exists is a
-  // genuine conflict and fails the run as before.
-  const late = await partitionOrphans(from, pending, pkMap);
-  const lateOrphans = late.orphans;
-  const stuck = late.live;
+  for (const item of pending) {
+    if (Date.now() > deadline) throw syncBudgetError(to.label);
+    let reason: string | null;
+    if (item.code === '23503' && (item.event.op === 'INSERT' || item.event.op === 'UPDATE')) {
+      if (ctx.parentPullTried.has(item.event.seq)) {
+        reason = 'parent-pull-exhausted';
+      } else {
+        ctx.parentPullTried.add(item.event.seq);
+        reason = await tryParentPull(from, to, item, pkMap, ctx);
+      }
+    } else if (item.event.op === 'DELETE') {
+      reason = `delete-ordering:${item.code ?? 'unknown'}`;
+    } else {
+      reason = item.code ? `fk:${item.code}` : 'unresolved';
+    }
+    if (reason === null) applied.push(item.event);
+    else deferred.push({ event: item.event, reason });
+  }
 
-  if (lateOrphans.length > 0) {
-    await convergeDroppedRows(to, lateOrphans, pkMap);
-    await deleteConsumedEvents(from, lateOrphans);
-    console.warn(
-      `[sync] dropped ${lateOrphans.length} orphaned event(s) for ${to.label}: ` +
-        lateOrphans.slice(0, 5).map((e) => `${e.table_name} ${e.op} ${e.pk}`).join('; '),
-    );
+  // Post-chunk existence verification — see the function comment.
+  const checkable = applied.filter((e) => e.op !== 'DELETE');
+  if (checkable.length === 0) return { applied, deferred, unverified, retried };
+  const byTable = new Map<string, SyncEvent[]>();
+  for (const e of checkable) {
+    const list = byTable.get(e.table_name);
+    if (list) list.push(e);
+    else byTable.set(e.table_name, [e]);
   }
-  if (stuck.length > 0) {
-    throw new Error(
-      `sync: ${stuck.length} event(s) could not be applied to ${to.label} after ${REORDER_PASSES} passes ` +
-        `(first: ${stuck[0].table_name} ${stuck[0].op} ${stuck[0].pk})`,
-    );
+  const verified: SyncEvent[] = applied.filter((e) => e.op === 'DELETE');
+  for (const [table, evs] of byTable) {
+    let def: TableDef | null = null;
+    try {
+      def = tableDef(table, pkMap);
+    } catch {
+      def = null;
+    }
+    if (!def) {
+      for (const e of evs) {
+        deferred.push({ event: e, reason: 'unverified' });
+        unverified += 1;
+      }
+      continue;
+    }
+    const client = await to.pool.connect();
+    try {
+      const found = await existingRowKeys(client, table, def, evs);
+      for (const e of evs) {
+        const key = eventPkKey(e, def);
+        if (key !== null && found.has(key)) verified.push(e);
+        else {
+          deferred.push({ event: e, reason: 'unverified' });
+          unverified += 1;
+        }
+      }
+    } finally {
+      client.release();
+    }
   }
+  return { applied: verified, deferred, unverified, retried };
+}
+
+/** Short, log-safe description of a per-event apply failure. */
+function describeApplyError(e: unknown): string {
+  const cause = (e as { cause?: { code?: string; message?: string } }).cause ?? e;
+  const code = (cause as { code?: string }).code;
+  const msg = String((cause as { message?: string }).message ?? e).replace(/\s+/g, ' ').slice(0, 120);
+  return code ? `${code}: ${msg}` : msg;
+}
+
+/**
+ * Missing-parent self-heal: the child's FK parent exists on the source but
+ * its own event was compacted away, so it can never arrive through the
+ * queue. Resolve the violated constraint via pg_constraint (cached per
+ * drain call), pull the parent row image from the source, upsert it to the
+ * target, and retry the child once — all inside one flagged transaction.
+ * Returns null on success, a defer reason otherwise. If the parent row is
+ * absent on the source too, the event defers and is counted — never dropped.
+ */
+async function tryParentPull(
+  from: SyncDb,
+  to: SyncDb,
+  item: PendingItem,
+  pkMap: PrimaryKeyMap,
+  ctx: DrainCtx,
+): Promise<string | null> {
+  const { event } = item;
+  if (!item.constraint || !event.row_data) return 'fk-unmapped';
+  const mapping = await resolveFkMapping(from, event.table_name, item.constraint, ctx.fkCache);
+  if (!mapping) return 'fk-unmapped';
+  let parentDef: TableDef;
+  try {
+    parentDef = tableDef(mapping.parentTable, pkMap);
+  } catch {
+    return 'parent-not-replicated';
+  }
+  const values = mapping.childCols.map((c) => event.row_data?.[c]);
+  if (values.some((v) => v === null || v === undefined)) return 'null-fk-value';
+
+  const fromClient = await from.pool.connect();
+  let parentRow: Record<string, unknown> | undefined;
+  try {
+    const where = mapping.parentCols.map((_, i) => `"${mapping.parentCols[i]}"::text = $${i + 1}`).join(' AND ');
+    const res = await fromClient.query(`SELECT * FROM "${mapping.parentTable}" WHERE ${where} LIMIT 1`, values.map(String));
+    parentRow = res.rows[0] as Record<string, unknown> | undefined;
+  } finally {
+    fromClient.release();
+  }
+  if (!parentRow) return 'missing-parent';
+
+  const toClient = await to.pool.connect();
+  try {
+    await toClient.query('BEGIN');
+    await toClient.query("SELECT set_config('app.sync_replicated', 'on', true)");
+    await upsertRow(toClient, mapping.parentTable, parentDef, parentRow);
+    await applyOne(toClient, event, pkMap);
+    await toClient.query('COMMIT');
+    return null;
+  } catch (e) {
+    await toClient.query('ROLLBACK').catch(() => undefined);
+    if (isRetryableSyncError(e)) throw e;
+    return `parent-pull-failed:${describeApplyError(e)}`;
+  } finally {
+    toClient.release();
+  }
+}
+
+/** constraint name + child table → parent table and the column correspondence. */
+async function resolveFkMapping(
+  from: SyncDb,
+  childTable: string,
+  constraint: string,
+  cache: Map<string, FkMapping | null>,
+): Promise<FkMapping | null> {
+  const key = `${childTable}.${constraint}`;
+  if (cache.has(key)) return cache.get(key) ?? null;
+  const client = await from.pool.connect();
+  let mapping: FkMapping | null = null;
+  try {
+    const res = await client.query(
+      `SELECT con.confrelid::regclass::text AS parent_table,
+              (SELECT array_agg(a.attname::text ORDER BY u.ord)
+                 FROM unnest(con.conkey) WITH ORDINALITY AS u(attnum, ord)
+                 JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = u.attnum) AS child_cols,
+              (SELECT array_agg(a.attname::text ORDER BY u.ord)
+                 FROM unnest(con.confkey) WITH ORDINALITY AS u(attnum, ord)
+                 JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = u.attnum) AS parent_cols
+         FROM pg_constraint con
+        WHERE con.contype = 'f' AND con.conname = $1 AND con.conrelid = ('public.' || $2)::regclass`,
+      [constraint, childTable],
+    );
+    const row = res.rows[0] as { parent_table: string; child_cols: string[]; parent_cols: string[] } | undefined;
+    if (row && Array.isArray(row.child_cols) && Array.isArray(row.parent_cols)) {
+      // regclass::text may render schema-qualified ('public.users'); the sync
+      // engine keys tables by bare name, so normalize.
+      const parentTable = row.parent_table.split('.').pop() ?? row.parent_table;
+      mapping = { parentTable, childCols: row.child_cols, parentCols: row.parent_cols };
+    }
+  } finally {
+    client.release();
+  }
+  cache.set(key, mapping);
+  return mapping;
 }
 
 /** Decode `_sync_events.pk` — a bare value for single-pk tables, a JSON array for composites. */
@@ -675,8 +974,8 @@ function pkPredicate(def: TableDef, values: string[]): string {
 }
 
 /** Error name drainEvents recognises as "stop cleanly, resume next run". */
-function syncBudgetError(to: SyncDb): Error {
-  const e = new Error(`sync: drain budget exhausted during batch to ${to.label}; remaining events retry next run`);
+function syncBudgetError(label: string): Error {
+  const e = new Error(`sync: drain budget exhausted during batch to ${label}; remaining events retry next run`);
   e.name = 'SyncBudgetExceeded';
   return e;
 }
@@ -805,14 +1104,13 @@ async function convergeDroppedRows(to: SyncDb, events: SyncEvent[], pkMap: Prima
   }
 }
 
-/** Consume orphaned events on the source so they are never re-examined. */
-async function deleteConsumedEvents(from: SyncDb, events: SyncEvent[]): Promise<void> {
+/** Consume events on the source by seq so they are never re-examined. */
+async function deleteSyncEventSeqs(from: SyncDb, seqs: number[]): Promise<void> {
+  if (seqs.length === 0) return;
   const client = await from.pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`DELETE FROM _sync_events WHERE seq = ANY($1::bigint[])`, [
-      events.map((e) => Number(e.seq)),
-    ]);
+    await client.query(`DELETE FROM _sync_events WHERE seq = ANY($1::bigint[])`, [seqs]);
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -820,6 +1118,11 @@ async function deleteConsumedEvents(from: SyncDb, events: SyncEvent[]): Promise<
   } finally {
     client.release();
   }
+}
+
+/** Consume orphaned events on the source so they are never re-examined. */
+async function deleteConsumedEvents(from: SyncDb, events: SyncEvent[]): Promise<void> {
+  await deleteSyncEventSeqs(from, events.map((e) => Number(e.seq)));
 }
 
 /**
@@ -855,7 +1158,12 @@ async function applyOne(client: Pool | import('pg').PoolClient, event: SyncEvent
     return;
   }
 
-  if (!event.row_data) return;
+  // Loud, never silent: an INSERT/UPDATE with no row image used to return
+  // early and consume the event with zero write — the consumed-but-never-
+  // landed divergence QA found. Throwing defers the event instead.
+  if (!event.row_data) {
+    throw new Error(`sync: ${event.table_name} ${event.op} seq=${event.seq} has null row_data`);
+  }
   await upsertRow(client, event.table_name, def, event.row_data);
 }
 
@@ -881,7 +1189,11 @@ async function upsertRow(
     cols.push(col.name);
     values.push(literalFor(value, col));
   }
-  if (cols.length === 0) return;
+  // Loud, never silent: zero writable columns means schema/column drift —
+  // the event used to be consumed with no write at all.
+  if (cols.length === 0) {
+    throw new Error(`sync: no writable columns for ${tableName} (row keys: ${Object.keys(row).slice(0, 8).join(', ')})`);
+  }
   const conflict = def.pkCols.map((c) => `"${c}"`).join(', ');
   const stmt =
     `INSERT INTO "${tableName}" (${cols.map((c) => `"${c}"`).join(', ')}) ` +
@@ -918,6 +1230,9 @@ export type SyncRunResult = {
   drainedNeonToPrimary: number;
   pendingPrimary: number;
   pendingNeon: number;
+  /** Per-direction drain detail (#51 observability hooks for #61). */
+  primaryToNeon?: SyncDrainStats;
+  neonToPrimary?: SyncDrainStats;
 };
 
 /**
@@ -925,6 +1240,9 @@ export type SyncRunResult = {
  * to the other side inside `app.sync_replicated`, so neither produces new
  * events of its own. Safe to run concurrently with itself: worst case two runs
  * drain different halves and both delete what they applied.
+ *
+ * The two directions share ONE deadline: primary→neon cannot spend the whole
+ * budget and starve neon→primary on the same cron tick (backend review).
  */
 export async function runSync(handles: SyncHandles): Promise<SyncRunResult> {
   const { primary, neon } = handles;
@@ -938,16 +1256,19 @@ export async function runSync(handles: SyncHandles): Promise<SyncRunResult> {
     return { ran: false, drainedPrimaryToNeon: 0, drainedNeonToPrimary: 0, pendingPrimary: 0, pendingNeon: 0 };
   }
 
-  const drainedPrimaryToNeon = await drainEvents(primary, neon, pkMap);
-  const drainedNeonToPrimary = await drainEvents(neon, primary, pkMap);
+  const deadline = Date.now() + DRAIN_BUDGET_MS;
+  const primaryToNeon = await drainEvents(primary, neon, pkMap, { deadline });
+  const neonToPrimary = await drainEvents(neon, primary, pkMap, { deadline });
 
   const [pendingPrimaryAfter, pendingNeonAfter] = await Promise.all([countPending(primary), countPending(neon)]);
   return {
     ran: true,
-    drainedPrimaryToNeon,
-    drainedNeonToPrimary,
+    drainedPrimaryToNeon: primaryToNeon.applied,
+    drainedNeonToPrimary: neonToPrimary.applied,
     pendingPrimary: pendingPrimaryAfter,
     pendingNeon: pendingNeonAfter,
+    primaryToNeon,
+    neonToPrimary,
   };
 }
 
@@ -956,6 +1277,18 @@ export async function countPending(db: SyncDb): Promise<number> {
   try {
     const res = await client.query('SELECT count(*)::int AS c FROM _sync_events');
     return res.rows[0]?.c ?? 0;
+  } finally {
+    client.release();
+  }
+}
+
+/** Oldest queued event's capture time on one side, or null when the queue is empty. */
+export async function oldestPendingAt(db: SyncDb): Promise<Date | null> {
+  const client = await db.pool.connect();
+  try {
+    const res = await client.query(`SELECT min(captured_at) AS oldest FROM _sync_events`);
+    const v = res.rows[0]?.oldest;
+    return v ? new Date(v) : null;
   } finally {
     client.release();
   }
@@ -979,14 +1312,15 @@ export function sharedSyncHandles(): SyncHandles | null {
  * Fire-and-forget drain after a write that should reach the replica quickly.
  * Never throws — the cron run is the backstop — and never blocks the response.
  */
-export function kickSync(maxEvents = 200): void {
+export function kickSync(maxEvents = 50): void {
   const handles = sharedSyncHandles();
   if (!handles || !handles.neon) return;
   const drain = (async () => {
     try {
       const pkMap = await getPkMap(handles);
-      const drained = await drainEvents(handles.primary, handles.neon as SyncDb, pkMap, maxEvents);
-      if (drained > 0) console.log(`[sync] kicked ${drained} event(s) primary → neon`);
+      const stats = await drainEvents(handles.primary, handles.neon as SyncDb, pkMap, { maxEvents });
+      if (stats.applied > 0) console.log(`[sync] kicked ${stats.applied} event(s) primary → neon`);
+      if (stats.deferred > 0) console.warn(`[sync] kick deferred ${stats.deferred} event(s) primary → neon`);
     } catch (e) {
       console.error('[sync] kick failed (cron will catch up)', e);
     }
