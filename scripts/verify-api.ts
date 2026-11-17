@@ -108,7 +108,11 @@ async function main() {
     const seededId = seeded.body.topic?.id;
     check('a fresh deck was created', seeded.status === 201, seeded.status === 201 ? 'ok' : seeded.body);
     if (seededId) {
-      const fresh = await call<{ queue: { id: string; topicId: string }[] }>('/api/v1/queue/today?limit=50');
+      // Scoped to the fresh topic: the unfiltered queue is capped at `limit`
+      // and ranks unseen cards oldest-first, so on a busy account the two new
+      // cards legitimately fall outside the first page. The contract under
+      // test is "the queue deals this deck", not "it outranks the backlog".
+      const fresh = await call<{ queue: { id: string; topicId: string }[] }>(`/api/v1/queue/today?limit=50&topicId=${seededId}`);
       check('and the queue deals it', (fresh.body.queue ?? []).filter((c) => c.topicId === seededId).length === 2, fresh.body.queue?.length);
       await call(`/api/v1/content?topicId=${seededId}`, { method: 'DELETE' });
     }
