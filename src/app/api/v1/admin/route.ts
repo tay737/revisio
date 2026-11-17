@@ -207,9 +207,19 @@ export const POST = route(async (req: NextRequest) => {
       if (!r) throw new ApiError(404, 'not_found', 'Approval request not found.');
       if (r.status !== 'pending') throw new ApiError(409, 'conflict', 'Already decided.');
       const approved = body.action === 'approve_request';
-      await db.update(approvalRequests).set({ status: approved ? 'approved' : 'rejected', reviewedBy: user.id, decidedAt: new Date() }).where(eq(approvalRequests.id, r.id));
-      if (approved) await db.update(users).set({ role: r.roleRequested, status: 'active' }).where(eq(users.id, r.userId));
-      await audit(body.action, r.id, { targetUser: r.userId, roleRequested: r.roleRequested });
+      // Decision + role grant + audit commit together, and the conditional
+      // UPDATE is the real guard: two concurrent deciders cannot both pass —
+      // the loser finds status already moved and gets the 409.
+      await db.transaction(async (tx) => {
+        const [claimed] = await tx
+          .update(approvalRequests)
+          .set({ status: approved ? 'approved' : 'rejected', reviewedBy: user.id, decidedAt: new Date() })
+          .where(and(eq(approvalRequests.id, r.id), eq(approvalRequests.status, 'pending')))
+          .returning({ id: approvalRequests.id });
+        if (!claimed) throw new ApiError(409, 'conflict', 'Already decided.');
+        if (approved) await tx.update(users).set({ role: r.roleRequested, status: 'active' }).where(eq(users.id, r.userId));
+        await tx.insert(auditLog).values({ id: crypto.randomUUID(), actorId: user.id, action: body.action, target: r.id, meta: { targetUser: r.userId, roleRequested: r.roleRequested } });
+      });
       return ok({ ok: true });
     }
     case 'set_flag': {
@@ -484,18 +494,6 @@ export const POST = route(async (req: NextRequest) => {
       // A window that overlaps another season would leave two rows whose XP
       // aggregates both claim the same days, and `seasonAt` would have to pick
       // a winner. Refuse rather than resolve silently.
-      const clash = await db
-        .select({ number: seasons.number })
-        .from(seasons)
-        .where(and(sql`${seasons.number} <> ${number}`, sql`${seasons.startsAt} < ${endsAt}`, sql`${seasons.endsAt} > ${startsAt}`));
-      if (clash.length > 0) {
-        throw new ApiError(
-          409,
-          'conflict',
-          `Those dates overlap season ${clash.map((c) => c.number).join(', ')}.`,
-        );
-      }
-
       const values = {
         name: body.seasonName ?? null,
         startsAt,
@@ -507,16 +505,34 @@ export const POST = route(async (req: NextRequest) => {
         ...(typeof body.grandfatherRp === 'boolean' ? { grandfatherRp: body.grandfatherRp } : {}),
         updatedAt: new Date(),
       };
-      await db
-        .insert(seasons)
-        .values({ number, ...values, state: body.seasonState ?? 'draft' })
-        .onConflictDoUpdate({ target: seasons.number, set: { ...values, ...(body.seasonState ? { state: body.seasonState } : {}) } });
-      invalidateSeasonCache();
-      await audit('upsert_season', String(number), {
-        startsAt: startsAt.toISOString(),
-        endsAt: endsAt.toISOString(),
-        name: body.seasonName ?? null,
+      // Overlap check and the upsert commit together — checking outside the
+      // transaction would let two concurrent edits both pass and land
+      // overlapping windows.
+      await db.transaction(async (tx) => {
+        const clash = await tx
+          .select({ number: seasons.number })
+          .from(seasons)
+          .where(and(sql`${seasons.number} <> ${number}`, sql`${seasons.startsAt} < ${endsAt}`, sql`${seasons.endsAt} > ${startsAt}`));
+        if (clash.length > 0) {
+          throw new ApiError(
+            409,
+            'conflict',
+            `Those dates overlap season ${clash.map((c) => c.number).join(', ')}.`,
+          );
+        }
+        await tx
+          .insert(seasons)
+          .values({ number, ...values, state: body.seasonState ?? 'draft' })
+          .onConflictDoUpdate({ target: seasons.number, set: { ...values, ...(body.seasonState ? { state: body.seasonState } : {}) } });
+        await tx.insert(auditLog).values({
+          id: crypto.randomUUID(),
+          actorId: user.id,
+          action: 'upsert_season',
+          target: String(number),
+          meta: { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), name: body.seasonName ?? null },
+        });
       });
+      invalidateSeasonCache();
       return ok({ ok: true, seasonNumber: number });
     }
     case 'set_season_state': {
@@ -527,18 +543,21 @@ export const POST = route(async (req: NextRequest) => {
       }
       // The partial unique index `seasons_single_active` enforces one live
       // season in the database. Clearing it here first turns what would be an
-      // opaque 23505 into a deliberate close-then-open.
-      if (state === 'active') {
-        await db.update(seasons).set({ state: 'closed' }).where(and(eq(seasons.state, 'active'), sql`${seasons.number} <> ${number}`));
-      }
-      const [updated] = await db
-        .update(seasons)
-        .set({ state, updatedAt: new Date() })
-        .where(eq(seasons.number, number))
-        .returning({ number: seasons.number });
-      if (!updated) throw new ApiError(404, 'not_found', 'No such season.');
+      // opaque 23505 into a deliberate close-then-open — and both writes plus
+      // the audit commit together so a crash cannot leave zero or two actives.
+      await db.transaction(async (tx) => {
+        if (state === 'active') {
+          await tx.update(seasons).set({ state: 'closed' }).where(and(eq(seasons.state, 'active'), sql`${seasons.number} <> ${number}`));
+        }
+        const [row] = await tx
+          .update(seasons)
+          .set({ state, updatedAt: new Date() })
+          .where(eq(seasons.number, number))
+          .returning({ number: seasons.number });
+        if (!row) throw new ApiError(404, 'not_found', 'No such season.');
+        await tx.insert(auditLog).values({ id: crypto.randomUUID(), actorId: user.id, action: 'set_season_state', target: String(number), meta: { state } });
+      });
       invalidateSeasonCache();
-      await audit('set_season_state', String(number), { state });
       return ok({ ok: true });
     }
     case 'delete_season': {

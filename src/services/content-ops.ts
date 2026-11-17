@@ -60,10 +60,14 @@ export async function setTopicVisibility(
   visibility: Visibility,
 ): Promise<{ lessons: number; cards: number }> {
   await loadEditableTopic(user, topicId);
-  await db.update(topics).set({ visibility }).where(eq(topics.id, topicId));
-  const lessonRows = await db.update(lessons).set({ visibility }).where(eq(lessons.topicId, topicId)).returning({ id: lessons.id });
-  const cardRows = await db.update(cards).set({ visibility }).where(eq(cards.topicId, topicId)).returning({ id: cards.id });
-  return { lessons: lessonRows.length, cards: cardRows.length };
+  // Topic, lessons and cards publish or withdraw together — a halfway state
+  // is exactly the "reads as published, behaves as empty" bug this guards.
+  return db.transaction(async (tx) => {
+    await tx.update(topics).set({ visibility }).where(eq(topics.id, topicId));
+    const lessonRows = await tx.update(lessons).set({ visibility }).where(eq(lessons.topicId, topicId)).returning({ id: lessons.id });
+    const cardRows = await tx.update(cards).set({ visibility }).where(eq(cards.topicId, topicId)).returning({ id: cards.id });
+    return { lessons: lessonRows.length, cards: cardRows.length };
+  });
 }
 
 export type MergeResult = {
@@ -92,65 +96,71 @@ export async function mergeTopics(
 
   const [source, target] = await Promise.all([loadEditableTopic(user, sourceId), loadEditableTopic(user, targetId)]);
 
-  const [sourceLessons, sourceCards, highest] = await Promise.all([
+  const [sourceLessons, sourceCards] = await Promise.all([
     db.select().from(lessons).where(eq(lessons.topicId, sourceId)).orderBy(asc(lessons.position)),
     db.select({ id: cards.id }).from(cards).where(eq(cards.topicId, sourceId)),
-    db.select({ max: sql<number>`coalesce(max(${lessons.position}), -1)::int` }).from(lessons).where(eq(lessons.topicId, targetId)),
   ]);
 
-  const base = (highest[0]?.max ?? -1) + 1;
+  // Move children → retarget progress/imports → publish → delete source is one
+  // unit: a failure partway must not strand lessons under the deleted source
+  // or drop a reader's per-topic progress.
+  return db.transaction(async (tx) => {
+    const [highest] = await tx
+      .select({ max: sql<number>`coalesce(max(${lessons.position}), -1)::int` })
+      .from(lessons)
+      .where(eq(lessons.topicId, targetId));
+    const base = (highest?.max ?? -1) + 1;
 
-  // Lessons first: cards carry `lessonId`, so the lesson rows must exist under
-  // the target before the cards arrive pointing at them.
-  for (const [i, lesson] of sourceLessons.entries()) {
-    await db
-      .update(lessons)
-      .set({
-        topicId: targetId,
-        position: base + i,
-        ...(options.publish ? { visibility: 'public' as const, ownerId: target.ownerId } : {}),
-      })
-      .where(eq(lessons.id, lesson.id));
-  }
+    // Lessons first: cards carry `lessonId`, so the lesson rows must exist under
+    // the target before the cards arrive pointing at them.
+    for (const [i, lesson] of sourceLessons.entries()) {
+      await tx
+        .update(lessons)
+        .set({
+          topicId: targetId,
+          position: base + i,
+          ...(options.publish ? { visibility: 'public' as const, ownerId: target.ownerId } : {}),
+        })
+        .where(eq(lessons.id, lesson.id));
+    }
 
-  if (sourceCards.length) {
-    await db
-      .update(cards)
-      .set({
-        topicId: targetId,
-        ...(options.publish ? { visibility: 'public' as const, ownerId: target.ownerId } : {}),
-      })
-      .where(eq(cards.topicId, sourceId));
-  }
+    if (sourceCards.length) {
+      await tx
+        .update(cards)
+        .set({
+          topicId: targetId,
+          ...(options.publish ? { visibility: 'public' as const, ownerId: target.ownerId } : {}),
+        })
+        .where(eq(cards.topicId, sourceId));
+    }
 
-  // Progress travels with the content. `card_user_states` is keyed by card id so
-  // it needs nothing; the per-topic row does, and dropping it would silently
-  // reset a reader's place for the topic they just tidied up.
-  const [topicStates] = await Promise.all([
-    db.select().from(userTopicStates).where(eq(userTopicStates.topicId, sourceId)),
-    db.update(imports).set({ targetTopicId: targetId }).where(eq(imports.targetTopicId, sourceId)),
-  ]);
-  if (topicStates.length) {
-    await db
-      .insert(userTopicStates)
-      .values(topicStates.map((s) => ({ ...s, topicId: targetId })))
-      .onConflictDoNothing();
-  }
+    // Progress travels with the content. `card_user_states` is keyed by card id so
+    // it needs nothing; the per-topic row does, and dropping it would silently
+    // reset a reader's place for the topic they just tidied up.
+    const topicStates = await tx.select().from(userTopicStates).where(eq(userTopicStates.topicId, sourceId));
+    await tx.update(imports).set({ targetTopicId: targetId }).where(eq(imports.targetTopicId, sourceId));
+    if (topicStates.length) {
+      await tx
+        .insert(userTopicStates)
+        .values(topicStates.map((s) => ({ ...s, topicId: targetId })))
+        .onConflictDoNothing();
+    }
 
-  if (options.publish) {
-    await db.update(topics).set({ visibility: 'public' }).where(eq(topics.id, targetId));
-  }
+    if (options.publish) {
+      await tx.update(topics).set({ visibility: 'public' }).where(eq(topics.id, targetId));
+    }
 
-  // The source's remaining children go with it through the FK cascades.
-  await db.delete(topics).where(eq(topics.id, sourceId));
+    // The source's remaining children go with it through the FK cascades.
+    await tx.delete(topics).where(eq(topics.id, sourceId));
 
-  return {
-    movedCards: sourceCards.length,
-    movedLessons: sourceLessons.length,
-    targetTopicId: targetId,
-    deletedTopicId: sourceId,
-    published: Boolean(options.publish),
-  };
+    return {
+      movedCards: sourceCards.length,
+      movedLessons: sourceLessons.length,
+      targetTopicId: targetId,
+      deletedTopicId: sourceId,
+      published: Boolean(options.publish),
+    };
+  });
 }
 
 /**

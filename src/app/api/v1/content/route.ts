@@ -381,35 +381,40 @@ export const PATCH = route(async (req: NextRequest) => {
         update.correctOptionId = `o${body.correctIdx}`;
       }
     }
-    if (Object.keys(update).length) await db.update(cards).set(update).where(eq(cards.id, body.cardId));
+    // Card fields and its accepted answers commit together: the cloze path
+    // deletes every answer row before re-inserting, so a failure between the
+    // two would leave a card nobody can answer.
+    await db.transaction(async (tx) => {
+      if (Object.keys(update).length) await tx.update(cards).set(update).where(eq(cards.id, card.id));
 
-    if (Array.isArray(body.answers)) {
-      // An edit that empties the accepted answers makes the card unanswerable —
-      // every attempt wrong forever. Refuse the empty list rather than wipe
-      // what was there.
-      if (!body.answers.some((a) => a.trim())) throw new ApiError(400, 'bad_request', 'A question needs at least one accepted answer.');
-      if (card.kind === 'cloze') {
-        await db.delete(cardAnswers).where(eq(cardAnswers.cardId, card.id));
-        await db.insert(cardAnswers).values(body.answers.map((text, i) => ({ id: crypto.randomUUID(), cardId: card.id, text, isPrimary: i === 0 })));
-      } else if (card.kind === 'flashcard') {
-        const [existing] = await db.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
-        const kw = body.keywords ?? null;
-        const mp = typeof body.minPoints === 'number' ? body.minPoints : null;
+      if (Array.isArray(body.answers)) {
+        // An edit that empties the accepted answers makes the card unanswerable —
+        // every attempt wrong forever. Refuse the empty list rather than wipe
+        // what was there.
+        if (!body.answers.some((a) => a.trim())) throw new ApiError(400, 'bad_request', 'A question needs at least one accepted answer.');
+        if (card.kind === 'cloze') {
+          await tx.delete(cardAnswers).where(eq(cardAnswers.cardId, card.id));
+          await tx.insert(cardAnswers).values(body.answers.map((text, i) => ({ id: crypto.randomUUID(), cardId: card.id, text, isPrimary: i === 0 })));
+        } else if (card.kind === 'flashcard') {
+          const [existing] = await tx.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
+          const kw = body.keywords ?? null;
+          const mp = typeof body.minPoints === 'number' ? body.minPoints : null;
+          if (existing) {
+            await tx.update(cardAnswers).set({ text: body.answers[0] ?? '', keywords: kw, minPoints: mp }).where(eq(cardAnswers.id, existing.id));
+          } else {
+            await tx.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId: card.id, text: body.answers[0] ?? '', isPrimary: true, keywords: kw, minPoints: mp });
+          }
+        }
+      } else if (card.kind === 'flashcard' && (body.keywords !== undefined || body.minPoints !== undefined)) {
+        const [existing] = await tx.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
         if (existing) {
-          await db.update(cardAnswers).set({ text: body.answers[0] ?? '', keywords: kw, minPoints: mp }).where(eq(cardAnswers.id, existing.id));
-        } else {
-          await db.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId: card.id, text: body.answers[0] ?? '', isPrimary: true, keywords: kw, minPoints: mp });
+          await tx.update(cardAnswers).set({
+            keywords: body.keywords ?? existing.keywords,
+            minPoints: typeof body.minPoints === 'number' ? body.minPoints : existing.minPoints,
+          }).where(eq(cardAnswers.id, existing.id));
         }
       }
-    } else if (card.kind === 'flashcard' && (body.keywords !== undefined || body.minPoints !== undefined)) {
-      const [existing] = await db.select().from(cardAnswers).where(eq(cardAnswers.cardId, card.id)).limit(1);
-      if (existing) {
-        await db.update(cardAnswers).set({
-          keywords: body.keywords ?? existing.keywords,
-          minPoints: typeof body.minPoints === 'number' ? body.minPoints : existing.minPoints,
-        }).where(eq(cardAnswers.id, existing.id));
-      }
-    }
+    });
     return ok({ updated: true });
   }
 
