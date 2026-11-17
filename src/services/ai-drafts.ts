@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { aiDrafts, auditLog, cardAnswers, cards, topics } from '@/db/schema';
 import { ApiError } from '@/services/api';
@@ -108,52 +108,68 @@ export async function acceptDraft(
   }
   validateCards(incoming);
 
-  let inserted = 0;
-  for (const c of incoming) {
-    const cardId = crypto.randomUUID();
-    // lessonId is deliberately not honoured: AI proposals are topic-level, and
-    // a forged lessonId must not be able to file a card under another topic's
-    // lesson. The author can move cards afterwards through the editor.
-    if (c.kind === 'cloze') {
-      await db.insert(cards).values({
-        id: cardId, topicId: topic.id, kind: 'cloze', textWithBlank: c.textWithBlank ?? '',
-        explanationMd: c.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
-      });
-      await db.insert(cardAnswers).values((c.answers ?? []).map((text, i) => ({ id: crypto.randomUUID(), cardId, text, isPrimary: i === 0 })));
-    } else if (c.kind === 'flashcard') {
-      await db.insert(cards).values({
-        id: cardId, topicId: topic.id, kind: 'flashcard', prompt: c.prompt ?? '',
-        explanationMd: c.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
-      });
-      await db.insert(cardAnswers).values({
-        id: crypto.randomUUID(), cardId, text: c.answers?.[0] ?? '', isPrimary: true,
-        keywords: c.keywords ?? null, minPoints: c.minPoints ?? null,
-      });
-    } else {
-      await db.insert(cards).values({
-        id: cardId, topicId: topic.id, kind: 'mcq', question: c.question ?? '',
-        options: (c.options ?? []).map((text, i) => ({ id: `o${i}`, text })), correctOptionId: `o${c.correctIdx ?? 0}`,
-        explanationMd: c.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
-      });
+  const status = incoming.length === proposed.length ? 'accepted' : 'partial';
+
+  // Claim → insert → audit is one transaction. The conditional UPDATE is the
+  // real guard: it locks the draft row and only succeeds while status is still
+  // 'proposed', so two concurrent accepts cannot both pass and double-write
+  // the cards. A failure anywhere rolls the claim back and the draft stays
+  // decidable.
+  return db.transaction(async (tx) => {
+    const [claimed] = await tx
+      .update(aiDrafts)
+      .set({ status, decidedBy: user.id, decidedAt: new Date(), decisionNote: null })
+      .where(and(eq(aiDrafts.id, draft.id), eq(aiDrafts.status, 'proposed')))
+      .returning({ id: aiDrafts.id });
+    if (!claimed) {
+      throw new ApiError(409, 'conflict', 'This draft was already decided.');
     }
-    inserted += 1;
-  }
 
-  const status = inserted === proposed.length ? 'accepted' : 'partial';
-  await db
-    .update(aiDrafts)
-    .set({ status, decidedBy: user.id, decidedAt: new Date(), decisionNote: null })
-    .where(eq(aiDrafts.id, draft.id));
+    const cardRows: (typeof cards.$inferInsert)[] = [];
+    const answerRows: (typeof cardAnswers.$inferInsert)[] = [];
+    for (const c of incoming) {
+      const cardId = crypto.randomUUID();
+      // lessonId is deliberately not honoured: AI proposals are topic-level, and
+      // a forged lessonId must not be able to file a card under another topic's
+      // lesson. The author can move cards afterwards through the editor.
+      if (c.kind === 'cloze') {
+        cardRows.push({
+          id: cardId, topicId: topic.id, kind: 'cloze', textWithBlank: c.textWithBlank ?? '',
+          explanationMd: c.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+        });
+        (c.answers ?? []).forEach((text, i) =>
+          answerRows.push({ id: crypto.randomUUID(), cardId, text, isPrimary: i === 0 }),
+        );
+      } else if (c.kind === 'flashcard') {
+        cardRows.push({
+          id: cardId, topicId: topic.id, kind: 'flashcard', prompt: c.prompt ?? '',
+          explanationMd: c.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+        });
+        answerRows.push({
+          id: crypto.randomUUID(), cardId, text: c.answers?.[0] ?? '', isPrimary: true,
+          keywords: c.keywords ?? null, minPoints: c.minPoints ?? null,
+        });
+      } else {
+        cardRows.push({
+          id: cardId, topicId: topic.id, kind: 'mcq', question: c.question ?? '',
+          options: (c.options ?? []).map((text, i) => ({ id: `o${i}`, text })), correctOptionId: `o${c.correctIdx ?? 0}`,
+          explanationMd: c.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+        });
+      }
+    }
+    for (let i = 0; i < cardRows.length; i += 200) await tx.insert(cards).values(cardRows.slice(i, i + 200));
+    for (let i = 0; i < answerRows.length; i += 500) await tx.insert(cardAnswers).values(answerRows.slice(i, i + 500));
 
-  await db.insert(auditLog).values({
-    id: crypto.randomUUID(),
-    actorId: user.id,
-    action: 'ai_draft_accept',
-    target: draft.id,
-    meta: { model: draft.model, promptVersion: draft.promptVersion, inserted, proposed: proposed.length, topicId: topic.id, topicName: topic.name, edited: input.cards !== undefined },
+    await tx.insert(auditLog).values({
+      id: crypto.randomUUID(),
+      actorId: user.id,
+      action: 'ai_draft_accept',
+      target: draft.id,
+      meta: { model: draft.model, promptVersion: draft.promptVersion, inserted: incoming.length, proposed: proposed.length, topicId: topic.id, topicName: topic.name, edited: input.cards !== undefined },
+    });
+
+    return { draftId: draft.id, topicId: topic.id, inserted: incoming.length, proposed: proposed.length, status };
   });
-
-  return { draftId: draft.id, topicId: topic.id, inserted, proposed: proposed.length, status };
 }
 
 /** POST /drafts/:id/reject — close the proposal; nothing was ever written. */

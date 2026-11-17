@@ -1,6 +1,7 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
+import type { Db } from '@/db/client';
 import { cardAnswers, cards, imports, topics } from '@/db/schema';
 import { ApiError } from '@/services/api';
 import type { SessionUser } from '@/services/auth';
@@ -48,10 +49,14 @@ function chunk<T>(rows: T[], size: number): T[][] {
   return out;
 }
 
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+type Executor = Db | Tx;
+
 /** Resolve (or create) the topic this deck lands in, and the visibility it inherits. */
 async function resolveTarget(
   user: SessionUser,
   target: ImportTarget,
+  exec: Executor = db,
 ): Promise<{ topicId: string; topicName: string; attached: boolean; visibility: Visibility; ownerId: string | null }> {
   if (target.mode === 'existing') {
     const topic = await loadEditableTopic(user, target.topicId);
@@ -69,7 +74,7 @@ async function resolveTarget(
   const visibility: Visibility = staff ? 'public' : target.publish ? 'pending_review' : 'private';
   const ownerId = staff ? null : user.id;
 
-  const [topic] = await db
+  const [topic] = await exec
     .insert(topics)
     .values({
       id: crypto.randomUUID(),
@@ -88,19 +93,23 @@ export async function runImport(
   user: SessionUser,
   input: { kind: ImportKind; filename: string; target: ImportTarget; rows: ParsedCard[]; errors: ParseError[] },
 ): Promise<ImportOutcome> {
-  const resolved = await resolveTarget(user, input.target);
-
-  const [importRow] = await db
-    .insert(imports)
-    .values({
-      id: crypto.randomUUID(),
-      userId: user.id,
-      kind: input.kind,
-      filename: input.filename,
-      status: 'pending',
-      targetTopicId: resolved.topicId,
-    })
-    .returning();
+  // Topic (when minting one) and the import row commit together — an import
+  // that dies before its first card must not leave an untracked topic behind.
+  const { resolved, importRow } = await db.transaction(async (tx) => {
+    const r = await resolveTarget(user, input.target, tx);
+    const [imp] = await tx
+      .insert(imports)
+      .values({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        kind: input.kind,
+        filename: input.filename,
+        status: 'pending',
+        targetTopicId: r.topicId,
+      })
+      .returning();
+    return { resolved: r, importRow: imp };
+  });
 
   const cardRows: (typeof cards.$inferInsert)[] = [];
   const answerRows: (typeof cardAnswers.$inferInsert)[] = [];
@@ -130,15 +139,49 @@ export async function runImport(
 
   // Batched rather than one statement per card: a 5 MB deck was previously 5,000
   // round-trips, which is what made a large import time out rather than fail.
-  for (const batch of chunk(cardRows, INSERT_CHUNK)) await db.insert(cards).values(batch);
-  for (const batch of chunk(answerRows, INSERT_CHUNK)) await db.insert(cardAnswers).values(batch);
+  // Each chunk commits cards AND their answers together, so an interruption
+  // leaves whole chunks behind — and the status update below makes that
+  // partial state honest instead of an import stuck at 'pending' forever.
+  const answerByCard = new Map<string, (typeof answerRows)[number][]>();
+  for (const a of answerRows) {
+    const list = answerByCard.get(a.cardId) ?? [];
+    list.push(a);
+    answerByCard.set(a.cardId, list);
+  }
 
-  const created = cardRows.length;
+  const report = (created: number) => ({
+    total: input.rows.length + input.errors.length,
+    created,
+    failed: input.errors.length,
+    errors: input.errors,
+  });
+
+  let created = 0;
+  try {
+    for (const batch of chunk(cardRows, INSERT_CHUNK)) {
+      const batchAnswers = batch.flatMap((c) => answerByCard.get(c.id) ?? []);
+      await db.transaction(async (tx) => {
+        await tx.insert(cards).values(batch);
+        if (batchAnswers.length) await tx.insert(cardAnswers).values(batchAnswers);
+      });
+      created += batch.length;
+    }
+  } catch (e) {
+    // The request dies either way, but the row must say so — 'pending' with
+    // half the cards written is the shape this ticket exists to remove.
+    await db
+      .update(imports)
+      .set({ status: 'failed', report: report(created) })
+      .where(eq(imports.id, importRow.id))
+      .catch(() => undefined);
+    throw e;
+  }
+
   await db
     .update(imports)
     .set({
       status: created > 0 ? 'done' : 'failed',
-      report: { total: input.rows.length + input.errors.length, created, failed: input.errors.length, errors: input.errors },
+      report: report(created),
     })
     .where(eq(imports.id, importRow.id));
 
