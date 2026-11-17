@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
+import { readReplica } from '@/db/replica';
 import { cardAnswers, cards, deckSubscriptions, lessons, subjects, topics, users } from '@/db/schema';
 import { ApiError } from '@/services/api';
 import { makeSlug } from '@/services/content-ops';
@@ -62,7 +63,8 @@ async function sharedDecksSubject(userId: string) {
 }
 
 export async function listPublicDecks(userId: string): Promise<PublicDeck[]> {
-  const deckRows = await db
+  return readReplica(async (q) => {
+  const deckRows = await q
     .select({
       topic: topics,
       subjectName: subjects.name,
@@ -78,22 +80,22 @@ export async function listPublicDecks(userId: string): Promise<PublicDeck[]> {
 
   const ids = deckRows.map((r) => r.topic.id);
   const [cardCounts, lessonCounts, followerCounts, subs] = await Promise.all([
-    db
+    q
       .select({ topicId: cards.topicId, n: sql<number>`count(*)::int` })
       .from(cards)
       .where(and(inArray(cards.topicId, ids), eq(cards.visibility, 'public')))
       .groupBy(cards.topicId),
-    db
+    q
       .select({ topicId: lessons.topicId, n: sql<number>`count(*)::int` })
       .from(lessons)
       .where(and(inArray(lessons.topicId, ids), eq(lessons.visibility, 'public')))
       .groupBy(lessons.topicId),
-    db
+    q
       .select({ topicId: deckSubscriptions.deckTopicId, n: sql<number>`count(*)::int` })
       .from(deckSubscriptions)
       .where(inArray(deckSubscriptions.deckTopicId, ids))
       .groupBy(deckSubscriptions.deckTopicId),
-    db
+    q
       .select({
         id: deckSubscriptions.id,
         deckTopicId: deckSubscriptions.deckTopicId,
@@ -140,6 +142,7 @@ export async function listPublicDecks(userId: string): Promise<PublicDeck[]> {
       } satisfies PublicDeck;
     })
     .filter((d): d is PublicDeck => d !== null);
+  });
 }
 
 /**

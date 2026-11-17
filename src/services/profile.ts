@@ -94,7 +94,7 @@ export async function getPublicProfile(handle: string, viewer: SessionUser | nul
     const vis = { ...DEFAULT_VISIBILITY, ...(row.profileVisibility ?? {}) };
 
     const [xp, streakRow, subs, achs, reviews, badgeRows] = await Promise.all([
-      totalXpFor(row.id),
+      totalXpFor(row.id, rdb),
       rdb.select({ current: streaks.current }).from(streaks).where(eq(streaks.userId, row.id)).limit(1),
       rdb
         .select({ id: subjects.id, name: subjects.name })

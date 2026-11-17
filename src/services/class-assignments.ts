@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
+import { readReplica } from '@/db/replica';
 import {
   cardUserStates, cards, classAssignments, classes, classMemberships, reviewLogs, topics, users,
 } from '@/db/schema';
@@ -152,7 +153,8 @@ export async function requiredAssignmentTopicIds(userId: string): Promise<Set<st
  */
 export async function classPulse(user: SessionUser, classId: string, topicId?: string) {
   const cls = await ownedClass(user, classId);
-  const members = await db
+  return readReplica(async (q) => {
+  const members = await q
     .select({ userId: classMemberships.userId, name: users.name })
     .from(classMemberships)
     .innerJoin(users, eq(classMemberships.userId, users.id))
@@ -162,7 +164,7 @@ export async function classPulse(user: SessionUser, classId: string, topicId?: s
     return { class: { id: cls.id, name: cls.name }, members: 0, cards: [], assignments: [] };
   }
 
-  const assignmentRows = await db
+  const assignmentRows = await q
     .select({ assignment: classAssignments, topicName: topics.name, cardCount: sql<number>`count(distinct ${cards.id})::int` })
     .from(classAssignments)
     .innerJoin(topics, eq(classAssignments.topicId, topics.id))
@@ -175,7 +177,7 @@ export async function classPulse(user: SessionUser, classId: string, topicId?: s
   // since the assignment was created.
   const assignedTopicIds = assignmentRows.map((r) => r.assignment.topicId);
   const completionRows = assignedTopicIds.length
-    ? await db
+    ? await q
         .select({
           topicId: cards.topicId,
           userId: reviewLogs.userId,
@@ -190,7 +192,7 @@ export async function classPulse(user: SessionUser, classId: string, topicId?: s
   const touchedBy = new Map(completionRows.map((r) => [`${r.topicId}:${r.userId}`, r.touched]));
 
   // Per-card struggle for the pulse: reviews, miss rate, mean duration, lapses.
-  const cardRows = await db
+  const cardRows = await q
     .select({
       cardId: reviewLogs.cardId,
       kind: cards.kind,
@@ -213,7 +215,7 @@ export async function classPulse(user: SessionUser, classId: string, topicId?: s
   // the review join would multiply each member's count by their review count.
   const cardIds = cardRows.map((c) => c.cardId);
   const lapseRows = cardIds.length
-    ? await db
+    ? await q
         .select({ cardId: cardUserStates.cardId, lapses: sql<number>`coalesce(sum(${cardUserStates.lapses}), 0)::int` })
         .from(cardUserStates)
         .where(and(inArray(cardUserStates.userId, memberIds), inArray(cardUserStates.cardId, cardIds)))
@@ -245,4 +247,5 @@ export async function classPulse(user: SessionUser, classId: string, topicId?: s
     })),
     assignments,
   };
+  });
 }
