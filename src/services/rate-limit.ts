@@ -129,6 +129,29 @@ export async function clearRateLimit(kind: RateLimitKind, identity: string): Pro
   }
 }
 
+/**
+ * Hygiene delete for the lazy limiter table: any row whose window started more
+ * than two days ago is dead — the longest rule window is one hour, so two days
+ * is a wide margin. Bounded per call; the retention cron repeats it.
+ */
+export async function pruneRateLimits(batch = 1000): Promise<number> {
+  try {
+    await ensureTable();
+    const result = await db.execute(sql`
+      DELETE FROM rate_limits
+      WHERE ctid IN (
+        SELECT ctid FROM rate_limits
+        WHERE window_start < now() - interval '2 days'
+        LIMIT ${batch}
+      )
+    `);
+    return (result as unknown as { rowCount?: number }).rowCount ?? 0;
+  } catch (e) {
+    console.error('[rate-limit] prune failed', e);
+    return 0;
+  }
+}
+
 /** The caller's address, from Vercel's forwarded headers, without trusting a spoofable x-forwarded-for hop blindly. */
 export function clientIp(req: { headers: { get(name: string): string | null } }): string {
   const real = req.headers.get('x-real-ip');
