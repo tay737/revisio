@@ -138,6 +138,7 @@ export function ReviewDemo() {
   const [done, setDone] = useState(false);
   const inputId = useId();
   const feedbackId = useId();
+  const promptId = useId();
 
   useEffect(() => {
     let live = true;
@@ -276,7 +277,7 @@ export function ReviewDemo() {
               transition={transition.base}
             >
               {card.kind === 'cloze' ? (
-                <p className="t-tagline mt-4 leading-snug">
+                <p id={promptId} className="t-tagline mt-4 leading-snug">
                   {card.prompt.split(/_{3,}/).map((part, i, arr) => (
                     <span key={i}>
                       {part}
@@ -293,7 +294,7 @@ export function ReviewDemo() {
                   ))}
                 </p>
               ) : (
-                <p className="t-tagline mt-4 leading-snug">{card.prompt}</p>
+                <p id={promptId} className="t-tagline mt-4 leading-snug">{card.prompt}</p>
               )}
 
               {!answered && card.kind === 'mcq' && (
@@ -328,7 +329,7 @@ export function ReviewDemo() {
                     spellCheck={false}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    aria-label="Your answer"
+                    aria-labelledby={promptId}
                     aria-describedby={feedbackId}
                     aria-invalid={gradeError || undefined}
                     placeholder={card.kind === 'flashcard' ? 'What do you remember?' : 'Type your answer'}
