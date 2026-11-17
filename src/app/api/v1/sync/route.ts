@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import type { Pool } from 'pg';
 import { neonConfigured, mirrorHealth } from '@/db/replica';
-import { installSyncInfrastructure, runSync, sharedSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, ensureSyncWriteAccess, type SyncHandles, type SyncDb } from '@/db/sync';
+import { installSyncInfrastructure, runSync, sharedSyncHandles, closeSyncHandles, countPending, loadPrimaryKeys, ensureSyncWriteAccess, type SyncHandles } from '@/db/sync';
 import { fail, ok, requireUser, route } from '@/services/api';
 
 export const maxDuration = 60;
@@ -55,26 +55,23 @@ export const GET = route(async (req: NextRequest) => {
     const handles = sharedSyncHandles();
     if (!handles?.neon) return ok({ configured: true, neon: false, pendingPrimary: 0, pendingNeon: 0 });
     try {
-      const [pendingPrimary, pendingNeon] = await Promise.all([
-        countPending(handles.primary),
-        countPending(handles.neon),
-      ]);
-      // Telemetry beyond the bare counts (#61): how stale the oldest queued
+      const pendingPrimary = await countPending(handles.primary);
+      // Telemetry beyond the bare count (#61): how stale the oldest queued
       // event is and how far the mirror's review log trails the primary.
       // Best-effort — a metrics failure must not take the status endpoint
-      // down with it.
+      // down with it. The mirror has no event queue (#52 one-way): pendingNeon
+      // stays null rather than querying a table that no longer exists there.
       let telemetry: Record<string, unknown> = {};
       try {
-        const [oldestPrimary, oldestNeon, lag] = await Promise.all([
+        const [oldestPrimary, lag] = await Promise.all([
           oldestEventAt(handles.primary.pool),
-          oldestEventAt(handles.neon.pool),
           reviewLagSeconds(handles.primary.pool, handles.neon.pool),
         ]);
-        telemetry = { oldestPrimary, oldestNeon, reviewLagSeconds: lag };
+        telemetry = { oldestPrimary, oldestNeon: null, reviewLagSeconds: lag };
       } catch (e) {
         telemetry = { telemetryError: e instanceof Error ? e.message : 'metrics failed' };
       }
-      return ok({ configured: true, neon: true, mirror: mirrorHealth(), pendingPrimary, pendingNeon, ...telemetry });
+      return ok({ configured: true, neon: true, mirror: mirrorHealth(), pendingPrimary, pendingNeon: null, ...telemetry });
     } finally {
       await closeSyncHandles(handles);
       globalThis.__revisioSyncHandles = undefined;
@@ -118,23 +115,23 @@ async function reviewLagSeconds(primary: Pool, neon: Pool): Promise<number | nul
 }
 
 async function ensureInfrastructure(handles: SyncHandles): Promise<void> {
-  const dbs: SyncDb[] = handles.neon ? [handles.primary, handles.neon] : [handles.primary];
-  const missing: typeof dbs = [];
-  for (const db of dbs) {
-    const client = await db.pool.connect();
-    try {
-      const res = await client.query(`SELECT to_regclass('_sync_events') AS t`);
-      if (!res.rows[0]?.t) missing.push(db);
-    } finally {
-      client.release();
-    }
-    // A table that exists but rejects the connecting role's writes is the
-    // failure that silently broke every application write once; probe and
-    // repair on every run, cron included.
-    await ensureSyncWriteAccess(db);
+  // One-way replication (#52): only the primary captures events. The mirror
+  // is written solely by the apply path and has no `_sync_events` table.
+  const db = handles.primary;
+  const client = await db.pool.connect();
+  let missing = false;
+  try {
+    const res = await client.query(`SELECT to_regclass('_sync_events') AS t`);
+    missing = !res.rows[0]?.t;
+  } finally {
+    client.release();
   }
-  if (missing.length > 0) {
+  if (missing) {
     const pkMap = await loadPrimaryKeys(handles.primary);
-    await installSyncInfrastructure(missing, pkMap);
+    await installSyncInfrastructure([handles.primary], pkMap);
   }
+  // A table that exists but rejects the connecting role's writes is the
+  // failure that silently broke every application write once; probe and
+  // repair on every run, cron included.
+  await ensureSyncWriteAccess(db);
 }

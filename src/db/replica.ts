@@ -7,7 +7,11 @@ import * as schema from './schema';
 // ── The Neon read replica ──────────────────────────────────────────────────
 //
 // NEON_DATABASE_URL points at a Neon Postgres kept in step with the primary
-// by src/db/sync.ts (change capture + bidirectional drain). Reads that
+// by src/db/sync.ts (one-way change capture + primary→Neon drain, #52). The
+// mirror is READ-ONLY: it has no capture triggers and no event queue, the
+// app never writes it, and there is no failover runbook — if Neon diverges
+// or is ever promoted, rebuild it from the primary (`neon:bootstrap` +
+// backfill), do not expect bidirectional convergence. Reads that
 // tolerate second-scale staleness go to it; the primary keeps everything that
 // must be exactly current or is a write:
 //

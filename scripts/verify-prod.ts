@@ -31,9 +31,9 @@ function pgConfig(url: string) {
 
 // Tables that live only on the primary by design: created lazily on first
 // use and deliberately outside the replication trigger set (per-DB counters
-// and ephemeral analytics). #52 decides whether they ever replicate; until
-// then their absence on the mirror is expected, not drift. Add a name here
-// only for a table with NO __sync_trg trigger on the primary.
+// and ephemeral analytics — #52 confirmed they never replicate). Their
+// absence on the mirror is expected, not drift. Add a name here only for a
+// table with NO __sync_trg trigger on the primary.
 const LAZY_TABLES = ['rate_limits', 'analytics_events'] as const;
 
 let failures = 0;
@@ -112,6 +112,11 @@ async function main() {
   const primaryTriggers = await syncTriggerNames(primary);
   info('primary __sync_trg count', primaryTriggers.length);
   check('deck_subscriptions sync trigger on primary', primaryTriggers.includes('deck_subscriptions__sync_trg'), primaryTriggers.filter((t) => t.includes('deck_sub')));
+  check(
+    'auth-token tables have no sync trigger on primary (#52)',
+    !primaryTriggers.some((t) => t.startsWith('refresh_tokens__') || t.startsWith('email_tokens__')),
+    primaryTriggers.filter((t) => t.includes('tokens')),
+  );
   const primaryRlsGaps = await rlsWithoutPolicy(primary);
   check('no public table has RLS enabled with zero policies (primary)', primaryRlsGaps.length === 0, primaryRlsGaps);
   for (const lazy of ['rate_limits', 'analytics_events']) {
@@ -128,14 +133,17 @@ async function main() {
     await mirror.connect();
 
     console.log('\nMirror (Neon)');
+    // #52 one-way replication: the mirror is apply-only — no capture
+    // triggers, no _sync_events queue. Their presence means 0025 has not
+    // been applied here yet.
     const mirrorHasEvents = await tableExists(mirror, '_sync_events');
-    check('mirror has _sync_events', mirrorHasEvents);
+    check('mirror has no _sync_events (one-way replication)', !mirrorHasEvents);
     if (mirrorHasEvents) {
       const [row] = await q<{ pending: number; oldest: string | null }>(
         mirror,
         `SELECT count(*)::int AS pending, min(captured_at) AS oldest FROM _sync_events`,
       );
-      info('pending events / oldest captured_at', { pending: row?.pending, oldest: row?.oldest });
+      info('stale pending events / oldest captured_at', { pending: row?.pending, oldest: row?.oldest });
     }
     const [mirrorReview] = await q<{ latest: string | null }>(mirror, `SELECT max(reviewed_at) AS latest FROM review_logs`);
     info('mirror max(review_logs.reviewed_at)', mirrorReview?.latest);
@@ -147,10 +155,7 @@ async function main() {
 
     const mirrorTriggers = await syncTriggerNames(mirror);
     info('mirror __sync_trg count', mirrorTriggers.length);
-    check('deck_subscriptions sync trigger on mirror', mirrorTriggers.includes('deck_subscriptions__sync_trg'));
-    const missingOnMirror = primaryTriggers.filter((t) => !mirrorTriggers.includes(t));
-    const extraOnMirror = mirrorTriggers.filter((t) => !primaryTriggers.includes(t));
-    check('sync trigger sets match across databases', missingOnMirror.length === 0 && extraOnMirror.length === 0, { missingOnMirror, extraOnMirror });
+    check('mirror has no __sync_trg triggers (one-way replication)', mirrorTriggers.length === 0, mirrorTriggers);
 
     const mirrorRlsGaps = await rlsWithoutPolicy(mirror);
     check('no public table has RLS enabled with zero policies (mirror)', mirrorRlsGaps.length === 0, mirrorRlsGaps);

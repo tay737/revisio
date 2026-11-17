@@ -13,10 +13,14 @@ import * as schema from './schema';
 // changes shape and no event is ever lost to a process crash between "did the
 // thing" and "tell the other side".
 //
-// A sync run then drains each side into the other, in order:
+// A sync run then drains the primary's queue into Neon, in order:
 //
 //   primary._sync_events  →  upsert/delete on Neon
-//   Neon._sync_events     →  upsert/delete on primary
+//
+// Replication is ONE-WAY (#52): the app never writes Neon, the mirror has no
+// capture triggers and no `_sync_events` table, and there is no failover
+// runbook — if Neon diverges or is promoted, rebuild it from the primary via
+// `neon:bootstrap` + backfill rather than expecting bidirectional convergence.
 //
 // Upserts are idempotent (same event replays to the same state), deletes are
 // carried as real tombstones, and consumed events are deleted only after a
@@ -59,8 +63,6 @@ const REPLICATED_TABLES = [
   'classes',
   'achievements',
   'feature_flags',
-  'email_tokens',
-  'refresh_tokens',
   'approval_requests',
   'topics',
   'lessons',
@@ -95,6 +97,7 @@ const REPLICATED_TABLES = [
   'referral_codes',
   'referral_redemptions',
   'class_assignments',
+  'deck_subscriptions',
   'audit_log',
 ] as const;
 
@@ -275,6 +278,12 @@ export async function getPkMap(handles: SyncHandles): Promise<PrimaryKeyMap> {
 
 // ── setup ───────────────────────────────────────────────────────────────────
 
+/**
+ * Install `_sync_events` + the capture function + per-table triggers. Pass
+ * the PRIMARY only (#52): the mirror is written exclusively by the apply
+ * path under `app.sync_replicated` and needs no capture machinery — giving
+ * it triggers would just build a second queue nothing drains.
+ */
 export async function installSyncInfrastructure(dbs: SyncDb[], pkMap?: PrimaryKeyMap): Promise<void> {
   const map = pkMap ?? (await loadPrimaryKeys(dbs[0]));
   for (const { pool } of dbs) {
@@ -434,9 +443,10 @@ export async function backfillPrimaryToNeon(
   neon: SyncDb,
   pkMap: PrimaryKeyMap,
   batchSize = 500,
+  only?: readonly string[],
 ): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
-  for (const tableName of REPLICATED_TABLES) {
+  for (const tableName of only ?? REPLICATED_TABLES) {
     const def = tableDef(tableName, pkMap);
     const neonClient = await neon.pool.connect();
     try {
@@ -1227,48 +1237,39 @@ async function applyUpserts(
 export type SyncRunResult = {
   ran: boolean;
   drainedPrimaryToNeon: number;
-  drainedNeonToPrimary: number;
   pendingPrimary: number;
-  pendingNeon: number;
   /** Per-direction drain detail (#51 observability hooks for #61). */
   primaryToNeon?: SyncDrainStats;
-  neonToPrimary?: SyncDrainStats;
 };
 
 /**
- * One bidirectional drain. Both directions read their own event log and write
- * to the other side inside `app.sync_replicated`, so neither produces new
- * events of its own. Safe to run concurrently with itself: worst case two runs
- * drain different halves and both delete what they applied.
- *
- * The two directions share ONE deadline: primary→neon cannot spend the whole
- * budget and starve neon→primary on the same cron tick (backend review).
+ * One primary→Neon drain (#52: replication is one-way — the mirror is
+ * read-only, written exclusively by this apply path under
+ * `app.sync_replicated`, and has no event queue of its own). Safe to run
+ * concurrently with itself: worst case two runs drain different halves and
+ * both delete what they applied.
  */
 export async function runSync(handles: SyncHandles): Promise<SyncRunResult> {
   const { primary, neon } = handles;
   if (!neon) {
-    return { ran: false, drainedPrimaryToNeon: 0, drainedNeonToPrimary: 0, pendingPrimary: 0, pendingNeon: 0 };
+    return { ran: false, drainedPrimaryToNeon: 0, pendingPrimary: 0 };
   }
   const pkMap = await getPkMap(handles);
 
-  const [pendingPrimary, pendingNeon] = await Promise.all([countPending(primary), countPending(neon)]);
-  if (pendingPrimary === 0 && pendingNeon === 0) {
-    return { ran: false, drainedPrimaryToNeon: 0, drainedNeonToPrimary: 0, pendingPrimary: 0, pendingNeon: 0 };
+  const pendingPrimary = await countPending(primary);
+  if (pendingPrimary === 0) {
+    return { ran: false, drainedPrimaryToNeon: 0, pendingPrimary: 0 };
   }
 
   const deadline = Date.now() + DRAIN_BUDGET_MS;
   const primaryToNeon = await drainEvents(primary, neon, pkMap, { deadline });
-  const neonToPrimary = await drainEvents(neon, primary, pkMap, { deadline });
 
-  const [pendingPrimaryAfter, pendingNeonAfter] = await Promise.all([countPending(primary), countPending(neon)]);
+  const pendingPrimaryAfter = await countPending(primary);
   return {
     ran: true,
     drainedPrimaryToNeon: primaryToNeon.applied,
-    drainedNeonToPrimary: neonToPrimary.applied,
     pendingPrimary: pendingPrimaryAfter,
-    pendingNeon: pendingNeonAfter,
     primaryToNeon,
-    neonToPrimary,
   };
 }
 
