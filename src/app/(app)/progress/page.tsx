@@ -78,6 +78,17 @@ type WeeklyRecap = {
 
 const SCOPES = ['daily', 'weekly', 'monthly'] as const;
 
+/** GET /api/v1/streaks — the live streak summary (F11/F14). `lastComeback` is
+ *  the single latest comeback, not an events array; the 7-day window is a
+ *  client-side check on `occurredAt`. */
+type StreakSummary = {
+  current: number;
+  best: number;
+  freezes: number;
+  mastery: { current: number; best: number } | null;
+  lastComeback: { previousStreak: number; occurredAt: string } | null;
+};
+
 /** The tab named by `?view=`, falling back to the ladder it always opened on. */
 function viewFromParam(value: string | null): View {
   return VIEWS.some((v) => v.id === value) ? (value as View) : 'rank';
@@ -164,6 +175,17 @@ function RankPage() {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
   });
+
+  // F11/F14 live here rather than the dashboard: the streaks endpoint is only
+  // fetched on this page, so no extra call lands on every dashboard load.
+  const { data: streaks } = useSWR<StreakSummary>('/api/v1/streaks', api.get, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  });
+  const comebackRecent =
+    streaks?.lastComeback != null &&
+    Date.now() - Date.parse(streaks.lastComeback.occurredAt) <= 7 * 86_400_000;
+  const dueToday = me?.today?.due ?? 0;
 
   if (loading && !ranked) return <PageSkeleton />;
 
@@ -424,6 +446,29 @@ function RankPage() {
             </div>
           </Card>
         </>
+      )}
+
+      {/* ── Streak (F11 explainer + F14 comeback) — one quiet block, counts
+          only, no confetti. The comeback line names the amnesty the mechanic
+          already grants; the explainer says what the streak counts in one
+          sentence, matching the redefined default (D10). ── */}
+      {streaks && (
+        <Card as="section">
+          <h2 className="t-tagline">Streak</h2>
+          {comebackRecent && (
+            <p className="t-caption mt-1 text-foreground">
+              {dueToday > 0
+                ? `Welcome back. Your queue is ${dueToday} ${dueToday === 1 ? 'card' : 'cards'}, not a pile.`
+                : 'Welcome back. Your queue is clear today.'}
+            </p>
+          )}
+          <p className="t-caption mt-1 text-muted-foreground">
+            {streaks.current > 0
+              ? `${streaks.current} ${streaks.current === 1 ? 'day' : 'days'} running, best ${streaks.best}. `
+              : ''}
+            Your streak counts each day you revise. One review is enough; a banked freeze covers the odd missed day.
+          </p>
+        </Card>
       )}
 
       {/* ── Last week (#8) — counts only, per the recap privacy contract ── */}

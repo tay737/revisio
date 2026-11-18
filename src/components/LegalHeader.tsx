@@ -14,6 +14,7 @@ const DOCUMENTS = [
   { href: '/terms', label: 'Terms' },
   { href: '/cookie-policy', label: 'Cookies' },
   { href: '/accessibility', label: 'Accessibility' },
+  { href: '/what-we-dont-do', label: 'What we don’t do' },
 ] as const;
 
 export function LegalHeader({ current }: { current?: string }) {

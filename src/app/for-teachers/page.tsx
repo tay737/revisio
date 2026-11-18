@@ -81,6 +81,10 @@ const FAQS: { q: string; a: string }[] = [
     q: 'Which subjects are covered?',
     a: 'GCSE, A-level and university subjects, plus anything you publish yourself for your class.',
   },
+  {
+    q: 'What happens if a student loses signal mid-review?',
+    a: 'Reviews queue on the device and sync when they are back online. Nothing a student graded is lost, and the streak only counts days they actually revised.',
+  },
 ];
 
 export default function ForTeachersPage() {

@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import PageSkeleton from '@/components/PageSkeleton';
 
@@ -18,6 +19,9 @@ type Deck = {
   description: string;
   subjectName: string;
   authorName: string;
+  /** F12: staff-published decks (ownerless topics) get the trust badge;
+   *  community decks get nothing — silence is honest. */
+  staffWritten?: boolean;
   cardCount: number;
   lessonCount: number;
   followerCount: number;
@@ -98,7 +102,7 @@ export default function PublicDecksPage() {
       <PageHeader
         icon="library"
         title="Deck library"
-        subtitle="Verified decks published by teachers and the Revisio team. Follow one and a private copy lands in your Shared decks."
+        subtitle="Decks published by teachers and the Revisio team. Follow one and a private copy lands in your Shared decks."
       />
 
       <Notice tone="good" show={Boolean(message)}>
@@ -133,8 +137,11 @@ export default function PublicDecksPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="t-strong line-clamp-2">{d.name}</h2>
-                    <p className="t-fine mt-1 text-muted-foreground">
-                      {d.subjectName} · by {d.authorName}
+                    <p className="t-fine mt-1 flex flex-wrap items-center gap-x-1.5 text-muted-foreground">
+                      <span>
+                        {d.subjectName} · by {d.authorName}
+                      </span>
+                      {d.staffWritten && <Badge variant="chip-soft">Staff-written</Badge>}
                     </p>
                   </div>
                 </div>

@@ -29,6 +29,9 @@ export type PublicDeck = {
   description: string;
   subjectName: string;
   authorName: string;
+  /** F12 trust signal: staff publish ownerless (topics.ownerId === null), so
+   *  the badge keys on ownership, not an author role that does not exist. */
+  staffWritten: boolean;
   cardCount: number;
   lessonCount: number;
   followerCount: number;
@@ -128,6 +131,7 @@ export async function listPublicDecks(userId: string): Promise<PublicDeck[]> {
         description: r.topic.description,
         subjectName: r.subjectName,
         authorName: r.authorName ?? r.authorUsername ?? 'Revisio',
+        staffWritten: r.topic.ownerId === null,
         cardCount,
         lessonCount,
         followerCount: followersBy.get(r.topic.id) ?? 0,

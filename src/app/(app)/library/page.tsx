@@ -19,6 +19,7 @@ import { DraftReview } from './DraftReview';
 import { useMe } from '@/lib/useMe';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
 type Topic = TopicOption & {
@@ -212,7 +213,7 @@ export default function LibraryPage() {
             <span className="min-w-0">
               <span className="t-strong block">Deck library</span>
               <span className="t-caption block text-muted-foreground">
-                Verified decks from teachers. Follow one and a private copy lands in Shared decks.
+                Decks published by teachers. Follow one and a private copy lands in Shared decks.
               </span>
             </span>
             <Icon name="next" size={15} className="ml-auto shrink-0 text-muted-foreground" />
@@ -235,6 +236,11 @@ export default function LibraryPage() {
                           <Icon name={VISIBILITY_GLYPH[t.visibility] ?? 'private'} size={12} />
                           {t.visibility.replace('_', ' ')}
                         </span>
+                        {/* F12: ownerless public topics are staff-published —
+                            the same trust badge the deck library shows. */}
+                        {t.ownerId === null && t.visibility === 'public' && (
+                          <Badge variant="chip-soft">Staff-written</Badge>
+                        )}
                       </span>
                       <span className="t-caption mt-0.5 flex flex-wrap items-center gap-x-2 text-muted-foreground">
                         <span>{t.subjectName ?? 'No subject'}</span>

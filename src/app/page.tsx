@@ -110,6 +110,10 @@ const FAQS: { q: string; a: string }[] = [
     q: 'Can my teacher see my revision?',
     a: 'Only if you join their class. A teacher sees your name and progress as a member of their class; the rest of your account stays yours. Leaderboards are optional and under your control.',
   },
+  {
+    q: 'Does anything I do get lost?',
+    a: 'No. Reviews you grade offline queue on your device and sync when you are back online. Nothing you marked is lost if you lose signal.',
+  },
 ];
 
 export default function LandingPage() {
@@ -405,6 +409,9 @@ export default function LandingPage() {
                 </Link>
                 <Link href="/accessibility" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
                   Accessibility
+                </Link>
+                <Link href="/what-we-dont-do" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
+                  What we don’t do
                 </Link>
                 <Link href="/for-teachers" className={cn(buttonVariants({ variant: 'ghost' }), '!text-muted-foreground hover:!text-foreground')}>
                   For teachers
