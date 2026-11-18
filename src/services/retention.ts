@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { db, type Db } from '@/db/client';
 import {
   cards, cardUserStates, examAttempts, examPlans, guardianLinks,
@@ -183,18 +183,31 @@ export async function updateNotificationPrefs(userId: string, input: Record<stri
   return getNotificationPrefs(userId);
 }
 
+// Cursor timestamps are server-issued ISO strings; require a timezone
+// designator so the ::timestamptz cast never falls back to session TZ.
+const CURSOR_TS_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})$/;
+
 export async function listNotifications(userId: string, limit = 30, before?: { createdAt: string; id: string }) {
   const pageSize = Math.min(Math.max(Math.trunc(limit) || 30, 1), 100);
   const conds = [eq(notifications.userId, userId)];
-  if (before) {
-    const t = new Date(before.createdAt);
-    if (!Number.isNaN(t.getTime())) {
-      // Keyset on (createdAt, id): stable under inserts, unlike OFFSET.
-      conds.push(or(lt(notifications.createdAt, t), and(eq(notifications.createdAt, t), lt(notifications.id, before.id)))!);
-    }
+  if (before && CURSOR_TS_RE.test(before.createdAt) && !Number.isNaN(Date.parse(before.createdAt))) {
+    // Keyset on (createdAt, id): stable under inserts, unlike OFFSET. The
+    // cursor binds as text -> timestamptz -> UTC timestamp so Postgres
+    // microsecond precision survives the round trip — a JS Date is
+    // millisecond-only and would silently skip rows sharing the boundary ms.
+    const ts = sql`(${before.createdAt})::timestamptz AT TIME ZONE 'UTC'`;
+    conds.push(or(
+      sql`${notifications.createdAt} < ${ts}`,
+      sql`${notifications.createdAt} = ${ts} AND ${notifications.id} < ${before.id}`,
+    )!);
   }
   const rows = await db
-    .select()
+    .select({
+      ...getTableColumns(notifications),
+      // PG keeps microseconds; carry the boundary timestamp as text so the
+      // next page's predicate compares at full precision.
+      cursorTs: sql<string>`to_char(${notifications.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+    })
     .from(notifications)
     .where(and(...conds))
     .orderBy(desc(notifications.createdAt), desc(notifications.id))
@@ -211,7 +224,7 @@ export async function listNotifications(userId: string, limit = 30, before?: { c
   return {
     notifications: page.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, href: n.href, readAt: n.readAt?.toISOString() ?? null, createdAt: n.createdAt.toISOString() })),
     unread: unreadRow?.c ?? 0,
-    nextCursor: hasMore && last ? { createdAt: last.createdAt.toISOString(), id: last.id } : null,
+    nextCursor: hasMore && last ? { createdAt: last.cursorTs ?? last.createdAt.toISOString(), id: last.id } : null,
   };
 }
 
