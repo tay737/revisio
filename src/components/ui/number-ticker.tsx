@@ -5,6 +5,7 @@ import { useInView, useMotionValue, useSpring, type SpringOptions } from "motion
 
 import { cn } from "@/lib/utils"
 import { SPRING } from "@/lib/motion"
+import { useQuietMode } from "@/lib/quiet"
 
 interface NumberTickerProps extends ComponentPropsWithoutRef<"span"> {
   value: number
@@ -12,6 +13,10 @@ interface NumberTickerProps extends ComponentPropsWithoutRef<"span"> {
   direction?: "up" | "down"
   delay?: number
   decimalPlaces?: number
+  /** Marks a celebration/result numeral (session report, exam result, practice
+   *  score). Quiet mode renders these statically; ordinary informational
+   *  numerals keep their count-up — product decision D13. */
+  celebrate?: boolean
 }
 
 export function NumberTicker({
@@ -21,14 +26,22 @@ export function NumberTicker({
   delay = 0,
   className,
   decimalPlaces = 0,
+  celebrate = false,
   ...props
 }: NumberTickerProps) {
   const ref = useRef<HTMLSpanElement>(null)
+  const quiet = useQuietMode()
+  const still = quiet && celebrate
   const motionValue = useMotionValue(direction === "down" ? value : startValue)
   const springValue = useSpring(motionValue, SPRING.meter as SpringOptions)
   const isInView = useInView(ref, { once: true, margin: "0px" })
+  const formatted = Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimalPlaces,
+    maximumFractionDigits: decimalPlaces,
+  }).format(value)
 
   useEffect(() => {
+    if (still) return
     let timer: ReturnType<typeof setTimeout> | null = null
 
     if (isInView) {
@@ -42,20 +55,19 @@ export function NumberTicker({
         clearTimeout(timer)
       }
     }
-  }, [motionValue, isInView, delay, value, direction, startValue])
+  }, [motionValue, isInView, delay, value, direction, startValue, still])
 
-  useEffect(
-    () =>
-      springValue.on("change", (latest) => {
-        if (ref.current) {
-          ref.current.textContent = Intl.NumberFormat("en-US", {
-            minimumFractionDigits: decimalPlaces,
-            maximumFractionDigits: decimalPlaces,
-          }).format(Number(latest.toFixed(decimalPlaces)))
-        }
-      }),
-    [springValue, decimalPlaces]
-  )
+  useEffect(() => {
+    if (still) return
+    return springValue.on("change", (latest) => {
+      if (ref.current) {
+        ref.current.textContent = Intl.NumberFormat("en-US", {
+          minimumFractionDigits: decimalPlaces,
+          maximumFractionDigits: decimalPlaces,
+        }).format(Number(latest.toFixed(decimalPlaces)))
+      }
+    })
+  }, [springValue, decimalPlaces, still])
 
   return (
     <span
@@ -70,7 +82,7 @@ export function NumberTicker({
       )}
       {...props}
     >
-      {startValue}
+      {still ? formatted : startValue}
     </span>
   )
 }

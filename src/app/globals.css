@@ -269,6 +269,58 @@
   --tier-ink-legend: var(--tier-legend);
 }
 
+/* ── Quiet mode palette (F1, decision D2) ──────────────────────────────────
+   `data-quiet="true"` on <html> desaturates the accent set over whichever
+   scheme is active — a palette change, not a third theme. The loud hues
+   (owl green, fox orange, bee gold, macaw blue) pull back toward sage, sand
+   and slate; text-safe `*-ink`/`*-strong` variants keep their contrast job.
+   Semantic destructive and the tier metals are untouched: errors must stay
+   loud, and crest identity must still read on both grounds. `.band` and
+   `.tile-dark` do not redefine these tokens, so the quiet set cascades into
+   polarity bands for free. */
+html[data-quiet="true"] {
+  --good: #7d9c60;
+  --good-pressed: #6b8a52;
+  --good-strong: #48603c;
+  --good-soft: #e6ecdc;
+  --streak: #bb9254;
+  --streak-pressed: #8a6535;
+  --gold: #cf9f4e;
+  --gold-ink: #7c5f2e;
+  --info: #719db5;
+  --info-ink: #4e6e88;
+}
+
+html.dark[data-quiet="true"] {
+  --good: #8aa86b;
+  --good-pressed: #6f9154;
+  --good-strong: #9ab877;
+  --good-soft: #22301a;
+  --streak: #c99a5b;
+  --streak-pressed: #d9b078;
+  --gold: #d9b45c;
+  --gold-ink: #d9b45c;
+  --info: #7ba7c4;
+  --info-ink: #7ba7c4;
+}
+
+/* ── Reading preset (F4, decision D5) ──────────────────────────────────────
+   `data-reading="relaxed"` is spacing-first: tracking and leading move on
+   prose surfaces only — never sizes, families, chrome, badges or data.
+   `.md-root` covers every rendered Markdown block (lesson notes, the "Why"
+   disclosure); `.reading-prose` marks the hand-placed prose spots (review
+   prompt, verdict text). Both schemes share the rules — spacing is
+   scheme-agnostic. */
+html[data-reading="relaxed"] .md-root,
+html[data-reading="relaxed"] .reading-prose {
+  letter-spacing: 0.02em;
+}
+
+html[data-reading="relaxed"] .md-root :is(p, li, blockquote),
+html[data-reading="relaxed"] .reading-prose {
+  line-height: 1.7;
+}
+
 /* ── Theme mapping ───────────────────────────────────────────────────────────
    `inline` so each utility reads the live variable: a `.band` subtree, or the
    dark theme, re-resolves without a second utility. */

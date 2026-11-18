@@ -12,6 +12,7 @@
 import {
   Activity,
   ArrowLeft,
+  AudioLines,
   ArrowRight,
   ArrowUpRight,
   Award,
@@ -72,6 +73,7 @@ import {
   Target,
   Timer,
   TrendingUp,
+  Volume2,
   Trash2,
   Trophy,
   Upload,
@@ -174,6 +176,9 @@ export const icons = {
   filter: ListFilter,
   /** The in-app notification centre (#11). */
   bell: Bell,
+  /** Read-aloud card control (F3): idle listener and the static speaking state. */
+  listen: Volume2,
+  speaking: AudioLines,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;

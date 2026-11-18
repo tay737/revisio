@@ -11,6 +11,8 @@ import { TopBar } from '@/components/nav/TopBar';
 import { BottomNav } from '@/components/nav/BottomNav';
 import { AccountSheet } from '@/components/nav/AccountSheet';
 import { useMotionPreference } from '@/components/ui/motion/motion-provider';
+import { setQuietMode } from '@/lib/quiet';
+import { applyReadingPreset } from '@/lib/reading';
 import { useReviewSession } from '@/components/ReviewSessionContext';
 import PageSkeleton from '@/components/PageSkeleton';
 import {
@@ -52,6 +54,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setAccountReducedMotion(me?.prefs?.reducedMotion === true);
   }, [me?.id, me?.prefs?.reducedMotion, setAccountReducedMotion]);
+
+  // Quiet mode and the reading preset are <html> data attributes — the same
+  // apply-on-mount pattern as reduced motion, no pre-paint script needed.
+  useEffect(() => {
+    setQuietMode(me?.prefs?.quietMode === true);
+  }, [me?.id, me?.prefs?.quietMode]);
+
+  useEffect(() => {
+    applyReadingPreset(me?.prefs?.readingPreset);
+  }, [me?.id, me?.prefs?.readingPreset]);
 
   useEffect(() => {
     if (error) router.replace('/login');

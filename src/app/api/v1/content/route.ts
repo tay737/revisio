@@ -109,9 +109,19 @@ export const GET = route(async (req: NextRequest) => {
     // card_answers table on every topic open and filter it in JavaScript.
     const answers = await answersForCards(topicCards.map((c) => c.id));
 
+    // F8 coverage readout: of the topic's *published* cards, how many carry a
+    // "Why". Drafts and private cards are excluded — the number must describe
+    // what learners actually see, not what the editor is still writing.
+    const published = topicCards.filter((c) => c.visibility === 'public');
+    const explanationCoverage = {
+      withWhy: published.filter((c) => (c.explanationMd ?? '').trim().length > 0).length,
+      total: published.length,
+    };
+
     return ok({
       topic,
       mayEdit,
+      explanationCoverage,
       lessons: mayEdit ? topicLessons : topicLessons.filter((l) => reachesUser(l.visibility, l.ownerId, user.id)),
       cards: topicCards
         .filter((c) => mayEdit || reachesUser(c.visibility, c.ownerId, user.id))

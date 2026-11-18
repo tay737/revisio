@@ -11,6 +11,7 @@ import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
+import { ReferenceLink } from '@/components/reference-link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -129,6 +130,11 @@ type Marked = {
     qwcMarks: number;
     matchedPhrases: string[];
     missedPhrases: string[];
+    /** F7 reference target — the topic notes page. Absent on attempts marked
+     *  before the fields shipped; the link simply does not render. */
+    topicId?: string;
+    subjectId?: string;
+    topicName?: string;
   }[];
   xpAwarded: number;
   aoProfile: { ao: string; awarded: number; available: number; percentage: number }[] | null;
@@ -416,7 +422,7 @@ export default function ExamPage() {
           <Card className="p-8 text-center" tabIndex={-1} ref={resultHeadingRef}>
             <div className="t-num" role="status">
               <span className="sr-only">You scored </span>
-              <NumberTicker value={result.percentage} className="num" />%
+              <NumberTicker value={result.percentage} className="num" celebrate />%
             </div>
             <p className="t-body mt-2 text-muted-foreground">
               {result.score} of {result.maxScore} marks
@@ -590,6 +596,16 @@ function ResultDetail({ d, index }: { d: Marked['detail'][number]; index: number
         </span>
       </div>
       <p className="t-caption mt-2 text-foreground">{d.feedback}</p>
+
+      {/* F7: every marked row is reference material — correct or not — so the
+          topic-notes link rides along the same way the mark scheme does.
+          Exam questions carry no lesson mapping, so this resolves to the
+          topic page rather than a lesson anchor. */}
+      {d.subjectId && d.topicId && (
+        <div className="mt-2">
+          <ReferenceLink subjectId={d.subjectId} topicId={d.topicId} />
+        </div>
+      )}
 
       {d.matchedPhrases.length > 0 && (
         <p className="t-caption mt-2">

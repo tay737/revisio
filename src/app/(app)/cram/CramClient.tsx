@@ -15,6 +15,7 @@ import { SPRING, transition } from '@/lib/motion';
 import { sessionSummary } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
+import { ReferenceLink } from '@/components/reference-link';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -25,8 +26,13 @@ type Note = { topicId: string; title: string; contentMd: string; specRefs: strin
 type QueueCard = {
   id: string;
   kind: 'cloze' | 'flashcard' | 'mcq';
+  topicId: string;
   topicName: string;
+  subjectId: string;
   subjectName: string;
+  /** F7 deep-link targets — absent on sessions dealt before the fields shipped. */
+  lessonId?: string | null;
+  lessonTitle?: string | null;
   textWithBlank: string | null;
   prompt: string | null;
   question: string | null;
@@ -321,6 +327,18 @@ export default function CramClient() {
                     {result.xpAwarded > 0 && <span className="t-caption ml-auto font-normal text-muted-foreground">+{result.xpAwarded} XP</span>}
                   </div>
                   {result.verdict.note && <p className="t-caption mt-2 text-foreground">{result.verdict.note}</p>}
+                  {result.verdict.matchedPhrases && result.verdict.matchedPhrases.length > 0 && (
+                    <p className="t-caption mt-2 text-foreground">
+                      <span className="font-bold">You had: </span>
+                      {result.verdict.matchedPhrases.join(', ')}
+                    </p>
+                  )}
+                  {result.verdict.missedPhrases && result.verdict.missedPhrases.length > 0 && (
+                    <p className="t-caption mt-1 text-foreground">
+                      <span className="font-bold text-destructive-ink">Missing: </span>
+                      {result.verdict.missedPhrases.join(', ')}
+                    </p>
+                  )}
                   {/* One place decides how the right answer is shown, for both
                       kinds: nonsense answers prove nothing to the reader. */}
                   {(result.modelAnswer || result.primaryAnswer) && (
@@ -328,7 +346,29 @@ export default function CramClient() {
                       <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">
                         {result.modelAnswer ? 'Model answer' : 'Answer'}
                       </span>
-                      <p className="t-caption mt-0.5 text-foreground">{result.modelAnswer ?? result.primaryAnswer}</p>
+                      <p className="t-caption mt-0.5 reading-prose text-foreground">{result.modelAnswer ?? result.primaryAnswer}</p>
+                    </div>
+                  )}
+                  {/* The explanation the queue always sent but this block never
+                      rendered — markdown, like every other note surface. Same
+                      rule as the daily panel: non-correct verdicts only. */}
+                  {!result.verdict.correct && result.explanation && (
+                    <div className="inset mt-2.5 px-3 py-2">
+                      <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Why</span>
+                      <Markdown text={result.explanation} className="mt-1 t-caption reading-prose text-foreground" />
+                    </div>
+                  )}
+                  {/* F7: cram's verdict surface carries the same lesson link on
+                      non-correct verdicts. No confidence chips and no Why
+                      disclosure here — those stay on the daily+learn panel. */}
+                  {!result.verdict.correct && (
+                    <div className="mt-2.5">
+                      <ReferenceLink
+                        subjectId={card.subjectId}
+                        topicId={card.topicId}
+                        lessonId={card.lessonId}
+                        lessonTitle={card.lessonTitle}
+                      />
                     </div>
                   )}
                   <Button onClick={next} variant="primary" className="mt-4 w-full gap-2">

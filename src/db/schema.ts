@@ -285,6 +285,9 @@ export const reviewLogs = pgTable('review_logs', {
   }>(),
   durationMs: integer('duration_ms').notNull().default(0),
   xpAwarded: integer('xp_awarded').notNull().default(0),
+  /** F5 pre-answer self-report: 'knew' | 'guessed' | null. Stored, not
+   *  scheduled — v1 collects without acting on it. */
+  confidence: text('confidence', { enum: ['knew', 'guessed'] }),
   reviewedAt: timestamp('reviewed_at', { mode: 'date' }).notNull().defaultNow(),
 }, (t) => ({
   userTimeIdx: index('review_logs_user_time_idx').on(t.userId, t.reviewedAt),

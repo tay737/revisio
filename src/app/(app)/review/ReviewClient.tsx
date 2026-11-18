@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
@@ -18,6 +18,7 @@ import {
   type OfflinePack,
 } from '@/lib/offline';
 import { useMe } from '@/lib/useMe';
+import { useQuietMode } from '@/lib/quiet';
 import { useRanked } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
@@ -31,6 +32,10 @@ import { emptyQueueLine, sessionSummary } from '@/lib/profile';
 import { rankChange, reviewsForRp, type Rank } from '@/domain/ranked';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
+import { ListenButton } from '@/components/listen-button';
+import { ReferenceLink } from '@/components/reference-link';
+import { cardSpeechText, markdownSpeechText } from '@/lib/speak';
+import { whyHint } from '@/lib/why-hint';
 import { useReviewSession } from '@/components/ReviewSessionContext';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -40,8 +45,14 @@ import { cn } from '@/lib/utils';
 type QueueCard = {
   id: string;
   kind: 'cloze' | 'flashcard' | 'mcq';
+  topicId: string;
   topicName: string;
+  subjectId: string;
   subjectName: string;
+  /** F7 deep-link targets. Optional: packs cached before the fields shipped
+   *  simply render no link (honest absence). */
+  lessonId?: string | null;
+  lessonTitle?: string | null;
   textWithBlank: string | null;
   prompt: string | null;
   question: string | null;
@@ -139,7 +150,7 @@ type FirstExposure = {
 export default function ReviewClient() {
   // Sharing the shell's cache entries lets the empty state quote a real streak
   // and lets the session report know the rank it started from.
-  const { me, refresh: refreshMe } = useMe();
+  const { me, loading: meLoading, refresh: refreshMe } = useMe();
   const { refresh: refreshRanked } = useRanked('weekly');
   const { setActive: setReviewActive, setFocus: setReviewFocus } = useReviewSession();
   // `?topic=` turns the same loop into first exposure. The card surface, the
@@ -150,12 +161,19 @@ export default function ReviewClient() {
   // "review this" action on a weak-topic recommendation (#18). Distinct from
   // `?topic=`, which is first exposure with notes alongside.
   const reviewTopicId = useSearchParams().get('topicId');
+  // `?deal=N` is a one-session deal override ("Or start with 3 cards" on the
+  // dashboard). Daily queue only — learn/cram keep their own sizing — and it
+  // never writes the sessionLength pref: the promise is "just N", not "always N".
+  const dealParam = useSearchParams().get('deal');
   const [session, setSession] = useState<FirstExposure | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   const [queue, setQueue] = useState<QueueCard[] | null>(null);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  /** F5: pre-answer self-report. Metadata only in v1 — stored on
+   *  review_logs.confidence, never fed to grading, XP, SRS or streaks. */
+  const [confidence, setConfidence] = useState<'knew' | 'guessed' | null>(null);
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -202,6 +220,11 @@ export default function ReviewClient() {
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const dealSizeRef = useRef(20);
   const poolRef = useRef<QueueCard[]>([]);
+  /** Set once from `?deal=` — beats both the localStorage cache and the server
+   *  pref for this session's first deal, and is never persisted. */
+  const dealOverrideRef = useRef<number | null>(null);
+  /** Server prefs are applied exactly once, on first `/me` arrival. */
+  const serverPrefsApplied = useRef(false);
 
   // Device prefs load after mount (localStorage is unavailable during SSR).
   // The queue load waits for them so the first deal honours the saved length.
@@ -214,11 +237,52 @@ export default function ReviewClient() {
       }
       setFocus(window.localStorage.getItem('revisio.focusMode') === '1');
       setBreaks(window.localStorage.getItem('revisio.breakReminders') !== '0');
+      // `?deal=` wins over the cached length for this session only.
+      if (!topicId && dealParam) {
+        const d = Number(dealParam);
+        if (Number.isInteger(d) && d > 0) {
+          dealOverrideRef.current = d;
+          dealSizeRef.current = d;
+          setDealSize(d);
+        }
+      }
     } catch {
       // Private mode or a full quota: the defaults stand.
     }
     setPrefsLoaded(true);
-  }, []);
+  }, [topicId, dealParam]);
+
+  // Server-side source of truth for the three session prefs (F2): the
+  // localStorage keys above are only the first-paint cache. Applied once,
+  // only for keys the server actually sent, and before the first deal lands —
+  // `load()` waits on `!meLoading`, so the deal below already honours these.
+  useEffect(() => {
+    const p = me?.prefs;
+    if (serverPrefsApplied.current || !p) return;
+    serverPrefsApplied.current = true;
+    const write = (key: string, value: string) => {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        // Private mode: the pref still applies to this session.
+      }
+    };
+    if (p.sessionLength === 5 || p.sessionLength === 10 || p.sessionLength === 20) {
+      if (dealOverrideRef.current == null) {
+        dealSizeRef.current = p.sessionLength;
+        setDealSize(p.sessionLength);
+      }
+      write('revisio.sessionLength', String(p.sessionLength));
+    }
+    if (typeof p.focusMode === 'boolean') {
+      setFocus(p.focusMode);
+      write('revisio.focusMode', p.focusMode ? '1' : '0');
+    }
+    if (typeof p.breakReminders === 'boolean') {
+      setBreaks(p.breakReminders);
+      write('revisio.breakReminders', p.breakReminders ? '1' : '0');
+    }
+  }, [me?.prefs]);
 
   // Mirror the focus preference into the shell while a card is on screen.
   useEffect(() => {
@@ -312,6 +376,7 @@ export default function ReviewClient() {
     setResult(null);
     setInput('');
     setSelected(null);
+    setConfidence(null);
     setNotesOpen(false);
     setAutoMark(false);
     setBreakAck(0);
@@ -319,10 +384,12 @@ export default function ReviewClient() {
     startRef.current = Date.now();
   }, [topicId, reviewTopicId, rememberPack, setReviewActive]);
 
-  // Wait for the device prefs so the first deal honours the saved length.
+  // Wait for the device prefs *and* `/me` so the first deal honours the
+  // server-side session length; a failed `/me` resolves loading too, leaving
+  // the localStorage cache as the fallback.
   useEffect(() => {
-    if (prefsLoaded) void load();
-  }, [prefsLoaded, load]);
+    if (prefsLoaded && !meLoading) void load();
+  }, [prefsLoaded, meLoading, load]);
 
   // Hand back anything the server has not seen: once when this screen opens, and
   // again the moment the connection returns. This is the only place the outbox
@@ -404,6 +471,7 @@ export default function ReviewClient() {
         selectedOptionId: selected ?? undefined,
         durationMs,
         mode,
+        confidence,
       });
       // XP is deliberately not invented here. The server awards it when the
       // review lands, and a number the learner was shown but never earned is
@@ -440,7 +508,7 @@ export default function ReviewClient() {
         current.kind === 'mcq'
           ? { cardId: current.id, selectedOptionId: selected ?? '' }
           : { cardId: current.id, answer: input };
-      const res = await api.post<ReviewResult>('/api/v1/reviews', { ...body, durationMs, mode });
+      const res = await api.post<ReviewResult>('/api/v1/reviews', { ...body, durationMs, mode, confidence });
       // LANDED: the server has graded and scheduled it, so it must not be dealt
       // again from the cached pack.
       dropCardFromPack(current.id);
@@ -465,12 +533,13 @@ export default function ReviewClient() {
     } finally {
       setBusy(false);
     }
-  }, [card, busy, result, selected, input, burst, topicId, offline, latestXp, me]);
+  }, [card, busy, result, selected, input, confidence, burst, topicId, offline, latestXp, me]);
 
   const next = useCallback(() => {
     setResult(null);
     setInput('');
     setSelected(null);
+    setConfidence(null);
     setError('');
     setAutoMark(false);
     startRef.current = Date.now();
@@ -528,13 +597,15 @@ export default function ReviewClient() {
       } catch {
         // Private mode: the choice still applies to this session.
       }
+      // F2: the pref is the source of truth now; localStorage is the cache.
+      void api.patch('/api/v1/me', { prefs: { sessionLength: n } }).then(() => refreshMe()).catch(() => undefined);
       const all = [...(queue ?? []), ...poolRef.current];
       const next = all.slice(0, n);
       poolRef.current = all.slice(n);
       setPoolCount(poolRef.current.length);
       setQueue(next);
     },
-    [queue, done],
+    [queue, done, refreshMe],
   );
 
   const toggleFocus = useCallback(() => {
@@ -543,9 +614,10 @@ export default function ReviewClient() {
       try {
         window.localStorage.setItem('revisio.focusMode', next ? '1' : '0');
       } catch {}
+      void api.patch('/api/v1/me', { prefs: { focusMode: next } }).then(() => refreshMe()).catch(() => undefined);
       return next;
     });
-  }, []);
+  }, [refreshMe]);
 
   const toggleBreaks = useCallback(() => {
     setBreaks((b) => {
@@ -553,9 +625,10 @@ export default function ReviewClient() {
       try {
         window.localStorage.setItem('revisio.breakReminders', next ? '1' : '0');
       } catch {}
+      void api.patch('/api/v1/me', { prefs: { breakReminders: next } }).then(() => refreshMe()).catch(() => undefined);
       return next;
     });
-  }, []);
+  }, [refreshMe]);
 
   // Escape closes the session-options panel.
   useEffect(() => {
@@ -703,6 +776,7 @@ export default function ReviewClient() {
             sessionXp={sessionXp}
             change={change}
             ended={ended}
+            leftDue={poolCount + Math.max(0, (queue?.length ?? 0) - done)}
             canExtend={!session && (poolCount > 0 || !offline)}
             onJustOneMore={justOneMore}
             onAgain={load}
@@ -864,6 +938,11 @@ export default function ReviewClient() {
                         onToggle={toggleBreaks}
                       />
                     </div>
+                    {/* F3 copy: the listen control's contract, stated once where
+                        session choices live. */}
+                    <p className="t-fine mt-3 border-t border-border pt-3 text-muted-foreground">
+                      The speaker icon reads the question aloud. Answers stay quiet until you check.
+                    </p>
                   </div>
                 </>
               )}
@@ -924,11 +1003,17 @@ export default function ReviewClient() {
                   </Badge>
                 )}
               </span>
-              {!focus && (
-                <span className="truncate t-fine text-muted-foreground">
-                  {card.subjectName} · {card.topicName}
-                </span>
-              )}
+              <span className="flex min-w-0 items-center gap-1">
+                {!focus && (
+                  <span className="truncate t-fine text-muted-foreground">
+                    {card.subjectName} · {card.topicName}
+                  </span>
+                )}
+                {/* F3: card content, not chrome — stays visible in Focus
+                    sessions. Speaks the question side only; the verdict remount
+                    below swaps it for the explanation-side controls. */}
+                <ListenButton text={cardSpeechText(card)} />
+              </span>
             </div>
 
             {/* Why this card is here (#18): scheduler facts, not a label. */}
@@ -936,7 +1021,7 @@ export default function ReviewClient() {
               <p className="t-fine mt-1 text-muted-foreground">{dueReason(card, !!topicId)}</p>
             )}
 
-            <div className="mt-5 t-display-sm font-bold leading-[1.35]">
+            <div className="mt-5 t-display-sm font-bold leading-[1.35] reading-prose">
               {card.kind === 'cloze' && (
                 <ClozePrompt
                   text={card.textWithBlank ?? ''}
@@ -963,6 +1048,7 @@ export default function ReviewClient() {
                     {selected === o.id && <Icon name="reviewed" size={18} />}
                   </button>
                 ))}
+                <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />
                 <Button
                   variant="good"
                   size="lg"
@@ -1024,6 +1110,7 @@ export default function ReviewClient() {
                     aria-label="Your answer"
                   />
                 )}
+                <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />
                 <Button
                   type="submit"
                   variant="good"
@@ -1052,7 +1139,7 @@ export default function ReviewClient() {
                 className="overflow-hidden"
               >
                 <div ref={verdictRef}>
-                  <VerdictPanel result={result} card={card} />
+                  <VerdictPanel result={result} card={card} confidence={confidence} />
                   <Button size="lg" className="mt-3 gap-2" onClick={next}>
                     Continue
                     <Icon name="next" size={17} />
@@ -1170,6 +1257,7 @@ function SessionReport({
   sessionXp,
   change,
   ended,
+  leftDue,
   canExtend,
   onJustOneMore,
   onAgain,
@@ -1179,23 +1267,27 @@ function SessionReport({
   sessionXp: number;
   change: ReturnType<typeof rankChange> | null;
   ended: boolean;
+  /** Cards still due after an early end: undealt pool plus unanswered dealt
+   *  cards. Only rendered when the learner stopped before the queue ran dry. */
+  leftDue: number;
   /** Daily sessions only, and only while more due cards can be dealt. */
   canExtend: boolean;
   onJustOneMore: () => void;
   onAgain: () => void;
 }) {
   const rank: Rank | null = change?.after ?? null;
+  const quiet = useQuietMode();
 
   return (
     <TilePanel tone="dark" className="text-center">
       {rank && (
         <motion.div
           className="mx-auto w-fit"
-          initial={{ scale: 0.7, opacity: 0, rotate: -6 }}
+          initial={quiet ? false : { scale: 0.7, opacity: 0, rotate: -6 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           transition={SPRING.pop}
         >
-          <RankCrest rank={rank} size={92} />
+          <RankCrest rank={rank} size={92} animate={!quiet} />
         </motion.div>
       )}
 
@@ -1230,6 +1322,12 @@ function SessionReport({
       {rank && !rank.isApex && (
         <p className="mt-3 t-caption text-muted-foreground">
           {rank.remaining} rank points (RP) to the next rung · about {reviewsForRp(rank.remaining)} more reviews.
+        </p>
+      )}
+
+      {ended && leftDue > 0 && (
+        <p className="mt-3 t-caption text-muted-foreground">
+          {leftDue} {leftDue === 1 ? 'card' : 'cards'} still due. They will be here tomorrow.
         </p>
       )}
 
@@ -1291,6 +1389,71 @@ function OptionRow({
   );
 }
 
+/**
+ * The pre-answer confidence tap (F5): "did you know it?" — two chips, nothing
+ * selected by default, APG radiogroup semantics (role=radiogroup, role=radio,
+ * arrow keys move and select). v1 stores the answer without acting on it, so
+ * the copy stays silent about effects — scaffolding, not a lever.
+ */
+function ConfidencePicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: 'knew' | 'guessed' | null;
+  onChange?: (v: 'knew' | 'guessed') => void;
+  disabled?: boolean;
+}) {
+  const options = [
+    { v: 'knew' as const, label: 'I knew it' },
+    { v: 'guessed' as const, label: 'I guessed' },
+  ];
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const pick = (v: 'knew' | 'guessed') => {
+    if (disabled) return;
+    onChange?.(v);
+  };
+
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    const delta = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!delta) return;
+    e.preventDefault();
+    const i = options.findIndex((o) => o.v === value);
+    const next = options[(Math.max(i, 0) + delta + options.length) % options.length];
+    pick(next.v);
+    refs.current[(Math.max(i, 0) + delta + options.length) % options.length]?.focus();
+  };
+
+  return (
+    <div className="mt-3" role="radiogroup" aria-label="Before you check: did you know it?" onKeyDown={onKeyDown}>
+      <p className="t-fine mb-1.5 text-muted-foreground">Before you check: did you know it?</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o, i) => {
+          const on = value === o.v;
+          return (
+            <button
+              key={o.v}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              tabIndex={on || (value === null && i === 0) ? 0 : -1}
+              disabled={disabled}
+              onClick={() => pick(o.v)}
+              className={cn('chip min-h-11 transition-colors', on && 'chip-active', disabled && 'opacity-60')}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** The blank in a cloze prompt. Fills with the answer once the verdict lands. */
 function ClozePrompt({ text, answer, revealed }: { text: string; answer: string | null; revealed: boolean }) {
   const [before, after] = text.split('____');
@@ -1320,8 +1483,19 @@ function ClozePrompt({ text, answer, revealed }: { text: string; answer: string 
  * get the cardinal wash, the model answer, and — when the grader found phrases
  * the learner did hit — the partial credit spelled out rather than implied.
  */
-function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard }) {
+function VerdictPanel({
+  result,
+  card,
+  confidence,
+}: {
+  result: ReviewResult;
+  card: QueueCard;
+  /** F5: the choice locked at submit — echoed disabled so the record of what
+   *  was claimed stays visible next to the verdict it described. */
+  confidence?: 'knew' | 'guessed' | null;
+}) {
   const { verdict } = result;
+  const quiet = useQuietMode();
   const good = verdict.correct;
   const softened = verdict.feedbackKind !== 'correct' && good;
 
@@ -1362,6 +1536,12 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
       )}
       {verdict.note && <p className="mt-2 t-caption text-foreground">{verdict.note}</p>}
 
+      {confidence && (
+        <div className="mt-2">
+          <ConfidencePicker value={confidence} disabled />
+        </div>
+      )}
+
         {result.queued && (
           <p className="mt-2 t-caption text-muted-foreground">
             Saved on this device. It is graded again by the server when you reconnect, and your XP
@@ -1384,30 +1564,96 @@ function VerdictPanel({ result, card }: { result: ReviewResult; card: QueueCard 
 
       {card.kind === 'flashcard' && result.modelAnswer && (
         <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
-          <span className="t-fine font-semibold text-muted-foreground">Model answer</span>
-          <p className="mt-0.5 t-caption text-foreground">{result.modelAnswer}</p>
+          <span className="flex items-center justify-between gap-2">
+            <span className="t-fine font-semibold text-muted-foreground">Model answer</span>
+            <ListenButton
+              text={markdownSpeechText(result.modelAnswer)}
+              label="Listen to the model answer"
+              className="-my-1.5"
+            />
+          </span>
+          <p className="mt-0.5 t-caption reading-prose text-foreground">{result.modelAnswer}</p>
         </div>
       )}
 
-      {result.explanation && (
-        <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
+      {/* F9: the Why is a disclosure, and only on non-correct verdicts —
+          correct needs no explanation and the panel stays quiet. Cards the
+          learner has missed before open by default with a one-sentence hint
+          peeled from the explanation's first block. */}
+      {!good && result.explanation && (
+        <WhyDisclosure explanation={result.explanation} lapsed={(card.lapses ?? 0) >= 1} />
+      )}
+
+      {/* F7: the lesson link sits under the Why (or in its place when the card
+          has no explanation). Non-correct verdicts only — a correct answer
+          does not need the reading. */}
+      {!good && (
+        <div className="mt-2.5">
+          <ReferenceLink
+            subjectId={card.subjectId}
+            topicId={card.topicId}
+            lessonId={card.lessonId}
+            lessonTitle={card.lessonTitle}
+          />
+        </div>
+      )}
+
+      {result.newAchievements.map((a) =>
+        quiet ? (
+          <div
+            key={a.id}
+            className="mt-2.5 flex items-center gap-2 rounded-md bg-card/70 px-3 py-2"
+          >
+            <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold-ink" />
+            <span className="t-caption font-semibold">{a.name} unlocked</span>
+          </div>
+        ) : (
+          <motion.div
+            key={a.id}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={SPRING.soft}
+            className="mt-2.5 flex items-center gap-2 rounded-md bg-card/70 px-3 py-2"
+          >
+            <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold-ink" />
+            <span className="t-caption font-semibold">{a.name} unlocked</span>
+          </motion.div>
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * The progressive "Why" (F9). `explanation_md` is markdown — the body renders
+ * through <Markdown>, never as raw text. A card the learner has missed before
+ * (`lapsed`) opens by default and shows the first sentence peeled as a hint;
+ * everything else stays one tap away. `<details>` carries the keyboard and
+ * screen-reader semantics for free.
+ */
+function WhyDisclosure({ explanation, lapsed }: { explanation: string; lapsed: boolean }) {
+  const hint = lapsed ? whyHint(explanation) : null;
+  return (
+    <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
+      {hint && <p className="t-caption reading-prose text-foreground">Hint: {hint}</p>}
+      <details className="group" open={lapsed || undefined}>
+        <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
           <span className="t-fine font-semibold text-muted-foreground">Why</span>
-          <p className="mt-0.5 t-caption text-foreground">{result.explanation}</p>
-        </div>
-      )}
-
-      {result.newAchievements.map((a) => (
-        <motion.div
-          key={a.id}
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={SPRING.soft}
-          className="mt-2.5 flex items-center gap-2 rounded-md bg-card/70 px-3 py-2"
-        >
-          <Icon name={achievementIcon(a.id, a.icon)} size={16} className="text-gold-ink" />
-          <span className="t-caption font-semibold">{a.name} unlocked</span>
-        </motion.div>
-      ))}
+          <Icon
+            name="collapse"
+            size={14}
+            className="text-muted-foreground transition-transform group-open:rotate-180"
+          />
+          <span className="ml-auto" onClick={(e) => e.stopPropagation()}>
+            <ListenButton
+              text={markdownSpeechText(explanation)}
+              label="Listen to the explanation"
+              className="-my-1.5"
+            />
+          </span>
+        </summary>
+        <Markdown text={explanation} className="mt-1.5 t-caption reading-prose text-foreground" />
+      </details>
     </div>
   );
 }

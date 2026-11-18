@@ -121,7 +121,16 @@ export const PATCH = route(async (req: NextRequest) => {
     bannerColor?: string;
     profileVisibility?: Partial<ProfileVisibility>;
     leaderboardOptOut?: boolean;
-    prefs?: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean; streakMastery?: boolean };
+    prefs?: {
+      noteDensity?: 'detailed' | 'summary';
+      reducedMotion?: boolean;
+      streakMastery?: boolean;
+      quietMode?: boolean;
+      focusMode?: boolean;
+      sessionLength?: number;
+      breakReminders?: boolean;
+      readingPreset?: string;
+    };
   };
   const update: Record<string, unknown> = {};
 
@@ -149,6 +158,23 @@ export const PATCH = route(async (req: NextRequest) => {
       throw new ApiError(400, 'bad_banner_color', 'That banner wash is not one of ours.');
     }
     update.bannerColor = body.bannerColor;
+  }
+  if (body.prefs) {
+    // The prefs merge below is a raw spread — the three original keys predate
+    // validation. The F1/F2/F4 keys are validated here so a malformed client
+    // cannot store a value the UI will misread (e.g. sessionLength: "ten").
+    const p = body.prefs;
+    for (const key of ['quietMode', 'focusMode', 'breakReminders'] as const) {
+      if (p[key] !== undefined && typeof p[key] !== 'boolean') {
+        throw new ApiError(400, 'bad_prefs', `prefs.${key} must be true or false.`);
+      }
+    }
+    if (p.sessionLength !== undefined && p.sessionLength !== 5 && p.sessionLength !== 10 && p.sessionLength !== 20) {
+      throw new ApiError(400, 'bad_prefs', 'prefs.sessionLength must be 5, 10 or 20.');
+    }
+    if (p.readingPreset !== undefined && p.readingPreset !== 'default' && p.readingPreset !== 'relaxed') {
+      throw new ApiError(400, 'bad_prefs', "prefs.readingPreset must be 'default' or 'relaxed'.");
+    }
   }
   if (body.profileVisibility !== undefined || body.prefs) {
     // One read serves both merges: profileVisibility and prefs each keep the

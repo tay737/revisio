@@ -64,7 +64,16 @@ export interface Me {
   totpEnabled: boolean;
   leaderboardOptOut: boolean;
   isUnderAge: boolean;
-  prefs: { noteDensity?: 'detailed' | 'summary'; reducedMotion?: boolean; streakMastery?: boolean } | null;
+  prefs: {
+    noteDensity?: 'detailed' | 'summary';
+    reducedMotion?: boolean;
+    streakMastery?: boolean;
+    quietMode?: boolean;
+    focusMode?: boolean;
+    sessionLength?: 5 | 10 | 20;
+    breakReminders?: boolean;
+    readingPreset?: 'default' | 'relaxed';
+  } | null;
   subjects: { id: string; name: string; slug?: string }[];
   gamification: {
     totalXp: number;

@@ -7,6 +7,7 @@ export const POST = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const body = (await req.json().catch(() => null)) as {
     cardId?: string; answer?: string; selectedOptionId?: string; durationMs?: number; mode?: 'daily' | 'cram' | 'exam' | 'learn'; sessionId?: string;
+    confidence?: 'knew' | 'guessed' | null;
   } | null;
   if (!body?.cardId) throw new ApiError(400, 'bad_request', 'cardId is required.');
   const result = await submitReview(user.id, {
@@ -16,6 +17,7 @@ export const POST = route(async (req: NextRequest) => {
     durationMs: body.durationMs,
     mode: body.mode ?? 'daily',
     sessionId: body.sessionId,
+    confidence: body.confidence === 'knew' || body.confidence === 'guessed' ? body.confidence : null,
   });
   // Streaming: the review's rows (review_logs, card_user_states, xp_events, …)
   // were captured by the primary's triggers on write; this drains them to the

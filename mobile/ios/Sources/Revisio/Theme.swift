@@ -75,7 +75,7 @@ public struct RevisioColors: Sendable {
         goodStrong: Color(hex: 0x3D7D00FF),
         goodSoft: Color(hex: 0xD7FFB8FF),
         streak: Color(hex: 0xFF9600FF),
-        streakPressed: Color(hex: 0xC96A00FF),
+        streakPressed: Color(hex: 0xA05A00FF),
         gold: Color(hex: 0xFFC800FF),
         info: Color(hex: 0x1CB0F6FF),
         band: Color(hex: 0x000000FF),

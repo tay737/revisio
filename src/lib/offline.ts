@@ -52,6 +52,9 @@ export type PendingReview = {
   selectedOptionId?: string;
   durationMs: number;
   mode: string;
+  /** F5: carried through enqueue → replay so an offline answer keeps the
+   *  learner's pre-answer self-report. */
+  confidence?: 'knew' | 'guessed' | null;
   queuedAt: string;
 };
 
@@ -163,6 +166,7 @@ export async function syncOutbox(): Promise<SyncOutcome> {
           : { answer: review.answer ?? '' }),
         durationMs: review.durationMs,
         mode: review.mode,
+        ...(review.confidence ? { confidence: review.confidence } : {}),
       });
       dropReview(review.id);
       sent += 1;

@@ -406,6 +406,23 @@ private fun buildIcons(): List<Pair<String, List<String>>> = listOf(
         "M6 12h12",
         "M9 19h6",
     ),
+    "bell" to listOf(
+        "M10.268 21a2 2 0 0 0 3.464 0",
+        "M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326",
+    ),
+    "listen" to listOf(
+        "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z",
+        "M16 9a5 5 0 0 1 0 6",
+        "M19.364 18.364a9 9 0 0 0 0-12.728",
+    ),
+    "speaking" to listOf(
+        "M2 10v3",
+        "M6 6v11",
+        "M10 3v18",
+        "M14 8v7",
+        "M18 5v13",
+        "M22 10v3",
+    ),
 )
 
 /** The registry from `src/components/ui/icons.tsx`, as vectors. */
@@ -692,6 +709,18 @@ object RevisioIcons {
 
     val filter: ImageVector by lazy {
         icon("filter", 1.75f, *geometry.getValue("filter").toTypedArray())
+    }
+
+    val bell: ImageVector by lazy {
+        icon("bell", 1.75f, *geometry.getValue("bell").toTypedArray())
+    }
+
+    val listen: ImageVector by lazy {
+        icon("listen", 1.75f, *geometry.getValue("listen").toTypedArray())
+    }
+
+    val speaking: ImageVector by lazy {
+        icon("speaking", 1.75f, *geometry.getValue("speaking").toTypedArray())
     }
 
     internal val geometry: Map<String, List<String>> by lazy { buildIcons().toMap() }
@@ -988,5 +1017,17 @@ object RevisioIconsActive {
 
     val filter: ImageVector by lazy {
         icon("filter", 2.3f, *RevisioIcons.geometry.getValue("filter").toTypedArray())
+    }
+
+    val bell: ImageVector by lazy {
+        icon("bell", 2.3f, *RevisioIcons.geometry.getValue("bell").toTypedArray())
+    }
+
+    val listen: ImageVector by lazy {
+        icon("listen", 2.3f, *RevisioIcons.geometry.getValue("listen").toTypedArray())
+    }
+
+    val speaking: ImageVector by lazy {
+        icon("speaking", 2.3f, *RevisioIcons.geometry.getValue("speaking").toTypedArray())
     }
 }

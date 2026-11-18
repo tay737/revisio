@@ -141,6 +141,19 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {/* Micro-commitment entry (F2): a quiet text action under the button
+            row, not a third button. `?deal=3` deals three cards once and does
+            not change the session-length pref. Hidden when fewer than 3 are
+            due — "just 3" needs at least 3 to be true. */}
+        {today.due >= 3 && (
+          <Link
+            href="/review?deal=3"
+            className="mt-3 inline-flex min-h-11 items-center t-caption font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            Or start with 3 cards
+          </Link>
+        )}
+
         {read && (
           <div className="mt-5 border-t border-border pt-4">
             <Companion snap={learnerSnapshot(me)} onTile compact />

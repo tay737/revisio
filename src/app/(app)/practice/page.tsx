@@ -295,7 +295,7 @@ export default function PracticePage() {
           </span>
           <h1 className="t-tagline mt-4">Practice complete</h1>
           <div className="t-display-md num mt-2">
-            <NumberTicker value={pct} />%
+            <NumberTicker value={pct} celebrate />%
           </div>
           <p className="t-body mt-1 text-muted-foreground">
             {score.correct} of {log.length} correct · {score.marks} of {score.maxMarks} marks

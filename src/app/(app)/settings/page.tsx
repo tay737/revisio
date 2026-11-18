@@ -20,6 +20,8 @@ import { DataDeletionControl } from '@/app/(app)/settings/DataDeletionControl';
 import { USERNAME_RE, RESERVED_USERNAMES } from '@/lib/username';
 import { PRONOUN_MAX, PRONOUN_SUGGESTIONS, pronounsProblem } from '@/lib/pronouns';
 import { useMotionPreference } from '@/components/ui/motion/motion-provider';
+import { setQuietMode } from '@/lib/quiet';
+import { applyReadingPreset } from '@/lib/reading';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/lib/button-variants';
 import { Card } from '@/components/ui/card';
@@ -242,6 +244,8 @@ function SettingsBody({
     try {
       await api.patch('/api/v1/me', { prefs: patch });
       if (typeof patch.reducedMotion === 'boolean') setAccountReducedMotion(patch.reducedMotion);
+      if (typeof patch.quietMode === 'boolean') setQuietMode(patch.quietMode);
+      if (patch.readingPreset === 'relaxed' || patch.readingPreset === 'default') applyReadingPreset(patch.readingPreset);
       setNote('Saved.');
       void refresh();
     } catch (e) {
@@ -610,6 +614,73 @@ function SettingsBody({
               <option value="detailed">Detailed</option>
               <option value="summary">Summary</option>
             </NativeSelect>
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <label htmlFor="pref-reading" className="t-caption font-semibold">Reading text</label>
+              <p className="t-caption text-muted-foreground">Roomier letter spacing and line height on notes and answers. A different control from note density, which changes the notes themselves.</p>
+            </div>
+            <NativeSelect
+              id="pref-reading"
+              className="max-w-[150px]"
+              value={me.prefs?.readingPreset ?? 'default'}
+              onChange={(e) => savePrefs({ readingPreset: e.target.value })}
+            >
+              <option value="default">Default</option>
+              <option value="relaxed">Relaxed</option>
+            </NativeSelect>
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <label htmlFor="pref-quiet" className="t-caption font-semibold">Quiet mode</label>
+              <p className="t-caption text-muted-foreground">Calmer surfaces and colours: no confetti, no animated counters in celebration moments, no celebration motion. Your progress is unchanged.</p>
+            </div>
+            <Toggle
+              id="pref-quiet"
+              on={me.prefs?.quietMode ?? false}
+              onChange={(v) => savePrefs({ quietMode: v })}
+              label="Quiet mode"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <label htmlFor="pref-focus" className="t-caption font-semibold">Focus sessions</label>
+              <p className="t-caption text-muted-foreground">During review, hide everything but the card: progress chrome, XP, streak and nav. You can still end the session.</p>
+            </div>
+            <Toggle
+              id="pref-focus"
+              on={me.prefs?.focusMode ?? false}
+              onChange={(v) => savePrefs({ focusMode: v })}
+              label="Focus sessions"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <label htmlFor="pref-session-len" className="t-caption font-semibold">Cards per session</label>
+              <p className="t-caption text-muted-foreground">How many cards a review session deals. You can change it in the session too, until the first answer.</p>
+            </div>
+            <NativeSelect
+              id="pref-session-len"
+              className="max-w-[150px]"
+              value={String(me.prefs?.sessionLength ?? 20)}
+              onChange={(e) => savePrefs({ sessionLength: Number(e.target.value) })}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </NativeSelect>
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <label htmlFor="pref-breaks" className="t-caption font-semibold">Break reminders</label>
+              <p className="t-caption text-muted-foreground">A nudge every 10 cards during a review session.</p>
+            </div>
+            <Toggle
+              id="pref-breaks"
+              on={me.prefs?.breakReminders ?? true}
+              onChange={(v) => savePrefs({ breakReminders: v })}
+              label="Break reminders"
+            />
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <div>

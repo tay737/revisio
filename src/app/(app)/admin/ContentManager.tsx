@@ -21,7 +21,14 @@ type Card = {
   options: { id: string; text: string }[] | null; correctOptionId?: string | null;
   explanationMd: string | null; answers: Answer[];
 };
-type TopicTree = { topic: Topic; mayEdit: boolean; lessons: Lesson[]; cards: Card[] };
+type TopicTree = {
+  topic: Topic;
+  mayEdit: boolean;
+  lessons: Lesson[];
+  cards: Card[];
+  /** F8: published cards carrying a "Why", over all published cards. */
+  explanationCoverage?: { withWhy: number; total: number };
+};
 
 const VISIBILITY_GLYPH: Record<string, 'publish' | 'schedule' | 'private'> = {
   public: 'publish',
@@ -229,6 +236,13 @@ export function ContentManager() {
                 {open.cards.length} questions · {open.lessons.length} note {open.lessons.length === 1 ? 'set' : 'sets'}
               </span>
             </div>
+            {/* F8: explanation coverage, stated once per topic. Inform, don't
+                scold — a quiet line, never a warning badge. */}
+            {open.explanationCoverage && open.explanationCoverage.total > 0 && (
+              <p className="t-fine text-muted-foreground">
+                {open.explanationCoverage.withWhy} of {open.explanationCoverage.total} published questions have a why.
+              </p>
+            )}
             <div>
               <Label htmlFor="cm-name">Name</Label>
               <Input id="cm-name" value={open.topic.name} onChange={(e) => patchOpen((t) => { t.topic.name = e.target.value; })} />
@@ -387,7 +401,18 @@ export function ContentManager() {
 
               <div>
                 <Label htmlFor={`c-exp-${c.id}`}>Shown after answering</Label>
-                <Input id={`c-exp-${c.id}`} value={c.explanationMd ?? ''} onChange={(e) => patchOpen((t) => { t.cards[ci].explanationMd = e.target.value; })} />
+                {/* explanation_md is markdown — a textarea, not a single-line
+                    input, or real formatting is impossible to write (F8). */}
+                <Textarea
+                  id={`c-exp-${c.id}`}
+                  rows={2}
+                  className="t-fine font-mono"
+                  value={c.explanationMd ?? ''}
+                  onChange={(e) => patchOpen((t) => { t.cards[ci].explanationMd = e.target.value; })}
+                />
+                <p className="t-fine mt-1 text-muted-foreground">
+                  Shown after a wrong answer as “Why”. One or two sentences on why the answer is right.
+                </p>
               </div>
             </Card>
           ))}

@@ -56,6 +56,11 @@ export type QueueCard = {
   lastReviewedAt: Date | null;
   reps: number;
   lapses: number;
+  /** The lesson this card was written for, when one exists *and* reaches the
+   *  learner — the verdict's "Read the lesson" deep link (F7). Null means
+   *  degrade to the topic notes link, never a dead anchor. */
+  lessonId: string | null;
+  lessonTitle: string | null;
   /** Days until the nearest exam covering this card's topic (#4). Null when
    *  exam-aware scheduling is off or the topic has no exam date. */
   examDaysLeft?: number | null;
@@ -97,6 +102,7 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
       topic: topics,
       subject: subjects,
       state: cardUserStates,
+      lesson: lessons,
     })
     .from(cards)
     .innerJoin(topics, eq(cards.topicId, topics.id))
@@ -105,6 +111,10 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
       cardUserStates,
       and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId))
     )
+    // The lesson join carries its own reachability: an unreachable or missing
+    // lesson resolves to NULL here, which the mapper turns into the topic-link
+    // degrade rather than a 404 the learner can tap.
+    .leftJoin(lessons, and(eq(lessons.id, cards.lessonId), lessonReaches(userId)))
     .where(
       and(
         studiableCard(userId, enrolled),
@@ -129,7 +139,7 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
     .orderBy(sql`CASE WHEN ${cardUserStates.cardId} IS NULL THEN 0 ELSE 1 END`, cardUserStates.dueAt, cards.createdAt)
     .limit(maxExamDate || assignedTopics.size > 0 ? limit * 4 : limit);
 
-  const mapped = rows.map(({ card, topic, subject, state }) => ({
+  const mapped = rows.map(({ card, topic, subject, state, lesson }) => ({
     id: card.id,
     kind: card.kind,
     topicId: topic.id,
@@ -146,6 +156,8 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
     lastReviewedAt: state?.lastReviewedAt ?? null,
     reps: state?.reps ?? 0,
     lapses: state?.lapses ?? 0,
+    lessonId: lesson?.id ?? null,
+    lessonTitle: lesson?.title ?? null,
     examDaysLeft: examMap.get(topic.id)?.daysLeft ?? null,
     // internal, stripped before return
     _topicId: topic.id,
@@ -208,6 +220,9 @@ export type SubmitReviewInput = {
    */
   mode?: 'daily' | 'cram' | 'exam' | 'learn';
   sessionId?: string;
+  /** F5: pre-answer self-report, stored on review_logs.confidence. v1 stores
+   *  without acting — it never touches grading, XP, SRS or streaks. */
+  confidence?: 'knew' | 'guessed' | null;
 };
 
 export type SubmitReviewResult = {
@@ -413,6 +428,7 @@ export async function submitReview(userId: string, input: SubmitReviewInput): Pr
       userAnswer: input.answer ?? input.selectedOptionId ?? null,
       graded: { correct: verdict.correct, feedbackKind: verdict.feedbackKind, matchedAnswerId: verdict.matchedAnswerId, note: verdict.note, similarity: verdict.similarity },
       durationMs: input.durationMs ?? 0, xpAwarded,
+      confidence: input.confidence ?? null,
     });
 
     totalXp = await totalXpFor(userId, tx);
@@ -575,11 +591,12 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
       .where(and(eq(lessons.topicId, topicId), lessonReaches(userId)))
       .orderBy(asc(lessons.position)),
     db
-      .select({ card: cards, topic: topics, subject: subjects, state: cardUserStates })
+      .select({ card: cards, topic: topics, subject: subjects, state: cardUserStates, lesson: lessons })
       .from(cards)
       .innerJoin(topics, eq(cards.topicId, topics.id))
       .innerJoin(subjects, eq(topics.subjectId, subjects.id))
       .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+      .leftJoin(lessons, and(eq(lessons.id, cards.lessonId), lessonReaches(userId)))
       .where(and(reachable, isNull(cardUserStates.cardId)))
       .orderBy(asc(cards.createdAt))
       .limit(limit),
@@ -608,7 +625,7 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
     notes: notes.map((l) => ({
       id: l.id, title: l.title, detailedMd: l.detailedMd, summaryMd: l.summaryMd, specRefs: l.specRefs,
     })),
-    batch: batchRows.map(({ card, topic: t, subject, state }) => ({
+    batch: batchRows.map(({ card, topic: t, subject, state, lesson }) => ({
       id: card.id,
       kind: card.kind,
       topicId: t.id,
@@ -625,6 +642,8 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
       lastReviewedAt: state?.lastReviewedAt ?? null,
       reps: state?.reps ?? 0,
       lapses: state?.lapses ?? 0,
+      lessonId: lesson?.id ?? null,
+      lessonTitle: lesson?.title ?? null,
     })),
     progress: { met, total, remaining: Math.max(0, total - met) },
   };
@@ -653,11 +672,12 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
   const perTopic = await Promise.all(
     topicIds.map((topicId) =>
       db
-        .select({ card: cards, topic: topics, subject: subjects, state: cardUserStates })
+        .select({ card: cards, topic: topics, subject: subjects, state: cardUserStates, lesson: lessons })
         .from(cards)
         .innerJoin(topics, eq(cards.topicId, topics.id))
         .innerJoin(subjects, eq(topics.subjectId, subjects.id))
         .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+        .leftJoin(lessons, and(eq(lessons.id, cards.lessonId), lessonReaches(userId)))
         .where(and(condition, eq(cards.topicId, topicId)))
         .orderBy(cards.createdAt)
         .limit(maxPerTopic),
@@ -672,7 +692,7 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     .map((rows, i) => ({ rows, topicId: topicIds[i], days: examMap.get(topicIds[i])?.daysLeft ?? Number.MAX_SAFE_INTEGER }))
     .sort((a, b) => band(a.topicId, a.days) - band(b.topicId, b.days) || a.days - b.days);
 
-  return groups.flatMap((g) => g.rows).map(({ card, topic, subject, state }) => ({
+  return groups.flatMap((g) => g.rows).map(({ card, topic, subject, state, lesson }) => ({
     id: card.id,
     kind: card.kind,
     topicId: topic.id,
@@ -689,6 +709,8 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     lastReviewedAt: state?.lastReviewedAt ?? null,
     reps: state?.reps ?? 0,
     lapses: state?.lapses ?? 0,
+    lessonId: lesson?.id ?? null,
+    lessonTitle: lesson?.title ?? null,
     examDaysLeft: examMap.get(topic.id)?.daysLeft ?? null,
   }));
 }
@@ -876,20 +898,27 @@ export async function submitExam(userId: string, topicIds: string[], submission:
   // carries one entry per paper question) — not every question in the topic,
   // which would dilute the score with questions the student never saw.
   const askedIds = submission.map((s) => s.questionId);
+  // The topic join is for the result's reference link (F7): every marked row
+  // can point back at the notes it was written from. Reachability was already
+  // enforced by scopedTopicIds, so the link target is always openable.
   const qs = askedIds.length
     ? await db
-        .select()
+        .select({ q: examQuestions, topicId: topics.id, topicName: topics.name, subjectId: subjects.id })
         .from(examQuestions)
+        .innerJoin(topics, eq(examQuestions.topicId, topics.id))
+        .innerJoin(subjects, eq(topics.subjectId, subjects.id))
         .where(and(inArray(examQuestions.topicId, scopedTopicIds), inArray(examQuestions.id, askedIds), eq(examQuestions.visibility, 'public')))
     : [];
   const detail: {
     questionId: string; userAnswer: string; awarded: number; marks: number; correct: boolean; feedback: string;
     questionRef: string; aoSplit: { ao: string; marks: number }[] | null; modelAnswerMd: string;
     markSchemeMd: string; markingNotesMd: string; qwcMarks: number; matchedPhrases: string[]; missedPhrases: string[];
+    topicId: string; subjectId: string; topicName: string;
   }[] = [];
   let score = 0;
   let maxScore = 0;
-  for (const q of qs) {
+  for (const row of qs) {
+    const q = row.q;
     // QWC marks ride beside the question as *information* — an examiner awards
     // them for written quality, which keyword marking cannot judge. They stay
     // out of the auto-marked maximum so a student is never docked marks they
@@ -902,6 +931,7 @@ export async function submitExam(userId: string, topicIds: string[], submission:
         questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
         markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
         matchedPhrases: [], missedPhrases: [],
+        topicId: row.topicId, subjectId: row.subjectId, topicName: row.topicName,
       });
       continue;
     }
@@ -919,6 +949,7 @@ export async function submitExam(userId: string, topicIds: string[], submission:
         questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
         markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
         matchedPhrases: [], missedPhrases: [],
+        topicId: row.topicId, subjectId: row.subjectId, topicName: row.topicName,
       });
     } else {
       // free response: keyword marking against the mark scheme
@@ -934,6 +965,7 @@ export async function submitExam(userId: string, topicIds: string[], submission:
         questionRef: q.questionRef, aoSplit: q.aoSplit ?? null, modelAnswerMd: q.modelAnswerMd,
         markSchemeMd: q.markSchemeMd, markingNotesMd: q.markingNotesMd, qwcMarks: q.qwcMarks ?? 0,
         matchedPhrases: verdict.matchedPhrases ?? [], missedPhrases: verdict.missedPhrases ?? [],
+        topicId: row.topicId, subjectId: row.subjectId, topicName: row.topicName,
       });
     }
   }

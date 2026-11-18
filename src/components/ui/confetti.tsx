@@ -18,6 +18,7 @@ import type {
 import confetti from "canvas-confetti"
 
 import { Button } from "@/components/ui/button"
+import { isQuietMode, useQuietMode } from "@/lib/quiet"
 
 export type ConfettiRef = {
   fire: (options?: ConfettiOptions) => Promise<void> | void
@@ -44,6 +45,10 @@ const ConfettiComponent = forwardRef<ConfettiRef, Props>((props, ref) => {
 
   const canvasNodeRef = useRef<HTMLCanvasElement | null>(null)
   const instanceRef = useRef<ConfettiInstance | null>(null)
+  // Quiet mode (F1): the canvas still mounts — the DOM stays truthful — but
+  // no burst ever fires. Gating inside `fire` means every present and future
+  // celebration call site inherits the suppression for free.
+  const quiet = useQuietMode()
   const optionsRef = useRef(options)
   const globalOptionsRef = useRef(globalOptions)
 
@@ -71,6 +76,7 @@ const ConfettiComponent = forwardRef<ConfettiRef, Props>((props, ref) => {
   }, [])
 
   const fire = useCallback(async (opts: ConfettiOptions = {}) => {
+    if (quiet) return
     try {
       await instanceRef.current?.({
         ...optionsRef.current,
@@ -79,7 +85,7 @@ const ConfettiComponent = forwardRef<ConfettiRef, Props>((props, ref) => {
     } catch (error) {
       console.error("Confetti error:", error)
     }
-  }, [])
+  }, [quiet])
 
   const api = useMemo<ConfettiRef>(() => ({ fire }), [fire])
 
@@ -118,6 +124,7 @@ export const ConfettiButton = forwardRef<
     try {
       onClick?.(event)
       if (event?.defaultPrevented) return
+      if (isQuietMode()) return
 
       const target = event?.currentTarget
       if (target && "getBoundingClientRect" in target) {

@@ -178,6 +178,11 @@ export default function TopicScreen() {
         {lessons.map((l, i) => (
           
             <motion.section
+              // Two ids, two jobs: `lesson-${i}-heading` stays the aria label
+              // (index order is presentation), while `id={l.id}` is the stable
+              // deep-link target verdict surfaces point at (F7) — it survives
+              // reordering, which the aria id does not need to.
+              id={l.id}
               aria-labelledby={`lesson-${i}-heading`}
               animate={{ opacity: 1, y: 0 }}
               initial={reduce ? false : { opacity: 0, y: 6 }}
