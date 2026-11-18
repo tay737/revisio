@@ -68,6 +68,10 @@ type QueueCard = {
   lastReviewedAt?: string | null;
   reps?: number;
   lapses?: number;
+  /** F10: set when the learner flagged this card "still confused" in an
+   *  earlier session — seeds the verdict toggle's pressed state. Optional:
+   *  packs cached before the field shipped have none. */
+  confusedAt?: string | null;
 };
 
 type Verdict = {
@@ -1584,6 +1588,11 @@ function VerdictPanel({
         <WhyDisclosure explanation={result.explanation} lapsed={(card.lapses ?? 0) >= 1} />
       )}
 
+      {/* F10: the learner's own "still confused" mark. Visible to them here
+          and on their insights surface, and to teachers through the same
+          buildInsights aggregation — the copy says who sees it (D9). */}
+      <ConfusedFlag key={card.id} cardId={card.id} initialFlagged={!!card.confusedAt} />
+
       {/* F7: the lesson link sits under the Why (or in its place when the card
           has no explanation). Non-correct verdicts only — a correct answer
           does not need the reading. */}
@@ -1620,6 +1629,61 @@ function VerdictPanel({
           </motion.div>
         ),
       )}
+    </div>
+  );
+}
+
+/**
+ * F10 "Still confused" — a ghost toggle on the verdict panel. The flag is the
+ * learner's own mark (`card_user_states.confused_at`): it shows on their
+ * insights surface and to teachers through the same aggregation, so the copy
+ * names who sees it rather than implying a hidden signal. Toggling again
+ * clears it. A failed write says so — a flag that silently did not save
+ * would be a lie.
+ */
+function ConfusedFlag({ cardId, initialFlagged }: { cardId: string; initialFlagged: boolean }) {
+  const [flagged, setFlagged] = useState(initialFlagged);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const toggle = async () => {
+    if (busy) return;
+    const next = !flagged;
+    setBusy(true);
+    setFailed(false);
+    try {
+      await api.post('/api/v1/confused', { cardId, flagged: next });
+      setFlagged(next);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2.5">
+      <button
+        type="button"
+        aria-pressed={flagged}
+        disabled={busy}
+        onClick={toggle}
+        className={cn(
+          'chip min-h-11 gap-1.5 transition-colors',
+          flagged && 'chip-active',
+          busy && 'opacity-60',
+        )}
+      >
+        <Icon name="flag" size={14} />
+        {flagged ? 'Flagged' : 'Still confused'}
+      </button>
+      <p className="t-fine mt-1 text-muted-foreground">
+        {failed
+          ? 'That did not save. Try again when you are back online.'
+          : flagged
+            ? 'Flagged. You and your teacher can see this on your progress.'
+            : 'Marks this card as one you are still unsure about.'}
+      </p>
     </div>
   );
 }

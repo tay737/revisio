@@ -50,6 +50,7 @@ export async function buildInsights(userId: string) {
         lapses: cardUserStates.lapses,
         reps: cardUserStates.reps,
         lastReviewedAt: cardUserStates.lastReviewedAt,
+        confusedAt: cardUserStates.confusedAt,
         cardKind: cards.kind,
         prompt: sql<string | null>`coalesce(${cards.textWithBlank}, ${cards.prompt}, ${cards.question})`,
         topicId: topics.id,
@@ -210,6 +211,22 @@ export async function buildInsights(userId: string) {
       .sort((a, b) => a.subjectName.localeCompare(b.subjectName) || a.topicName.localeCompare(b.topicName));
   }
 
+  // ── "Still confused" flags (F10/D9): the learner's own marks, aggregated
+  // here so the student's Strength tab and the teacher's student panel read
+  // the same list. Newest flag first.
+  const confusedFlags = strengthRows
+    .filter((r) => r.confusedAt)
+    .sort((a, b) => b.confusedAt!.getTime() - a.confusedAt!.getTime())
+    .map((r) => ({
+      cardId: r.cardId,
+      prompt: r.prompt,
+      cardKind: r.cardKind,
+      topicId: r.topicId,
+      topicName: r.topicName,
+      subjectName: r.subjectName,
+      confusedAt: r.confusedAt!,
+    }));
+
   const soonest = strengthRows
     .filter((r) => r.dueAt && r.dueAt.getTime() > Date.now())
     .sort((a, b) => a.dueAt!.getTime() - b.dueAt!.getTime())
@@ -227,6 +244,7 @@ export async function buildInsights(userId: string) {
       streak: streakRow[0]?.current ?? 0,
       bestStreak: streakRow[0]?.best ?? 0,
       dueCount,
+      confusedCount: confusedFlags.length,
     },
     srsLevels,
     distribution: strengthRows
@@ -249,6 +267,7 @@ export async function buildInsights(userId: string) {
         lastReviewedAt: r.lastReviewedAt,
       })),
     struggling,
+    confusedFlags,
     topicHealth,
     weakTopics,
     coverage,

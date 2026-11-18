@@ -257,6 +257,9 @@ export const cardUserStates = pgTable('card_user_states', {
   reps: integer('reps').notNull().default(0),
   algorithm: text('algorithm').notNull().default('sm2'), // which scheduler last touched this card
   lastReviewedAt: timestamp('last_reviewed_at', { mode: 'date' }),
+  /** F10 "Still confused" self-report: set on flag, cleared on unflag. The
+   *  learner's own mark — visible to them and to teachers via insights. */
+  confusedAt: timestamp('confused_at', { mode: 'date' }),
 }, (t) => ({
   pk: uniqueIndex('card_user_states_pk').on(t.userId, t.cardId),
   dueIdx: index('card_user_states_due_idx').on(t.userId, t.dueAt),

@@ -61,6 +61,10 @@ export type QueueCard = {
    *  degrade to the topic notes link, never a dead anchor. */
   lessonId: string | null;
   lessonTitle: string | null;
+  /** F10 "Still confused" self-report timestamp; null when unflagged. The
+   *  verdict panel seeds its toggle from this so a flag set in an earlier
+   *  session still shows as flagged. */
+  confusedAt: Date | null;
   /** Days until the nearest exam covering this card's topic (#4). Null when
    *  exam-aware scheduling is off or the topic has no exam date. */
   examDaysLeft?: number | null;
@@ -158,6 +162,7 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
     lapses: state?.lapses ?? 0,
     lessonId: lesson?.id ?? null,
     lessonTitle: lesson?.title ?? null,
+    confusedAt: state?.confusedAt ?? null,
     examDaysLeft: examMap.get(topic.id)?.daysLeft ?? null,
     // internal, stripped before return
     _topicId: topic.id,
@@ -644,6 +649,7 @@ export async function buildFirstExposure(userId: string, topicId: string, batchS
       lapses: state?.lapses ?? 0,
       lessonId: lesson?.id ?? null,
       lessonTitle: lesson?.title ?? null,
+      confusedAt: state?.confusedAt ?? null,
     })),
     progress: { met, total, remaining: Math.max(0, total - met) },
   };
@@ -711,6 +717,7 @@ export async function buildCramQueue(userId: string, topicIds: string[], maxPerT
     lapses: state?.lapses ?? 0,
     lessonId: lesson?.id ?? null,
     lessonTitle: lesson?.title ?? null,
+    confusedAt: state?.confusedAt ?? null,
     examDaysLeft: examMap.get(topic.id)?.daysLeft ?? null,
   }));
 }
@@ -883,6 +890,34 @@ export async function getExamPaper(paperId: string, userId?: string) {
   if (!paper) return null;
   if (paper.visibility !== 'public' && (!userId || paper.ownerId !== userId)) return null;
   return paper;
+}
+
+// ── "still confused" flag (F10) ─────────────────────────────────────────────
+
+/**
+ * Toggle the learner's own "still confused" mark on a card. The flag lives on
+ * `card_user_states.confused_at` — set on flag, cleared on unflag — and is
+ * visible to the learner (queue payload + insights) and to teachers through
+ * the same `buildInsights` aggregation (D9). Reachability is the same rule
+ * the non-daily submit path uses: the card must reach this user.
+ */
+export async function setConfusedFlag(userId: string, cardId: string, flagged: boolean) {
+  const [row] = await db
+    .select({ card: cards })
+    .from(cards)
+    .innerJoin(topics, eq(cards.topicId, topics.id))
+    .where(and(eq(cards.id, cardId), cardReaches(userId), topicReaches(userId)))
+    .limit(1);
+  if (!row) throw new ApiError(404, 'not_found', 'Card not found.');
+  const confusedAt = flagged ? new Date() : null;
+  await db
+    .insert(cardUserStates)
+    .values({ userId, cardId, confusedAt })
+    .onConflictDoUpdate({
+      target: [cardUserStates.userId, cardUserStates.cardId],
+      set: { confusedAt },
+    });
+  return { confusedAt: confusedAt?.toISOString() ?? null };
 }
 
 export type ExamSubmission = { questionId: string; answer?: string; selectedOptionId?: string }[];

@@ -31,6 +31,7 @@ export type StudentProgress = {
     streak: number;
     bestStreak: number;
     dueCount: number;
+    confusedCount: number;
   };
   srsLevels: { level: number; count: number }[];
   distribution: {
@@ -49,6 +50,9 @@ export type StudentProgress = {
     lastReviewedAt: string | null;
   }[];
   struggling: { topicId: string; topicName: string; subjectId: string; subjectName: string; misses: number; lastMissedAt: string | null }[];
+  /** F10 "Still confused" self-marks (D9) — the learner's own flags, visible
+   *  to them here and to staff through the same body. */
+  confusedFlags: { cardId: string; prompt: string | null; cardKind: string; topicId: string; topicName: string; subjectName: string; confusedAt: string }[];
   topicHealth: { topicId: string; topicName: string; subjectId: string; subjectName: string; states: number; mastered: number; lapses: number; masteryPct: number; missCount: number }[];
   /** Weakest topics with a concrete next step (#18). Same roll-up as
    *  topicHealth, cut to five and annotated — never a second data source. */
@@ -239,6 +243,33 @@ export function InsightsBody({ data, self = false }: { data: StudentProgress; se
           </>
         )}
       </section>
+
+      {/* ── Still confused (F10) ────────────────────────────────────────── */}
+      {data.confusedFlags.length > 0 && (
+        <section>
+          <h3 className="t-tagline">Flagged as confusing</h3>
+          <p className="t-caption mt-1 text-muted-foreground">
+            {self
+              ? 'Cards you marked "still confused". Visible to you and your teacher.'
+              : 'Cards the learner marked "still confused".'}
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {data.confusedFlags.map((f) => (
+              <li key={f.cardId} className="inset flex items-center gap-3 px-3 py-2.5">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gold/20 text-foreground">
+                  <Icon name="flag" size={14} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <ExpandableText text={f.prompt ?? '(no text)'} className="t-caption font-semibold" />
+                  <div className="t-fine truncate text-muted-foreground">
+                    {f.topicName} · {f.subjectName} · flagged {when(f.confusedAt)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* ── Weakest topics → next step (#18) ────────────────────────────── */}
       {data.weakTopics.length > 0 && (

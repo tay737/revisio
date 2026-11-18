@@ -39,6 +39,7 @@ import {
   Download,
   Ellipsis,
   FileText,
+  Flag,
   Flame,
   Eye,
   EyeOff,
@@ -179,6 +180,8 @@ export const icons = {
   /** Read-aloud card control (F3): idle listener and the static speaking state. */
   listen: Volume2,
   speaking: AudioLines,
+  /** F10 "Still confused" self-report toggle on the verdict panel. */
+  flag: Flag,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;
