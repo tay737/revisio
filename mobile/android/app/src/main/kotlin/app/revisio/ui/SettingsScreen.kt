@@ -709,6 +709,65 @@ private fun PreferencesCard(me: MeDetail, viewModel: RevisioViewModel) {
         )
 
         SettingsSwitch(
+            label = "Quiet mode",
+            hint = "Calmer colours and no celebration bursts.",
+            checked = me.prefs?.quietMode ?: false,
+            onChange = viewModel::setQuietMode,
+        )
+        Spacer(Modifier.height(12.dp))
+        Hairline()
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Cards per session", style = Type.captionS.style(Ink))
+                Text(
+                    "How many cards a review session deals you.",
+                    style = Type.caption.style(Muted),
+                )
+            }
+            Segmented(
+                options = listOf("5" to "5", "10" to "10", "20" to "20"),
+                selected = (me.prefs?.sessionLength ?: 20).toString(),
+                onSelect = { viewModel.setSessionLength(it.toIntOrNull() ?: 20) },
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Hairline()
+
+        SettingsSwitch(
+            label = "Focus sessions",
+            hint = "Hide everything but the card while you review.",
+            checked = me.prefs?.focusMode ?: false,
+            onChange = viewModel::setFocusMode,
+        )
+
+        SettingsSwitch(
+            label = "Break reminders",
+            hint = "A nudge to pause during long sessions.",
+            checked = me.prefs?.breakReminders ?: false,
+            onChange = viewModel::setBreakReminders,
+        )
+        Spacer(Modifier.height(12.dp))
+        Hairline()
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Reading spacing", style = Type.captionS.style(Ink))
+                Text(
+                    "Roomier line spacing for longer notes and lessons.",
+                    style = Type.caption.style(Muted),
+                )
+            }
+            Segmented(
+                options = listOf("default" to "Default", "relaxed" to "Relaxed"),
+                selected = me.prefs?.readingPreset ?: "default",
+                onSelect = viewModel::setReadingPreset,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Hairline()
+
+        SettingsSwitch(
             label = "Show me on leaderboards",
             hint = "Your rank is unaffected either way.",
             checked = !me.leaderboardOptOut,

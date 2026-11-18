@@ -41,14 +41,19 @@ extension EnvironmentValues {
 /// `lib/theme.ts` resolves, so a learner who has dark set gets dark in both.
 struct RevisioTheme<Content: View>: View {
     @Environment(\.colorScheme) private var scheme
+    /// F1 quiet mode (D2): swap the accent family for the desaturated set —
+    /// the iOS twin of the web's `data-quiet` cascade. Chrome tokens are
+    /// identical either way; only the accents move.
+    var quiet: Bool = false
     let content: Content
 
-    init(@ViewBuilder content: () -> Content) {
+    init(quiet: Bool = false, @ViewBuilder content: () -> Content) {
+        self.quiet = quiet
         self.content = content()
     }
 
     var body: some View {
-        let colors = RevisioColors.forScheme(scheme)
+        let colors = quiet ? RevisioColors.quietForScheme(scheme) : RevisioColors.forScheme(scheme)
         content
             .environment(\.revisio, colors)
             .background(colors.background)

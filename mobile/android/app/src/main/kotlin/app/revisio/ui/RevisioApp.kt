@@ -100,7 +100,19 @@ fun RevisioApp(viewModel: RevisioViewModel = viewModel()) {
         // The account's own calm preference joins the system's: either one
         // settles the springs, whichever the learner used to ask for it.
         val accountMotionOff = state.me?.prefs?.reducedMotion == true
-        CompositionLocalProvider(LocalReducedMotion provides (accountMotionOff || reducedMotion())) {
+        // F1 quiet mode (D2): the desaturated accent set replaces the loud one
+        // app-wide — same contract as the web's `data-quiet` cascade. Chrome
+        // tokens are identical either way; only the accent family moves.
+        val quiet = state.me?.prefs?.quietMode == true
+        val dark = androidx.compose.foundation.isSystemInDarkTheme()
+        CompositionLocalProvider(
+            LocalColors provides if (quiet) {
+                if (dark) QuietDarkColors else QuietLightColors
+            } else {
+                revisioColors
+            },
+            LocalReducedMotion provides (accountMotionOff || reducedMotion()),
+        ) {
             // Edge-to-edge: the app draws the whole screen, so the app owns the
             // system bars' clearance too. Consumed once, here — status-bar
             // height above the tree, gesture-nav and keyboard handled at the

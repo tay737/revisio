@@ -153,6 +153,7 @@ class _ReviewApiSink implements ReviewApi {
         durationMs: review.durationMs,
         mode: review.mode,
         sessionId: review.sessionId,
+        confidence: review.confidence,
       );
       return true;
     } on ApiError catch (e) {

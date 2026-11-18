@@ -69,6 +69,8 @@ class OfflineStore(
         selectedOptionId: String?,
         durationMs: Long,
         mode: String = "daily",
+        sessionId: String? = null,
+        confidence: String? = null,
     ): PendingReview {
         val entry = PendingReview(
             id = "$cardId:${System.currentTimeMillis()}:${UUID.randomUUID().toString().take(6)}",
@@ -77,6 +79,8 @@ class OfflineStore(
             selectedOptionId = selectedOptionId,
             durationMs = durationMs,
             mode = mode,
+            sessionId = sessionId,
+            confidence = confidence,
             queuedAt = Instant.now().toString(),
         )
         val next = pendingReviews() + entry

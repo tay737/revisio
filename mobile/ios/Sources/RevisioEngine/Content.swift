@@ -103,6 +103,10 @@ public struct QueueCard: Codable, Equatable, Identifiable {
     public var question: String?
     public var options: [CardOption]?
     public var stage: String
+    // F7 lesson deep link + F10 confused flag, both already on the wire.
+    public var lessonId: String?
+    public var lessonTitle: String?
+    public var confusedAt: String?
 }
 
 /// The one card the review surface renders, wherever it came from.
@@ -123,6 +127,8 @@ public struct QuizCard: Equatable, Identifiable {
     public var options: [CardOption]?
     public var stage: String
     public var key: OfflineKey?
+    public var lessonId: String?
+    public var lessonTitle: String?
 
     public var canMarkLocally: Bool { key != nil }
 
@@ -139,6 +145,7 @@ public struct QuizCard: Equatable, Identifiable {
         subjectId = card.subjectId; subjectName = card.subjectName
         textWithBlank = card.textWithBlank; prompt = card.prompt; question = card.question
         options = card.options; stage = card.stage; key = card.key
+        lessonId = card.lessonId; lessonTitle = card.lessonTitle
     }
 
     public init(queue card: QueueCard) {
@@ -146,6 +153,7 @@ public struct QuizCard: Equatable, Identifiable {
         subjectId = card.subjectId; subjectName = card.subjectName
         textWithBlank = card.textWithBlank; prompt = card.prompt; question = card.question
         options = card.options; stage = card.stage; key = nil
+        lessonId = card.lessonId; lessonTitle = card.lessonTitle
     }
 }
 
@@ -410,13 +418,45 @@ public struct Visibility: Codable, Equatable, Sendable {
 public struct Prefs: Codable, Equatable, Sendable {
     public var noteDensity: String
     public var reducedMotion: Bool
+    // F1/F2/F4 parity keys — same names and values the web PATCH /me validates.
+    public var quietMode: Bool
+    public var sessionLength: Int
+    public var focusMode: Bool
+    public var breakReminders: Bool
+    public var readingPreset: String
 
-    public init(noteDensity: String, reducedMotion: Bool) {
+    public init(
+        noteDensity: String = "detailed",
+        reducedMotion: Bool = false,
+        quietMode: Bool = false,
+        sessionLength: Int = 20,
+        focusMode: Bool = false,
+        breakReminders: Bool = false,
+        readingPreset: String = "default"
+    ) {
         self.noteDensity = noteDensity
         self.reducedMotion = reducedMotion
+        self.quietMode = quietMode
+        self.sessionLength = sessionLength
+        self.focusMode = focusMode
+        self.breakReminders = breakReminders
+        self.readingPreset = readingPreset
     }
 
-    public static let standard = Prefs(noteDensity: "detailed", reducedMotion: false)
+    public static let standard = Prefs()
+
+    /// Tolerant decode: accounts written before the F1/F2/F4 keys existed (and
+    /// any partial server payload) still load — absent keys take the defaults.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        noteDensity = try c.decodeIfPresent(String.self, forKey: .noteDensity) ?? "detailed"
+        reducedMotion = try c.decodeIfPresent(Bool.self, forKey: .reducedMotion) ?? false
+        quietMode = try c.decodeIfPresent(Bool.self, forKey: .quietMode) ?? false
+        sessionLength = try c.decodeIfPresent(Int.self, forKey: .sessionLength) ?? 20
+        focusMode = try c.decodeIfPresent(Bool.self, forKey: .focusMode) ?? false
+        breakReminders = try c.decodeIfPresent(Bool.self, forKey: .breakReminders) ?? false
+        readingPreset = try c.decodeIfPresent(String.self, forKey: .readingPreset) ?? "default"
+    }
 }
 
 public struct SubjectRef: Codable, Equatable, Identifiable {

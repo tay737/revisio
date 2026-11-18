@@ -108,6 +108,10 @@ data class QueueCard(
     val question: String? = null,
     val options: List<CardOption>? = null,
     val stage: String = "new",
+    // F7 lesson deep link + F10 confused flag, both already on the wire.
+    val lessonId: String? = null,
+    val lessonTitle: String? = null,
+    val confusedAt: String? = null,
 )
 
 /**
@@ -132,6 +136,8 @@ data class QuizCard(
     val options: List<CardOption>?,
     val stage: String,
     val key: OfflineKey?,
+    val lessonId: String? = null,
+    val lessonTitle: String? = null,
 ) {
     val canMarkLocally: Boolean get() = key != null
 
@@ -149,6 +155,7 @@ fun OfflineCard.toQuizCard(): QuizCard = QuizCard(
     subjectId = subjectId, subjectName = subjectName,
     textWithBlank = textWithBlank, prompt = prompt, question = question,
     options = options, stage = stage, key = key,
+    lessonId = lessonId, lessonTitle = lessonTitle,
 )
 
 fun QueueCard.toQuizCard(): QuizCard = QuizCard(
@@ -156,6 +163,7 @@ fun QueueCard.toQuizCard(): QuizCard = QuizCard(
     subjectId = subjectId, subjectName = subjectName,
     textWithBlank = textWithBlank, prompt = prompt, question = question,
     options = options, stage = stage, key = null,
+    lessonId = lessonId, lessonTitle = lessonTitle,
 )
 
 /** What a session is for. Sent as `mode` on every review it produces. */
@@ -389,6 +397,12 @@ data class Visibility(
 data class Prefs(
     val noteDensity: String = "detailed",
     val reducedMotion: Boolean = false,
+    // F1/F2/F4 parity keys — same names and values the web PATCH /me validates.
+    val quietMode: Boolean = false,
+    val sessionLength: Int = 20,
+    val focusMode: Boolean = false,
+    val breakReminders: Boolean = false,
+    val readingPreset: String = "default",
 )
 
 @Serializable

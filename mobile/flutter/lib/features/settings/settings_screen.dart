@@ -263,6 +263,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'prefs': {'reducedMotion': v},
                     }),
                   ),
+                  // F1 quiet mode — desaturated accents, no celebration bursts.
+                  _SwitchTile(
+                    title: 'Quiet mode',
+                    subtitle: 'Softer colours, no confetti or pop-ins',
+                    value: m.prefs.quietMode,
+                    onChanged: (v) => _patch({
+                      'prefs': {'quietMode': v},
+                    }),
+                  ),
+                  // F2 session preferences — same keys the web settings writes.
+                  for (final n in const [5, 10, 20])
+                    _SwitchTile(
+                      title: 'Deal $n cards',
+                      subtitle: m.prefs.sessionLength == n
+                          ? 'Your usual session size'
+                          : 'Switch to $n-card sessions',
+                      value: m.prefs.sessionLength == n,
+                      onChanged: (v) {
+                        if (v) {
+                          _patch({
+                            'prefs': {'sessionLength': n},
+                          });
+                        }
+                      },
+                    ),
+                  _SwitchTile(
+                    title: 'Focus sessions',
+                    subtitle: 'Hide extra chrome while reviewing',
+                    value: m.prefs.focusMode,
+                    onChanged: (v) => _patch({
+                      'prefs': {'focusMode': v},
+                    }),
+                  ),
+                  _SwitchTile(
+                    title: 'Break reminders',
+                    subtitle: 'Gentle nudge to step away',
+                    value: m.prefs.breakReminders,
+                    onChanged: (v) => _patch({
+                      'prefs': {'breakReminders': v},
+                    }),
+                  ),
+                  // F4 reading preset — spacing-first prose, same values as web.
+                  for (final r in const [
+                    ('default', 'Default spacing'),
+                    ('relaxed', 'Relaxed spacing'),
+                  ])
+                    _SwitchTile(
+                      title: r.$2,
+                      subtitle: 'How prose lines breathe on notes and prompts',
+                      value: m.prefs.readingPreset == r.$1,
+                      onChanged: (v) {
+                        if (v) {
+                          _patch({
+                            'prefs': {'readingPreset': r.$1},
+                          });
+                        }
+                      },
+                    ),
                   _SwitchTile(
                     title: 'Leaderboard visibility',
                     subtitle: m.leaderboardOptOut

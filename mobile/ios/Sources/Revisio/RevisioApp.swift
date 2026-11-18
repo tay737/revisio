@@ -183,6 +183,8 @@ final class AppModel: ObservableObject {
     @Published var index = 0
     @Published var answer = ""
     @Published var selection: String?
+    /// F5 confidence — 'knew' | 'guessed', chosen before Check, echoed in verdict.
+    @Published var confidence: String?
     @Published var feedback: Feedback?
     @Published var answered = 0
     @Published var correct = 0
@@ -561,7 +563,10 @@ final class AppModel: ObservableObject {
         Task {
             if online, case let .ready(token) = await tokenOrReason() {
                 let me = try? await api.me(token: token)
-                let fresh = try? await api.fetchPack(token: token)
+                // F2: the account's session-length pref deals the pack. (`api.me`
+                // is the slim response — prefs live on `meDetail`.)
+                let deal = self.me?.prefs?.sessionLength ?? 20
+                let fresh = try? await api.fetchPack(token: token, limit: deal)
                 if let fresh { store.savePack(fresh) }
                 if me != nil || store.cachedPack() != nil {
                     let pack = fresh ?? store.cachedPack()
@@ -713,6 +718,30 @@ final class AppModel: ObservableObject {
         withToken({ try await self.api.lessons(token: $0, topicId: topicId) }) { lessons in
             self.lessonsByTopic[topicId] = lessons
             self.busy = false
+        }
+    }
+
+    ///
+    /// F7 — the verdict's "read the notes" affordance: jump to Learn with the
+    /// card's subject and topic already expanded, so the learner lands on the
+    /// material rather than on a catalogue to search.
+    ///
+    func openTopicNotes(subjectId: String, topicId: String) {
+        destination = .learn
+        moreOpen = false
+        openSubject = subjectId
+        openTopic = topicId
+        if topicsBySubject[subjectId] == nil {
+            withToken({ try await self.api.topics(token: $0, subjectId: subjectId) }) { topics in
+                self.topicsBySubject[subjectId] = topics
+                self.busy = false
+            }
+        }
+        if lessonsByTopic[topicId] == nil {
+            withToken({ try await self.api.lessons(token: $0, topicId: topicId) }) { lessons in
+                self.lessonsByTopic[topicId] = lessons
+                self.busy = false
+            }
         }
     }
 
@@ -1289,14 +1318,34 @@ final class AppModel: ObservableObject {
         patchMe(MePatch(leaderboardOptOut: optOut), okMessage: "Saved.") {}
     }
 
+    // Every setter copies the stored prefs — rebuilding `Prefs(...)` from two
+    // fields would silently reset quietMode/sessionLength/etc. to defaults.
+    private var currentPrefs: Prefs { me?.prefs ?? Prefs() }
+
+    private func updatePrefs(_ mutate: (inout Prefs) -> Void) {
+        var prefs = currentPrefs
+        mutate(&prefs)
+        savePrefs(prefs)
+    }
+
     func setNoteDensity(_ value: String) {
         density = value
-        savePrefs(Prefs(noteDensity: value, reducedMotion: me?.prefs?.reducedMotion ?? false))
+        updatePrefs { $0.noteDensity = value }
     }
 
     func setReducedMotion(_ reduced: Bool) {
-        savePrefs(Prefs(noteDensity: me?.prefs?.noteDensity ?? density, reducedMotion: reduced))
+        updatePrefs { $0.reducedMotion = reduced }
     }
+
+    func setQuietMode(_ quiet: Bool) { updatePrefs { $0.quietMode = quiet } }
+
+    func setSessionLength(_ length: Int) { updatePrefs { $0.sessionLength = length } }
+
+    func setFocusMode(_ focus: Bool) { updatePrefs { $0.focusMode = focus } }
+
+    func setBreakReminders(_ on: Bool) { updatePrefs { $0.breakReminders = on } }
+
+    func setReadingPreset(_ preset: String) { updatePrefs { $0.readingPreset = preset } }
 
     private func savePrefs(_ prefs: Prefs) {
         me = me.map { current in
@@ -1447,8 +1496,12 @@ final class AppModel: ObservableObject {
         message = nil
         Task { @MainActor in
             defer { startingReview = false }
-            if online, let token = await ensureToken(), let fresh = try? await api.fetchPack(token: token) {
-                store.savePack(fresh)
+            if online, let token = await ensureToken() {
+                // F2: the account's session-length pref deals the pack.
+                let deal = me?.prefs?.sessionLength ?? 20
+                if let fresh = try? await api.fetchPack(token: token, limit: deal) {
+                    store.savePack(fresh)
+                }
             }
             guard let pack = store.cachedPack(), !pack.cards.isEmpty else {
                 message = online
@@ -1550,12 +1603,15 @@ final class AppModel: ObservableObject {
         cardStartedAt = Date()
         confettiTrigger = 0
         promoted = false
+        confidence = nil
         xpThisSession = 0
         xpAtSessionStart = home?.totalXp
     }
 
     func setAnswer(_ value: String) { answer = value }
     func setSelection(_ value: String) { selection = value }
+    /// F5 — tap again to clear, matching the web picker's toggle.
+    func setConfidence(_ value: String) { confidence = confidence == value ? nil : value }
 
     func submit() { submit(advanceOnCorrect: false) }
 
@@ -1588,7 +1644,8 @@ final class AppModel: ObservableObject {
                     selectedOptionId: selection,
                     durationMs: duration,
                     mode: mode,
-                    sessionId: sessionId
+                    sessionId: sessionId,
+                    confidence: confidence
                 ) {
                     store.dropCardFromPack(card.id)
                     apply(
@@ -1606,7 +1663,7 @@ final class AppModel: ObservableObject {
             // No server: owe it the review. With a key we can still mark it here;
             // without one, say the mark is coming rather than invent a verdict the
             // server may disagree with.
-            store.enqueueReview(cardId: card.id, answer: given, selectedOptionId: selection, durationMs: duration, mode: mode)
+            store.enqueueReview(cardId: card.id, answer: given, selectedOptionId: selection, durationMs: duration, mode: mode, sessionId: sessionId, confidence: confidence)
             let preview = Grading.previewVerdict(card, answer: given, selectedOptionId: selection)
             apply(
                 preview,
@@ -1623,11 +1680,14 @@ final class AppModel: ObservableObject {
         feedback = Feedback(verdict: verdict, correctAnswer: correctAnswer, explanation: explanation, xpAwarded: xp, provisional: provisional, newAchievements: achievements)
         answered += 1
         xpThisSession += xp
-        if verdict?.correct == true {
+        if verdict?.correct == true && me?.prefs?.quietMode != true {
             correct += 1
             // The reward moment: a correct mark fires the small burst, the same
-            // instant the web's `burst(46, 0.46)` does.
+            // instant the web's `burst(46, 0.46)` does. Quiet mode suppresses
+            // it outright — same gate as web's Confetti.fire.
             confettiTrigger += 1
+        } else if verdict?.correct == true {
+            correct += 1
         }
         pending = store.pendingCount()
     }
@@ -1642,7 +1702,7 @@ final class AppModel: ObservableObject {
                 promoted = RankLadder.rankFor(start + xpThisSession).index
                     > RankLadder.rankFor(start).index
             }
-            if promoted { confettiTrigger += 1 }
+            if promoted && me?.prefs?.quietMode != true { confettiTrigger += 1 }
             finished = true
             feedback = nil
             Task { if let token = await ensureToken() { await drainOutbox(token: token) } }
@@ -1650,6 +1710,7 @@ final class AppModel: ObservableObject {
             index += 1
             answer = ""
             selection = nil
+            confidence = nil
             feedback = nil
             cardStartedAt = Date()
         }
@@ -1741,7 +1802,7 @@ private struct RootView: View {
     @StateObject private var model = AppModel()
 
     var body: some View {
-        RevisioTheme {
+        RevisioTheme(quiet: model.me?.prefs?.quietMode ?? false) {
             ZStack(alignment: .top) {
                 content
                 if let message = model.message {

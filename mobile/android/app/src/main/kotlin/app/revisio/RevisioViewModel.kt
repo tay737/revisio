@@ -153,6 +153,8 @@ data class UiState(
     val index: Int = 0,
     val answer: String = "",
     val selection: String? = null,
+    /** F5 confidence — 'knew' | 'guessed', chosen before Check, echoed in verdict. */
+    val confidence: String? = null,
     val feedback: Feedback? = null,
     val answered: Int = 0,
     val correct: Int = 0,
@@ -744,6 +746,32 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * F7 — the verdict's "read the notes" affordance: jump to Learn with the
+     * card's subject and topic already expanded, so the learner lands on the
+     * material rather than on a catalogue to search.
+     */
+    fun openTopicNotes(subjectId: String, topicId: String) {
+        _state.update {
+            it.copy(
+                destination = Destination.LEARN,
+                openSubject = subjectId,
+                openTopic = topicId,
+                message = null,
+            )
+        }
+        if (!_state.value.topicsBySubject.containsKey(subjectId)) {
+            withToken({ api.topics(it, subjectId) }) { topics ->
+                _state.update { s -> s.copy(topicsBySubject = s.topicsBySubject + (subjectId to topics), busy = false) }
+            }
+        }
+        if (!_state.value.lessonsByTopic.containsKey(topicId)) {
+            withToken({ api.lessons(it, topicId) }) { lessons ->
+                _state.update { s -> s.copy(lessonsByTopic = s.lessonsByTopic + (topicId to lessons), busy = false) }
+            }
+        }
+    }
+
     fun enroll(subjectId: String) {
         withToken({ api.enroll(it, subjectId) }) {
             _state.update { s ->
@@ -907,9 +935,23 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    fun setNoteDensity(density: String) = savePrefs(Prefs(noteDensity = density, reducedMotion = _state.value.me?.prefs?.reducedMotion ?: false))
+    // Every setter copies the stored prefs — rebuilding Prefs(...) from two
+    // fields would silently reset quietMode/sessionLength/etc. to defaults.
+    private fun currentPrefs(): Prefs = _state.value.me?.prefs ?: Prefs()
 
-    fun setReducedMotion(reduced: Boolean) = savePrefs(Prefs(noteDensity = _state.value.me?.prefs?.noteDensity ?: "detailed", reducedMotion = reduced))
+    fun setNoteDensity(density: String) = savePrefs(currentPrefs().copy(noteDensity = density))
+
+    fun setReducedMotion(reduced: Boolean) = savePrefs(currentPrefs().copy(reducedMotion = reduced))
+
+    fun setQuietMode(quiet: Boolean) = savePrefs(currentPrefs().copy(quietMode = quiet))
+
+    fun setSessionLength(length: Int) = savePrefs(currentPrefs().copy(sessionLength = length))
+
+    fun setFocusMode(focus: Boolean) = savePrefs(currentPrefs().copy(focusMode = focus))
+
+    fun setBreakReminders(on: Boolean) = savePrefs(currentPrefs().copy(breakReminders = on))
+
+    fun setReadingPreset(preset: String) = savePrefs(currentPrefs().copy(readingPreset = preset))
 
     private fun savePrefs(prefs: Prefs) {
         _state.update { state ->
@@ -1429,8 +1471,11 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 if (_state.value.online) {
+                    // F2: the account's session-length pref deals the pack —
+                    // same contract as the web's queue limit.
+                    val deal = _state.value.me?.prefs?.sessionLength ?: 20
                     ensureToken()?.let { token ->
-                        runCatching { api.fetchPack(token) }.getOrNull()?.let { store.savePack(it) }
+                        runCatching { api.fetchPack(token, deal) }.getOrNull()?.let { store.savePack(it) }
                     }
                 }
                 val pack = store.cachedPack()
@@ -1546,6 +1591,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 notesOpen = false,
                 confettiTrigger = 0,
                 promoted = false,
+                confidence = null,
                 met = met,
                 total = total,
                 message = null,
@@ -1583,6 +1629,10 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setSelection(optionId: String) = _state.update { it.copy(selection = optionId) }
 
+    /** F5 — tap again to clear, matching the web picker's toggle. */
+    fun setConfidence(value: String) =
+        _state.update { it.copy(confidence = if (it.confidence == value) null else value) }
+
     fun submit() = submit(advanceOnCorrect = false)
 
     /**
@@ -1610,7 +1660,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             val token = if (s.online) ensureToken() else null
             if (token != null) {
                 val result = runCatching {
-                    api.submit(token, card.id, answer, selection, duration, mode, sessionId)
+                    api.submit(token, card.id, answer, selection, duration, mode, sessionId, s.confidence)
                 }.getOrNull()
                 if (result != null) {
                     store.dropCardFromPack(card.id)
@@ -1629,7 +1679,7 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
             // No server: owe it the review. With a key we can still mark it here;
             // without one, say plainly that the mark is coming rather than invent
             // a verdict the server may disagree with.
-            store.enqueueReview(card.id, answer, selection, duration, mode)
+            store.enqueueReview(card.id, answer, selection, duration, mode, sessionId = sessionId, confidence = s.confidence)
             val preview = Grading.previewVerdict(card, answer, selection)
             apply(preview, Grading.primaryAnswer(card), null, 0, provisional = true)
             if (advanceOnCorrect && card.kind == "cloze" && preview?.correct == true) next()
@@ -1651,8 +1701,9 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                 answered = it.answered + 1,
                 correct = it.correct + if (verdict?.correct == true) 1 else 0,
                 // The reward moment: a correct mark fires the small burst, the
-                // same instant the web's `burst(46, 0.46)` does.
-                confettiTrigger = if (verdict?.correct == true) it.confettiTrigger + 1 else it.confettiTrigger,
+                // same instant the web's `burst(46, 0.46)` does. Quiet mode
+                // suppresses it outright — same gate as web's Confetti.fire.
+                confettiTrigger = if (verdict?.correct == true && it.me?.prefs?.quietMode != true) it.confettiTrigger + 1 else it.confettiTrigger,
                 pending = store.pendingCount(),
             )
         }
@@ -1678,13 +1729,13 @@ class RevisioViewModel(app: Application) : AndroidViewModel(app) {
                     finished = true,
                     feedback = null,
                     promoted = promoted,
-                    confettiTrigger = if (promoted) it.confettiTrigger + 1 else it.confettiTrigger,
+                    confettiTrigger = if (promoted && it.me?.prefs?.quietMode != true) it.confettiTrigger + 1 else it.confettiTrigger,
                 )
             }
             viewModelScope.launch { ensureToken()?.let { drainOutbox(it) } }
         } else {
             cardStartedAt = System.currentTimeMillis()
-            _state.update { it.copy(index = nextIndex, answer = "", selection = null, feedback = null) }
+            _state.update { it.copy(index = nextIndex, answer = "", selection = null, confidence = null, feedback = null) }
         }
     }
 

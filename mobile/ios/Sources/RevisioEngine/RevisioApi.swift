@@ -48,6 +48,8 @@ private struct SubmitBody: Encodable {
     let selectedOptionId: String?
     let durationMs: Int
     let mode: String
+    let sessionId: String?
+    let confidence: String?
 }
 /// What a sign-in attempt actually told us. `mfaRequired` is a first-class
 /// outcome, not a throw: the 2FA stage follows it in the same form.
@@ -93,6 +95,7 @@ private struct SubmitRequest: Encodable {
     let durationMs: Int
     let mode: String
     let sessionId: String?
+    let confidence: String?
 }
 
 /// Percent-encode a path segment or query value.
@@ -280,7 +283,9 @@ public final class RevisioApi: ReviewApi {
         answer: String?,
         selectedOptionId: String?,
         durationMs: Int,
-        mode: String = "daily"
+        mode: String = "daily",
+        sessionId: String? = nil,
+        confidence: String? = nil
     ) async throws -> ReviewResult {
         let body = try encoder.encode(
             SubmitBody(
@@ -288,7 +293,9 @@ public final class RevisioApi: ReviewApi {
                 answer: answer,
                 selectedOptionId: selectedOptionId,
                 durationMs: durationMs,
-                mode: mode
+                mode: mode,
+                sessionId: sessionId,
+                confidence: confidence
             )
         )
         let (result, _) = try await send("/api/v1/reviews", method: "POST", token: token, body: body, as: ReviewResult.self)
@@ -302,7 +309,9 @@ public final class RevisioApi: ReviewApi {
             answer: review.answer,
             selectedOptionId: review.selectedOptionId,
             durationMs: review.durationMs,
-            mode: review.mode
+            mode: review.mode,
+            sessionId: review.sessionId,
+            confidence: review.confidence
         )
     }
 
@@ -318,7 +327,8 @@ public final class RevisioApi: ReviewApi {
         selectedOptionId: String?,
         durationMs: Int,
         mode: String = "daily",
-        sessionId: String? = nil
+        sessionId: String? = nil,
+        confidence: String? = nil
     ) async throws -> ReviewResult {
         let body = try encoder.encode(
             SubmitRequest(
@@ -327,7 +337,8 @@ public final class RevisioApi: ReviewApi {
                 selectedOptionId: selectedOptionId,
                 durationMs: durationMs,
                 mode: mode,
-                sessionId: sessionId
+                sessionId: sessionId,
+                confidence: confidence
             )
         )
         let (result, _) = try await send("/api/v1/reviews", method: "POST", token: token, body: body, as: ReviewResult.self)

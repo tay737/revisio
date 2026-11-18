@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -38,6 +40,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.revisio.Feedback
@@ -176,10 +179,24 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
         //
         key(card.id) {
             Column(modifier = Modifier.entrance()) {
-                // Where it came from, and the question.
-                Label("${card.subjectName} · ${card.topicName}", token = Type.micro, color = Muted)
+                // Where it came from, and the question. F3's listen control sits
+                // on the question side only — answers never reach the speaker,
+                // same rule as the web.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Label("${card.subjectName} · ${card.topicName}", token = Type.micro, color = Muted, modifier = Modifier.weight(1f))
+                    ListenButton(Speaker.cardSpeechText(card))
+                }
                 Spacer(Modifier.height(8.dp))
-                Text(card.promptText, style = Type.displaySm.style(Ink))
+                // F4: the relaxed preset opens the leading on prose, spacing
+                // first — same contract as the web's `data-reading="relaxed"`.
+                val relaxed = state.me?.prefs?.readingPreset == "relaxed"
+                Text(
+                    card.promptText,
+                    style = Type.displaySm.style(Ink).copy(
+                        lineHeight = (Type.displaySm.size *
+                            if (relaxed) 1.7f else Type.displaySm.lineHeight).sp,
+                    ),
+                )
                 Spacer(Modifier.height(20.dp))
 
                 if (card.kind == "mcq") {
@@ -196,6 +213,10 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
                 Spacer(Modifier.height(20.dp))
 
                 if (feedback == null) {
+                    // F5: the confidence read is taken before the mark, not
+                    // after — same placement as the web's picker above Check.
+                    ConfidencePicker(state.confidence, viewModel::setConfidence)
+                    Spacer(Modifier.height(12.dp))
                     // The in-session CTA. Uppercase and letterspaced, per the
                     // label treatment the design language reserves for controls.
                     // A cloze the learner has already typed correctly reads like
@@ -220,7 +241,7 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
                                 expandFrom = Alignment.Top,
                             ),
                     ) {
-                        FeedbackPanel(feedback)
+                        FeedbackPanel(feedback, card, state.confidence, state, viewModel)
                     }
                     Spacer(Modifier.height(16.dp))
                     PillButton(
@@ -325,8 +346,49 @@ private fun McqInput(card: QuizCard, selection: String?, locked: Boolean, onSele
     }
 }
 
+/**
+ * F5 — "I knew it / I guessed" above the Check button. Tapping the selected
+ * chip again clears it, matching the web radiogroup's toggle behaviour. The
+ * value rides the submit payload (and the offline outbox) untouched by
+ * grading — the server stores it, it never scores it.
+ */
 @Composable
-private fun FeedbackPanel(feedback: Feedback) {
+private fun ConfidencePicker(confidence: String?, onSelect: (String) -> Unit) {
+    Column {
+        Label("How sure were you?", token = Type.micro, color = Muted)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ConfidenceChip("I knew it", "knew", confidence, onSelect)
+            ConfidenceChip("I guessed", "guessed", confidence, onSelect)
+        }
+    }
+}
+
+@Composable
+private fun ConfidenceChip(label: String, value: String, selected: String?, onSelect: (String) -> Unit) {
+    val on = selected == value
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(if (on) Ink else Card1)
+            .border(1.dp, if (on) Ink else Line, RoundedCornerShape(Radius.pill))
+            .clickable { onSelect(value) }
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .sizeIn(minHeight = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = Type.captionS.style(if (on) Card1 else Ink))
+    }
+}
+
+@Composable
+private fun FeedbackPanel(
+    feedback: Feedback,
+    card: QuizCard,
+    confidence: String?,
+    state: UiState,
+    viewModel: RevisioViewModel,
+) {
     val verdict = feedback.verdict
     val (label, tone, icon) = when (verdict?.feedbackKind) {
         FeedbackKind.CORRECT -> Triple("Correct", Good, RevisioIcons.correct)
@@ -363,6 +425,66 @@ private fun FeedbackPanel(feedback: Feedback) {
             Hairline()
             Spacer(Modifier.height(12.dp))
             Text(it, style = Type.caption.style(Ink))
+        }
+
+        // The locked confidence echo — what the learner said before they
+        // answered, restated so the verdict and the read sit together.
+        confidence?.let {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                if (it == "knew") "You marked this: I knew it" else "You marked this: I guessed",
+                style = Type.fine.style(Muted),
+            )
+        }
+
+        // F3 verdict-side listen: the model answer and explanation are the
+        // parts a tired reader most needs read back. Same honest gate — the
+        // button simply isn't there when the platform has no engine.
+        val speakable = listOfNotNull(
+            feedback.correctAnswer?.takeIf { a -> a.isNotBlank() }?.let { "Answer. $it" },
+            feedback.explanation?.takeIf { e -> e.isNotBlank() }?.let { "Why. ${Speaker.markdownSpeechText(it)}" },
+        ).joinToString(" ")
+        if (speakable.isNotBlank() && state.mode != StudyMode.CRAM) {
+            Spacer(Modifier.height(10.dp))
+            ListenButton(speakable, compact = true)
+        }
+
+        // F9 Why: non-correct verdicts only, matching the web — a correct
+        // answer needs no justification, a miss does. The explanation is
+        // already server-authored prose; it renders as markdown notes.
+        if (verdict != null && !verdict.correct) {
+            feedback.explanation?.takeIf { it.isNotBlank() }?.let { why ->
+                Spacer(Modifier.height(12.dp))
+                Hairline()
+                Spacer(Modifier.height(12.dp))
+                Label("Why?", token = Type.micro, color = Muted)
+                Spacer(Modifier.height(8.dp))
+                Notes(why)
+            }
+        }
+
+        // F7 reference link: the lesson the card came from, else its topic's
+        // notes — degrading exactly like the web's ReferenceLink.
+        val lessonTitle = card.lessonTitle
+        if (lessonTitle != null || card.topicId.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .clickable {
+                        viewModel.openTopicNotes(card.subjectId, card.topicId)
+                    }
+                    .padding(vertical = 8.dp)
+                    .sizeIn(minHeight = 44.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(RevisioIcons.notes, size = 14, tint = Info)
+                Text(
+                    lessonTitle?.let { "Read: $it" } ?: "Review the notes",
+                    style = Type.captionS.style(Info),
+                )
+            }
         }
 
         feedback.newAchievements.forEach { achievement ->

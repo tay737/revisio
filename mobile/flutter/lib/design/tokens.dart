@@ -182,6 +182,34 @@ ColorScheme darkColorScheme() => ColorScheme(
       surfaceTint: Colors.transparent,
     );
 
+/// F1 quiet mode (D2): the desaturated accent set, ported verbatim from the
+/// `html[data-quiet]` / `html.dark[data-quiet]` blocks in globals.css. Only the
+/// accent family moves — chrome, text and the tier metals are untouched, and
+/// semantic destructive stays loud on purpose.
+class QuietAccents {
+  static const Color goodLight = Color(0xFF7D9C60);
+  static const Color goodPressedLight = Color(0xFF6B8A52);
+  static const Color goodStrongLight = Color(0xFF48603C);
+  static const Color goodSoftLight = Color(0xFFE6ECDC);
+  static const Color streakLight = Color(0xFFBB9254);
+  static const Color streakPressedLight = Color(0xFF8A6535);
+  static const Color goldLight = Color(0xFFCF9F4E);
+  static const Color goldInkLight = Color(0xFF7C5F2E);
+  static const Color infoLight = Color(0xFF719DB5);
+  static const Color infoInkLight = Color(0xFF4E6E88);
+
+  static const Color goodDark = Color(0xFF8AA86B);
+  static const Color goodPressedDark = Color(0xFF6F9154);
+  static const Color goodStrongDark = Color(0xFF9AB877);
+  static const Color goodSoftDark = Color(0xFF22301A);
+  static const Color streakDark = Color(0xFFC99A5B);
+  static const Color streakPressedDark = Color(0xFFD9B078);
+  static const Color goldDark = Color(0xFFD9B45C);
+  static const Color goldInkDark = Color(0xFFD9B45C);
+  static const Color infoDark = Color(0xFF7BA7C4);
+  static const Color infoInkDark = Color(0xFF7BA7C4);
+}
+
 /// Radius ladder (Uber): 8 input · 12 small card · 16 canonical card · pill.
 class RadiusTokens {
   static const double xs = 6;

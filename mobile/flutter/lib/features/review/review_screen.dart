@@ -19,6 +19,7 @@ import '../app/app_data.dart';
 import '../auth/auth_provider.dart';
 import '../nav/rank_crest.dart';
 import '../../services/api_client.dart';
+import '../../services/speak.dart';
 import '../../design/achievement_icons.dart';
 import '../../design/revisio_icons.dart';
 
@@ -65,6 +66,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   _Phase _phase = _Phase.answering;
   final _answer = TextEditingController();
   String? _selectedOptionId;
+  // F5 confidence — 'knew' | 'guessed', chosen before Check, echoed in verdict.
+  String? _confidence;
   Map<String, dynamic>? _result;
   int _correct = 0;
   int _answered = 0;
@@ -115,7 +118,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Future<void> _loadQueue() async {
     try {
-      final cards = await ref.read(apiClientProvider).queueToday();
+      // F2 session length is the deal size — same pref the web's options
+      // popover writes; 5/10/20 are all inside the endpoint's limit.
+      final deal =
+          ref.read(meProvider).valueOrNull?.prefs.sessionLength ?? 20;
+      final cards = await ref
+          .read(apiClientProvider)
+          .queueToday(limit: deal);
       if (!mounted) return;
       setState(() {
         _cards = cards;
@@ -180,6 +189,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             durationMs: durationMs,
             mode: _mode,
             sessionId: _sessionId,
+            confidence: _confidence,
           );
       // The server took it — remove it from the cached pack too, so coming
       // back offline cannot deal a card already answered.
@@ -234,6 +244,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       durationMs: durationMs,
       mode: _mode,
       sessionId: _sessionId,
+      confidence: _confidence,
     );
     if (!mounted) return;
     setState(() {
@@ -249,6 +260,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   void _next() {
     _answer.clear();
     _selectedOptionId = null;
+    _confidence = null;
     _result = null;
     _queuedOffline = false;
     _submitError = null;
@@ -285,6 +297,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _answered = 0;
         _correct = 0;
         _sessionXp = 0;
+        _confidence = null;
         _anyOffline = false;
         _queuedOffline = false;
         _offlineMode = false;
@@ -319,6 +332,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         _answered = 0;
         _correct = 0;
         _sessionXp = 0;
+        _confidence = null;
         _anyOffline = false;
         _queuedOffline = false;
         _offlineMode = false;
@@ -358,8 +372,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider).valueOrNull;
+    final prefs = me?.prefs;
     final reduceMotion =
-        context.reduceMotion || (me?.prefs.reducedMotion ?? false);
+        context.reduceMotion || (prefs?.reducedMotion ?? false);
+    // F1 quiet mode suppresses celebration bursts outright — the web gates
+    // Confetti.fire the same way; reduceMotion alone only calms the motion.
+    final quiet = prefs?.quietMode ?? false;
     final Widget content = _loading
         ? const Center(child: CircularProgressIndicator())
         : _loadError != null
@@ -376,7 +394,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             Positioned.fill(child: content),
             Positioned.fill(
               child: CelebrationConfetti(
-                trigger: _burstTrigger,
+                trigger: quiet ? 0 : _burstTrigger,
                 particleCount: 46,
                 originY: 0.46,
                 reduceMotion: reduceMotion,
@@ -384,7 +402,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             ),
             Positioned.fill(
               child: CelebrationConfetti(
-                trigger: _promotionTrigger,
+                trigger: quiet ? 0 : _promotionTrigger,
                 particleCount: 140,
                 originY: 0.30,
                 reduceMotion: reduceMotion,
@@ -453,6 +471,20 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final card = _card!;
     final prompt = card.promptText;
     final inFeedback = _phase == _Phase.feedback;
+    final prefs = ref.watch(meProvider).valueOrNull?.prefs;
+    final relaxed = prefs?.readingPreset == 'relaxed';
+    // F3 read-aloud is daily+learn only — cram listen is a follow-up, same
+    // scope cut the web shipped.
+    final canListen = _mode == 'daily' || _mode == 'learn';
+    final speechText = cardSpeechText(
+      kind: card.kind,
+      textWithBlank: card.textWithBlank,
+      prompt: card.prompt,
+      question: card.question,
+      options: card.options
+          ?.map((o) => (id: o.id, text: o.text))
+          .toList(),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -573,7 +605,23 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text(prompt, style: TypeScale.lead),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      prompt,
+                      style: TypeScale.lead.copyWith(
+                        // F4 relaxed preset: leading + tracking on prose only.
+                        height: relaxed ? 1.7 : null,
+                        letterSpacing: relaxed ? 0.32 : null,
+                      ),
+                    ),
+                  ),
+                  if (canListen && speechText.isNotEmpty)
+                    _ListenButton(text: speechText),
+                ],
+              ),
               const SizedBox(height: 20),
               if (_isMcq) _buildOptions(card, inFeedback),
               if (!_isMcq)
@@ -584,6 +632,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   maxLines: 3,
                   onSubmitted: (_) => _submit(),
                 ),
+              if (!inFeedback) _buildConfidence(),
               if (inFeedback) _buildFeedback(context),
             ],
           ),
@@ -646,10 +695,46 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     );
   }
 
+  /// F5 confidence — "I knew it / I guessed" above Check. Optional but
+  /// encouraged; the choice is stored on the review log, never used to grade.
+  Widget _buildConfidence() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'How sure are you?',
+            style: TypeScale.fine.copyWith(color: context.mutedForeground),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final c in const [
+                ('knew', 'I knew it'),
+                ('guessed', 'I guessed'),
+              ])
+                _ConfidenceChip(
+                  label: c.$2,
+                  selected: _confidence == c.$1,
+                  onTap: () => setState(
+                    () => _confidence = _confidence == c.$1 ? null : c.$1,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Cram sessions carry revision notes; the web shows them above the card.
   Widget _buildNotesPanel(BuildContext context) {
     if (_notes.isEmpty) return const SizedBox.shrink();
     final summary = _noteDensityLabel == 'summary';
+    final relaxed =
+        ref.watch(meProvider).valueOrNull?.prefs.readingPreset == 'relaxed';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: Theme(
@@ -689,7 +774,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                         n.body(summary: summary),
                         style: TypeScale.fine.copyWith(
                           color: context.mutedForeground,
-                          height: 1.4,
+                          height: relaxed ? 1.7 : 1.4,
+                          letterSpacing: relaxed ? 0.28 : null,
                         ),
                       ),
                     ],
@@ -710,6 +796,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final model =
         _result?['modelAnswer'] as String? ??
         _result?['primaryAnswer'] as String?;
+    final explanation = _result?['explanation'] as String?;
+    final card = _card;
+    final canListen = _mode == 'daily' || _mode == 'learn';
     final achievements = _newAchievements;
     final accent = _queuedOffline
         ? context.mutedForeground
@@ -747,10 +836,103 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               ],
               if (model != null && model.isNotEmpty) ...[
                 const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Answer: $model',
+                        style: TypeScale.caption.copyWith(
+                          color: context.mutedForeground,
+                        ),
+                      ),
+                    ),
+                    if (canListen)
+                      _ListenButton(
+                        text: markdownSpeechText(model),
+                        compact: true,
+                      ),
+                  ],
+                ),
+              ],
+              // F5 echo — the confidence pick is locked once Check is pressed.
+              if (_confidence != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  'Answer: $model',
-                  style: TypeScale.caption.copyWith(
+                  _confidence == 'knew' ? 'You said: I knew it' : 'You said: I guessed',
+                  style: TypeScale.fine.copyWith(
                     color: context.mutedForeground,
+                  ),
+                ),
+              ],
+              // F9 why disclosure — non-correct verdicts only, same rule as web.
+              if (!_queuedOffline && !correct &&
+                  explanation != null && explanation.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
+                  ),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(
+                      'Why?',
+                      style: TypeScale.caption.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          explanation,
+                          style: TypeScale.caption.copyWith(
+                            color: context.mutedForeground,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              // F7 reference link — lesson deep link degrades to the topic's
+              // notes, exactly like the web's ReferenceLink.
+              if (card != null &&
+                  card.subjectId.isNotEmpty &&
+                  card.topicId.isNotEmpty &&
+                  !_queuedOffline) ...[
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => context.push(
+                    '/learn/${card.subjectId}/${card.topicId}',
+                  ),
+                  borderRadius: BorderRadius.circular(RadiusTokens.sm),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        RevisioIcon(
+                          'notes',
+                          size: 14,
+                          color: context.infoInk,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          card.lessonTitle != null &&
+                                  card.lessonTitle!.isNotEmpty
+                              ? 'Read: ${card.lessonTitle}'
+                              : 'Read the notes',
+                          style: TypeScale.fine.copyWith(
+                            color: context.infoInk,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -793,6 +975,143 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 }
 
 enum _Phase { answering, feedback }
+
+/// F5 confidence chip — a pill toggle, 44px floor, selected = ink outline.
+class _ConfidenceChip extends StatelessWidget {
+  const _ConfidenceChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(RadiusTokens.pill),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: kTouchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? context.secondary : context.card,
+            borderRadius: BorderRadius.circular(RadiusTokens.pill),
+            border: Border.all(
+              color: selected ? context.foreground : context.border,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Center(
+            child: Text(label, style: TypeScale.captionS),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// F3 listen button — ghost icon button, 44px target. Hidden entirely when
+/// the TTS engine cannot start (the capability gate is honest, like web).
+class _ListenButton extends StatefulWidget {
+  const _ListenButton({required this.text, this.compact = false});
+
+  final String text;
+  final bool compact;
+
+  @override
+  State<_ListenButton> createState() => _ListenButtonState();
+}
+
+class _ListenButtonState extends State<_ListenButton> {
+  bool _supported = true;
+  bool _speaking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _probe();
+  }
+
+  Future<void> _probe() async {
+    // A language-list probe is the honest capability check — it never
+    // vocalises, unlike actually calling speak().
+    final ok = await Speaker.instance.supported();
+    if (mounted && !ok) setState(() => _supported = false);
+  }
+
+  Future<void> _toggle() async {
+    if (_speaking) {
+      await Speaker.instance.stop();
+      if (mounted) setState(() => _speaking = false);
+      return;
+    }
+    setState(() => _speaking = true);
+    final ok = await Speaker.instance.speak(widget.text);
+    if (mounted) {
+      setState(() {
+        _speaking = false;
+        if (!ok) _supported = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    // Leaving the card mid-utterance must not keep talking.
+    Speaker.instance.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_supported) return const SizedBox.shrink();
+    return Semantics(
+      button: true,
+      label: _speaking ? 'Stop reading aloud' : 'Read aloud',
+      child: InkWell(
+        onTap: _toggle,
+        borderRadius: BorderRadius.circular(RadiusTokens.pill),
+        child: Container(
+          constraints: const BoxConstraints(
+            minWidth: kTouchTarget,
+            minHeight: kTouchTarget,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.compact ? 8 : 12,
+            vertical: 8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RevisioIcon(
+                _speaking ? 'speaking' : 'listen',
+                size: widget.compact ? 16 : 18,
+                color: _speaking ? context.infoInk : context.mutedForeground,
+              ),
+              if (!widget.compact) ...[
+                const SizedBox(width: 6),
+                Text(
+                  _speaking ? 'Stop' : 'Listen',
+                  style: TypeScale.fine.copyWith(
+                    color: context.mutedForeground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 enum _OptionState { idle, selected, wrong }
 

@@ -128,8 +128,93 @@ public struct RevisioColors: Sendable {
         scrim: Color(hex: 0x000000A8)
     )
 
+    /// F1 quiet mode: the desaturated accent set over the active scheme (D2).
+    /// Pick quietLight/quietDark when the learner's quietMode pref is on.
+    public static let quietLight = RevisioColors(
+        background: Color(hex: 0xFFFFFFFF),
+        foreground: Color(hex: 0x000000FF),
+        card: Color(hex: 0xFFFFFFFF),
+        cardForeground: Color(hex: 0x000000FF),
+        popover: Color(hex: 0xFFFFFFFF),
+        primary: Color(hex: 0x000000FF),
+        primaryForeground: Color(hex: 0xFFFFFFFF),
+        secondary: Color(hex: 0xEFEFEFFF),
+        secondaryForeground: Color(hex: 0x000000FF),
+        muted: Color(hex: 0xF3F3F3FF),
+        mutedForeground: Color(hex: 0x5E5E5EFF),
+        accent: Color(hex: 0xEFEFEFFF),
+        accentForeground: Color(hex: 0x000000FF),
+        destructive: Color(hex: 0xFF4B4BFF),
+        destructiveForeground: Color(hex: 0xFFFFFFFF),
+        border: Color(hex: 0xE2E2E2FF),
+        borderStrong: Color(hex: 0xD0D0D0FF),
+        input: Color(hex: 0xEFEFEFFF),
+        ring: Color(hex: 0x000000FF),
+        good: Color(hex: 0x7D9C60FF),
+        goodPressed: Color(hex: 0x6B8A52FF),
+        goodStrong: Color(hex: 0x48603CFF),
+        goodSoft: Color(hex: 0xE6ECDCFF),
+        streak: Color(hex: 0xBB9254FF),
+        streakPressed: Color(hex: 0x8A6535FF),
+        gold: Color(hex: 0xCF9F4EFF),
+        info: Color(hex: 0x719DB5FF),
+        band: Color(hex: 0x000000FF),
+        bandForeground: Color(hex: 0xFFFFFFFF),
+        bandCard: Color(hex: 0x1A1A1AFF),
+        bandBorder: Color(hex: 0x333333FF),
+        bandMuted: Color(hex: 0xAFAFAFFF),
+        bandSecondary: Color(hex: 0x242424FF),
+        lip: Color(hex: 0x00000047),
+        lipSoft: Color(hex: 0xDCDCDCFF),
+        scrim: Color(hex: 0x00000066)
+    )
+
+    public static let quietDark = RevisioColors(
+        background: Color(hex: 0x000000FF),
+        foreground: Color(hex: 0xFFFFFFFF),
+        card: Color(hex: 0x141414FF),
+        cardForeground: Color(hex: 0xFFFFFFFF),
+        popover: Color(hex: 0x1A1A1AFF),
+        primary: Color(hex: 0xFFFFFFFF),
+        primaryForeground: Color(hex: 0x000000FF),
+        secondary: Color(hex: 0x282828FF),
+        secondaryForeground: Color(hex: 0xFFFFFFFF),
+        muted: Color(hex: 0x1C1C1CFF),
+        mutedForeground: Color(hex: 0xAFAFAFFF),
+        accent: Color(hex: 0x282828FF),
+        accentForeground: Color(hex: 0xFFFFFFFF),
+        destructive: Color(hex: 0xFF6B6BFF),
+        destructiveForeground: Color(hex: 0x000000FF),
+        border: Color(hex: 0x2E2E2EFF),
+        borderStrong: Color(hex: 0x4B4B4BFF),
+        input: Color(hex: 0x282828FF),
+        ring: Color(hex: 0xFFFFFFFF),
+        good: Color(hex: 0x8AA86BFF),
+        goodPressed: Color(hex: 0x6F9154FF),
+        goodStrong: Color(hex: 0x9AB877FF),
+        goodSoft: Color(hex: 0x22301AFF),
+        streak: Color(hex: 0xC99A5BFF),
+        streakPressed: Color(hex: 0xD9B078FF),
+        gold: Color(hex: 0xD9B45CFF),
+        info: Color(hex: 0x7BA7C4FF),
+        band: Color(hex: 0x141414FF),
+        bandForeground: Color(hex: 0xFFFFFFFF),
+        bandCard: Color(hex: 0x1F1F1FFF),
+        bandBorder: Color(hex: 0x2E2E2EFF),
+        bandMuted: Color(hex: 0x9A9A9AFF),
+        bandSecondary: Color(hex: 0x262626FF),
+        lip: Color(hex: 0xC9C9C9FF),
+        lipSoft: Color(hex: 0x1F1F1FFF),
+        scrim: Color(hex: 0x000000A8)
+    )
+
     public static func forScheme(_ scheme: ColorScheme) -> RevisioColors {
         scheme == .dark ? .dark : .light
+    }
+
+    /// The quiet-mode twin of forScheme.
+    public static func quietForScheme(_ scheme: ColorScheme) -> RevisioColors {
+        scheme == .dark ? .quietDark : .quietLight
     }
 }
 

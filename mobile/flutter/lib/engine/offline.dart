@@ -76,6 +76,7 @@ class OfflineStore {
     int durationMs = 0,
     String mode = 'daily',
     String? sessionId,
+    String? confidence,
   }) {
     final now = DateTime.now().toUtc();
     final iso = now.toIso8601String();
@@ -87,6 +88,7 @@ class OfflineStore {
       durationMs: durationMs,
       mode: mode,
       sessionId: sessionId,
+      confidence: confidence,
       queuedAt: iso,
     );
     final next = [...pendingReviews(), entry];

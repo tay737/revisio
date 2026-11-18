@@ -53,6 +53,9 @@ class OfflineCard {
   final List<CardOption>? options;
   final String stage;
   final OfflineKey key;
+  // F7 lesson deep link — the pack's cards are QueueCards on the wire.
+  final String? lessonId;
+  final String? lessonTitle;
 
   const OfflineCard({
     required this.id,
@@ -67,6 +70,8 @@ class OfflineCard {
     this.options,
     required this.stage,
     required this.key,
+    this.lessonId,
+    this.lessonTitle,
   });
 
   factory OfflineCard.fromJson(Map<String, dynamic> json) => OfflineCard(
@@ -86,6 +91,8 @@ class OfflineCard {
     key: json['key'] is Map<String, dynamic>
         ? OfflineKey.fromJson(json['key'] as Map<String, dynamic>)
         : const OfflineKey(kind: ''),
+    lessonId: json['lessonId'] as String?,
+    lessonTitle: json['lessonTitle'] as String?,
   );
 
   QuizCard toQuizCard() => QuizCard(
@@ -101,6 +108,8 @@ class OfflineCard {
     options: options,
     stage: stage,
     key: key,
+    lessonId: lessonId,
+    lessonTitle: lessonTitle,
   );
 }
 
@@ -174,6 +183,7 @@ class PendingReview {
   final int durationMs;
   final String mode;
   final String? sessionId;
+  final String? confidence;
   final String queuedAt;
 
   const PendingReview({
@@ -184,6 +194,7 @@ class PendingReview {
     this.durationMs = 0,
     this.mode = 'daily',
     this.sessionId,
+    this.confidence,
     required this.queuedAt,
   });
 
@@ -195,6 +206,7 @@ class PendingReview {
     durationMs: json['durationMs'] as int? ?? 0,
     mode: json['mode'] as String? ?? 'daily',
     sessionId: json['sessionId'] as String?,
+    confidence: json['confidence'] as String?,
     queuedAt: json['queuedAt'] as String? ?? '',
   );
 
@@ -206,6 +218,7 @@ class PendingReview {
     'durationMs': durationMs,
     'mode': mode,
     if (sessionId != null) 'sessionId': sessionId,
+    if (confidence != null) 'confidence': confidence,
     'queuedAt': queuedAt,
   };
 }
@@ -376,6 +389,10 @@ class QueueCard {
   final String? question;
   final List<CardOption>? options;
   final String stage;
+  // F7 lesson deep link + F10 confused flag, both already on the wire.
+  final String? lessonId;
+  final String? lessonTitle;
+  final String? confusedAt;
 
   const QueueCard({
     required this.id,
@@ -389,6 +406,9 @@ class QueueCard {
     this.question,
     this.options,
     this.stage = 'new',
+    this.lessonId,
+    this.lessonTitle,
+    this.confusedAt,
   });
 
   factory QueueCard.fromJson(Map<String, dynamic> json) => QueueCard(
@@ -405,6 +425,9 @@ class QueueCard {
         ?.map((o) => CardOption.fromJson(o as Map<String, dynamic>))
         .toList(),
     stage: json['stage'] as String? ?? 'new',
+    lessonId: json['lessonId'] as String?,
+    lessonTitle: json['lessonTitle'] as String?,
+    confusedAt: json['confusedAt'] as String?,
   );
 
   /// A cached offline card promoted back into a queue card for review.
@@ -443,6 +466,8 @@ class QueueCard {
     options: options,
     stage: stage,
     key: null,
+    lessonId: lessonId,
+    lessonTitle: lessonTitle,
   );
 }
 
@@ -460,6 +485,8 @@ class QuizCard {
   final List<CardOption>? options;
   final String stage;
   final OfflineKey? key;
+  final String? lessonId;
+  final String? lessonTitle;
 
   const QuizCard({
     required this.id,
@@ -474,6 +501,8 @@ class QuizCard {
     this.options,
     required this.stage,
     this.key,
+    this.lessonId,
+    this.lessonTitle,
   });
 
   /// With a key the app can mark an answer with no server at all.
@@ -1299,17 +1328,41 @@ class Visibility {
 class Prefs {
   final String noteDensity;
   final bool reducedMotion;
+  // F1/F2/F4 parity keys — same names and values the web PATCH /me validates.
+  final bool quietMode;
+  final int sessionLength;
+  final bool focusMode;
+  final bool breakReminders;
+  final String readingPreset;
 
-  const Prefs({this.noteDensity = 'detailed', this.reducedMotion = false});
+  const Prefs({
+    this.noteDensity = 'detailed',
+    this.reducedMotion = false,
+    this.quietMode = false,
+    this.sessionLength = 20,
+    this.focusMode = false,
+    this.breakReminders = false,
+    this.readingPreset = 'default',
+  });
 
   factory Prefs.fromJson(Map<String, dynamic> json) => Prefs(
     noteDensity: json['noteDensity'] as String? ?? 'detailed',
     reducedMotion: json['reducedMotion'] == true,
+    quietMode: json['quietMode'] == true,
+    sessionLength: (json['sessionLength'] as num?)?.toInt() ?? 20,
+    focusMode: json['focusMode'] == true,
+    breakReminders: json['breakReminders'] == true,
+    readingPreset: json['readingPreset'] as String? ?? 'default',
   );
 
   Map<String, dynamic> toJson() => {
     'noteDensity': noteDensity,
     'reducedMotion': reducedMotion,
+    'quietMode': quietMode,
+    'sessionLength': sessionLength,
+    'focusMode': focusMode,
+    'breakReminders': breakReminders,
+    'readingPreset': readingPreset,
   };
 }
 

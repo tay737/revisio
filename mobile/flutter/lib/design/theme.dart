@@ -208,6 +208,21 @@ ThemeData darkTheme() {
   );
 }
 
+/// F1 quiet mode (D2): an InheritedWidget carrying the learner's quietMode
+/// pref. The game-accent getters below consult it — chrome tokens are
+/// identical either way, exactly like the web's `data-quiet` cascade.
+class QuietScope extends InheritedWidget {
+  const QuietScope({super.key, required this.quiet, required super.child});
+
+  final bool quiet;
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<QuietScope>()?.quiet ?? false;
+
+  @override
+  bool updateShouldNotify(QuietScope old) => quiet != old.quiet;
+}
+
 /// Convenience color getters so components never import the palettes directly.
 /// The active scheme is resolved from `Theme.of(context).colorScheme`.
 extension SchemeColors on BuildContext {
@@ -237,37 +252,78 @@ extension SchemeColors on BuildContext {
   Color get input => Theme.of(this).colorScheme.surfaceContainerHighest;
   Color get ring => Theme.of(this).colorScheme.primary;
 
-  // Game state
-  Color get good => brightness == Brightness.light
-      ? const Color(0xFF58CC02)
-      : const Color(0xFF58CC02);
-  Color get goodPressed => brightness == Brightness.light
-      ? const Color(0xFF58A700)
-      : const Color(0xFF3F9400);
-  Color get goodStrong => brightness == Brightness.light
-      ? const Color(0xFF3D7D00)
-      : const Color(0xFF7AD63F);
-  Color get goodSoft => brightness == Brightness.light
-      ? const Color(0xFFD7FFB8)
-      : const Color(0xFF1F3608);
-  Color get streak => brightness == Brightness.light
-      ? const Color(0xFFFF9600)
-      : const Color(0xFFFFA53D);
-  Color get streakPressed => brightness == Brightness.light
-      ? const Color(0xFFC96A00)
-      : const Color(0xFFFFBE6B);
-  Color get gold => brightness == Brightness.light
-      ? const Color(0xFFFFC800)
-      : const Color(0xFFFFD23F);
-  Color get goldInk => brightness == Brightness.light
-      ? const Color(0xFF8A6200)
-      : const Color(0xFFFFD23F);
-  Color get info => brightness == Brightness.light
-      ? const Color(0xFF1CB0F6)
-      : const Color(0xFF1CB0F6);
-  Color get infoInk => brightness == Brightness.light
-      ? const Color(0xFF0071B8)
-      : const Color(0xFF1CB0F6);
+  // Game state — quiet mode swaps the accent family for the desaturated set.
+  bool get _quiet => QuietScope.of(this);
+  Color get good => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.goodLight
+            : QuietAccents.goodDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFF58CC02)
+            : const Color(0xFF58CC02));
+  Color get goodPressed => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.goodPressedLight
+            : QuietAccents.goodPressedDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFF58A700)
+            : const Color(0xFF3F9400));
+  Color get goodStrong => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.goodStrongLight
+            : QuietAccents.goodStrongDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFF3D7D00)
+            : const Color(0xFF7AD63F));
+  Color get goodSoft => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.goodSoftLight
+            : QuietAccents.goodSoftDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFFD7FFB8)
+            : const Color(0xFF1F3608));
+  Color get streak => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.streakLight
+            : QuietAccents.streakDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFFFF9600)
+            : const Color(0xFFFFA53D));
+  Color get streakPressed => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.streakPressedLight
+            : QuietAccents.streakPressedDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFFC96A00)
+            : const Color(0xFFFFBE6B));
+  Color get gold => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.goldLight
+            : QuietAccents.goldDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFFFFC800)
+            : const Color(0xFFFFD23F));
+  Color get goldInk => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.goldInkLight
+            : QuietAccents.goldInkDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFF8A6200)
+            : const Color(0xFFFFD23F));
+  Color get info => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.infoLight
+            : QuietAccents.infoDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFF1CB0F6)
+            : const Color(0xFF1CB0F6));
+  Color get infoInk => _quiet
+      ? (brightness == Brightness.light
+            ? QuietAccents.infoInkLight
+            : QuietAccents.infoInkDark)
+      : (brightness == Brightness.light
+            ? const Color(0xFF0071B8)
+            : const Color(0xFF1CB0F6));
 
   // Band (polarity-flip surfaces)
   Color get band => brightness == Brightness.light

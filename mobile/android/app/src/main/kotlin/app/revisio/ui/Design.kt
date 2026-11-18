@@ -79,7 +79,9 @@ import kotlin.math.sin
 // inside a study session. Ink means "you are moving around the app"; green means
 // "you are earning something", and the two never share a viewport.
 
-private val LocalColors = compositionLocalOf { DarkColors }
+/** Public so the account's quiet-mode pref can re-provide the palette at the
+ *  app root — the web's `data-quiet` cascade, one level up. */
+val LocalColors = compositionLocalOf { DarkColors }
 
 /**
  * The reduce-motion gate: every motion helper resolves through it, so the

@@ -18,6 +18,7 @@
 		AA0000000000000000000023 /* RankView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* RankView.swift */; };
 		AA0000000000000000000025 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* SettingsView.swift */; };
 		AA0000000000000000000027 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* Theme.swift */; };
+		AA00000000000000000000F1 /* Speaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000F0 /* Speaker.swift */; };
 		AA0000000000000000000029 /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000028 /* Design.swift */; };
 		AA000000000000000000002B /* Icons.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002A /* Icons.swift */; };
 		AA000000000000000000002D /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002C /* SVGPath.swift */; };
@@ -44,6 +45,7 @@
 		AA0000000000000000000022 /* RankView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/RankView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/SettingsView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000026 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Theme.swift; sourceTree = "<group>"; };
+		AA00000000000000000000F0 /* Speaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Speaker.swift; sourceTree = "<group>"; };
 		AA0000000000000000000028 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Design.swift; sourceTree = "<group>"; };
 		AA000000000000000000002A /* Icons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/Icons.swift; sourceTree = "<group>"; };
 		AA000000000000000000002C /* SVGPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Revisio/SVGPath.swift; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 				AA0000000000000000000022 /* RankView.swift */,
 				AA0000000000000000000024 /* SettingsView.swift */,
 				AA0000000000000000000026 /* Theme.swift */,
+				AA00000000000000000000F0 /* Speaker.swift */,
 				AA0000000000000000000028 /* Design.swift */,
 				AA000000000000000000002A /* Icons.swift */,
 				AA000000000000000000002C /* SVGPath.swift */,
@@ -198,6 +201,7 @@
 				AA0000000000000000000023 /* RankView.swift in Sources */,
 				AA0000000000000000000025 /* SettingsView.swift in Sources */,
 				AA0000000000000000000027 /* Theme.swift in Sources */,
+				AA00000000000000000000F1 /* Speaker.swift in Sources */,
 				AA0000000000000000000029 /* Design.swift in Sources */,
 				AA000000000000000000002B /* Icons.swift in Sources */,
 				AA000000000000000000002D /* SVGPath.swift in Sources */,

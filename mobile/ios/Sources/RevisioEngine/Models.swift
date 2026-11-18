@@ -77,6 +77,9 @@ public struct OfflineCard: Codable, Equatable {
     public var options: [CardOption]?
     public var stage: String
     public var key: OfflineKey
+    // F7 lesson deep link — the pack's cards are QueueCards on the wire.
+    public var lessonId: String?
+    public var lessonTitle: String?
 }
 
 public struct OfflinePack: Codable, Equatable {
@@ -92,6 +95,8 @@ public struct PendingReview: Codable, Equatable {
     public var selectedOptionId: String?
     public var durationMs: Int
     public var mode: String
+    public var sessionId: String?
+    public var confidence: String?
     public var queuedAt: String
 }
 

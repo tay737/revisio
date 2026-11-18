@@ -165,11 +165,20 @@ struct SessionView: View {
 
     private func promptBlock(_ card: QuizCard) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            LabelText(text: "\(card.subjectName) · \(card.topicName)", token: Type.micro, color: colors.mutedForeground)
+            HStack(spacing: 8) {
+                LabelText(text: "\(card.subjectName) · \(card.topicName)", token: Type.micro, color: colors.mutedForeground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                // F3's listen control sits on the question side only — answers
+                // never reach the speaker, same rule as the web.
+                ListenButton(text: Speaker.cardSpeechText(card))
+            }
             Spacer().frame(height: 8)
             Text(card.promptText)
                 .font(Type.displaySm.font)
                 .foregroundStyle(colors.foreground)
+                // F4: the relaxed preset opens the leading on prose — same
+                // contract as the web's `data-reading="relaxed"`.
+                .lineSpacing(model.me?.prefs?.readingPreset == "relaxed" ? 10 : 0)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -226,7 +235,7 @@ struct SessionView: View {
     @ViewBuilder
     private func actionBlock(_ card: QuizCard) -> some View {
         if let feedback = model.feedback {
-            FeedbackPanel(feedback: feedback)
+            FeedbackPanel(feedback: feedback, card: card, confidence: model.confidence, model: model)
             Spacer().frame(height: 16)
             PillButton(
                 text: model.index + 1 >= model.cards.count ? "Finish" : "Next card",
@@ -236,6 +245,10 @@ struct SessionView: View {
                 model.next()
             }
         } else {
+            // F5: the confidence read is taken before the mark, not after —
+            // same placement as the web's picker above Check.
+            ConfidencePicker(confidence: model.confidence) { model.setConfidence($0) }
+            Spacer().frame(height: 12)
             // The in-session CTA. Uppercase and letterspaced, per the label
             // treatment the design language reserves for controls. On an
             // already-green cloze it says what the press will do — the web's
@@ -272,9 +285,58 @@ private extension StudyMode {
     }
 }
 
+/**
+ * F5 — "I knew it / I guessed" above the Check button. Tapping the selected
+ * chip again clears it, matching the web radiogroup's toggle behaviour. The
+ * value rides the submit payload (and the offline outbox) untouched by
+ * grading — the server stores it, it never scores it.
+ */
+private struct ConfidencePicker: View {
+    @Environment(\.revisio) private var colors
+    let confidence: String?
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabelText(text: "How sure were you?", token: Type.micro, color: colors.mutedForeground)
+            HStack(spacing: 8) {
+                ConfidenceChip(label: "I knew it", value: "knew", selected: confidence, onSelect: onSelect)
+                ConfidenceChip(label: "I guessed", value: "guessed", selected: confidence, onSelect: onSelect)
+            }
+        }
+    }
+}
+
+private struct ConfidenceChip: View {
+    @Environment(\.revisio) private var colors
+    let label: String
+    let value: String
+    let selected: String?
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        let on = selected == value
+        Text(label)
+            .font(Type.captionS.font)
+            .foregroundStyle(on ? colors.card : colors.foreground)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(minHeight: 44)
+            .background(on ? colors.foreground : colors.card, in: Capsule())
+            .overlay(Capsule().stroke(on ? colors.foreground : colors.border, lineWidth: 1))
+            .contentShape(Rectangle())
+            .onTapGesture { onSelect(value) }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(on ? "selected" : "not selected")
+    }
+}
+
 private struct FeedbackPanel: View {
     @Environment(\.revisio) private var colors
     let feedback: Feedback
+    let card: QuizCard
+    let confidence: String?
+    let model: AppModel
 
     private var verdict: (label: String, tone: Color, icon: String) {
         switch feedback.verdict?.feedbackKind {
@@ -341,13 +403,56 @@ private struct FeedbackPanel: View {
                     .font(Type.caption.font)
                     .foregroundStyle(colors.mutedForeground)
             }
-            if let explanation = feedback.explanation, !explanation.isEmpty {
+            // The locked confidence echo — what the learner said before they
+            // answered, restated so the verdict and the read sit together.
+            if let confidence {
                 Spacer().frame(height: 10)
-                Text(explanation)
-                    .font(Type.caption.font)
-                    .foregroundStyle(colors.foreground)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(confidence == "knew" ? "You marked this: I knew it" : "You marked this: I guessed")
+                    .font(Type.fine.font)
+                    .foregroundStyle(colors.mutedForeground)
             }
+
+            // F3 verdict-side listen: the model answer and explanation are the
+            // parts a tired reader most needs read back. Same honest gate —
+            // the button simply isn't there when the device has no voice.
+            let speakable = [
+                feedback.correctAnswer.flatMap { $0.isEmpty ? nil : "Answer. \($0)" },
+                feedback.explanation.flatMap { $0.isEmpty ? nil : "Why. \(Speaker.markdownSpeechText($0))" },
+            ].compactMap { $0 }.joined(separator: " ")
+            if !speakable.isEmpty && model.mode != .cram {
+                Spacer().frame(height: 10)
+                ListenButton(text: speakable, compact: true)
+            }
+
+            // F9 Why: non-correct verdicts only, matching the web — a correct
+            // answer needs no justification, a miss does.
+            if let verdict = feedback.verdict, !verdict.correct,
+               let explanation = feedback.explanation, !explanation.isEmpty {
+                Spacer().frame(height: 12)
+                Hairline()
+                Spacer().frame(height: 12)
+                LabelText(text: "Why?", token: Type.micro, color: colors.mutedForeground)
+                Spacer().frame(height: 8)
+                NotesView(markdown: explanation)
+            }
+
+            // F7 reference link: the lesson the card came from, else its
+            // topic's notes — degrading exactly like the web's ReferenceLink.
+            if card.lessonTitle != nil || !card.topicId.isEmpty {
+                Spacer().frame(height: 12)
+                HStack(spacing: 6) {
+                    Icon("notes", size: 14, color: colors.info)
+                    Text(card.lessonTitle.map { "Read: \($0)" } ?? "Review the notes")
+                        .font(Type.captionS.font)
+                        .foregroundStyle(colors.info)
+                }
+                .padding(.vertical, 8)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+                .onTapGesture { model.openTopicNotes(subjectId: card.subjectId, topicId: card.topicId) }
+                .accessibilityAddTraits(.isButton)
+            }
+
             ForEach(feedback.newAchievements) { achievement in
                 Spacer().frame(height: 8)
                 HStack(spacing: 8) {

@@ -96,6 +96,10 @@ data class OfflineCard(
     val options: List<CardOption>? = null,
     val stage: String,
     val key: OfflineKey,
+    // F7 lesson deep link — the pack's cards are QueueCards on the wire, so
+    // the fields arrive whether or not an older build read them.
+    val lessonId: String? = null,
+    val lessonTitle: String? = null,
 )
 
 @Serializable
@@ -113,6 +117,8 @@ data class PendingReview(
     val selectedOptionId: String? = null,
     val durationMs: Long = 0,
     val mode: String = "daily",
+    val sessionId: String? = null,
+    val confidence: String? = null,
     val queuedAt: String,
 )
 

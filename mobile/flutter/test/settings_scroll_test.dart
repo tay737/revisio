@@ -43,11 +43,16 @@ void main() {
     // in flight — scroll while those resolve, like on device.
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    final list = find.byType(ListView);
-    for (var i = 0; i < 20; i++) {
-      await tester.drag(list, const Offset(0, -300));
-      await tester.pump(const Duration(milliseconds: 120));
-    }
+    // The preferences card grew with the F1/F2/F4 rows, so the bottom of the
+    // list is further away — scroll the lazily-built list until the footer's
+    // delete row is actually on screen.
+    await tester.scrollUntilVisible(
+      find.text('Delete account'),
+      300,
+      // Panels carry their own nested scrollables; the page list is the
+      // outermost Scrollable, which the tree lists first.
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Delete account'), findsOneWidget);
     expect(find.text('PREFERENCES'), findsOneWidget);

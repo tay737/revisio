@@ -91,6 +91,8 @@ private data class SubmitReviewRequest(
     val selectedOptionId: String? = null,
     val durationMs: Long = 0,
     val mode: String = "daily",
+    val sessionId: String? = null,
+    val confidence: String? = null,
 )
 
 @kotlinx.serialization.Serializable
@@ -101,6 +103,7 @@ private data class SubmitRequest(
     val durationMs: Long = 0,
     val mode: String = "daily",
     val sessionId: String? = null,
+    val confidence: String? = null,
 )
 
 @kotlinx.serialization.Serializable
@@ -337,7 +340,7 @@ class RevisioApi(
     override suspend fun submitReview(token: String, review: PendingReview): ReviewResult = withContext(Dispatchers.IO) {
         val body = json.encodeToString(
             SubmitReviewRequest.serializer(),
-            SubmitReviewRequest(review.cardId, review.answer, review.selectedOptionId, review.durationMs, review.mode),
+            SubmitReviewRequest(review.cardId, review.answer, review.selectedOptionId, review.durationMs, review.mode, review.sessionId, review.confidence),
         )
         send(request("/api/v1/reviews", token = token, body = body, method = "POST")) {
             json.decodeFromString(ReviewResult.serializer(), it)
@@ -360,10 +363,11 @@ class RevisioApi(
         durationMs: Long = 0,
         mode: String = "daily",
         sessionId: String? = null,
+        confidence: String? = null,
     ): ReviewResult = withContext(Dispatchers.IO) {
         val body = json.encodeToString(
             SubmitRequest.serializer(),
-            SubmitRequest(cardId, answer, selectedOptionId, durationMs, mode, sessionId),
+            SubmitRequest(cardId, answer, selectedOptionId, durationMs, mode, sessionId, confidence),
         )
         send(request("/api/v1/reviews", token = token, body = body, method = "POST")) {
             json.decodeFromString(ReviewResult.serializer(), it)

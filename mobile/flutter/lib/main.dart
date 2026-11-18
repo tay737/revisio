@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_router.dart';
 import 'design/design.dart';
+import 'features/app/app_data.dart';
 import 'features/app/deep_links.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/app/theme_mode.dart';
@@ -58,12 +59,18 @@ class _RevisioAppState extends ConsumerState<RevisioApp> {
         if (ctx != null) maybeShowVersionGate(ctx, ref);
       });
     }
+    // F1 quiet mode: the desaturated accent set cascades app-wide through
+    // QuietScope — same contract as the web's `data-quiet` attribute.
+    final quiet =
+        ref.watch(meProvider).valueOrNull?.prefs.quietMode ?? false;
     return MaterialApp.router(
       title: 'Revisio',
       theme: lightTheme(),
       darkTheme: darkTheme(),
       themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) =>
+          QuietScope(quiet: quiet, child: child ?? const SizedBox.shrink()),
       debugShowCheckedModeBanner: false,
     );
   }

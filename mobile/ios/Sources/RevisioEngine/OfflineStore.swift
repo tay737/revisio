@@ -86,7 +86,9 @@ public final class OfflineStore {
         answer: String?,
         selectedOptionId: String?,
         durationMs: Int,
-        mode: String = "daily"
+        mode: String = "daily",
+        sessionId: String? = nil,
+        confidence: String? = nil
     ) -> PendingReview {
         let entry = PendingReview(
             id: "\(cardId):\(Int(Date().timeIntervalSince1970 * 1000)):\(UUID().uuidString.prefix(6))",
@@ -95,6 +97,8 @@ public final class OfflineStore {
             selectedOptionId: selectedOptionId,
             durationMs: durationMs,
             mode: mode,
+            sessionId: sessionId,
+            confidence: confidence,
             queuedAt: ISO8601DateFormatter().string(from: Date())
         )
         write(pendingReviews() + [entry])

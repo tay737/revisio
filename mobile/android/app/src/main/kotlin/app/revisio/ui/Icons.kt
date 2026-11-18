@@ -423,6 +423,9 @@ private fun buildIcons(): List<Pair<String, List<String>>> = listOf(
         "M18 5v13",
         "M22 10v3",
     ),
+    "flag" to listOf(
+        "M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528",
+    ),
 )
 
 /** The registry from `src/components/ui/icons.tsx`, as vectors. */
@@ -721,6 +724,10 @@ object RevisioIcons {
 
     val speaking: ImageVector by lazy {
         icon("speaking", 1.75f, *geometry.getValue("speaking").toTypedArray())
+    }
+
+    val flag: ImageVector by lazy {
+        icon("flag", 1.75f, *geometry.getValue("flag").toTypedArray())
     }
 
     internal val geometry: Map<String, List<String>> by lazy { buildIcons().toMap() }
@@ -1029,5 +1036,9 @@ object RevisioIconsActive {
 
     val speaking: ImageVector by lazy {
         icon("speaking", 2.3f, *RevisioIcons.geometry.getValue("speaking").toTypedArray())
+    }
+
+    val flag: ImageVector by lazy {
+        icon("flag", 2.3f, *RevisioIcons.geometry.getValue("flag").toTypedArray())
     }
 }

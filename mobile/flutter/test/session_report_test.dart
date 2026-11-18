@@ -34,6 +34,7 @@ class _Api extends RevisioApi {
     int? durationMs,
     String mode = 'daily',
     String? sessionId,
+    String? confidence,
   }) async => {
     'verdict': {'correct': true},
     'xpAwarded': xpAwarded,
@@ -75,6 +76,7 @@ class _OfflineApi extends RevisioApi {
     int? durationMs,
     String mode = 'daily',
     String? sessionId,
+    String? confidence,
   }) async {
     throw StateError('offline');
   }
@@ -94,6 +96,7 @@ class _FlakyApi extends RevisioApi {
     int? durationMs,
     String mode = 'daily',
     String? sessionId,
+    String? confidence,
   }) async {
     _calls += 1;
     if (_calls == 1) {

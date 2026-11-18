@@ -628,6 +628,64 @@ struct SettingsView: View {
                 ) { model.setReducedMotion($0) }
 
                 SettingsSwitchRow(
+                    label: "Quiet mode",
+                    hint: "Calmer colours and no celebration bursts.",
+                    checked: me.prefs?.quietMode ?? false
+                ) { model.setQuietMode($0) }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Cards per session")
+                            .font(Type.captionS.font)
+                            .foregroundStyle(colors.foreground)
+                        Text("How many cards a review session deals you.")
+                            .font(Type.caption.font)
+                            .foregroundStyle(colors.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Segmented(
+                        options: [("5", "5"), ("10", "10"), ("20", "20")],
+                        selected: String(me.prefs?.sessionLength ?? 20),
+                        onSelect: { model.setSessionLength(Int($0) ?? 20) }
+                    )
+                }
+                Spacer().frame(height: 12)
+                Hairline()
+
+                SettingsSwitchRow(
+                    label: "Focus sessions",
+                    hint: "Hide everything but the card while you review.",
+                    checked: me.prefs?.focusMode ?? false
+                ) { model.setFocusMode($0) }
+
+                SettingsSwitchRow(
+                    label: "Break reminders",
+                    hint: "A nudge to pause during long sessions.",
+                    checked: me.prefs?.breakReminders ?? false
+                ) { model.setBreakReminders($0) }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reading spacing")
+                            .font(Type.captionS.font)
+                            .foregroundStyle(colors.foreground)
+                        Text("Roomier line spacing for longer notes and lessons.")
+                            .font(Type.caption.font)
+                            .foregroundStyle(colors.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Segmented(
+                        options: [("default", "Default"), ("relaxed", "Relaxed")],
+                        selected: me.prefs?.readingPreset ?? "default",
+                        onSelect: { model.setReadingPreset($0) }
+                    )
+                }
+                Spacer().frame(height: 12)
+                Hairline()
+
+                SettingsSwitchRow(
                     label: "Show me on leaderboards",
                     hint: "Your rank is unaffected either way.",
                     checked: !me.leaderboardOptOut,

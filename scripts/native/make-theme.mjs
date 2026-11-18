@@ -137,12 +137,28 @@ const ROLES = [
 
 const light = declarations(/:root\s*\{/);
 const dark = declarations(/^\.dark\s*\{/m);
+// F1 quiet mode (D2): `html[data-quiet]` / `html.dark[data-quiet]` override a
+// subset of the accent tokens over whichever scheme is active. The native
+// ports get the same two quiet palettes so a quiet pref repaints the game
+// colours without touching the chrome.
+const quietLightDecl = declarations(/html\[data-quiet="true"\]\s*\{/);
+const quietDarkDecl = declarations(/html\.dark\[data-quiet="true"\]\s*\{/);
 
 const colors = {};
 for (const [token, name] of ROLES) {
   if (!(token in light)) throw new Error(`:root is missing --${token}`);
   if (!(token in dark)) throw new Error(`.dark is missing --${token}`);
   colors[name] = { light: parseColor(light[token]), dark: parseColor(dark[token]), token };
+}
+
+// Quiet variants: same role list, quiet override where one exists, base
+// otherwise. A token the quiet block does not mention keeps its loud value —
+// that is exactly what the CSS cascade does on the web.
+const quietColors = {};
+for (const [token, name] of ROLES) {
+  const lRaw = quietLightDecl[token] ?? light[token];
+  const dRaw = quietDarkDecl[token] ?? dark[token];
+  quietColors[name] = { light: parseColor(lRaw), dark: parseColor(dRaw), token };
 }
 
 // ── radii, easing ───────────────────────────────────────────────────────────
@@ -404,6 +420,17 @@ val DarkColors = RevisioColors(
 ${ROLES.map(([, name]) => `    ${name} = hex(${colors[name].dark.argb}L),`).join('\n')}
 )
 
+/** F1 quiet mode: the desaturated accent set over the active scheme (D2).
+ *  Pick QuietLightColors/QuietDarkColors when the learner's quietMode pref
+ *  is on; chrome tokens are identical to the loud palettes by design. */
+val QuietLightColors = RevisioColors(
+${ROLES.map(([, name]) => `    ${name} = hex(${quietColors[name].light.argb}L),`).join('\n')}
+)
+
+val QuietDarkColors = RevisioColors(
+${ROLES.map(([, name]) => `    ${name} = hex(${quietColors[name].dark.argb}L),`).join('\n')}
+)
+
 /** The radius ladder, and the pill that is the only interactive shape. */
 object Radius {
 ${Object.entries(radii)
@@ -640,8 +667,23 @@ ${joinEntries(ROLES.map(([, name]) => `        ${name}: Color(hex: ${colors[name
 ${joinEntries(ROLES.map(([, name]) => `        ${name}: Color(hex: ${colors[name].dark.rgba}),`))}
     )
 
+    /// F1 quiet mode: the desaturated accent set over the active scheme (D2).
+    /// Pick quietLight/quietDark when the learner's quietMode pref is on.
+    public static let quietLight = RevisioColors(
+${joinEntries(ROLES.map(([, name]) => `        ${name}: Color(hex: ${quietColors[name].light.rgba}),`))}
+    )
+
+    public static let quietDark = RevisioColors(
+${joinEntries(ROLES.map(([, name]) => `        ${name}: Color(hex: ${quietColors[name].dark.rgba}),`))}
+    )
+
     public static func forScheme(_ scheme: ColorScheme) -> RevisioColors {
         scheme == .dark ? .dark : .light
+    }
+
+    /// The quiet-mode twin of forScheme.
+    public static func quietForScheme(_ scheme: ColorScheme) -> RevisioColors {
+        scheme == .dark ? .quietDark : .quietLight
     }
 }
 

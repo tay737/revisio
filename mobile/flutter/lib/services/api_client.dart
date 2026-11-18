@@ -512,6 +512,7 @@ class RevisioApi {
     int? durationMs,
     String mode = 'daily',
     String? sessionId,
+    String? confidence,
   }) async {
     final response = await authenticated(
       () => _dio.post<Map<String, dynamic>>(
@@ -523,6 +524,7 @@ class RevisioApi {
           if (durationMs != null) 'durationMs': durationMs,
           'mode': mode,
           if (sessionId != null) 'sessionId': sessionId,
+          if (confidence != null) 'confidence': confidence,
         },
       ),
     );
