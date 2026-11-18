@@ -9,6 +9,7 @@ import { db } from '../src/db/client';
 import { mediaAssets, refreshTokens, users } from '../src/db/schema';
 import { issueRefreshToken, signAccessToken } from '../src/services/auth';
 import { DELETE } from '../src/app/api/v1/data-deletion/route';
+import { deleteAccountMediaObjects, drainFailedMediaDeletions } from '../src/services/media-erasure';
 
 let failures = 0;
 const check = (name: string, cond: boolean, extra = '') => {
@@ -56,6 +57,23 @@ async function main() {
     // merely revoked) — the check is that no live token survives.
     const toks = await db.select().from(refreshTokens).where(eq(refreshTokens.userId, user.id));
     check('no live refresh token survives erasure', toks.every((t) => Boolean(t.revokedAt)), `${toks.length} rows`);
+
+    // #70: the stamp is the retry queue. A failed bucket delete must leave
+    // the ledger row (and its stamp) for the drain; a successful one removes it.
+    await db.insert(mediaAssets).values({
+      id: crypto.randomUUID(), userId: user.id, kind: 'banner', key: 'drain-key',
+      contentType: 'image/png', sizeBytes: 1, deleteFailedAt: new Date(),
+    });
+    const strandedKeys = await deleteAccountMediaObjects(user.id, async () => false);
+    check('failed bucket delete reports the key stranded', strandedKeys.includes('drain-key'));
+    const [stamped] = await db.select().from(mediaAssets).where(eq(mediaAssets.userId, user.id));
+    check('stamped ledger row survives a bucket failure', Boolean(stamped?.deleteFailedAt));
+    const drainFail = await drainFailedMediaDeletions(100, async () => false);
+    check('drain keeps stamped rows on bucket failure', drainFail.stranded >= 1, JSON.stringify(drainFail));
+    const drainOk = await drainFailedMediaDeletions(100, async () => true);
+    check('drain removes stamped rows on success', drainOk.removed >= 1, JSON.stringify(drainOk));
+    const afterDrain = await db.select().from(mediaAssets).where(eq(mediaAssets.userId, user.id));
+    check('no stamped rows remain after successful drain', afterDrain.every((r) => !r.deleteFailedAt));
     void raw;
   } finally {
     await db.delete(mediaAssets).where(eq(mediaAssets.userId, user.id));

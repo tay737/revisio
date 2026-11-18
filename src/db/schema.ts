@@ -597,7 +597,7 @@ export const mediaAssets = pgTable('media_assets', {
   // Set only when an erasure attempt could not remove the object. A row with
   // this filled is the queue: the bytes still exist and a retry should find
   // them, so the row must outlive the anonymised account.
-  deleteFailedAt: timestamp('delete_failed_at', { mode: 'date' }),
+  deleteFailedAt: timestamp('delete_failed_at', { mode: 'date', withTimezone: true }),
 }, (t) => ({
   userIdx: index('media_assets_user_idx').on(t.userId),
   keyUnique: uniqueIndex('media_assets_key_idx').on(t.key),

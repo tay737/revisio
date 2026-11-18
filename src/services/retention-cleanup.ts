@@ -2,6 +2,7 @@ import 'server-only';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { pruneAnalyticsEvents } from '@/services/analytics';
+import { drainFailedMediaDeletions } from '@/services/media-erasure';
 import { pruneRateLimits } from '@/services/rate-limit';
 
 /**
@@ -65,12 +66,13 @@ export async function runRetentionCleanup(now = new Date()) {
   const deliveryCutoff = new Date(now.getTime() - DELIVERY_RETENTION_DAYS * 86_400_000);
   const readNotificationCutoff = new Date(now.getTime() - READ_NOTIFICATION_RETENTION_DAYS * 86_400_000);
 
-  const [rateLimits, analyticsEvents, notificationDeliveries, notifications] = await Promise.all([
+  const [rateLimits, analyticsEvents, notificationDeliveries, notifications, mediaDrain] = await Promise.all([
     pruneRateLimits(1000),
     pruneAnalyticsEvents(90, 5000),
     pruneTerminalDeliveries(deliveryCutoff, DELIVERY_BATCH),
     pruneReadNotifications(readNotificationCutoff, NOTIFICATION_BATCH),
+    drainFailedMediaDeletions(),
   ]);
 
-  return { rateLimits, analyticsEvents, notificationDeliveries, notifications };
+  return { rateLimits, analyticsEvents, notificationDeliveries, notifications, mediaDrain };
 }

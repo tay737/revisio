@@ -15,7 +15,7 @@ import {
 } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { issueDeletionConfirmation, verifyDeletionConfirmation } from '@/services/data-deletion';
-import { deleteMediaObject } from '@/services/storage';
+import { deleteAccountMediaObjects } from '@/services/media-erasure';
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │  GDPR data-deletion endpoint                                           │
@@ -129,16 +129,13 @@ export const DELETE = route(async (req: NextRequest) => {
   //
   // Inside the transaction every `media_assets` row is stamped
   // `delete_failed_at`: that stamp is the retry ledger, so even a crash between
-  // commit and the bucket loop leaves a queue a retry job can find. After
-  // commit each object is removed (one retry covers a blip) and its row is
-  // deleted only once the object is actually gone; a row that survives a
-  // second failure keeps its stamp — the ledger is the queue, and deleting it
-  // would turn a bucket failure into silence.
-  const uploads = await db
-    .select({ key: mediaAssets.key })
-    .from(mediaAssets)
-    .where(eq(mediaAssets.userId, user.id));
-
+  // commit and the bucket loop leaves a queue the retention cron's drain can
+  // find. After commit the stamped set itself is read back — not a key list
+  // captured beforehand — so an asset confirmed mid-flight is still covered —
+  // and each object is removed (one retry covers a blip). A row is deleted
+  // only once the object is actually gone; a row that survives keeps its
+  // stamp — the ledger is the queue, and deleting it would turn a bucket
+  // failure into silence.
   await db.transaction(async (tx) => {
     // Revoke refresh tokens using the same transaction, then clear attached
     // records before the user row is anonymised.
@@ -243,19 +240,8 @@ export const DELETE = route(async (req: NextRequest) => {
   // bytes go. One retry covers the transient case (a blip, a dropped
   // connection). A second failure is neither allowed to abort the erasure nor
   // swallowed: the row keeps its `delete_failed_at` stamp from the transaction
-  // and stays as the queue a retry job reads.
-  const stranded: string[] = [];
-  for (const upload of uploads) {
-    const removed =
-      (await deleteMediaObject(upload.key)) || (await deleteMediaObject(upload.key));
-    if (!removed) {
-      stranded.push(upload.key);
-      continue;
-    }
-    await db
-      .delete(mediaAssets)
-      .where(and(eq(mediaAssets.userId, user.id), eq(mediaAssets.key, upload.key)));
-  }
+  // and stays as the queue the retention drain reads.
+  const stranded = await deleteAccountMediaObjects(user.id);
   if (stranded.length) {
     console.error(
       `[data-deletion] ${stranded.length} object(s) still in the bucket for ${user.id}; rows stamped delete_failed_at`,
