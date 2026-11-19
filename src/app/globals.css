@@ -37,6 +37,10 @@
   --secondary-foreground: #000000;
   --muted: #f3f3f3; /* canvas-softer #f3f3f3 */
   --muted-foreground: #5e5e5e; /* body        #5e5e5e */
+  /* Owned chevron for `select.input` (NativeSelect). A data-URI can't read
+     currentColor, so each scope pins its muted-foreground as a literal —
+     keep it in step with the --muted-foreground above. */
+  --native-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235e5e5e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --accent: #efefef; /* hover surface for shadcn primitives */
   --accent-foreground: #000000;
   --destructive: #ff4b4b; /* cardinal     #ff4b4b */
@@ -145,6 +149,7 @@
   --secondary-foreground: #ffffff;
   --muted: #1c1c1c;
   --muted-foreground: #afafaf; /* mute #afafaf */
+  --native-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23afafaf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --accent: #282828;
   --accent-foreground: #ffffff;
   --destructive: #ff6b6b;
@@ -233,6 +238,7 @@
   --secondary-foreground: var(--band-foreground);
   --muted: var(--band-card);
   --muted-foreground: var(--band-muted);
+  --native-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23afafaf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --accent: var(--band-secondary);
   --accent-foreground: var(--band-foreground);
   --border: var(--band-border);
@@ -267,6 +273,13 @@
   --tier-ink-ruby: var(--tier-ruby);
   --tier-ink-obsidian: var(--tier-obsidian);
   --tier-ink-legend: var(--tier-legend);
+}
+
+/* Dark-theme band surfaces use the darker band-muted (#9a9a9a); the shared
+   band chevron above is pinned to the light-band literal (#afafaf). */
+.dark .band,
+.dark .tile-dark {
+  --native-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a9a9a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* ── Quiet mode palette (F1, decision D2) ──────────────────────────────────
@@ -926,6 +939,21 @@ html[data-reading="relaxed"] .reading-prose {
   }
   .input:disabled {
     opacity: 0.55;
+  }
+  /* NativeSelect: the browser's arrow sits flush against the border, so the
+     select hides it (appearance:none) and draws the app's chevron instead —
+     14px off the edge, matching SelectTrigger's pr-3.5. The 40px right
+     padding keeps option text clear of the glyph. */
+  select.input {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: var(--native-select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
+  }
+  select.input::-ms-expand {
+    display: none;
   }
   textarea.input {
     border-radius: var(--radius-md);

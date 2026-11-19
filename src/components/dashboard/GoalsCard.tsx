@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Field } from '@/components/ui/field';
 import { Progress } from '@/components/ui/progress';
 import { useMe } from '@/lib/useMe';
@@ -219,19 +220,18 @@ export function GoalsCard() {
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field icon="spec" label="Counts" htmlFor="goalKind">
-              <select
+              <NativeSelect
                 id="goalKind"
                 name="goalKind"
                 autoComplete="off"
                 value={form.kind}
                 disabled={form.id !== null}
                 onChange={(e) => setForm({ ...form, kind: e.target.value as GoalKind })}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 t-body disabled:opacity-60"
               >
                 {KINDS.map((k) => (
                   <option key={k.value} value={k.value}>{k.label}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </Field>
             <Field icon="gauge" label="Target" htmlFor="goalTarget">
               <Input

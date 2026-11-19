@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Field } from '@/components/ui/field';
 import { useMe } from '@/lib/useMe';
@@ -254,19 +255,18 @@ export function ExamPlanCard() {
           </div>
           {me.subjects.length > 0 && (
             <Field icon="topic" label="Subject (optional)" htmlFor="examPlanSubject">
-              <select
+              <NativeSelect
                 id="examPlanSubject"
                 name="examPlanSubject"
                 autoComplete="off"
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 t-body"
               >
                 <option value="">Whole syllabus</option>
                 {me.subjects.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
-              </select>
+              </NativeSelect>
               <p className="t-fine mt-1 text-muted-foreground">Narrow it to one subject, or leave it open.</p>
             </Field>
           )}
