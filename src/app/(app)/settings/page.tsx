@@ -28,6 +28,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { badgeVariants } from '@/components/ui/badge';
 
@@ -499,10 +500,10 @@ function SettingsBody({
                 <label htmlFor={`vis-${row.key}`} className="t-caption font-semibold">{row.label}</label>
                 <p className="t-caption text-muted-foreground">{row.hint}</p>
               </div>
-              <Toggle
+              <Switch
                 id={`vis-${row.key}`}
                 on={vis[row.key]}
-                onChange={(v) => saveVisibility(row.key, v)}
+                onToggle={() => saveVisibility(row.key, !vis[row.key])}
                 label={`${row.label} visible to visitors`}
               />
             </div>
@@ -635,10 +636,10 @@ function SettingsBody({
               <label htmlFor="pref-quiet" className="t-caption font-semibold">Quiet mode</label>
               <p className="t-caption text-muted-foreground">Calmer surfaces and colours: no confetti, no animated counters in celebration moments, no celebration motion. Your progress is unchanged.</p>
             </div>
-            <Toggle
+            <Switch
               id="pref-quiet"
               on={me.prefs?.quietMode ?? false}
-              onChange={(v) => savePrefs({ quietMode: v })}
+              onToggle={() => savePrefs({ quietMode: !(me.prefs?.quietMode ?? false) })}
               label="Quiet mode"
             />
           </div>
@@ -647,10 +648,10 @@ function SettingsBody({
               <label htmlFor="pref-focus" className="t-caption font-semibold">Focus sessions</label>
               <p className="t-caption text-muted-foreground">During review, hide everything but the card: progress chrome, XP, streak and nav. You can still end the session.</p>
             </div>
-            <Toggle
+            <Switch
               id="pref-focus"
               on={me.prefs?.focusMode ?? false}
-              onChange={(v) => savePrefs({ focusMode: v })}
+              onToggle={() => savePrefs({ focusMode: !(me.prefs?.focusMode ?? false) })}
               label="Focus sessions"
             />
           </div>
@@ -675,10 +676,10 @@ function SettingsBody({
               <label htmlFor="pref-breaks" className="t-caption font-semibold">Break reminders</label>
               <p className="t-caption text-muted-foreground">A nudge every 10 cards during a review session.</p>
             </div>
-            <Toggle
+            <Switch
               id="pref-breaks"
               on={me.prefs?.breakReminders ?? true}
-              onChange={(v) => savePrefs({ breakReminders: v })}
+              onToggle={() => savePrefs({ breakReminders: !(me.prefs?.breakReminders ?? true) })}
               label="Break reminders"
             />
           </div>
@@ -687,10 +688,10 @@ function SettingsBody({
               <label htmlFor="pref-motion" className="t-caption font-semibold">Reduce motion</label>
               <p className="t-caption text-muted-foreground">Calmer animations throughout the app.</p>
             </div>
-            <Toggle
+            <Switch
               id="pref-motion"
               on={me.prefs?.reducedMotion ?? false}
-              onChange={(v) => savePrefs({ reducedMotion: v })}
+              onToggle={() => savePrefs({ reducedMotion: !(me.prefs?.reducedMotion ?? false) })}
               label="Reduce motion"
             />
           </div>
@@ -701,10 +702,10 @@ function SettingsBody({
                 A second streak that only counts verified-correct review days. Your streak counts every day you revise; this one is stricter. A day counts only when a daily or learn review comes back correct. Near misses and cram sessions don&apos;t. It is a signal, not a score: no XP, no rewards, and it never changes your regular streak. Off unless you switch it on.
               </p>
             </div>
-            <Toggle
+            <Switch
               id="pref-mastery"
               on={me.prefs?.streakMastery ?? false}
-              onChange={(v) => savePrefs({ streakMastery: v })}
+              onToggle={() => savePrefs({ streakMastery: !(me.prefs?.streakMastery ?? false) })}
               label="Mastery streak"
             />
           </div>
@@ -713,10 +714,10 @@ function SettingsBody({
               <label htmlFor="pref-board" className="t-caption font-semibold">Show me on leaderboards and study boards</label>
               <p className="t-caption text-muted-foreground">Includes your study circle's private board. Off removes you from every comparison, everywhere. Your rank is unaffected either way.</p>
             </div>
-            <Toggle
+            <Switch
               id="pref-board"
               on={!me.leaderboardOptOut}
-              onChange={(v) => api.patch('/api/v1/me', { leaderboardOptOut: !v }).then(refresh).catch(() => undefined)}
+              onToggle={() => api.patch('/api/v1/me', { leaderboardOptOut: !me.leaderboardOptOut }).then(refresh).catch(() => undefined)}
               label="Leaderboard visibility"
             />
           </div>
@@ -736,35 +737,12 @@ function Field({ label, htmlFor, hint, bad, children }: { label: string; htmlFor
   );
 }
 
-function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button
-      id={id}
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={`relative h-7 w-12 shrink-0 rounded-pill transition-colors duration-150 ${on ? 'bg-good' : 'bg-border-strong'}`}
-    >
-      {/* The knob travels with `transform`, not `left`: animating `left`
-          re-lays-out the track on every frame of the slide, and `transition-all`
-          was animating the shadow at the same time. Travel is
-          48 − 24 − 2×2 = 20px, which is `translate-x-5`. */}
-      <span
-        className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-150 ease-[var(--ease-out)] ${on ? 'translate-x-5' : 'translate-x-0'}`}
-        aria-hidden
-      />
-    </button>
-  );
-}
-
 function cnChip(active: boolean): string {
-  return `grid h-9 min-w-9 place-items-center rounded-full border px-2 t-body transition-colors duration-150 ${
+  return `grid h-9 min-w-9 place-items-center rounded-full border px-2 t-body transition-colors duration-(--dur-out) ${
     active ? 'border-foreground bg-secondary' : 'border-border hover:border-border-strong'
   }`;
 }
 
 function cnColor(active: boolean): string {
-  return `rounded-full border-2 p-0.5 transition-colors duration-150 ${active ? 'border-foreground' : 'border-transparent'}`;
+  return `rounded-full border-2 p-0.5 transition-colors duration-(--dur-out) ${active ? 'border-foreground' : 'border-transparent'}`;
 }

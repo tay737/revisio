@@ -8,6 +8,7 @@ import { notifyConsentChange, writeConsentRecord } from '@/lib/consent-storage';
 import { Notice } from '@/components/Notice';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 
 const PURPOSES: { key: Exclude<ConsentKey, 'essential'>; label: string; description: string }[] = [
   { key: 'preferences', label: 'Preferences', description: 'Appearance, accessibility and app behaviour.' },
@@ -103,18 +104,13 @@ export function ConsentSection() {
               <label htmlFor={`consent-${key}`} className="t-caption font-semibold">{label}</label>
               <p className="t-caption text-muted-foreground">{underAgeLocked ? 'Not available on guardian-consented accounts.' : description}</p>
             </div>
-            <button
+            <Switch
               id={`consent-${key}`}
-              type="button"
-              role="switch"
-              aria-checked={underAgeLocked ? false : state.choices[key]}
-              aria-label={label}
+              label={label}
+              on={underAgeLocked ? false : state.choices[key]}
               disabled={underAgeLocked}
-              onClick={() => change(key, !state.choices[key])}
-              className={`relative h-7 w-12 shrink-0 rounded-pill transition-colors disabled:opacity-50 ${underAgeLocked ? 'bg-border-strong' : state.choices[key] ? 'bg-good' : 'bg-border-strong'}`}
-            >
-              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm ${!underAgeLocked && state.choices[key] ? 'left-[22px]' : 'left-0.5'}`} aria-hidden="true" />
-            </button>
+              onToggle={() => change(key, !state.choices[key])}
+            />
           </div>
           );
         })}

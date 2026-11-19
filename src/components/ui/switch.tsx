@@ -1,31 +1,60 @@
-"use client"
+'use client';
 
-import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
-function Switch({
+/**
+ * The one switch. The pill stays 28px visually, but the button's box is
+ * 48×44px so the touch target clears the project's 44px floor — the extra
+ * height is transparent padding, not a bigger switch. The knob travels with
+ * `transform`, never `left`: animating `left` re-lays-out the track on every
+ * frame.
+ *
+ * This replaced three hand-rolled copies (settings Toggle, ConsentSection,
+ * RemindersSection) plus a fourth smaller variant in the review session
+ * options — one component so the hit area and the motion can never drift
+ * apart again.
+ */
+export function Switch({
+  id,
+  label,
+  on,
+  onToggle,
+  disabled,
   className,
-  size = "default",
-  ...props
-}: SwitchPrimitive.Root.Props & {
-  size?: "sm" | "default"
+}: {
+  id?: string;
+  /** Accessible name — pairs with a visible <label htmlFor> where one exists. */
+  label: string;
+  on: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+  className?: string;
 }) {
   return (
-    <SwitchPrimitive.Root
-      data-slot="switch"
-      data-size={size}
-      className={cn(
-        "peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50",
-        className
-      )}
-      {...props}
+    <button
+      id={id}
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onToggle}
+      className={cn('flex h-11 w-12 shrink-0 items-center justify-center disabled:opacity-50', className)}
     >
-      <SwitchPrimitive.Thumb
-        data-slot="switch-thumb"
-        className="pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground"
-      />
-    </SwitchPrimitive.Root>
-  )
+      <span
+        className={cn(
+          'relative block h-7 w-12 rounded-pill transition-colors duration-(--dur-out)',
+          on ? 'bg-good' : 'bg-border-strong',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-(--dur-snap) ease-[var(--ease-out)]',
+            on ? 'translate-x-5' : 'translate-x-0',
+          )}
+          aria-hidden
+        />
+      </span>
+    </button>
+  );
 }
-
-export { Switch }

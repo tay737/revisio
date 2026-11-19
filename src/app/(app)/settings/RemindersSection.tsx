@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
+import { Switch } from '@/components/ui/switch';
 
 type Prefs = {
   enabled: boolean;
@@ -35,34 +36,6 @@ const TRIGGERS: { key: string; label: string; hint: string }[] = [
   { key: 'leagueEnding', label: 'League week ending', hint: 'Before your league week closes.' },
   { key: 'examCountdown', label: 'Exam countdown', hint: 'As a saved exam date gets close.' },
 ];
-
-/**
- * The reminder switch. The pill stays 28px visually, but the button's box is
- * 48×44px so the touch target clears the project's 44px floor — the extra
- * height is transparent padding, not a bigger switch.
- */
-function Switch({ id, label, on, onToggle }: { id: string; label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      id={id}
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={onToggle}
-      className="flex h-11 w-12 shrink-0 items-center justify-center"
-    >
-      <span
-        className={`relative block h-7 w-12 rounded-pill transition-colors duration-150 ${on ? 'bg-good' : 'bg-border-strong'}`}
-      >
-        <span
-          className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-150 ease-[var(--ease-out)] ${on ? 'translate-x-5' : 'translate-x-0'}`}
-          aria-hidden
-        />
-      </span>
-    </button>
-  );
-}
 
 function detectedTimezone(): string {
   try {
