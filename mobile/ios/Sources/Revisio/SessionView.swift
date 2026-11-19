@@ -246,9 +246,12 @@ struct SessionView: View {
             }
         } else {
             // F5: the confidence read is taken before the mark, not after —
-            // same placement as the web's picker above Check.
-            ConfidencePicker(confidence: model.confidence) { model.setConfidence($0) }
-            Spacer().frame(height: 12)
+            // same placement as the web's picker above Check. #87 parity:
+            // hidden on first-exposure (learn) cards.
+            if model.mode != .learn {
+                ConfidencePicker(confidence: model.confidence) { model.setConfidence($0) }
+                Spacer().frame(height: 12)
+            }
             // The in-session CTA. Uppercase and letterspaced, per the label
             // treatment the design language reserves for controls. On an
             // already-green cloze it says what the press will do — the web's

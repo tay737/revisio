@@ -215,8 +215,11 @@ fun SessionScreen(state: UiState, viewModel: RevisioViewModel) {
                 if (feedback == null) {
                     // F5: the confidence read is taken before the mark, not
                     // after — same placement as the web's picker above Check.
-                    ConfidencePicker(state.confidence, viewModel::setConfidence)
-                    Spacer(Modifier.height(12.dp))
+                    // #87 parity: hidden on first-exposure (learn) cards.
+                    if (state.mode != StudyMode.LEARN) {
+                        ConfidencePicker(state.confidence, viewModel::setConfidence)
+                        Spacer(Modifier.height(12.dp))
+                    }
                     // The in-session CTA. Uppercase and letterspaced, per the
                     // label treatment the design language reserves for controls.
                     // A cloze the learner has already typed correctly reads like

@@ -632,7 +632,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   maxLines: 3,
                   onSubmitted: (_) => _submit(),
                 ),
-              if (!inFeedback) _buildConfidence(),
+              // #87 parity: first-exposure answers are unknowable, so the
+              // confidence read stays off learn cards — daily and cram keep it.
+              if (!inFeedback && _mode != 'learn') _buildConfidence(),
               if (inFeedback) _buildFeedback(context),
             ],
           ),
