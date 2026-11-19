@@ -46,14 +46,23 @@ export default function LearnPage() {
   // Client-side filter, deliberately: the catalogue is a few dozen subjects at
   // most and the payload is already on the device, so a round trip would buy
   // nothing but latency. This narrows by name and description.
+  //
+  // Empty shells stay out of the catalogue (#89): a subject with no reachable
+  // topics offers nothing to open or follow, and internal/test subjects with
+  // zero content read as noise to a student. Enrolled subjects are exempt —
+  // the learner already chose them, so hiding one would look like data loss.
+  const pool = useMemo(
+    () => (subjects ?? []).filter((s) => s.enrolled || s.topicCount > 0),
+    [subjects],
+  );
   const visible = useMemo(() => {
     if (!subjects) return null;
     const q = query.trim().toLowerCase();
-    if (!q) return subjects;
-    return subjects.filter(
+    if (!q) return pool;
+    return pool.filter(
       (s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q),
     );
-  }, [subjects, query]);
+  }, [subjects, pool, query]);
 
   const follow = async (subject: Subject) => {
     setBusy(subject.id);
@@ -87,6 +96,15 @@ export default function LearnPage() {
         </div>
       )}
 
+      {pool.length === 0 && subjects.length > 0 && (
+        <EmptyState
+          icon="library2"
+          title="Nothing published yet"
+          body="No subjects with content are available on this deployment. Create your own in My content, or ask a teacher to publish one."
+          action={{ href: '/library', label: 'Go to My content' }}
+        />
+      )}
+
       {subjects.length === 0 && (
         <EmptyState
           icon="library2"
@@ -96,7 +114,7 @@ export default function LearnPage() {
         />
       )}
 
-      {visible.length === 0 && subjects.length > 0 && (
+      {visible.length === 0 && pool.length > 0 && (
         <Card className="p-6 text-center">
           <p className="t-strong">Nothing matches “{query}”</p>
           <p className="t-caption mt-1 text-muted-foreground">Try a shorter piece of the name.</p>

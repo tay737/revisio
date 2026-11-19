@@ -551,6 +551,9 @@ export default function ReviewClient() {
     setConfidence(null);
     setError('');
     setAutoMark(false);
+    // The options panel describes the session being dealt; once a card moves
+    // on it is stale chrome, so it closes with the card (#89).
+    setOptionsOpen(false);
     startRef.current = Date.now();
     setIdx((i) => i + 1);
   }, []);
@@ -601,13 +604,20 @@ export default function ReviewClient() {
       if (n === dealSizeRef.current || done > 0) return;
       dealSizeRef.current = n;
       setDealSize(n);
-      try {
-        window.localStorage.setItem('revisio.sessionLength', String(n));
-      } catch {
-        // Private mode: the choice still applies to this session.
+      // 3 is a session-only size (the dashboard's "start with 3"): it matches
+      // no server pref — prefs.sessionLength only accepts 5/10/20 — so it is
+      // never persisted, exactly like a ?deal= override.
+      const persisted = n === 5 || n === 10 || n === 20;
+      if (!persisted) dealOverrideRef.current = n;
+      if (persisted) {
+        try {
+          window.localStorage.setItem('revisio.sessionLength', String(n));
+        } catch {
+          // Private mode: the choice still applies to this session.
+        }
+        // F2: the pref is the source of truth now; localStorage is the cache.
+        void api.patch('/api/v1/me', { prefs: { sessionLength: n } }).then(() => refreshMe()).catch(() => undefined);
       }
-      // F2: the pref is the source of truth now; localStorage is the cache.
-      void api.patch('/api/v1/me', { prefs: { sessionLength: n } }).then(() => refreshMe()).catch(() => undefined);
       const all = [...(queue ?? []), ...poolRef.current];
       const next = all.slice(0, n);
       poolRef.current = all.slice(n);
@@ -904,7 +914,7 @@ export default function ReviewClient() {
                 )}
               >
                 <Icon name="schedule" size={12} />
-                Session
+                Session settings
               </button>
               {optionsOpen && (
                 <>
@@ -917,8 +927,8 @@ export default function ReviewClient() {
                     <p className="t-fine font-semibold text-muted-foreground">
                       Cards per session
                     </p>
-                    <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Session length">
-                      {[5, 10, 20].map((n) => (
+                    <div className="mt-2 grid grid-cols-4 gap-1.5" role="group" aria-label="Session length">
+                      {[3, 5, 10, 20].map((n) => (
                         <button
                           key={n}
                           type="button"
@@ -938,7 +948,7 @@ export default function ReviewClient() {
                     </div>
                     {done > 0 && (
                       <p className="t-fine mt-1.5 text-muted-foreground">
-                        Locked once you start. “just one more” extends.
+                        Locked once you start. “One more card” extends.
                       </p>
                     )}
                     <div className="mt-3 space-y-2.5 border-t border-border pt-3">
@@ -1381,11 +1391,11 @@ function SessionReport({
       <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
         {canExtend && (
           <Button variant="secondary" onClick={onJustOneMore}>
-            Just one more
+            One more card
           </Button>
         )}
         <Button variant="ghost" onClick={onAgain}>
-          Load more
+          Start a new set
         </Button>
         <Link href="/progress" className={buttonVariants({ variant: 'primary', className: 'gap-2' })}>
           See the ladder

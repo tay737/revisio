@@ -31,7 +31,9 @@ export function NotificationBell() {
       aria-label={unread > 0 ? `${unread} unread notifications` : 'Notifications'}
     >
       <Icon name="bell" size={14} className={unread > 0 ? 'text-foreground' : 'text-muted-foreground'} />
-      {unread > 0 && <span>{unread > 9 ? '9+' : unread}</span>}
+      {/* The link's aria-label already says "N unread"; the bare numeral is
+          visual only, so AT never reads the count twice (#89). */}
+      {unread > 0 && <span aria-hidden="true">{unread > 9 ? '9+' : unread}</span>}
     </Link>
   );
 }
