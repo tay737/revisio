@@ -625,7 +625,7 @@
       "expected": {
         "form": "steady",
         "label": "Steady",
-        "detail": "70% today. Solid, unspectacular, fine."
+        "detail": "70% today. Solid. A few more and it's sharp."
       }
     },
     {
@@ -800,7 +800,7 @@
     {
       "correct": 1,
       "total": 4,
-      "expected": "1 for 4. Go back to the notes; this set is not settled yet."
+      "expected": "1 for 4. Revisit the notes, then run it again."
     }
   ],
   "emptyQueueLine": [
@@ -812,7 +812,7 @@
     {
       "due": 0,
       "streak": 4,
-      "expected": "Your schedule is clear and your 4-day streak is safe. Anything you review now comes off tomorrow."
+      "expected": "Your schedule is clear and your 4-day streak is safe. Anything you review now is banked for tomorrow."
     },
     {
       "due": 3,
