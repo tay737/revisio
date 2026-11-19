@@ -10,6 +10,13 @@ interface InstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+// "Later" persists for the tab session so navigation cannot resurrect the
+// toast; a genuinely new session may show it again if the update still waits.
+const UPDATE_DISMISS_KEY = 'revisio-update-later';
+// First-ever visit suppresses the update toast once — a brand-new user should
+// meet the install prompt, not an update for a build they never ran.
+const VISITED_KEY = 'revisio-visited';
+
 export default function PwaRegister() {
   const pathname = usePathname();
   const { active: reviewActive } = useReviewSession();
@@ -72,6 +79,15 @@ export default function PwaRegister() {
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
     window.addEventListener('appinstalled', onInstalled);
 
+    try {
+      const dismissed = sessionStorage.getItem(UPDATE_DISMISS_KEY) === '1';
+      const firstVisit = !localStorage.getItem(VISITED_KEY);
+      localStorage.setItem(VISITED_KEY, '1');
+      if (dismissed || firstVisit) setUpdateHidden(true);
+    } catch {
+      // Storage can be unavailable (private mode); the toast still works.
+    }
+
     if ('serviceWorker' in navigator) {
       registerWorker();
       const onControllerChange = () => {
@@ -94,10 +110,6 @@ export default function PwaRegister() {
     };
   }, [registerWorker]);
 
-  useEffect(() => {
-    setUpdateHidden(false);
-  }, [pathname]);
-
   const install = async () => {
     if (!installPrompt) return;
     await installPrompt.prompt();
@@ -118,7 +130,7 @@ export default function PwaRegister() {
   if (!showUpdate && !showInstall && !showRegistrationError) return null;
 
   return (
-    <aside className="fixed inset-x-0 bottom-3 z-[70] px-3 pb-safe sm:bottom-5" aria-label="App installation and updates">
+    <aside className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] z-[70] px-3 pb-safe sm:bottom-5" aria-label="App installation and updates">
       <div className="mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 shadow-[var(--shadow-float)]">
         <div className="min-w-0 flex-1">
           {showRegistrationError ? (
@@ -145,7 +157,21 @@ export default function PwaRegister() {
             <Button variant="primary" size="sm" type="button" onClick={update} disabled={isReview || activating}>
               {activating ? 'Updating…' : 'Update now'}
             </Button>
-            <Button variant="ghost" size="sm" type="button" onClick={() => setUpdateHidden(true)}>Later</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onClick={() => {
+                try {
+                  sessionStorage.setItem(UPDATE_DISMISS_KEY, '1');
+                } catch {
+                  // Storage unavailable — hiding for this view is enough.
+                }
+                setUpdateHidden(true);
+              }}
+            >
+              Later
+            </Button>
           </>
         ) : installPrompt ? (
           <Button variant="primary" size="sm" type="button" onClick={() => void install()}>Install app</Button>

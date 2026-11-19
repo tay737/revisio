@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, type ComponentPropsWithoutRef } from "react"
+import { useCallback, useEffect, useRef, type ComponentPropsWithoutRef } from "react"
 import { useInView, useMotionValue, useSpring, type SpringOptions } from "motion/react"
 
 import { cn } from "@/lib/utils"
@@ -35,10 +35,21 @@ export function NumberTicker({
   const motionValue = useMotionValue(direction === "down" ? value : startValue)
   const springValue = useSpring(motionValue, SPRING.meter as SpringOptions)
   const isInView = useInView(ref, { once: true, margin: "0px" })
-  const formatted = Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimalPlaces,
-    maximumFractionDigits: decimalPlaces,
-  }).format(value)
+  // The resting value is what React renders and what assistive tech reads.
+  // The count-up is driven imperatively through textContent below, so a
+  // re-render can never reset the numeral to 0 — previously the child was
+  // `startValue`, which meant every React write (remount, hydration, parent
+  // re-render) put a literal 0 back over the animated text.
+  const finalValue = direction === "down" ? startValue : value
+  const displayValue = direction === "down" ? value : startValue
+  const format = useCallback(
+    (n: number) =>
+      Intl.NumberFormat("en-US", {
+        minimumFractionDigits: decimalPlaces,
+        maximumFractionDigits: decimalPlaces,
+      }).format(n),
+    [decimalPlaces]
+  )
 
   useEffect(() => {
     if (still) return
@@ -46,7 +57,8 @@ export function NumberTicker({
 
     if (isInView) {
       timer = setTimeout(() => {
-        motionValue.set(direction === "down" ? startValue : value)
+        if (ref.current) ref.current.textContent = format(displayValue)
+        motionValue.set(finalValue)
       }, delay * 1000)
     }
 
@@ -55,19 +67,16 @@ export function NumberTicker({
         clearTimeout(timer)
       }
     }
-  }, [motionValue, isInView, delay, value, direction, startValue, still])
+  }, [motionValue, isInView, delay, finalValue, displayValue, still, format])
 
   useEffect(() => {
     if (still) return
     return springValue.on("change", (latest) => {
       if (ref.current) {
-        ref.current.textContent = Intl.NumberFormat("en-US", {
-          minimumFractionDigits: decimalPlaces,
-          maximumFractionDigits: decimalPlaces,
-        }).format(Number(latest.toFixed(decimalPlaces)))
+        ref.current.textContent = format(Number(latest.toFixed(decimalPlaces)))
       }
     })
-  }, [springValue, decimalPlaces, still])
+  }, [springValue, format, still])
 
   return (
     <span
@@ -82,7 +91,7 @@ export function NumberTicker({
       )}
       {...props}
     >
-      {still ? formatted : startValue}
+      {format(finalValue)}
     </span>
   )
 }
