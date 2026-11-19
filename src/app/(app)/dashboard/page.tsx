@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Stat } from '@/components/ui/stat';
 import { Switch } from '@/components/ui/switch';
+import { Notice } from '@/components/Notice';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
 import { fadeUp, staggerParent } from '@/lib/motion';
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   // Board visibility (#90 v1): a trust control, so it gets a quiet row here
   // rather than living only in Settings. Same PATCH path as /progress.
   const [boardOptOut, setBoardOptOut] = useState(false);
+  const [boardSaveFailed, setBoardSaveFailed] = useState(false);
   useEffect(() => {
     setBoardOptOut(me?.leaderboardOptOut ?? false);
   }, [me?.leaderboardOptOut]);
@@ -101,10 +103,12 @@ export default function DashboardPage() {
   const toggleBoardOptOut = async () => {
     const next = !boardOptOut;
     setBoardOptOut(next);
+    setBoardSaveFailed(false);
     try {
       await api.patch('/api/v1/me', { leaderboardOptOut: next });
     } catch {
       setBoardOptOut(!next);
+      setBoardSaveFailed(true);
     }
   };
 
@@ -363,6 +367,11 @@ export default function DashboardPage() {
             label="Show me on boards"
           />
         </motion.div>
+      )}
+      {me.role === 'student' && boardSaveFailed && (
+        <Notice tone="bad" className="px-1">
+          Couldn&rsquo;t save. Try again.
+        </Notice>
       )}
     </motion.div>
   );
