@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
@@ -35,7 +35,9 @@ import { Markdown } from '@/components/Markdown';
 import { ListenButton } from '@/components/listen-button';
 import { ReferenceLink } from '@/components/reference-link';
 import { cardSpeechText, markdownSpeechText } from '@/lib/speak';
-import { whyHint } from '@/lib/why-hint';
+import { ConfidencePicker } from '@/components/confidence-picker';
+import { WhyDisclosure } from '@/components/why-disclosure';
+import { Switch } from '@/components/ui/switch';
 import { useReviewSession } from '@/components/ReviewSessionContext';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -1371,89 +1373,7 @@ function OptionRow({
         <span className="t-strong block">{label}</span>
         <span className="t-fine block text-muted-foreground">{hint}</span>
       </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={label}
-        onClick={onToggle}
-        className={cn(
-          'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150',
-          on ? 'bg-foreground' : 'bg-border',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-full bg-card shadow-sm transition-all duration-150',
-            on ? 'left-[22px]' : 'left-0.5',
-          )}
-        />
-      </button>
-    </div>
-  );
-}
-
-/**
- * The pre-answer confidence tap (F5): "did you know it?" — two chips, nothing
- * selected by default, APG radiogroup semantics (role=radiogroup, role=radio,
- * arrow keys move and select). v1 stores the answer without acting on it, so
- * the copy stays silent about effects — scaffolding, not a lever.
- */
-function ConfidencePicker({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: 'knew' | 'guessed' | null;
-  onChange?: (v: 'knew' | 'guessed') => void;
-  disabled?: boolean;
-}) {
-  const options = [
-    { v: 'knew' as const, label: 'I knew it' },
-    { v: 'guessed' as const, label: 'I guessed' },
-  ];
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const pick = (v: 'knew' | 'guessed') => {
-    if (disabled) return;
-    onChange?.(v);
-  };
-
-  const onKeyDown = (e: ReactKeyboardEvent) => {
-    const delta = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    if (!delta) return;
-    e.preventDefault();
-    const i = options.findIndex((o) => o.v === value);
-    const next = options[(Math.max(i, 0) + delta + options.length) % options.length];
-    pick(next.v);
-    refs.current[(Math.max(i, 0) + delta + options.length) % options.length]?.focus();
-  };
-
-  return (
-    <div className="mt-3" role="radiogroup" aria-label="Before you check: did you know it?" onKeyDown={onKeyDown}>
-      <p className="t-fine mb-1.5 text-muted-foreground">Before you check: did you know it?</p>
-      <div className="flex flex-wrap gap-2">
-        {options.map((o, i) => {
-          const on = value === o.v;
-          return (
-            <button
-              key={o.v}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              tabIndex={on || (value === null && i === 0) ? 0 : -1}
-              disabled={disabled}
-              onClick={() => pick(o.v)}
-              className={cn('chip min-h-11 transition-colors', on && 'chip-active', disabled && 'opacity-60')}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
+      <Switch label={label} on={on} onToggle={onToggle} />
     </div>
   );
 }
@@ -1684,40 +1604,6 @@ function ConfusedFlag({ cardId, initialFlagged }: { cardId: string; initialFlagg
             ? 'Flagged. You and your teacher can see this on your progress.'
             : 'Marks this card as one you are still unsure about.'}
       </p>
-    </div>
-  );
-}
-
-/**
- * The progressive "Why" (F9). `explanation_md` is markdown — the body renders
- * through <Markdown>, never as raw text. A card the learner has missed before
- * (`lapsed`) opens by default and shows the first sentence peeled as a hint;
- * everything else stays one tap away. `<details>` carries the keyboard and
- * screen-reader semantics for free.
- */
-function WhyDisclosure({ explanation, lapsed }: { explanation: string; lapsed: boolean }) {
-  const hint = lapsed ? whyHint(explanation) : null;
-  return (
-    <div className="mt-2.5 rounded-md bg-card/70 px-3 py-2">
-      {hint && <p className="t-caption reading-prose text-foreground">Hint: {hint}</p>}
-      <details className="group" open={lapsed || undefined}>
-        <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-          <span className="t-fine font-semibold text-muted-foreground">Why</span>
-          <Icon
-            name="collapse"
-            size={14}
-            className="text-muted-foreground transition-transform group-open:rotate-180"
-          />
-          <span className="ml-auto" onClick={(e) => e.stopPropagation()}>
-            <ListenButton
-              text={markdownSpeechText(explanation)}
-              label="Listen to the explanation"
-              className="-my-1.5"
-            />
-          </span>
-        </summary>
-        <Markdown text={explanation} className="mt-1.5 t-caption reading-prose text-foreground" />
-      </details>
     </div>
   );
 }

@@ -16,6 +16,10 @@ import { sessionSummary } from '@/lib/profile';
 import PageSkeleton from '@/components/PageSkeleton';
 import { Markdown } from '@/components/Markdown';
 import { ReferenceLink } from '@/components/reference-link';
+import { ListenButton } from '@/components/listen-button';
+import { ConfidencePicker } from '@/components/confidence-picker';
+import { WhyDisclosure } from '@/components/why-disclosure';
+import { cardSpeechText } from '@/lib/speak';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -37,6 +41,9 @@ type QueueCard = {
   prompt: string | null;
   question: string | null;
   options: { id: string; text: string }[] | null;
+  /** F9 lapsed-hint input — the cram queue carries the same state join as the
+   *  daily queue, so a previously-missed card opens its Why by default. */
+  lapses: number;
 };
 type ReviewResult = {
   verdict: { correct: boolean; feedbackKind: string; note?: string; matchedPhrases?: string[]; missedPhrases?: string[] };
@@ -81,6 +88,10 @@ export default function CramClient() {
   const [selected, setSelected] = useState<string | null>(null);
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [busy, setBusy] = useState(false);
+  /** F5: pre-answer self-report. Cram posts to the same /api/v1/reviews route,
+   *  so review_logs.confidence storage is free — guessing is most common here,
+   *  which is exactly where the metacognition signal matters. */
+  const [confidence, setConfidence] = useState<'knew' | 'guessed' | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const startRef = useRef(Date.now());
 
@@ -133,6 +144,7 @@ export default function CramClient() {
       setResult(null);
       setInput('');
       setSelected(null);
+      setConfidence(null);
       startRef.current = Date.now();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'We could not start that session.');
@@ -155,6 +167,7 @@ export default function CramClient() {
         durationMs: Date.now() - startRef.current,
         mode: 'cram',
         sessionId: session?.sessionId,
+        confidence,
       });
       setResult(res);
       setScore((s) => ({ correct: s.correct + (res.verdict.correct ? 1 : 0), total: s.total + 1 }));
@@ -163,12 +176,13 @@ export default function CramClient() {
     } finally {
       setBusy(false);
     }
-  }, [card, busy, result, selected, input, session]);
+  }, [card, busy, result, selected, input, confidence, session]);
 
   const next = () => {
     setResult(null);
     setInput('');
     setSelected(null);
+    setConfidence(null);
     setError('');
     startRef.current = Date.now();
     setIdx((i) => i + 1);
@@ -268,7 +282,12 @@ export default function CramClient() {
                   <Icon name={card.kind === 'cloze' ? 'notes' : card.kind === 'mcq' ? 'target' : 'learn'} size={13} />
                   {KIND_LABEL[card.kind]}
                 </Badge>
-                <span className="t-caption truncate text-muted-foreground">{card.topicName}</span>
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="truncate t-caption text-muted-foreground">{card.topicName}</span>
+                  {/* F3: same placement rule as the daily panel — card content,
+                      question side only, hidden when the browser cannot speak. */}
+                  <ListenButton text={cardSpeechText(card)} />
+                </span>
               </div>
 
               <div className="mt-5 t-display-sm font-normal leading-[1.4]">
@@ -291,6 +310,7 @@ export default function CramClient() {
                       {o.text}
                     </motion.button>
                   ))}
+                  <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />
                   <Button variant="primary" className="mt-2 w-full" disabled={!selected || busy} onClick={submit}>
                     {busy ? 'Marking…' : 'Check answer'}
                   </Button>
@@ -313,6 +333,7 @@ export default function CramClient() {
                     autoFocus
                     aria-label="Your answer"
                   />
+                  <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />
                   <Button type="submit" className="mt-3 w-full" disabled={!input.trim() || busy}>
                     {busy ? 'Marking…' : 'Check answer'}
                   </Button>
@@ -349,18 +370,22 @@ export default function CramClient() {
                       <p className="t-caption mt-0.5 reading-prose text-foreground">{result.modelAnswer ?? result.primaryAnswer}</p>
                     </div>
                   )}
-                  {/* The explanation the queue always sent but this block never
-                      rendered — markdown, like every other note surface. Same
-                      rule as the daily panel: non-correct verdicts only. */}
-                  {!result.verdict.correct && result.explanation && (
-                    <div className="inset mt-2.5 px-3 py-2">
-                      <span className="t-micro uppercase tracking-[0.08em] text-muted-foreground">Why</span>
-                      <Markdown text={result.explanation} className="mt-1 t-caption reading-prose text-foreground" />
+                  {/* F5: the choice locked at submit stays visible next to the
+                      verdict it described, same as the daily panel. */}
+                  {confidence && (
+                    <div className="mt-2">
+                      <ConfidencePicker value={confidence} disabled />
                     </div>
                   )}
+                  {/* F9: the explanation the queue always sent is now the same
+                      progressive disclosure the daily panel uses — collapsed by
+                      default, lapsed cards open with a peeled hint, non-correct
+                      verdicts only. */}
+                  {!result.verdict.correct && result.explanation && (
+                    <WhyDisclosure explanation={result.explanation} lapsed={(card.lapses ?? 0) >= 1} />
+                  )}
                   {/* F7: cram's verdict surface carries the same lesson link on
-                      non-correct verdicts. No confidence chips and no Why
-                      disclosure here — those stay on the daily+learn panel. */}
+                      non-correct verdicts. */}
                   {!result.verdict.correct && (
                     <div className="mt-2.5">
                       <ReferenceLink
