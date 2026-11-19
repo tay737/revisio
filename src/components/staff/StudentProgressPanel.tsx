@@ -78,7 +78,10 @@ export function StudentProgressPanel({
       <SheetContent
         side={wide ? 'right' : 'bottom'}
         showCloseButton={false}
-        className={cn('overflow-y-auto', !wide && 'mx-auto w-full max-w-[720px]')}
+        // On phones this reads as a page, not a card: full width, modest top
+        // corners — the heavy rounded-t-3xl sheet chrome belongs to transient
+        // panels, and this one holds a whole progress report.
+        className={cn('overflow-y-auto', !wide && 'data-[side=bottom]:rounded-t-lg')}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-4">
@@ -93,37 +96,11 @@ export function StudentProgressPanel({
               </p>
             )}
           </div>
+          {/* Close stands alone up here — the prev/next chevrons used to sit
+              beside it and read as a second dismiss affordance (and competed
+              with the bottom sheet's swipe-down gesture). They live in the
+              labelled footer pager below instead. */}
           <div className="flex shrink-0 items-center gap-1">
-            {siblings && onNavigate && index >= 0 && list.length > 1 && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  type="button"
-                  disabled={!prev}
-                  aria-label={prev ? `Previous student: ${prev.name}` : 'No previous student'}
-                  onClick={() => prev && onNavigate(prev)}
-                >
-                  <Icon name="back" size={16} />
-                </Button>
-                <span className="num t-fine px-1 text-muted-foreground" aria-hidden>
-                  {index + 1}/{list.length}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  type="button"
-                  disabled={!next}
-                  aria-label={next ? `Next student: ${next.name}` : 'No next student'}
-                  onClick={() => next && onNavigate(next)}
-                >
-                  <Icon name="next" size={16} />
-                </Button>
-              </>
-            )}
-            {/* The sheet's own close control is switched off above: this labelled
-                button *is* the affordance, and shipping both put two of them side
-                by side in the top-right corner. */}
             <Button variant="ghost" type="button" className="shrink-0 gap-1.5" onClick={onClose}>
               <Icon name="close" size={14} />
               Close
@@ -141,6 +118,37 @@ export function StudentProgressPanel({
         )}
 
         {data && <div className="pt-4"><InsightsBody data={data} /></div>}
+
+        {/* Roster pager — a labelled footer, away from Close and from the
+            sheet's swipe-dismiss zone. "n of N" says where you are; the
+            chevrons step through without closing the sheet. */}
+        {siblings && onNavigate && index >= 0 && list.length > 1 && (
+          <div className="mt-auto flex items-center justify-center gap-3 border-t border-border/60 py-3">
+            <Button
+              variant="ghost"
+              size="icon-lg"
+              type="button"
+              disabled={!prev}
+              aria-label={prev ? `Previous student: ${prev.name}` : 'No previous student'}
+              onClick={() => prev && onNavigate(prev)}
+            >
+              <Icon name="back" size={16} />
+            </Button>
+            <span className="num t-fine text-muted-foreground">
+              {index + 1} of {list.length}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-lg"
+              type="button"
+              disabled={!next}
+              aria-label={next ? `Next student: ${next.name}` : 'No next student'}
+              onClick={() => next && onNavigate(next)}
+            >
+              <Icon name="next" size={16} />
+            </Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

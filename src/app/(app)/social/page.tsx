@@ -250,8 +250,10 @@ export default function SocialPage() {
       <Card className="p-5">
         <h2 className="t-strong">Add someone</h2>
         <p className="t-caption mt-1 text-muted-foreground">Their username, exactly as it appears on their profile.</p>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <div className="min-w-0 flex-1">
+        {/* Stacks on phones: full-width username, then kind + send on their
+            own row — the wrapping baseline row read as broken at 360px. */}
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="w-full min-w-0 sm:flex-1">
             <Label htmlFor="social-username">Username</Label>
             <Input
               id="social-username"
@@ -264,16 +266,18 @@ export default function SocialPage() {
               spellCheck={false}
             />
           </div>
-          <div>
-            <Label htmlFor="social-kind">Kind</Label>
-            <NativeSelect id="social-kind" className="mt-1" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-              <option value="buddy">Study buddy</option>
-              <option value="accountability">Accountability</option>
-            </NativeSelect>
+          <div className="flex items-end gap-3">
+            <div className="min-w-0 flex-1 sm:w-auto">
+              <Label htmlFor="social-kind">Kind</Label>
+              <NativeSelect id="social-kind" className="mt-1 w-full sm:w-auto" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+                <option value="buddy">Study buddy</option>
+                <option value="accountability">Accountability</option>
+              </NativeSelect>
+            </div>
+            <Button type="button" variant="primary" className="shrink-0" disabled={busy || !username.trim() || consentOff} onClick={() => void send()}>
+              Send request
+            </Button>
           </div>
-          <Button type="button" variant="primary" disabled={busy || !username.trim() || consentOff} onClick={() => void send()}>
-            Send request
-          </Button>
         </div>
       </Card>
 
@@ -458,13 +462,13 @@ export default function SocialPage() {
           </ul>
         )}
 
-        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-4">
-          <div className="min-w-0 flex-1">
+        <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="w-full min-w-0 sm:flex-1">
             <Label htmlFor="social-guardian">Their username</Label>
             <Input
               id="social-guardian"
               className="mt-1"
-              placeholder="parent_or_guardian"
+              placeholder="studybuddy"
               value={guardianUsername}
               onChange={(e) => setGuardianUsername(e.target.value)}
               autoComplete="off"
@@ -475,7 +479,7 @@ export default function SocialPage() {
               They will need Social turned on in their own Settings before they can accept the link.
             </p>
           </div>
-          <Button type="button" variant="secondary" disabled={busy || !guardianUsername.trim()} onClick={() => void addGuardian()}>
+          <Button type="button" variant="secondary" className="self-start sm:self-auto" disabled={busy || !guardianUsername.trim()} onClick={() => void addGuardian()}>
             Share summary
           </Button>
         </div>
