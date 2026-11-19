@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import useSWR from 'swr';
 import { api } from '@/lib/api';
@@ -23,6 +23,7 @@ import PageSkeleton from '@/components/PageSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Stat } from '@/components/ui/stat';
+import { Switch } from '@/components/ui/switch';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
 import { fadeUp, staggerParent } from '@/lib/motion';
@@ -89,6 +90,23 @@ export default function DashboardPage() {
   }, [me]);
 
   const read = useMemo(() => (me ? companionFor(learnerSnapshot(me)) : null), [me]);
+
+  // Board visibility (#90 v1): a trust control, so it gets a quiet row here
+  // rather than living only in Settings. Same PATCH path as /progress.
+  const [boardOptOut, setBoardOptOut] = useState(false);
+  useEffect(() => {
+    setBoardOptOut(me?.leaderboardOptOut ?? false);
+  }, [me?.leaderboardOptOut]);
+
+  const toggleBoardOptOut = async () => {
+    const next = !boardOptOut;
+    setBoardOptOut(next);
+    try {
+      await api.patch('/api/v1/me', { leaderboardOptOut: next });
+    } catch {
+      setBoardOptOut(!next);
+    }
+  };
 
   if (loading) return <PageSkeleton />;
   if (error || !me || !started) {
@@ -208,13 +226,28 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* ── 2¾. Student cards: challenges, exam countdown, goals, invites
-          (#13/#17/#20). Staff accounts have no review queue to pace. ── */}
+          (#13/#17/#20). Staff accounts have no review queue to pace.
+          Collapsed by default (#90 v1): four optional surfaces were asking
+          for decisions the hero already answered. `<details>` carries the
+          keyboard and screen-reader semantics for free. ── */}
       {me.role === 'student' && (
-        <motion.div variants={fadeUp} className="grid gap-3 lg:grid-cols-2">
-          <ChallengesCard />
-          <ExamPlanCard />
-          <GoalsCard />
-          <ReferralCard />
+        <motion.div variants={fadeUp}>
+          <details className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 t-strong transition-colors hover:text-muted-foreground [&::-webkit-details-marker]:hidden">
+              Challenges, goals and invites
+              <Icon
+                name="collapse"
+                size={16}
+                className="text-muted-foreground transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <ChallengesCard />
+              <ExamPlanCard />
+              <GoalsCard />
+              <ReferralCard />
+            </div>
+          </details>
         </motion.div>
       )}
 
@@ -310,6 +343,27 @@ export default function DashboardPage() {
           </dl>
         </Card>
       </motion.div>
+
+      {/* ── Board visibility: one quiet row, same control as Settings and
+          /progress — a trust setting, not a preference buried in a menu. ── */}
+      {me.role === 'student' && (
+        <motion.div variants={fadeUp} className="flex items-center justify-between gap-4 px-1">
+          <div className="min-w-0">
+            <label htmlFor="dash-board-visibility" className="t-caption font-semibold">
+              Show me on boards
+            </label>
+            <p className="t-fine text-muted-foreground">
+              Rank, XP and streak stay yours either way.
+            </p>
+          </div>
+          <Switch
+            id="dash-board-visibility"
+            on={!boardOptOut}
+            onToggle={toggleBoardOptOut}
+            label="Show me on boards"
+          />
+        </motion.div>
+      )}
     </motion.div>
   );
 }
