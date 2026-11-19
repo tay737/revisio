@@ -44,7 +44,7 @@ export function ConfidencePicker({
 
   return (
     <div className="mt-3" role="radiogroup" aria-label="Before you check: did you know it?" onKeyDown={onKeyDown}>
-      <p className="t-fine mb-1.5 text-muted-foreground">Before you check: did you know it?</p>
+      <p className="t-fine mb-1.5 text-muted-foreground">Before you check: did you know it? (optional, helps your insights)</p>
       <div className="flex flex-wrap gap-2">
         {options.map((o, i) => {
           const on = value === o.v;

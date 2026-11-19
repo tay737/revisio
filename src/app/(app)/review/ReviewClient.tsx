@@ -1058,7 +1058,7 @@ export default function ReviewClient() {
                     {selected === o.id && <Icon name="reviewed" size={18} />}
                   </button>
                 ))}
-                <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />
+                {!session && <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />}
                 <Button
                   variant="good"
                   size="lg"
@@ -1120,7 +1120,7 @@ export default function ReviewClient() {
                     aria-label="Your answer"
                   />
                 )}
-                <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />
+                {!session && <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />}
                 <Button
                   type="submit"
                   variant="good"
