@@ -6,6 +6,9 @@ import { api } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import { Card } from '@/components/ui/card';
 import { buttonVariants } from '@/lib/button-variants';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Switch } from '@/components/ui/switch';
+import { setQuietMode } from '@/lib/quiet';
 import { dismissOnboarding, readOnboarding, type OnboardingState } from '@/lib/onboarding';
 import { topicSortKey, type Topic } from '@/app/(app)/learn/[subjectId]/shared';
 import type { Me } from '@/lib/useMe';
@@ -32,6 +35,23 @@ type Starter = { id: string; name: string; subjectId: string };
 export function FirstRunCard({ me }: { me: Me }) {
   const [flags, setFlags] = useState<OnboardingState | null>(null);
   const [starter, setStarter] = useState<Starter | null>(null);
+  // Comfort offers (audit #84): quiet mode and session length are decided
+  // before the first session, not discovered later in Settings. Local state
+  // mirrors the pref so the control responds instantly; the PATCH is the
+  // record.
+  const [quiet, setQuiet] = useState(me.prefs?.quietMode ?? false);
+  const [sessionLen, setSessionLen] = useState<5 | 10 | 20>(me.prefs?.sessionLength ?? 20);
+
+  // `/me` refreshes can land after a toggle; keep the controls honest with
+  // whatever the account actually holds.
+  useEffect(() => {
+    setQuiet(me.prefs?.quietMode ?? false);
+    setSessionLen(me.prefs?.sessionLength ?? 20);
+  }, [me.prefs?.quietMode, me.prefs?.sessionLength]);
+
+  const saveComfort = (patch: Record<string, unknown>) => {
+    void api.patch('/api/v1/me', { prefs: patch }).catch(() => undefined);
+  };
 
   const eligible =
     me.role === 'student' && me.srs.totalCards === 0 && (flags ? !flags.dismissed : true);
@@ -185,6 +205,51 @@ export function FirstRunCard({ me }: { me: Me }) {
           </li>
         ))}
       </ol>
+
+      {/* Comfort offers — before the first session is the moment a student
+          decides how the app should feel, not after they have bounced off it. */}
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="t-fine font-semibold text-muted-foreground">Make it yours</p>
+        <div className="mt-1 divide-y divide-border">
+          <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="min-w-0">
+              <label htmlFor="firstrun-quiet" className="t-caption font-semibold">Quiet mode</label>
+              <p className="t-fine text-muted-foreground">Calmer colours, no confetti.</p>
+            </div>
+            <Switch
+              id="firstrun-quiet"
+              on={quiet}
+              onToggle={() => {
+                const next = !quiet;
+                setQuiet(next);
+                setQuietMode(next);
+                saveComfort({ quietMode: next });
+              }}
+              label="Quiet mode"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="min-w-0">
+              <label htmlFor="firstrun-session-len" className="t-caption font-semibold">Cards per session</label>
+              <p className="t-fine text-muted-foreground">Five is a gentle start.</p>
+            </div>
+            <NativeSelect
+              id="firstrun-session-len"
+              className="max-w-[110px]"
+              value={String(sessionLen)}
+              onChange={(e) => {
+                const next = Number(e.target.value) as 5 | 10 | 20;
+                setSessionLen(next);
+                saveComfort({ sessionLength: next });
+              }}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </NativeSelect>
+          </div>
+        </div>
+      </div>
 
       <p className="t-fine mt-3 border-t border-border pt-3 text-muted-foreground">
         Your queue is the cards you are about to forget. A few each day keeps them fresh.
