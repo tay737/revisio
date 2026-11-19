@@ -177,7 +177,7 @@ export default function PracticePage() {
     return { correct, marks, maxMarks };
   }, [log]);
 
-  if (subjects === null) return <PageSkeleton />;
+  if (subjects === null) return <PageSkeleton variant="form" />;
 
   const mathsSubjects = subjects.filter((s) => s.mathsEnabled);
 

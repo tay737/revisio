@@ -137,7 +137,7 @@ export function NotificationsClient() {
             </Button>
           </Card>
         ) : (
-          <PageSkeleton />
+          <PageSkeleton variant="list" />
         )
       ) : items.length === 0 ? (
         <Card className="p-6 text-center">

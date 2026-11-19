@@ -110,7 +110,7 @@ export default function AdminPage() {
     if (!loading && me?.role === 'developer') load();
   }, [me, loading]);
 
-  if (loading) return <PageSkeleton />;
+  if (loading) return <PageSkeleton variant="list" />;
 
   if (me?.role !== 'developer') {
     return (

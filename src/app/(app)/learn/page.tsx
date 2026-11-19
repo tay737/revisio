@@ -65,7 +65,7 @@ export default function LearnPage() {
     }
   };
 
-  if (!subjects || !visible) return <PageSkeleton />;
+  if (!subjects || !visible) return <PageSkeleton variant="list" />;
 
   return (
     <div className="space-y-6">

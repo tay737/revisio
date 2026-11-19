@@ -243,7 +243,7 @@ export default function ExamPage() {
     }
   };
 
-  if (!info) return <PageSkeleton />;
+  if (!info) return <PageSkeleton variant="form" />;
 
   const answeredCount = paper ? paper.filter((q) => (answers[q.id] ?? '').trim()).length : 0;
 

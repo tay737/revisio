@@ -132,7 +132,7 @@ export default function LibraryPage() {
     }
   };
 
-  if (topics === null) return <PageSkeleton />;
+  if (topics === null) return <PageSkeleton variant="list" />;
 
   const questionCount = topics.reduce((n, t) => n + (t.cardCount ?? 0), 0);
   const noteCount = topics.reduce((n, t) => n + (t.lessonCount ?? 0), 0);

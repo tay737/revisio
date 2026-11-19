@@ -180,7 +180,7 @@ export default function SocialPage() {
     }
   };
 
-  if (isLoading) return <PageSkeleton />;
+  if (isLoading) return <PageSkeleton variant="form" />;
 
   // A failed fetch must not render as "consent on, nobody here" — that reads
   // as an empty circle, not an outage. Show the error card instead.

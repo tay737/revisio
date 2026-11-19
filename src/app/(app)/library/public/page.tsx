@@ -85,7 +85,7 @@ export default function PublicDecksPage() {
     }
   };
 
-  if (decks === null) return <PageSkeleton />;
+  if (decks === null) return <PageSkeleton variant="list" />;
 
   const q = query.trim().toLowerCase();
   const visible = q

@@ -12,13 +12,57 @@ function Panel({ className }: { className?: string }) {
   return <Skeleton className={className} />;
 }
 
-export default function PageSkeleton({ variant = 'default' }: { variant?: 'default' | 'reader' }) {
+export default function PageSkeleton({
+  variant = 'default',
+}: {
+  /**
+   * Shape-match the page it stands in for — a skeleton in the wrong shape is
+   * worse than none, because the real layout pops into a different silhouette
+   * and reads as a layout shift. `default` = dashboard-style stat grid +
+   * panels; `reader` = narrow prose column; `list` = header + stacked rows
+   * (rosters, topics, tables); `form` = header + stacked field cards
+   * (settings, pickers).
+   */
+  variant?: 'default' | 'reader' | 'list' | 'form';
+}) {
   if (variant === 'reader') {
     return (
       <div className="mx-auto max-w-xl space-y-4 pt-2" role="status" aria-label="Loading">
         <Skeleton className="h-5 w-28 rounded-full" />
         <Panel className="h-60 rounded-lg" />
         <Panel className="h-14 rounded-lg" />
+      </div>
+    );
+  }
+
+  if (variant === 'list') {
+    return (
+      <div className="space-y-4" role="status" aria-label="Loading">
+        <div className="space-y-2.5">
+          <Skeleton className="h-7 w-44 rounded-md" />
+          <Skeleton className="h-4 w-64 rounded-full" />
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Panel key={i} className="h-16 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === 'form') {
+    return (
+      <div className="space-y-4" role="status" aria-label="Loading">
+        <div className="space-y-2.5">
+          <Skeleton className="h-7 w-44 rounded-md" />
+          <Skeleton className="h-4 w-64 rounded-full" />
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Panel key={i} className="h-28 rounded-lg" />
+          ))}
+        </div>
       </div>
     );
   }

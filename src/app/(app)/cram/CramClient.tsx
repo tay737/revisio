@@ -188,7 +188,7 @@ export default function CramClient() {
     setIdx((i) => i + 1);
   };
 
-  if (!topics) return <PageSkeleton />;
+  if (!topics) return <PageSkeleton variant="reader" />;
 
   /* ── session complete ─────────────────────────────────────────────────── */
   if (session && !card) {

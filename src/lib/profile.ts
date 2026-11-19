@@ -75,12 +75,12 @@ export function sessionSummary(correct: number, total: number): string {
   if (pct === 100) return `${correct} for ${total}. Nothing to redo.`;
   if (pct >= 80) return `${correct} for ${total}. ${total - correct} to look at again.`;
   if (pct >= 50) return `${correct} for ${total}. Read the notes before the next run.`;
-  return `${correct} for ${total}. Go back to the notes; this set is not settled yet.`;
+  return `${correct} for ${total}. Revisit the notes, then run it again.`;
 }
 
 /** Empty-state copy that hands the learner a next action rather than a shrug. */
 export function emptyQueueLine(due: number, streak: number): string {
-  if (due === 0 && streak > 0) return `Your schedule is clear and your ${streak}-day streak is safe. Anything you review now comes off tomorrow.`;
+  if (due === 0 && streak > 0) return `Your schedule is clear and your ${streak}-day streak is safe. Anything you review now is banked for tomorrow.`;
   return 'Your schedule is clear. Cram a topic, read ahead, or come back tomorrow.';
 }
 

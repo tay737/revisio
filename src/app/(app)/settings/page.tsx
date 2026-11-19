@@ -63,7 +63,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader icon="person" title="Settings" subtitle="Your profile, account and how the app behaves." />
-      {loading || !me ? <PageSkeleton /> : <SettingsBody me={me} refresh={refresh} mutate={mutate} router={router} />}
+      {loading || !me ? <PageSkeleton variant="form" /> : <SettingsBody me={me} refresh={refresh} mutate={mutate} router={router} />}
     </div>
   );
 }

@@ -99,7 +99,7 @@ export default function TeacherPage() {
       .then((d) => setMyTopics(d.topics))
       .catch(() => undefined);
 
-  if (loading) return <PageSkeleton />;
+  if (loading) return <PageSkeleton variant="list" />;
 
   if (!me || me.role === 'student') {
     return (

@@ -137,7 +137,7 @@ export default function SubjectScreen() {
     );
   }
 
-  if (!subject || !topics || !subjectsSettled) return <PageSkeleton />;
+  if (!subject || !topics || !subjectsSettled) return <PageSkeleton variant="list" />;
 
   const specMap = new Map<string, { refs: string[]; topics: Topic[] }>();
   for (const t of [...topics].sort(topicSortKey)) {

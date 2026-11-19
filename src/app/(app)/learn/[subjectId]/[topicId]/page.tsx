@@ -138,7 +138,7 @@ export default function TopicScreen() {
     );
   }
 
-  if (!meta || !lessons) return <PageSkeleton />;
+  if (!meta || !lessons) return <PageSkeleton variant="reader" />;
 
   return (
     <div className="space-y-6">

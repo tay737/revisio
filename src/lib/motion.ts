@@ -102,8 +102,11 @@ export const staggerParent = (stagger = 0.05, delayChildren = 0.04): Variants =>
  * like a slideshow instead of an instrument.
  */
 export const routeVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: DUR.base, ease: EASE.out } },
+  // Opacity only, and quick: pages carry their own content reveals (fadeUp
+  // sections, card springs), so a second translate+settle here made every
+  // navigation feel like two animations stacked. The shell just fades.
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: DUR.quick, ease: EASE.out } },
 };
 
 /** Kept as an alias so older call sites keep working. */
