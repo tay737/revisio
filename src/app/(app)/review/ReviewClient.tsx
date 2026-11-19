@@ -220,6 +220,9 @@ export default function ReviewClient() {
   const [dealSize, setDealSize] = useState(20);
   const [poolCount, setPoolCount] = useState(0);
   const [focus, setFocus] = useState(false);
+  // Focus-mode reward signal (#88): the correct-cloze auto-advance has no
+  // verdict stop, so a brief flash is the only "that counted" the learner gets.
+  const [correctFlash, setCorrectFlash] = useState(false);
   const [breaks, setBreaks] = useState(true);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [breakAck, setBreakAck] = useState(0);
@@ -863,10 +866,14 @@ export default function ReviewClient() {
         </div>
       )}
 
-      {/* The session's own progress readout. Green, because you are earning. */}
+      {/* The session's own progress readout. Green, because you are earning.
+          In focus mode this doubles as the one quiet orientation line —
+          topic plus position — since the card header's subject·topic span is
+          hidden there. */}
       <div className="mb-2 flex items-center justify-between">
-        <span className="num t-caption font-semibold text-muted-foreground">
-          {done} / {queue.length}
+        <span className="t-caption font-semibold text-muted-foreground">
+          {focus && card?.topicName && <span className="font-normal">{card.topicName} · </span>}
+          <span className="num">{done} / {queue.length}</span>
         </span>
         <span className="flex items-center gap-2">
           {offline && (
@@ -989,6 +996,23 @@ export default function ReviewClient() {
         />
       </div>
 
+      {/* The focus-mode "that counted" beat: a correct cloze auto-advances
+          with no verdict, so this quiet line is the reward signal. */}
+      <AnimatePresence>
+        {correctFlash && (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={transition.quick}
+            role="status"
+            className="mb-2 text-center t-strong text-good-strong"
+          >
+            Correct
+          </motion.p>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={card.id + (result ? ':verdict' : ':question')}
@@ -1083,7 +1107,20 @@ export default function ReviewClient() {
                   // unfinished answers stop at the verdict as before.
                   void (async () => {
                     const recorded = await submit();
-                    if (recorded?.verdict.correct && card.kind === 'cloze') next();
+                    if (recorded?.verdict.correct && card.kind === 'cloze') {
+                      if (focus) {
+                        // Focus hides the verdict, XP and progress chrome, so
+                        // the auto-advance gets a beat of "Correct" first —
+                        // the reward signal survives, the clutter does not.
+                        setCorrectFlash(true);
+                        window.setTimeout(() => {
+                          setCorrectFlash(false);
+                          next();
+                        }, 800);
+                      } else {
+                        next();
+                      }
+                    }
                   })();
                 }}
               >
