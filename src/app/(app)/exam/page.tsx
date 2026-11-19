@@ -10,6 +10,7 @@ import { NumberTicker } from '@/components/ui/number-ticker';
 import { Confetti, type ConfettiRef } from '@/components/ui/confetti';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Markdown } from '@/components/Markdown';
 import { ReferenceLink } from '@/components/reference-link';
 import { Button } from '@/components/ui/button';
@@ -294,7 +295,7 @@ export default function ExamPage() {
                           return next;
                         })
                       }
-                      className={`chip transition-colors duration-150 ${on ? 'chip-active' : ''}`}
+                      className={`chip transition-colors duration-(--dur-out) ${on ? 'chip-active' : ''}`}
                     >
                       {on && <Icon name="correct" size={13} />}
                       {t.name}
@@ -523,9 +524,11 @@ export default function ExamPage() {
                   {open && (
                     <div className="mt-3 border-t border-border/60 pt-3">
                       {doc === null ? (
-                        <p className="t-caption text-muted-foreground" role="status">
-                          Loading…
-                        </p>
+                        <div className="space-y-2" role="status" aria-label="Loading paper">
+                          <Skeleton className="h-3 w-full" />
+                          <Skeleton className="h-3 w-4/5" />
+                          <Skeleton className="h-3 w-3/5" />
+                        </div>
                       ) : (
                         <Markdown text={doc.contentMd} className="t-caption" />
                       )}

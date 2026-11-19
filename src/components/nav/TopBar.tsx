@@ -56,7 +56,7 @@ export function TopBar({
           type="button"
           onClick={onOpenAccount}
           aria-label="Your account and menu"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card transition-transform duration-150 active:scale-95"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card transition-transform duration-(--dur-snap) active:scale-95"
         >
           <RankCrest rank={rank} size={22} showProgress={false} animate={false} />
         </button>

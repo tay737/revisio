@@ -172,7 +172,7 @@ export function MathsSets({ topics, onDone }: { topics: LibraryTopic[]; onDone: 
                               return n;
                             })
                           }
-                          className={`chip transition-colors duration-150 ${on ? 'chip-active' : ''}`}
+                          className={`chip transition-colors duration-(--dur-out) ${on ? 'chip-active' : ''}`}
                         >
                           {on && <Icon name="correct" size={12} />}
                           {c.name}

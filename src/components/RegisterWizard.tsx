@@ -352,7 +352,7 @@ export default function RegisterWizard({
                           onClick={() => setRole(option.value)}
                           aria-pressed={selected}
                           className={cn(
-                            'flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors duration-150',
+                            'flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors duration-(--dur-out)',
                             selected ? 'border-foreground bg-card' : 'border-border bg-card hover:border-foreground/40',
                           )}
                         >
@@ -452,7 +452,7 @@ export default function RegisterWizard({
                           <span
                             key={n}
                             className={cn(
-                              'h-1 flex-1 rounded-full transition-colors duration-200',
+                              'h-1 flex-1 rounded-full transition-colors duration-(--dur-out)',
                               password.length > 0 && n <= strength.score ? 'bg-foreground' : 'bg-border',
                             )}
                           />
@@ -585,7 +585,7 @@ export default function RegisterWizard({
                               type="button"
                               aria-pressed={on}
                               onClick={() => setSubjectIds((p) => (on ? p.filter((x) => x !== s.id) : [...p, s.id]))}
-                              className={`chip transition-colors duration-150 ${on ? 'chip-active' : ''}`}
+                              className={`chip transition-colors duration-(--dur-out) ${on ? 'chip-active' : ''}`}
                             >
                               {on && <Icon name="correct" size={13} />}
                               {s.name}

@@ -149,7 +149,7 @@ export function RankStrip({
         {/* Lobby status — the weekly stake, with the clock on it. */}
         <Link
           href="/progress"
-          className="group flex w-full shrink-0 items-center justify-between gap-4 rounded-lg border border-border bg-secondary px-4 py-3.5 transition-colors duration-150 hover:border-border-strong sm:w-auto sm:min-w-[210px]"
+          className="group flex w-full shrink-0 items-center justify-between gap-4 rounded-lg border border-border bg-secondary px-4 py-3.5 transition-colors duration-(--dur-out) hover:border-border-strong sm:w-auto sm:min-w-[210px]"
         >
           <div>
             <p className="t-fine text-muted-foreground">
@@ -178,7 +178,7 @@ export function RankStrip({
           <Icon
             name="next"
             size={16}
-            className="text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5"
+            className="text-muted-foreground transition-transform duration-(--dur-snap) group-hover:translate-x-0.5"
           />
         </Link>
       </div>

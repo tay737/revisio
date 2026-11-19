@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
  * Loading placeholder for the self-fetching dashboard cards (#13/#17/#20).
@@ -10,13 +11,13 @@ export function DashboardCardSkeleton() {
   return (
     <Card aria-hidden="true">
       <div className="flex items-center justify-between gap-3">
-        <div className="h-4 w-28 rounded bg-secondary" />
-        <div className="h-3 w-16 rounded bg-secondary/70" />
+        <Skeleton className="h-4 w-28 rounded bg-secondary" />
+        <Skeleton className="h-3 w-16 rounded bg-secondary/70" />
       </div>
       <div className="mt-4 space-y-2.5">
-        <div className="h-3 w-full rounded bg-secondary/70" />
-        <div className="h-3 w-4/5 rounded bg-secondary/70" />
-        <div className="h-3 w-3/5 rounded bg-secondary/70" />
+        <Skeleton className="h-3 w-full rounded bg-secondary/70" />
+        <Skeleton className="h-3 w-4/5 rounded bg-secondary/70" />
+        <Skeleton className="h-3 w-3/5 rounded bg-secondary/70" />
       </div>
     </Card>
   );

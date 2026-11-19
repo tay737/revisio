@@ -382,6 +382,12 @@ html[data-reading="relaxed"] .reading-prose {
   --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* The CSS half of lib/motion.ts's DUR table: snap for transform/shadow
+     presses, out for colour/opacity state changes. JSX reaches them as
+     `duration-(--dur-snap)` / `duration-(--dur-out)` — never a bare ms. */
+  --dur-snap: 90ms;
+  --dur-out: 160ms;
+
   --animate-breathe: breathe 1.4s ease-in-out infinite;
 }
 

@@ -37,7 +37,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-label={label}
       title={label}
       className={cn(
-        'grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur transition-colors duration-150 hover:text-foreground active:scale-95 [&>svg]:size-[18px] [&>svg]:stroke-[1.75]',
+        'grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur transition-colors duration-(--dur-out) hover:text-foreground active:scale-95 [&>svg]:size-[18px] [&>svg]:stroke-[1.75]',
         className,
       )}
     />

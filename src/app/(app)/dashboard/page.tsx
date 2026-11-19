@@ -238,7 +238,7 @@ export default function DashboardPage() {
           
             <Link key={action.href}
               href={action.href}
-              className="card flex h-full flex-col gap-2.5 p-4 transition-colors duration-150 active:bg-secondary hover:border-border-strong"
+              className="card flex h-full flex-col gap-2.5 p-4 transition-colors duration-(--dur-out) active:bg-secondary hover:border-border-strong"
             >
               <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary">
                 <Icon name={action.icon} size={18} />

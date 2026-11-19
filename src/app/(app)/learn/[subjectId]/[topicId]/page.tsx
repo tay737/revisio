@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { api } from '@/lib/api';
+import { api, ApiClientError } from '@/lib/api';
 import { Icon } from '@/components/ui/icons';
 import PageSkeleton from '@/components/PageSkeleton';
 import { PageHeader } from '@/components/PageHeader';
@@ -12,6 +12,7 @@ import { Markdown } from '@/components/Markdown';
 import { SPRING } from '@/lib/motion';
 import { buttonVariants } from '@/lib/button-variants';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { markNotesRead } from '@/lib/onboarding';
 
@@ -35,7 +36,13 @@ export default function TopicScreen() {
   const [meta, setMeta] = useState<TopicMeta | null>(null);
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [density, setDensity] = useState<'detailed' | 'summary'>('detailed');
-  const [failed, setFailed] = useState(false);
+  // `missing` is the only verdict that earns the not-found card: the content
+  // endpoint 404s when the topic is absent or not visible to this user.
+  // Anything else that goes wrong is transient — skeleton stays up and the
+  // error card offers a retry instead of crying wolf mid-load.
+  const [missing, setMissing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const firstPaint = useRef(true);
   const reduce = useReducedMotion();
 
@@ -44,22 +51,31 @@ export default function TopicScreen() {
   useEffect(() => {
     if (!topicId) return;
     let alive = true;
+    setMeta(null);
+    setLessons(null);
+    setMissing(false);
+    setLoadError(false);
+    const fail = (e: unknown) => {
+      if (!alive) return;
+      if (e instanceof ApiClientError && e.status === 404) setMissing(true);
+      else setLoadError(true);
+    };
     api
       .get<{ topic: TopicMeta }>('/api/v1/content?topicId=' + topicId)
       .then((d) => {
         if (alive) setMeta({ name: d.topic.name, description: d.topic.description });
       })
-      .catch(() => setFailed(true));
+      .catch(fail);
     api
       .get<{ lessons: Lesson[] }>('/api/v1/lessons?topicId=' + topicId)
       .then((d) => {
         if (alive) setLessons(d.lessons);
       })
-      .catch(() => setFailed(true));
+      .catch(fail);
     return () => {
       alive = false;
     };
-  }, [topicId]);
+  }, [topicId, attempt]);
 
   // Density has one owner: the account preference (`prefs.noteDensity`). The
   // localStorage copy is a *cache* for first paint only — it means the choice
@@ -94,7 +110,7 @@ export default function TopicScreen() {
     void api.patch('/api/v1/me', { prefs: { noteDensity: density } }).catch(() => undefined);
   }, [density]);
 
-  if (!topicId || failed) {
+  if (!topicId || missing) {
     return (
       <Card className="p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
@@ -105,6 +121,19 @@ export default function TopicScreen() {
         <Link href={subjectId ? `/learn/${subjectId}` : '/learn'} className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
           Back
         </Link>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="p-8 text-center">
+        <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
+        <h2 className="t-tagline mt-4">We couldn’t load this topic.</h2>
+        <p className="t-caption mt-2 text-muted-foreground">Check your connection and try again.</p>
+        <Button type="button" variant="secondary" className="mt-5" onClick={() => setAttempt((a) => a + 1)}>
+          Try again
+        </Button>
       </Card>
     );
   }

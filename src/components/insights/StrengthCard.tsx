@@ -80,6 +80,9 @@ export function StrengthCard({
                   return (
                     <span
                       key={rung.level}
+                      // Height is the chart's one allowed non-transform
+                      // animation (bars grow once on load); no snap/out token
+                      // fits it, so the duration stays literal.
                       className={cn('flex-1 rounded-t-sm transition-[height] duration-500', count === 0 ? 'bg-secondary' : TIER_FILL[tier])}
                       style={{ height: `${Math.max(4, (count / max) * 100)}%` }}
                       title={`${rung.label} · every ${rung.interval ?? 'review'} · ${count} card${count === 1 ? '' : 's'}`}

@@ -58,7 +58,7 @@ export function Sidebar({
               title={item.hint}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'relative flex h-11 items-center gap-3 rounded-md px-3 t-body transition-colors duration-150',
+                'relative flex h-11 items-center gap-3 rounded-md px-3 t-body transition-colors duration-(--dur-out)',
                 active ? 'font-semibold text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
               )}
             >
@@ -80,7 +80,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <Link href="/progress" className="card mt-4 block p-3.5 transition-colors duration-150 hover:border-border-strong">
+      <Link href="/progress" className="card mt-4 block p-3.5 transition-colors duration-(--dur-out) hover:border-border-strong">
         <div className="flex items-center gap-3">
           <RankCrest rank={rank} size={44} />
           <div className="min-w-0">

@@ -82,7 +82,7 @@ export function AccountSheet({
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  'flex min-h-[52px] items-center gap-3.5 rounded-md px-3.5 transition-colors duration-150 active:bg-secondary',
+                  'flex min-h-[52px] items-center gap-3.5 rounded-md px-3.5 transition-colors duration-(--dur-out) active:bg-secondary',
                   active && 'bg-secondary',
                 )}
               >

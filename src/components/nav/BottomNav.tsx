@@ -57,7 +57,7 @@ export function BottomNav({
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'relative flex h-full flex-col items-center justify-center gap-1 transition-[color,transform] duration-150 active:scale-[0.94]',
+                    'relative flex h-full flex-col items-center justify-center gap-1 transition-[color,transform] duration-(--dur-out) active:scale-[0.94]',
                     active ? 'text-foreground' : 'text-muted-foreground',
                   )}
                 >
@@ -97,7 +97,7 @@ export function BottomNav({
               aria-haspopup="dialog"
               aria-label="More destinations"
               className={cn(
-                'relative flex h-full w-full flex-col items-center justify-center gap-1 transition-[color,transform] duration-150 active:scale-[0.94]',
+                'relative flex h-full w-full flex-col items-center justify-center gap-1 transition-[color,transform] duration-(--dur-out) active:scale-[0.94]',
                 overflowActive ? 'text-foreground' : 'text-muted-foreground',
               )}
             >

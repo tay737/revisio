@@ -12,6 +12,7 @@ import { Markdown } from '@/components/Markdown';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { SPRING, transition } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -359,7 +360,7 @@ export default function PracticePage() {
                   type="button"
                   aria-pressed={subjectId === s.id}
                   onClick={() => setSubjectId(s.id)}
-                  className={`chip transition-colors duration-150 ${subjectId === s.id ? 'chip-active' : ''}`}
+                  className={`chip transition-colors duration-(--dur-out) ${subjectId === s.id ? 'chip-active' : ''}`}
                 >
                   {subjectId === s.id && <Icon name="correct" size={13} />}
                   {s.name}
@@ -372,7 +373,13 @@ export default function PracticePage() {
             <>
               <div>
                 <Label>Topics</Label>
-                {topics === null && <p className="t-caption text-muted-foreground">Loading…</p>}
+                {topics === null && (
+                  <div className="flex flex-wrap gap-2" role="status" aria-label="Loading topics">
+                    <Skeleton className="h-9 w-28 rounded-full" />
+                    <Skeleton className="h-9 w-36 rounded-full" />
+                    <Skeleton className="h-9 w-24 rounded-full" />
+                  </div>
+                )}
                 {topics?.length === 0 && <p className="t-caption text-muted-foreground">No topics reach you in this subject yet.</p>}
                 <div className="flex flex-wrap gap-2">
                   {topics?.map((t) => {
@@ -390,7 +397,7 @@ export default function PracticePage() {
                             return n;
                           })
                         }
-                        className={`chip transition-colors duration-150 ${on ? 'chip-active' : ''}`}
+                        className={`chip transition-colors duration-(--dur-out) ${on ? 'chip-active' : ''}`}
                       >
                         {on && <Icon name="correct" size={13} />}
                         {t.name}
@@ -427,7 +434,7 @@ export default function PracticePage() {
                             return n;
                           })
                         }
-                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors duration-150 ${on ? 'border-foreground bg-secondary' : 'border-border/70 hover:bg-border/20'}`}
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors duration-(--dur-out) ${on ? 'border-foreground bg-secondary' : 'border-border/70 hover:bg-border/20'}`}
                       >
                         <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border ${on ? 'border-foreground bg-foreground text-background' : 'border-border-strong'}`}>
                           {on && <Icon name="correct" size={11} strokeWidth={3} />}

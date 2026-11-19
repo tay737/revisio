@@ -128,7 +128,7 @@ export function FirstRunCard({ me }: { me: Me }) {
             setFlags({ ...flags, dismissed: true });
           }}
           aria-label="Hide the getting started checklist"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-(--dur-out) hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <Icon name="close" size={16} />
         </button>
@@ -144,6 +144,8 @@ export function FirstRunCard({ me }: { me: Me }) {
         className="mt-4 h-1 overflow-hidden rounded-full bg-border"
       >
         <div
+          // Progress-meter sweep: transform, but a 90ms snap would read as a
+          // flicker — 300ms matches DUR.base, the meter tempo in lib/motion.
           className="h-full origin-left bg-foreground transition-transform duration-300"
           style={{ transform: `scaleX(${doneCount / steps.length})` }}
         />

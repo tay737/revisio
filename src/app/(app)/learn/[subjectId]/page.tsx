@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icons';
 import { SPRING } from '@/lib/motion';
 import PageSkeleton from '@/components/PageSkeleton';
@@ -27,7 +28,12 @@ export default function SubjectScreen() {
   const [subject, setSubject] = useState<{ name: string; description: string; enrolled: boolean } | null>(null);
   const [topics, setTopics] = useState<Topic[] | null>(null);
   const [specsOpen, setSpecsOpen] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // Same verdict split as the topic screen: `subjectsSettled && subject ===
+  // null` (with topics in) is a definitive absence; a rejected fetch is
+  // transient and earns an inline error + retry, never the not-found card.
+  const [subjectsSettled, setSubjectsSettled] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [query, setQuery] = useState('');
 
   // Same client-side filter as the catalogue page: the topics are already on
@@ -51,17 +57,42 @@ export default function SubjectScreen() {
 
   useEffect(() => {
     if (!subjectId) return;
+    let alive = true;
+    setSubject(null);
+    setTopics(null);
+    setSubjectsSettled(false);
+    setLoadError(false);
     api
       .get<{ subjects: { id: string; name: string; description: string; enrolled: boolean }[] }>('/api/v1/subjects')
-      .then((d) => setSubject(d.subjects.find((s) => s.id === subjectId) ?? null))
-      .catch(() => setFailed(true));
+      .then((d) => {
+        if (alive) {
+          setSubject(d.subjects.find((s) => s.id === subjectId) ?? null);
+          setSubjectsSettled(true);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setSubjectsSettled(true);
+          setLoadError(true);
+        }
+      });
     api
       .get<{ topics: Topic[] }>(`/api/v1/content?subjectId=${subjectId}`)
-      .then((d) => setTopics(d.topics))
-      .catch(() => setTopics([]));
-  }, [subjectId]);
+      .then((d) => {
+        if (alive) setTopics(d.topics);
+      })
+      .catch(() => {
+        if (alive) {
+          setTopics([]);
+          setLoadError(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [subjectId, attempt]);
 
-  if (!subjectId || failed || (topics && subject === null)) {
+  if (!subjectId) {
     return (
       <Card className="p-8 text-center">
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
@@ -76,7 +107,37 @@ export default function SubjectScreen() {
     );
   }
 
-  if (!subject || !topics) return <PageSkeleton />;
+  if (loadError) {
+    return (
+      <Card className="p-8 text-center">
+        <Icon name="due" size={20} className="mx-auto text-destructive-ink" />
+        <h2 className="t-tagline mt-4">We couldn’t load this subject.</h2>
+        <p className="t-caption mt-2 text-muted-foreground">Check your connection and try again.</p>
+        <Button type="button" variant="secondary" className="mt-5" onClick={() => setAttempt((a) => a + 1)}>
+          Try again
+        </Button>
+      </Card>
+    );
+  }
+
+  // Both requests must settle before the verdict: a fast topics response used
+  // to flash "not found" while the subjects list was still in flight.
+  if (subjectsSettled && subject === null && topics !== null) {
+    return (
+      <Card className="p-8 text-center">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary">
+          <Icon name="learn" size={22} />
+        </span>
+        <h2 className="t-tagline mt-4">Subject not found</h2>
+        <p className="t-caption mt-2 text-muted-foreground">It may have been withdrawn, or the link is wrong.</p>
+        <Link href="/learn" className={buttonVariants({ variant: 'primary', className: 'mt-5 inline-flex' })}>
+          Back to Learn
+        </Link>
+      </Card>
+    );
+  }
+
+  if (!subject || !topics || !subjectsSettled) return <PageSkeleton />;
 
   const specMap = new Map<string, { refs: string[]; topics: Topic[] }>();
   for (const t of [...topics].sort(topicSortKey)) {
