@@ -41,13 +41,17 @@ export function FirstRunCard({ me }: { me: Me }) {
   // record.
   const [quiet, setQuiet] = useState(me.prefs?.quietMode ?? false);
   const [sessionLen, setSessionLen] = useState<5 | 10 | 20>(me.prefs?.sessionLength ?? 20);
+  const [focus, setFocus] = useState(me.prefs?.focusMode ?? false);
+  const [breaks, setBreaks] = useState(me.prefs?.breakReminders ?? true);
 
   // `/me` refreshes can land after a toggle; keep the controls honest with
   // whatever the account actually holds.
   useEffect(() => {
     setQuiet(me.prefs?.quietMode ?? false);
     setSessionLen(me.prefs?.sessionLength ?? 20);
-  }, [me.prefs?.quietMode, me.prefs?.sessionLength]);
+    setFocus(me.prefs?.focusMode ?? false);
+    setBreaks(me.prefs?.breakReminders ?? true);
+  }, [me.prefs?.quietMode, me.prefs?.sessionLength, me.prefs?.focusMode, me.prefs?.breakReminders]);
 
   const saveComfort = (patch: Record<string, unknown>) => {
     void api.patch('/api/v1/me', { prefs: patch }).catch(() => undefined);
@@ -247,6 +251,38 @@ export function FirstRunCard({ me }: { me: Me }) {
               <option value="10">10</option>
               <option value="20">20</option>
             </NativeSelect>
+          </div>
+          <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="min-w-0">
+              <label htmlFor="firstrun-focus" className="t-caption font-semibold">Focus sessions</label>
+              <p className="t-fine text-muted-foreground">Hide everything but the card while you review.</p>
+            </div>
+            <Switch
+              id="firstrun-focus"
+              on={focus}
+              onToggle={() => {
+                const next = !focus;
+                setFocus(next);
+                saveComfort({ focusMode: next });
+              }}
+              label="Focus sessions"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 py-2.5">
+            <div className="min-w-0">
+              <label htmlFor="firstrun-breaks" className="t-caption font-semibold">Break reminders</label>
+              <p className="t-fine text-muted-foreground">A nudge every 10 cards.</p>
+            </div>
+            <Switch
+              id="firstrun-breaks"
+              on={breaks}
+              onToggle={() => {
+                const next = !breaks;
+                setBreaks(next);
+                saveComfort({ breakReminders: next });
+              }}
+              label="Break reminders"
+            />
           </div>
         </div>
       </div>
