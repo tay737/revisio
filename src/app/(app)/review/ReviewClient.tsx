@@ -946,6 +946,9 @@ export default function ReviewClient() {
                         </button>
                       ))}
                     </div>
+                    <p className="t-fine mt-1.5 text-muted-foreground">
+                      About {Math.max(1, Math.ceil(dealSize / 2))} min.
+                    </p>
                     {done > 0 && (
                       <p className="t-fine mt-1.5 text-muted-foreground">
                         Locked once you start. “One more card” extends.
