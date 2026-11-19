@@ -6,6 +6,7 @@ import { ApiError, ok, requireUser, route } from '@/services/api';
 import { canManageContent, isDeveloper } from '@/services/roles';
 import { answersForCards, makeSlug, setTopicVisibility, topicContentCounts } from '@/services/content-ops';
 import { reachesUser, topicReaches, type Visibility } from '@/services/visibility';
+import { topicWeakness } from '@/services/stats';
 import { generateClozeProposals } from '@/domain/cloze-gen';
 import { generateQuizCardsFromNotes, type GeneratedCard } from '@/domain/quiz-gen-from-notes';
 import { validateCards, type CardInput } from '@/services/card-input';
@@ -142,7 +143,14 @@ export const GET = route(async (req: NextRequest) => {
       .from(topics)
       .where(and(eq(topics.subjectId, subjectId), topicReaches(user.id)))
       .orderBy(asc(topics.position), asc(topics.name));
-    const counts = await topicContentCounts(user.id, rows.map((r) => r.id), { onlyReachable: true });
+    const topicIds = rows.map((r) => r.id);
+    const [counts, weakness] = await Promise.all([
+      topicContentCounts(user.id, topicIds, { onlyReachable: true }),
+      // Per-topic "cards met" for the subject screen's progress readout —
+      // same reachability rule as the counts above (cardReaches === public
+      // or owner), so met can never exceed the displayed total.
+      topicWeakness(user.id, topicIds),
+    ]);
 
     // The spec references each topic's lessons declare, deduped and in lesson
     // order. One query — the Learn subject screen renders them as the subject's
@@ -163,7 +171,14 @@ export const GET = route(async (req: NextRequest) => {
       }
     }
 
-    return ok({ topics: rows.map((t) => ({ ...t, ...counts.get(t.id), specRefs: specRefs.get(t.id) ?? [] })) });
+    return ok({
+      topics: rows.map((t) => ({
+        ...t,
+        ...counts.get(t.id),
+        met: weakness.get(t.id)?.started ?? 0,
+        specRefs: specRefs.get(t.id) ?? [],
+      })),
+    });
   }
 
   // `?editable=1` asks "which topics may I edit" rather than "which are mine":

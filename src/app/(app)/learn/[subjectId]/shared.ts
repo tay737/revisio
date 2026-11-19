@@ -12,6 +12,8 @@ export type Topic = {
   visibility: string;
   cards?: number;
   lessons?: number;
+  /** Cards the learner has met (a scheduler state exists), out of `cards`. */
+  met?: number;
   /** Spec references declared by the topic's lessons, deduped, in lesson order. */
   specRefs: string[];
 };
@@ -28,18 +30,34 @@ export function unitFromTopic(t: { name: string }): string {
   return /\d/.test(code) ? code : 'Other';
 }
 
-/** Numeric sort on the leading version-like code so 1.10 > 1.2 but 1.2 < 1.10 stays readable. */
+/**
+ * Numeric sort on the leading version-like code so 1.2 < 1.10 < 1.1.11.
+ * Tokens are split on dots AND dashes, then compared segment-by-segment as
+ * numbers — comparing `parseFloat("1.1.11")` against `parseFloat("1.1.3")`
+ * ties at 1.1 and silently falls back to a lexical compare, which is what put
+ * 1.1.11 before 1.1.3 on the subject screen.
+ */
 export function topicSortKey(a: string | Topic, b: string | Topic): number {
-  const ka = (typeof a === 'string' ? a : unitFromTopic(a)).split(/[\s–—-]+/).filter(Boolean);
-  const kb = (typeof b === 'string' ? b : unitFromTopic(b)).split(/[\s–—-]+/).filter(Boolean);
+  const ka = sortTokens(typeof a === 'string' ? a : unitFromTopic(a));
+  const kb = sortTokens(typeof b === 'string' ? b : unitFromTopic(b));
   const n = Math.max(ka.length, kb.length);
   for (let i = 0; i < n; i++) {
-    const va = ka[i] ?? '';
-    const vb = kb[i] ?? '';
-    const na = parseFloat(va);
-    const nb = parseFloat(vb);
-    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
-    if (va !== vb) return va.localeCompare(vb);
+    const va = ka[i];
+    const vb = kb[i];
+    if (va === undefined) return vb === undefined ? 0 : -1;
+    if (vb === undefined) return 1;
+    const na = Number(va);
+    const nb = Number(vb);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+      if (na !== nb) return na - nb;
+      continue;
+    }
+    const c = va.localeCompare(vb);
+    if (c !== 0) return c;
   }
   return 0;
+}
+
+function sortTokens(key: string): string[] {
+  return key.split(/[\s–—.-]+/).filter(Boolean);
 }

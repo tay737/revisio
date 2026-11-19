@@ -55,6 +55,27 @@ export default function SubjectScreen() {
     [topics, query],
   );
 
+  // Grouped under the same unit codes the Specification panel uses, so the
+  // map and the list can never disagree about where a topic lives. Order
+  // inside a group is the API's (position, then name) — stable sort keeps it.
+  const topicGroups = useMemo(() => {
+    const map = new Map<string, Topic[]>();
+    for (const t of orderedTopics) {
+      const unit = unitFromTopic(t);
+      const list = map.get(unit);
+      if (list) list.push(t);
+      else map.set(unit, [t]);
+    }
+    return [...map.entries()];
+  }, [orderedTopics]);
+
+  // "Start here" marks the first topic with questions the learner has not
+  // finished — computed on the unfiltered list so a search never moves it.
+  const startHereId = useMemo(() => {
+    const sorted = [...(topics ?? [])].sort(topicSortKey);
+    return sorted.find((t) => (t.cards ?? 0) > 0 && (t.met ?? 0) < (t.cards ?? 0))?.id ?? null;
+  }, [topics]);
+
   useEffect(() => {
     if (!subjectId) return;
     let alive = true;
@@ -262,55 +283,69 @@ export default function SubjectScreen() {
         {topics.length === 0 && (
           <p className="t-caption text-muted-foreground">No topics under this subject yet.</p>
         )}
-        <ul className="space-y-2">
-          {orderedTopics.map((t, ti) => (
-            <li key={t.id} className="inset overflow-hidden">
-              
-                <div className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
-                <Link
-                  href={`/learn/${subjectId}/${t.id}`}
-                  className="flex min-w-0 flex-1 items-start gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="t-strong block">{t.name}</span>
-                    {t.description && (
-                      <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
-                    )}
-                    {t.specRefs.length > 0 && (
-                      <span className="t-caption-s mt-1 block text-muted-foreground">
-                        {t.specRefs.slice(0, 4).join(' · ')}
-                        {t.specRefs.length > 4 ? ` · +${t.specRefs.length - 4}` : ''}
-                      </span>
-                    )}
-                  </span>
-                  <Badge variant="chip" className="shrink-0">
-                    {t.lessons ?? 0} {(t.lessons ?? 0) === 1 ? 'note' : 'notes'} · {t.cards ?? 0}{' '}
-                    {(t.cards ?? 0) === 1 ? 'question' : 'questions'}
-                  </Badge>
-                </Link>
-                <div className="flex gap-2 sm:shrink-0">
+        {topicGroups.map(([unit, list]) => (
+          <section key={unit} aria-label={unit === 'Other' ? 'Other topics' : `Unit ${unit}`} className="space-y-2">
+            <h3 className="t-strong px-1 text-muted-foreground">
+              {unit === 'Other' ? 'Other topics' : `Unit ${unit}`}
+            </h3>
+            <ul className="space-y-2">
+              {list.map((t) => (
+                <li key={t.id} className="inset overflow-hidden">
+
+                  <div className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
                   <Link
-                    href={`/review?topic=${t.id}`}
-                    className={buttonVariants({ variant: 'primary', size: 'sm', className: 'flex-1 sm:flex-none' })}
-                    aria-label={`Learn ${t.name}`}
+                    href={`/learn/${subjectId}/${t.id}`}
+                    className="flex min-w-0 flex-1 items-start gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                   >
-                    <Icon name="learn" size={14} />
-                    Learn
+                    <span className="min-w-0 flex-1">
+                      <span className="t-strong block">{t.name}</span>
+                      {t.description && (
+                        <span className="t-caption mt-0.5 block text-muted-foreground">{t.description}</span>
+                      )}
+                      {(t.cards ?? 0) > 0 && (
+                        <span className="t-caption-s mt-1 block text-muted-foreground">
+                          {(t.met ?? 0) === (t.cards ?? 0) && (t.cards ?? 0) > 0
+                            ? `All ${t.cards} met`
+                            : `${t.met ?? 0} of ${t.cards} met`}
+                        </span>
+                      )}
+                      {t.specRefs.length > 0 && (
+                        <span className="t-caption-s mt-1 block text-muted-foreground">
+                          {t.specRefs.slice(0, 4).join(' · ')}
+                          {t.specRefs.length > 4 ? ` · +${t.specRefs.length - 4}` : ''}
+                        </span>
+                      )}
+                    </span>
+                    <Badge variant="chip" className="shrink-0">
+                      {t.lessons ?? 0} {(t.lessons ?? 0) === 1 ? 'note' : 'notes'} · {t.cards ?? 0}{' '}
+                      {(t.cards ?? 0) === 1 ? 'question' : 'questions'}
+                    </Badge>
                   </Link>
-                  <Link
-                    href={`/cram?topic=${t.id}`}
-                    className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'flex-1 sm:flex-none' })}
-                    aria-label={`Cram ${t.name}`}
-                  >
-                    <Icon name="cram" size={14} />
-                    Cram
-                  </Link>
+                  <div className="flex gap-2 sm:shrink-0">
+                    <Link
+                      href={`/review?topic=${t.id}`}
+                      className={buttonVariants({ variant: t.id === startHereId ? 'primary' : 'secondary', size: 'sm', className: 'flex-1 sm:flex-none' })}
+                      aria-label={t.id === startHereId ? `Start here: ${t.name}` : `Learn ${t.name}`}
+                    >
+                      <Icon name="learn" size={14} />
+                      {t.id === startHereId ? 'Start here' : 'Learn'}
+                    </Link>
+                    <Link
+                      href={`/cram?topic=${t.id}`}
+                      className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'flex-1 sm:flex-none' })}
+                      aria-label={`Cram ${t.name}`}
+                    >
+                      <Icon name="cram" size={14} />
+                      Cram
+                    </Link>
+                  </div>
                 </div>
-              </div>
-              
-            </li>
-          ))}
-        </ul>
+
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </section>
     </div>
   );
