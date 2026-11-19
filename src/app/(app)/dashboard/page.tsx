@@ -197,7 +197,7 @@ export default function DashboardPage() {
             : streaks.mastery.current === gam.streak
               ? 'Level with your activity streak.'
               : streaks.mastery.current < gam.streak
-                ? `Your activity streak is ${gam.streak - streaks.mastery.current} ${gam.streak - streaks.mastery.current === 1 ? 'day' : 'days'} longer. Mastery counts verified-correct days only.`
+                ? `Mastery counts verified-correct days only. Yours is ${gam.streak - streaks.mastery.current} ${gam.streak - streaks.mastery.current === 1 ? 'day' : 'days'} behind.`
                 : 'Counts days with a verified-correct review only.'}
         </p>
       )}

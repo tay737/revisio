@@ -451,10 +451,6 @@ function SeasonBoard({
         <h3 className="t-tagline">Season board</h3>
         <span className="t-fine text-muted-foreground">Resets with the season</span>
       </header>
-      <p className="mt-1 t-caption leading-relaxed text-muted-foreground">
-        Everybody on this board started {season.label.toLowerCase()} on Bronze III. Ordered by XP earned
-        inside the window.
-      </p>
 
       {board.length === 0 ? (
         <p className="mt-4 t-caption text-muted-foreground">
@@ -534,8 +530,7 @@ function Showcase({
 
       {history.length === 0 ? (
         <p className="mt-4 t-caption leading-relaxed text-muted-foreground">
-          Nothing to show yet. No season has closed since your first ten reviews. When one does, the rank
-          you hold on its last day is recorded here with the reward that tier earns.
+          Nothing yet. Your rank on a season's last day is recorded here when one closes.
         </p>
       ) : (
         <ul className="mt-4 space-y-3">

@@ -1207,7 +1207,7 @@ function FirstExposureReport({
 
       <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-muted-foreground">
         {remaining === 0
-          ? `You have met all ${session.progress.total} questions in “${session.topic.name}”. They now come back on their own schedule, so you do not need to chase them.`
+          ? `You have met all ${session.progress.total} questions in “${session.topic.name}”.`
           : `${met} of ${session.progress.total} met in “${session.topic.name}”. ${remaining} still to meet. They will keep.`}
       </p>
 

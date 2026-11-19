@@ -242,8 +242,8 @@ export function SeasonManager() {
       <div className="space-y-2">
         {rows.length === 0 && (
           <p className="t-caption leading-relaxed text-muted-foreground">
-            No seasons configured. Until one exists the app falls back to a fixed ninety-day schedule from
-            5 January 2026, so the rank still works. It just cannot be moved.
+            No seasons configured. The app falls back to a fixed ninety-day schedule from 5 January 2026,
+            so rank still works but cannot be moved.
           </p>
         )}
         {rows.map((row) => {
