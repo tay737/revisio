@@ -78,10 +78,24 @@ export function StudentProgressPanel({
       <SheetContent
         side={wide ? 'right' : 'bottom'}
         showCloseButton={false}
-        // On phones this reads as a page, not a card: full width, modest top
-        // corners — the heavy rounded-t-3xl sheet chrome belongs to transient
-        // panels, and this one holds a whole progress report.
-        className={cn('overflow-y-auto', !wide && 'data-[side=bottom]:rounded-t-lg')}
+        // SheetContent ships no padding of its own — SheetHeader/Footer carry
+        // it and this panel uses neither, so every block touched the edges.
+        // px gutters on both breakpoints; bottom padding stays with the phone
+        // sheet's safe-area inset.
+        //
+        // Desktop reads as a floating panel, not a flush slab: inset from the
+        // viewport on all four sides, fully rounded, widened for the body's
+        // two-column grids. side=right only ever renders at sm+ (the `wide`
+        // gate), so these data-side overrides can't leak onto the bottom
+        // sheet. Width mirrors the base's `data-[side=right]:sm:` variant
+        // stack so the merge resolves in this class's favour.
+        className={cn(
+          'overflow-y-auto px-5 pt-5 data-[side=right]:pb-5 sm:px-6',
+          'data-[side=right]:inset-y-4 data-[side=right]:right-4 data-[side=right]:h-auto',
+          'data-[side=right]:rounded-2xl data-[side=right]:border data-[side=right]:shadow-overlay',
+          'data-[side=right]:sm:w-[500px] data-[side=right]:sm:max-w-[500px]',
+          !wide && 'data-[side=bottom]:rounded-t-lg',
+        )}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-4">
@@ -123,7 +137,11 @@ export function StudentProgressPanel({
             sheet's swipe-dismiss zone. "n of N" says where you are; the
             chevrons step through without closing the sheet. */}
         {siblings && onNavigate && index >= 0 && list.length > 1 && (
-          <div className="mt-auto flex items-center justify-center gap-3 border-t border-border/60 py-3">
+          // Sticky so prev/next + "n of N" stay reachable while a long report
+          // scrolls; the negative margins bleed it to the sheet edges so
+          // scrolled content can't peek through the gutters, and bg-card
+          // keeps it opaque. mt-auto still pins it when content is short.
+          <div className="sticky bottom-0 -mx-5 mt-auto flex items-center justify-center gap-3 border-t border-border/60 bg-card px-5 py-3 sm:-mx-6 sm:px-6">
             <Button
               variant="ghost"
               size="icon-lg"
