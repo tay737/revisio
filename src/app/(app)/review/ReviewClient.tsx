@@ -798,6 +798,10 @@ export default function ReviewClient() {
 
       {/* First exposure puts the reading beside the question. A first attempt at
           material you have not met is a guess, so the notes are one tap away.
+          They are the TOPIC's notes, not a claim that any one covers the card
+          in front of you — card→lesson mapping is editorial data and can be
+          absent or wrong (audit #77), so the panel is titled honestly and only
+          a card's own lessonId may name a specific lesson (ReferenceLink).
           They start collapsed so the question owns the screen, but the pulsing
           dot on the summary makes the affordance unmissable — the web comment
           once claimed "open by default" while the code said closed; the pulsing
@@ -817,7 +821,7 @@ export default function ReviewClient() {
             <details className="card p-0" open={notesOpen} onToggle={(e) => setNotesOpen((e.target as HTMLDetailsElement).open)}>
               <summary className="flex cursor-pointer items-center gap-2.5 px-4 py-3.5">
                 <Icon name="notes" size={16} className="shrink-0" />
-                <span className="t-strong">Read first</span>
+                <span className="t-strong">Topic notes</span>
                 {!notesOpen && (
                   <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-info opacity-60" />
