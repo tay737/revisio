@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { TopicPicker } from '@/components/TopicPicker';
 
 type AoSplit = { ao: string; marks: number };
 type ExamQuestion = {
@@ -140,7 +141,20 @@ type Marked = {
   xpAwarded: number;
   aoProfile: { ao: string; awarded: number; available: number; percentage: number }[] | null;
 };
-type ExamInfo = { topics: { id: string; name: string }[]; questionsAvailable: number; papers: StoredPaper[]; attempts: Attempt[] };
+type ExamInfo = {
+  topics: {
+    id: string;
+    name: string;
+    subjectId: string;
+    subjectName: string;
+    /** mastered/started; null = never studied. */
+    weakness: number | null;
+    questionCount: number;
+  }[];
+  questionsAvailable: number;
+  papers: StoredPaper[];
+  attempts: Attempt[];
+};
 
 /**
  * Exam simulator.
@@ -279,30 +293,20 @@ export default function ExamPage() {
             {info.topics.length === 0 ? (
               <p className="t-caption text-muted-foreground">No exam topics are available on this deployment yet.</p>
             ) : (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Topics in this paper">
-                {info.topics.map((t) => {
-                  const on = picked.has(t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() =>
-                        setPicked((p) => {
-                          const next = new Set(p);
-                          if (next.has(t.id)) next.delete(t.id);
-                          else next.add(t.id);
-                          return next;
-                        })
-                      }
-                      className={`chip transition-colors duration-(--dur-out) ${on ? 'chip-active' : ''}`}
-                    >
-                      {on && <Icon name="correct" size={13} />}
-                      {t.name}
-                    </button>
-                  );
-                })}
-              </div>
+              <TopicPicker
+                items={info.topics.map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  subjectName: t.subjectName,
+                  count: t.questionCount,
+                  weakness: t.weakness,
+                }))}
+                picked={picked}
+                onPick={setPicked}
+                storageKey="exam"
+                autoPick
+                ariaLabel="Topics in this paper"
+              />
             )}
           </div>
 

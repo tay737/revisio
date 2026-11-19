@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { examAttempts, examQuestions, topics } from '@/db/schema';
+import { examAttempts, examQuestions, subjects, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { getExamPaper, listExamPapers, submitExam } from '@/services/study';
 import { topicReaches } from '@/services/visibility';
+import { topicWeakness } from '@/services/stats';
 
 /**
  * The visibility filter for exam topic selection — the same rule as everywhere
@@ -26,18 +27,40 @@ export const GET = route(async (req: NextRequest) => {
   const subjectId = req.nextUrl.searchParams.get('subjectId');
 
   const topicsPool = await db
-    .select({ id: topics.id, name: topics.name })
+    .select({ id: topics.id, name: topics.name, subjectId: topics.subjectId, subjectName: subjects.name })
     .from(topics)
+    .innerJoin(subjects, eq(subjects.id, topics.subjectId))
     .where(subjectId ? and(eq(topics.subjectId, subjectId), topicReaches(user.id)) : topicReaches(user.id));
   const topicIds = topicsPool.map((t) => t.id);
-  const [count, papers] = await Promise.all([
+  const [count, papers, weakness, perTopic] = await Promise.all([
     topicIds.length
       ? db.select({ id: examQuestions.id }).from(examQuestions).where(inArray(examQuestions.topicId, topicIds))
       : Promise.resolve([] as { id: string }[]),
     subjectId ? listExamPapers(subjectId) : Promise.resolve([]),
+    topicWeakness(user.id, topicIds),
+    topicIds.length
+      ? db
+          .select({ topicId: examQuestions.topicId, c: sql<number>`count(*)::int` })
+          .from(examQuestions)
+          .where(inArray(examQuestions.topicId, topicIds))
+          .groupBy(examQuestions.topicId)
+      : Promise.resolve([] as { topicId: string; c: number }[]),
   ]);
+  const qCount = new Map(perTopic.map((r) => [r.topicId, r.c]));
   const attempts = await db.select().from(examAttempts).where(eq(examAttempts.userId, user.id)).orderBy(desc(examAttempts.createdAt)).limit(20);
-  return ok({ topics: topicsPool, questionsAvailable: count.length, papers, attempts });
+  return ok({
+    topics: topicsPool.map((t) => {
+      const w = weakness.get(t.id);
+      return {
+        ...t,
+        weakness: w && w.started > 0 ? w.mastered / w.started : null,
+        questionCount: qCount.get(t.id) ?? 0,
+      };
+    }),
+    questionsAvailable: count.length,
+    papers,
+    attempts,
+  });
 });
 
 /** POST /exam { topicIds, answers } — build a paper or submit answers.

@@ -24,8 +24,18 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { TopicPicker } from '@/components/TopicPicker';
 
-type CramTopic = { id: string; name: string; visibility: string; subjectId: string; cardCount: number };
+type CramTopic = {
+  id: string;
+  name: string;
+  visibility: string;
+  subjectId: string;
+  subjectName: string;
+  cardCount: number;
+  /** mastered/started; null = never studied. */
+  weakness: number | null;
+};
 type Note = { topicId: string; title: string; contentMd: string; specRefs: string };
 type QueueCard = {
   id: string;
@@ -430,31 +440,22 @@ export default function CramClient() {
               None of your topics have questions yet. <Link href="/library" className="text-foreground underline underline-offset-4">Add some</Link> and they will show up here.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {withCards.map((t) => {
-                const on = picked.has(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() =>
-                      setPicked((p) => {
-                        const nextSet = new Set(p);
-                        if (nextSet.has(t.id)) nextSet.delete(t.id);
-                        else nextSet.add(t.id);
-                        return nextSet;
-                      })
-                    }
-                    className={`chip transition-colors duration-(--dur-out) ${on ? 'chip-active' : ''}`}
-                  >
-                    {on && <Icon name="correct" size={13} />}
-                    {t.name}
-                    <span className="text-muted-foreground">{t.cardCount}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <TopicPicker
+              items={withCards.map((t) => ({
+                id: t.id,
+                name: t.name,
+                subjectName: t.subjectName,
+                count: t.cardCount,
+                weakness: t.weakness,
+              }))}
+              picked={picked}
+              onPick={setPicked}
+              storageKey="cram"
+              // An explicit ?topic= from a Learn row wins over the remembered
+              // selection; otherwise the picker restores it, or weakest-3 first.
+              autoPick={!preselected}
+              ariaLabel="Topics to cram"
+            />
           )}
         </div>
 

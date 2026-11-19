@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { cramSessions, lessons, topics } from '@/db/schema';
+import { cramSessions, lessons, subjects, topics } from '@/db/schema';
 import { ApiError, ok, requireUser, route } from '@/services/api';
 import { buildCramQueue, CRAM_MAX_PER_TOPIC } from '@/services/study';
 import { topicContentCounts } from '@/services/content-ops';
 import { topicReaches } from '@/services/visibility';
+import { topicWeakness } from '@/services/stats';
 
 /**
  * Cram — the picker and the session.
@@ -21,18 +22,35 @@ import { topicReaches } from '@/services/visibility';
 export const GET = route(async (req: NextRequest) => {
   const user = await requireUser(req);
   const rows = await db
-    .select({ id: topics.id, name: topics.name, visibility: topics.visibility, subjectId: topics.subjectId })
+    .select({
+      id: topics.id,
+      name: topics.name,
+      visibility: topics.visibility,
+      subjectId: topics.subjectId,
+      subjectName: subjects.name,
+    })
     .from(topics)
+    .innerJoin(subjects, eq(subjects.id, topics.subjectId))
     .where(topicReaches(user.id));
 
-  const counts = await topicContentCounts(user.id, rows.map((r) => r.id), { onlyReachable: true });
+  const ids = rows.map((r) => r.id);
+  const [counts, weakness] = await Promise.all([
+    topicContentCounts(user.id, ids, { onlyReachable: true }),
+    topicWeakness(user.id, ids),
+  ]);
 
   return ok({
-    topics: rows.map((t) => ({
-      ...t,
-      lessonCount: counts.get(t.id)?.lessons ?? 0,
-      cardCount: Math.min(counts.get(t.id)?.cards ?? 0, CRAM_MAX_PER_TOPIC),
-    })),
+    topics: rows.map((t) => {
+      const w = weakness.get(t.id);
+      return {
+        ...t,
+        lessonCount: counts.get(t.id)?.lessons ?? 0,
+        cardCount: Math.min(counts.get(t.id)?.cards ?? 0, CRAM_MAX_PER_TOPIC),
+        // mastered/started; null when the learner has never touched the topic —
+        // the picker ranks "never studied" as the weakest gap there is.
+        weakness: w && w.started > 0 ? w.mastered / w.started : null,
+      };
+    }),
   });
 });
 

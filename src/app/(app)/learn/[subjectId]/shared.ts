@@ -21,7 +21,7 @@ export type Topic = {
  * separator ("1.1.1 – 1.1.2 Pattern Recognition" → "1.1.1 – 1.1.2"). Topics
  * without a code land in "Other". Pure presentation-ordering, not data.
  */
-export function unitFromTopic(t: Topic): string {
+export function unitFromTopic(t: { name: string }): string {
   const m = t.name.match(/^([\d.]+(?:\s*[–—-]\s*[\d.]+)?)/);
   if (!m) return 'Other';
   const code = m[1].trim();

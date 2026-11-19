@@ -1,8 +1,8 @@
 import 'server-only';
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { readReplica } from '@/db/replica';
 import { cardUserStates, cards, reviewLogs, topics, userSubjects, userTopicStates } from '@/db/schema';
-import { enrolledSubjectIds, studiableCard } from '@/services/visibility';
+import { cardReaches, enrolledSubjectIds, studiableCard } from '@/services/visibility';
 
 function startOfToday(): Date {
   const d = new Date();
@@ -79,4 +79,30 @@ export async function topicMastery(userId: string) {
       .where(studiableCard(userId, enrolled))
       .groupBy(topics.id, topics.name, topics.subjectId),
   );
+}
+
+/**
+ * Per-topic mastery ratio for hand-picked topic sets (cram, exam). Scoped by
+ * `cardReaches` — not `studiableCard` — because picker topics come from
+ * `topicReaches`, not enrolment. Returns only topics that have reachable
+ * cards; callers treat a missing entry as "no data", not "no cards".
+ */
+export async function topicWeakness(userId: string, topicIds: string[]) {
+  const map = new Map<string, { started: number; mastered: number }>();
+  if (topicIds.length === 0) return map;
+  const rows = await readReplica((rdb) =>
+    rdb
+      .select({
+        topicId: topics.id,
+        started: sql<number>`count(distinct case when ${cardUserStates.cardId} is not null then ${cards.id} end)::int`,
+        mastered: sql<number>`count(distinct case when ${cardUserStates.stage} = 'mastered' then ${cards.id} end)::int`,
+      })
+      .from(topics)
+      .innerJoin(cards, eq(cards.topicId, topics.id))
+      .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
+      .where(and(inArray(topics.id, topicIds), cardReaches(userId)))
+      .groupBy(topics.id),
+  );
+  for (const r of rows) map.set(r.topicId, { started: r.started, mastered: r.mastered });
+  return map;
 }
