@@ -86,7 +86,7 @@ export interface Me {
      *  earned every 7th consecutive day, capped at 3. */
     streakFreezes: number;
   };
-  today: { due: number; reviewed: number; correct: number };
+  today: { due: number; dueCount: number; newCount: number; newRemaining: number; reviewed: number; correct: number };
   /** The learner's own 12-level SRS strength distribution (zero-filled), with
    *  the mean rung — the dashboard's strength card renders straight from it. */
   srs: { levels: number[]; avgLevel: number | null; totalCards: number };

@@ -17,6 +17,8 @@ import { cardReaches, enrolledSubjectIds, lessonReaches, studiableCard, studiabl
 import { recordServerEvent } from '@/services/analytics';
 import { examAwareEnabled, examDatesForUser, type ExamDateEntry } from '@/services/exam-schedule';
 import { requiredAssignmentTopicIds } from '@/services/class-assignments';
+import { newCardsAvailableToday } from '@/domain/daily-queue';
+import { newCardsIntroducedToday } from '@/services/introduced';
 
 // ── algorithms config (dev-tunable via feature flag payload) ────────────────
 
@@ -96,52 +98,62 @@ export async function buildDailyQueue(userId: string, limit = 20, topicId?: stri
     ? examTopicIds.map((id) => examMap.get(id)!.examDate).sort().at(-1)!
     : null;
 
-  // The early `return []` when unenrolled is gone on purpose: a deck you wrote
-  // or imported yourself is yours to study whether or not you follow the
-  // subject it sits under. That single line is why "no questions are ever
-  // added" — 28 cards existed and none of them could be reached.
-  const rows = await db
-    .select({
-      card: cards,
-      topic: topics,
-      subject: subjects,
-      state: cardUserStates,
-      lesson: lessons,
-    })
-    .from(cards)
-    .innerJoin(topics, eq(cards.topicId, topics.id))
-    .innerJoin(subjects, eq(topics.subjectId, subjects.id))
-    .leftJoin(
-      cardUserStates,
-      and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId))
-    )
-    // The lesson join carries its own reachability: an unreachable or missing
-    // lesson resolves to NULL here, which the mapper turns into the topic-link
-    // degrade rather than a 404 the learner can tap.
-    .leftJoin(lessons, and(eq(lessons.id, cards.lessonId), lessonReaches(userId)))
-    .where(
-      and(
-        studiableCard(userId, enrolled),
-        // due: new cards, state with dueAt <= now — plus, when exam-aware
-        // scheduling is on, exam-topic cards that will come due on or before
-        // their exam day (the pull-forward; per-topic precision is applied
-        // in JS after the fetch).
-        or(
-          isNull(cardUserStates.cardId),
-          sql`${cardUserStates.dueAt} <= ${now.toISOString()}`,
-          ...(maxExamDate
-            ? [and(inArray(cards.topicId, examTopicIds), lte(cardUserStates.dueAt, new Date(`${maxExamDate}T23:59:59.999Z`)))]
-            : []),
-        )!,
-        // Weak-topic review (#18): scope the same due queue to one topic so a
-        // recommendation can be acted on in one tap.
-        ...(topicId ? [eq(cards.topicId, topicId)] : [])
+  // #78: brand-new cards are rationed per day. A first-ever review today —
+  // daily or first exposure — spends from the same allowance, so learning a
+  // topic cannot refill the daily queue past the cap. Reviewed cards keep the
+  // normal due rule and are fetched separately so a huge unseen catalogue can
+  // never starve them out of the SQL limit.
+  const dayStart = startOfToday();
+  const newAllowance = newCardsAvailableToday(await newCardsIntroducedToday(userId, dayStart), Number.MAX_SAFE_INTEGER);
+  const topicFilter = topicId ? [eq(cards.topicId, topicId)] : [];
+  const queueSelect = () =>
+    db
+      .select({
+        card: cards,
+        topic: topics,
+        subject: subjects,
+        state: cardUserStates,
+        lesson: lessons,
+      })
+      .from(cards)
+      .innerJoin(topics, eq(cards.topicId, topics.id))
+      .innerJoin(subjects, eq(topics.subjectId, subjects.id))
+      .leftJoin(
+        cardUserStates,
+        and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId))
       )
-    )
-    // Wider fetch when reprioritisation is active: JS re-sorts and re-slices
-    // below, so the SQL limit must leave headroom for cards it will drop.
-    .orderBy(sql`CASE WHEN ${cardUserStates.cardId} IS NULL THEN 0 ELSE 1 END`, cardUserStates.dueAt, cards.createdAt)
-    .limit(maxExamDate || assignedTopics.size > 0 ? limit * 4 : limit);
+      // The lesson join carries its own reachability: an unreachable or missing
+      // lesson resolves to NULL here, which the mapper turns into the topic-link
+      // degrade rather than a 404 the learner can tap.
+      .leftJoin(lessons, and(eq(lessons.id, cards.lessonId), lessonReaches(userId)));
+
+  const [newRows, dueRows] = await Promise.all([
+    newAllowance > 0
+      ? queueSelect()
+          .where(and(studiableCard(userId, enrolled), isNull(cardUserStates.cardId), ...topicFilter))
+          .orderBy(cards.createdAt)
+          .limit(newAllowance)
+      : Promise.resolve([]),
+    queueSelect()
+      .where(
+        and(
+          studiableCard(userId, enrolled),
+          sql`${cardUserStates.cardId} is not null`,
+          or(
+            sql`${cardUserStates.dueAt} <= ${now.toISOString()}`,
+            ...(maxExamDate
+              ? [and(inArray(cards.topicId, examTopicIds), lte(cardUserStates.dueAt, new Date(`${maxExamDate}T23:59:59.999Z`)))]
+              : []),
+          )!,
+          ...topicFilter,
+        )
+      )
+      // Wider fetch when reprioritisation is active: JS re-sorts and re-slices
+      // below, so the SQL limit must leave headroom for cards it will drop.
+      .orderBy(cardUserStates.dueAt, cards.createdAt)
+      .limit(maxExamDate || assignedTopics.size > 0 ? limit * 4 : limit),
+  ]);
+  const rows = [...newRows, ...dueRows];
 
   const mapped = rows.map(({ card, topic, subject, state, lesson }) => ({
     id: card.id,

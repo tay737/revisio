@@ -127,8 +127,15 @@ export const POST = route(async (req: NextRequest) => {
   await sendVerificationEmail(user.email, token);
 
   // No mail provider configured (dev/self-host): surface the link so the flow
-  // still works. Once RESEND_API_KEY is set, delivery is by email only.
+  // still works — but only outside production. A production deployment without
+  // RESEND_API_KEY must never put a live verification token in an API response
+  // or on a screen; the token stays server-side and the client gets the same
+  // "check your inbox" answer as a configured deployment (#81).
   const emailConfigured = !!process.env.RESEND_API_KEY;
+  const devVerifyUrl =
+    !emailConfigured && process.env.NODE_ENV !== 'production'
+      ? `/verify-email?token=${token}`
+      : undefined;
   return ok(
     {
       id: user.id,
@@ -142,7 +149,7 @@ export const POST = route(async (req: NextRequest) => {
       // approval". `pendingApproval` is the flag the web form already reads.
       ...(requestedRole !== 'student' ? { pendingApproval: true } : {}),
       ...(unavailableSubjects.length > 0 ? { unavailableSubjects } : {}),
-      ...(emailConfigured ? {} : { verifyUrl: `/verify-email?token=${token}` }),
+      ...(devVerifyUrl ? { verifyUrl: devVerifyUrl } : {}),
     },
     { status: 201 },
   );

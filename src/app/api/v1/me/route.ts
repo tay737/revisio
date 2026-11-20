@@ -38,7 +38,9 @@ export const GET = route(async (req: NextRequest) => {
       db.select().from(users).where(eq(users.id, user.id)).limit(1),
     ]);
     const [subsRes, xpRes, achRes, statsRes, srsRes] = await Promise.all([
-      rdb
+      // Own enrolments are first-run state: read them on the primary with the
+      // identity row so a just-picked subject is present immediately (#85).
+      db
         .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
         .from(userSubjects)
         .innerJoin(subjects, eq(userSubjects.subjectId, subjects.id))
@@ -66,7 +68,14 @@ export const GET = route(async (req: NextRequest) => {
     const totalXp = xpRes;
     const { level, intoLevel, forNext } = levelForXp(totalXp);
     const stats = statsRes;
-    const today = { due: stats.dueCount + stats.newCount, reviewed: stats.reviewsToday, correct: stats.correctToday };
+    const today = {
+      due: stats.dueCount + stats.newCount,
+      dueCount: stats.dueCount,
+      newCount: stats.newCount,
+      newRemaining: stats.newRemaining,
+      reviewed: stats.reviewsToday,
+      correct: stats.correctToday,
+    };
 
     // The 12 rungs, zero-filled; the average comes off the same counts so the
     // headline and the bars cannot disagree.

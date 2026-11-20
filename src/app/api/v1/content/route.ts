@@ -311,7 +311,7 @@ export const PATCH = route(async (req: NextRequest) => {
   if (body.action === 'generate_from_notes') {
     if (!body.topicId) throw new ApiError(400, 'bad_request', 'topicId required.');
     const topic = await assertCanEditTopic(body.topicId);
-    const topicLessons = await db.select({ title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd, specRefs: lessons.specRefs }).from(lessons).where(eq(lessons.topicId, body.topicId));
+    const topicLessons = await db.select({ id: lessons.id, title: lessons.title, detailedMd: lessons.detailedMd, summaryMd: lessons.summaryMd, specRefs: lessons.specRefs }).from(lessons).where(eq(lessons.topicId, body.topicId));
     const existingCloze = await db.select({ textWithBlank: cards.textWithBlank, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'cloze')));
     const existingFlashcard = await db.select({ prompt: cards.prompt, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'flashcard')));
     const existingMcq = await db.select({ question: cards.question, id: cards.id }).from(cards).where(and(eq(cards.topicId, body.topicId), eq(cards.kind, 'mcq')));
@@ -322,17 +322,22 @@ export const PATCH = route(async (req: NextRequest) => {
     );
     if (incoming.length === 0) throw new ApiError(400, 'bad_request', 'No generateable quiz cards found in the topic notes. Add prose the generator can blank or cue from, then try again.');
 
+    // Generated cards know which lesson they came from by title; persist that
+    // link so the verdict's "Read the lesson" lands on the note that taught the
+    // card rather than degrading to the whole topic (#77).
+    const lessonIdByTitle = new Map(topicLessons.map((l) => [l.title, l.id]));
     let inserted = 0;
     for (const card of incoming) {
       const cardId = crypto.randomUUID();
+      const lessonId = lessonIdByTitle.get(card.lessonTitle) ?? null;
       if (card.kind === 'cloze') {
         await db.insert(cards).values({
-          id: cardId, topicId: topic.id, kind: 'cloze', textWithBlank: card.textWithBlank ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+          id: cardId, topicId: topic.id, lessonId, kind: 'cloze', textWithBlank: card.textWithBlank ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
         });
         await db.insert(cardAnswers).values({ id: crypto.randomUUID(), cardId, text: card.answer ?? '', isPrimary: true });
       } else if (card.kind === 'flashcard') {
         await db.insert(cards).values({
-          id: cardId, topicId: topic.id, kind: 'flashcard', prompt: card.prompt ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
+          id: cardId, topicId: topic.id, lessonId, kind: 'flashcard', prompt: card.prompt ?? '', explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
         });
         // First keyword is the anchor a correct answer must contain; the rest
         // are supporting phrases — all-required would fail honest paraphrases.
@@ -345,7 +350,7 @@ export const PATCH = route(async (req: NextRequest) => {
       } else {
         const correctId = `o${card.options?.indexOf(card.correctOptionText ?? '') ?? 0}`;
         await db.insert(cards).values({
-          id: cardId, topicId: topic.id, kind: 'mcq', question: card.question ?? '',
+          id: cardId, topicId: topic.id, lessonId, kind: 'mcq', question: card.question ?? '',
           options: (card.options ?? []).map((text, i) => ({ id: `o${i}`, text })), correctOptionId: correctId,
           explanationMd: card.explanationMd ?? '', visibility: topic.visibility, ownerId: topic.ownerId, generated: true,
         });

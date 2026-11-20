@@ -191,9 +191,10 @@ export default function DashboardPage() {
         <FirstRunCard me={me} />
       </motion.div>
 
-      {/* ── 2. Four numbers ──────────────────────────────────────────────── */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat icon="review" label="Due" value={today.due} tone={today.due > 0 ? 'good' : undefined} />
+      {/* ── 2. Five numbers: due and new are separate queues (#78) ──────── */}
+      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Stat icon="review" label="Due" value={today.dueCount} tone={today.dueCount > 0 ? 'good' : undefined} />
+        <Stat icon="learn" label="New today" value={today.newCount} tone={today.newCount > 0 ? 'good' : undefined} />
         <Stat icon="reviewed" label="Done today" value={today.reviewed} />
         <Stat
           icon="streak"

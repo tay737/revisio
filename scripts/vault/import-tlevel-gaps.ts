@@ -313,7 +313,7 @@ async function main() {
     topicsWritten++;
 
     // lessons
-    const lessonRows: { title: string; detailedMd: string; summaryMd: string; specRefs: string }[] = [];
+    const lessonRows: { id: string; title: string; detailedMd: string; summaryMd: string; specRefs: string }[] = [];
     for (const [li, lf] of t.lessons.entries()) {
       const raw = readFileSync(lf.file, 'utf8');
       const detailedMd = cleanNote(raw, !!lf.stub);
@@ -331,7 +331,7 @@ async function main() {
         });
       }
       lessonsWritten++;
-      lessonRows.push({ title, detailedMd, summaryMd, specRefs: lf.specRefs });
+      lessonRows.push({ id: lessonId, title, detailedMd, summaryMd, specRefs: lf.specRefs });
     }
 
     // cards — same generator + insert shape as POST /api/v1/content generate_from_notes
@@ -352,14 +352,19 @@ async function main() {
     const seenCloze = new Set(existingCloze.map((c) => c.textWithBlank ?? ''));
     const seenFc = new Set(existingFlashcard.map((c) => c.prompt ?? ''));
     const seenMcq = new Set(existingMcq.map((c) => c.question ?? ''));
+    const lessonIdByTitle = new Map(lessonRows.map((l) => [l.title, l.id]));
 
     for (const card of incoming) {
       const cardId = crypto.randomUUID();
+      const cardLessonId = lessonIdByTitle.get(card.lessonTitle);
+      if (!cardLessonId) {
+        throw new Error(`import-tlevel-gaps: generated card has no lesson mapping for "${card.lessonTitle}" on ${t.id}`);
+      }
       if (card.kind === 'cloze') {
         if (seenCloze.has(card.textWithBlank ?? '')) continue;
         seenCloze.add(card.textWithBlank ?? '');
         await db.insert(cards).values({
-          id: cardId, topicId: t.id, lessonId: null, kind: 'cloze',
+          id: cardId, topicId: t.id, lessonId: cardLessonId, kind: 'cloze',
           textWithBlank: card.textWithBlank ?? '', explanationMd: card.explanationMd ?? '',
           visibility: 'public', ownerId: null, generated: true,
         });
@@ -368,7 +373,7 @@ async function main() {
         if (seenFc.has(card.prompt ?? '')) continue;
         seenFc.add(card.prompt ?? '');
         await db.insert(cards).values({
-          id: cardId, topicId: t.id, lessonId: null, kind: 'flashcard',
+          id: cardId, topicId: t.id, lessonId: cardLessonId, kind: 'flashcard',
           prompt: card.prompt ?? '', explanationMd: card.explanationMd ?? '',
           visibility: 'public', ownerId: null, generated: true,
         });
@@ -385,7 +390,7 @@ async function main() {
         seenMcq.add(card.question ?? '');
         const correctId = `o${card.options?.indexOf(card.correctOptionText ?? '') ?? 0}`;
         await db.insert(cards).values({
-          id: cardId, topicId: t.id, lessonId: null, kind: 'mcq',
+          id: cardId, topicId: t.id, lessonId: cardLessonId, kind: 'mcq',
           question: card.question ?? '',
           options: (card.options ?? []).map((text, i) => ({ id: `o${i}`, text })),
           correctOptionId: correctId, explanationMd: card.explanationMd ?? '',

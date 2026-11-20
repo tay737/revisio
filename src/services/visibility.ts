@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, eq, inArray, or, type SQL } from 'drizzle-orm';
-import { readReplica } from '@/db/replica';
+import { db } from '@/db/client';
 import { cards, lessons, topics, userSubjects } from '@/db/schema';
 
 /**
@@ -49,12 +49,13 @@ export function lessonReaches(userId: string): SQL | undefined {
 
 /** Subjects this user follows. Empty is meaningful, not an error. */
 export async function enrolledSubjectIds(userId: string): Promise<string[]> {
-  // Followed subjects power queue + stats filters; a mirror a few seconds old
-  // changes nothing that matters — and if the mirror is down, the primary
-  // answers instead (fail-open).
-  const rows = await readReplica((rdb) =>
-    rdb.select({ subjectId: userSubjects.subjectId }).from(userSubjects).where(eq(userSubjects.userId, userId)),
-  );
+  // Followed subjects decide what the queue and stats may show, so they read
+  // the primary: registration/follow writes must be visible on the very next
+  // request, not after the mirror drain catches up (#85).
+  const rows = await db
+    .select({ subjectId: userSubjects.subjectId })
+    .from(userSubjects)
+    .where(eq(userSubjects.userId, userId));
   return rows.map((r) => r.subjectId);
 }
 

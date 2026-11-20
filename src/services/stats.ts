@@ -3,6 +3,8 @@ import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { readReplica } from '@/db/replica';
 import { cardUserStates, cards, reviewLogs, topics, userSubjects, userTopicStates } from '@/db/schema';
 import { cardReaches, enrolledSubjectIds, studiableCard } from '@/services/visibility';
+import { newCardsAvailableToday } from '@/domain/daily-queue';
+import { newCardsIntroducedToday } from '@/services/introduced';
 
 function startOfToday(): Date {
   const d = new Date();
@@ -19,7 +21,11 @@ export async function todayStats(userId: string) {
   // replica (readReplica — fail-open to the primary if the mirror is down);
   // the primary keeps its client budget for writes and the queues it deals.
   const enrolled = await enrolledSubjectIds(userId);
-  const [doneRow, correctRow, dueRow, newCards] = await readReplica(async (rdb) =>
+  // The allowance spend is a correctness read: it must match the queue's own
+  // primary count or the dashboard would advertise cards the queue will not
+  // deal today (#78).
+  const introducedToday = await newCardsIntroducedToday(userId, startOfToday());
+  const [doneRow, correctRow, dueRow, newRows] = await readReplica(async (rdb) =>
     Promise.all([
       rdb
         .select({ c: sql<number>`count(*)::int` })
@@ -37,12 +43,22 @@ export async function todayStats(userId: string) {
             sql`(${reviewLogs.graded} ->> 'correct')::boolean is true`,
           ),
         ),
+      // Due means "has been seen and is due now" under the same reachability
+      // rule the queue deals by — not every state row on the account.
       rdb
         .select({ c: sql<number>`count(*)::int` })
         .from(cardUserStates)
-        .where(and(eq(cardUserStates.userId, userId), sql`${cardUserStates.dueAt} <= now()`)),
-      // New cards are counted under the same rule the queue deals them by, so the
-      // dashboard's "N waiting" cannot disagree with the queue's length.
+        .innerJoin(cards, eq(cardUserStates.cardId, cards.id))
+        .innerJoin(topics, eq(cards.topicId, topics.id))
+        .where(
+          and(
+            eq(cardUserStates.userId, userId),
+            sql`${cardUserStates.dueAt} <= now()`,
+            studiableCard(userId, enrolled),
+          ),
+        ),
+      // Unseen reachable cards are counted separately; only today's allowance
+      // of them is actionable, which is what `newCount` reports.
       rdb
         .select({ c: sql<number>`count(*)::int` })
         .from(cards)
@@ -51,11 +67,13 @@ export async function todayStats(userId: string) {
         .where(and(studiableCard(userId, enrolled), sql`${cardUserStates.cardId} IS NULL`)),
     ]),
   );
+  const newRemaining = newRows[0]?.c ?? 0;
   return {
     reviewsToday: doneRow[0]?.c ?? 0,
     correctToday: correctRow[0]?.c ?? 0,
     dueCount: dueRow[0]?.c ?? 0,
-    newCount: newCards[0]?.c ?? 0,
+    newCount: newCardsAvailableToday(introducedToday, newRemaining),
+    newRemaining,
   };
 }
 

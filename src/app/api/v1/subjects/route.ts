@@ -14,22 +14,20 @@ export const GET = route(async (req: NextRequest) => {
   const ids = rows.map((r) => r.id);
 
   const [enrolledRows, topicRows, classSubjects] = await Promise.all([
-    readReplica((rdb) =>
-      rdb.select({ subjectId: userSubjects.subjectId }).from(userSubjects).where(eq(userSubjects.userId, user.id)),
-    ),
+    // Own follows and class memberships are first-run state: primary reads keep
+    // a just-enrolled subject visible before the mirror drain (#85).
+    db.select({ subjectId: userSubjects.subjectId }).from(userSubjects).where(eq(userSubjects.userId, user.id)),
     readReplica((rdb) =>
       rdb
         .select({ subjectId: topics.subjectId, id: topics.id, visibility: topics.visibility, ownerId: topics.ownerId })
         .from(topics)
         .where(inArray(topics.subjectId, ids.length ? ids : [''])),
     ),
-    readReplica((rdb) =>
-      rdb
-        .select({ subjectId: classes.subjectId })
-        .from(classMemberships)
-        .innerJoin(classes, eq(classMemberships.classId, classes.id))
-        .where(eq(classMemberships.userId, user.id)),
-    ),
+    db
+      .select({ subjectId: classes.subjectId })
+      .from(classMemberships)
+      .innerJoin(classes, eq(classMemberships.classId, classes.id))
+      .where(eq(classMemberships.userId, user.id)),
   ]);
 
   // subjects the user follows, plus subject-level access via their classes
