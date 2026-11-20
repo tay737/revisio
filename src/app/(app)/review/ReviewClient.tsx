@@ -199,6 +199,16 @@ export default function ReviewClient() {
   // being accumulated locally, so the report cannot disagree with `/me`.
   const [startXp, setStartXp] = useState<number | null>(null);
   const [latestXp, setLatestXp] = useState<number | null>(null);
+  /** `me.today.due` (due + new, the dashboard badge's number) when this
+   *  session's queue was dealt. The report subtracts answered cards from it
+   *  so "still due" cannot disagree with the badge (#83). */
+  const [dueAtStart, setDueAtStart] = useState<number | null>(null);
+  /** `load` must not depend on `me` (a /me refresh would re-deal the queue),
+   *  so the latest due count is mirrored here for it to snapshot. */
+  const meDueRef = useRef<number | null>(null);
+  useEffect(() => {
+    meDueRef.current = me?.today.due ?? null;
+  }, [me]);
   /** Set when the learner ends the session early — the summary still shows,
    *  and every answered card's XP and count is already banked, so nothing is
    *  lost; the remaining cards simply stay due. */
@@ -381,6 +391,7 @@ export default function ReviewClient() {
     setCorrect(0);
     setStartXp(null);
     setLatestXp(null);
+    setDueAtStart(meDueRef.current);
     setEnded(false);
     setResult(null);
     setInput('');
@@ -796,6 +807,7 @@ export default function ReviewClient() {
             change={change}
             ended={ended}
             leftDue={poolCount + Math.max(0, (queue?.length ?? 0) - done)}
+            dueRemaining={dueAtStart != null ? Math.max(0, dueAtStart - done) : null}
             canExtend={!session && (poolCount > 0 || !offline)}
             onJustOneMore={justOneMore}
             onAgain={load}
@@ -1318,6 +1330,7 @@ function SessionReport({
   change,
   ended,
   leftDue,
+  dueRemaining,
   canExtend,
   onJustOneMore,
   onAgain,
@@ -1330,6 +1343,11 @@ function SessionReport({
   /** Cards still due after an early end: undealt pool plus unanswered dealt
    *  cards. Only rendered when the learner stopped before the queue ran dry. */
   leftDue: number;
+  /** The whole backlog still due, badge semantics (due + new at deal time
+   *  minus cards answered). Preferred over `leftDue`, which only counts the
+   *  fetched page — quoting it as "due" contradicted the dashboard badge
+   *  (#83). Null when `/me` never arrived: the pool count is all we have. */
+  dueRemaining: number | null;
   /** Daily sessions only, and only while more due cards can be dealt. */
   canExtend: boolean;
   onJustOneMore: () => void;
@@ -1385,9 +1403,9 @@ function SessionReport({
         </p>
       )}
 
-      {ended && leftDue > 0 && (
+      {ended && (dueRemaining ?? leftDue) > 0 && (
         <p className="mt-3 t-caption text-muted-foreground">
-          {leftDue} {leftDue === 1 ? 'card' : 'cards'} still due. They will be here tomorrow.
+          {dueRemaining ?? leftDue} {(dueRemaining ?? leftDue) === 1 ? 'card' : 'cards'} still due. They will be here tomorrow.
         </p>
       )}
 
