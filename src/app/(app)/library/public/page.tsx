@@ -252,7 +252,10 @@ export default function PublicDecksPage() {
                       variant="ghost"
                       size="sm"
                       className="gap-1.5"
-                      onClick={() => setReportOpen(d.topicId)}
+                      onClick={() => {
+                        setReportReason('');
+                        setReportOpen(d.topicId);
+                      }}
                       aria-label={`Report this deck: ${d.name}`}
                     >
                       <Icon name="flag" size={14} />
