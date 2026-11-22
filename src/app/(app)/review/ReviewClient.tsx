@@ -1343,10 +1343,11 @@ function SessionReport({
   /** Cards still due after an early end: undealt pool plus unanswered dealt
    *  cards. Only rendered when the learner stopped before the queue ran dry. */
   leftDue: number;
-  /** The whole backlog still due, badge semantics (due + new at deal time
-   *  minus cards answered). Preferred over `leftDue`, which only counts the
-   *  fetched page — quoting it as "due" contradicted the dashboard badge
-   *  (#83). Null when `/me` never arrived: the pool count is all we have. */
+  /** The whole backlog still due (due + new at deal time minus cards
+   *  answered). Preferred over `leftDue`, which only counts the fetched
+   *  page — quoting it as "due" contradicted the dashboard badge (#83).
+   *  Rendered as backlog copy, not today's queue. Null when `/me` never
+   *  arrived: the pool count is all we have. */
   dueRemaining: number | null;
   /** Daily sessions only, and only while more due cards can be dealt. */
   canExtend: boolean;
@@ -1405,7 +1406,7 @@ function SessionReport({
 
       {ended && (dueRemaining ?? leftDue) > 0 && (
         <p className="mt-3 t-caption text-muted-foreground">
-          {dueRemaining ?? leftDue} {(dueRemaining ?? leftDue) === 1 ? 'card' : 'cards'} still due. They will be here tomorrow.
+          {dueRemaining ?? leftDue} {(dueRemaining ?? leftDue) === 1 ? 'card' : 'cards'} still in your backlog.
         </p>
       )}
 

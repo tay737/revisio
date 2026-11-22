@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { useMe, learnerSnapshot, signOut } from '@/lib/useMe';
+import { useMe, learnerSnapshot, sessionCards, signOut } from '@/lib/useMe';
 import { companionFor, greetingFor } from '@/lib/profile';
 import { routeVariants } from '@/lib/motion';
 import { Sidebar } from '@/components/nav/Sidebar';
@@ -134,7 +134,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <BottomNav
           tabs={tabs}
           pathname={pathname}
-          due={me.today.due}
+          due={sessionCards(me)}
           overflowActive={overflowActive}
           onMore={() => setAccountOpen(true)}
         />

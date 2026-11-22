@@ -8,7 +8,7 @@ import { DUR, EASE } from '@/lib/motion';
 import { labelForPath } from '@/components/nav/routes';
 import { NotificationBell } from '@/components/nav/NotificationBell';
 import { rankFor } from '@/domain/ranked';
-import type { Me } from '@/lib/useMe';
+import { sessionCards, type Me } from '@/lib/useMe';
 import { Badge } from '@/components/ui/badge';
 import { badgeVariants } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -46,7 +46,7 @@ export function TopBar({
   const rank = rankFor(me.gamification.totalXp);
   const title = labelForPath(pathname);
   const streak = me.gamification.streak;
-  const due = me.today.due;
+  const due = sessionCards(me);
 
   return (
     <header className="glass-bar sticky top-0 z-30 border-b border-border">
@@ -76,8 +76,8 @@ export function TopBar({
           <Link
             href="/review"
             className={cn(badgeVariants({ variant: 'chip' }), 'num min-h-11 px-3')}
-            title={`${due} cards to review today`}
-            aria-label={`${due} cards to review today`}
+            title={`${due} cards in today's session`}
+            aria-label={`${due} cards in today's session`}
           >
             <Icon
               name="review"
@@ -99,7 +99,7 @@ export function TopBar({
 
         <div className="flex shrink-0 items-center gap-1.5">
           <NotificationBell />
-          <Link href="/review" className={cn(badgeVariants({ variant: 'chip' }), 'num min-h-11 px-3')} title={`${due} cards to review today`}>
+          <Link href="/review" className={cn(badgeVariants({ variant: 'chip' }), 'num min-h-11 px-3')} title={`${due} cards in today's session`}>
             <Icon
               name="review"
               size={14}

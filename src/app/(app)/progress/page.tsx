@@ -6,7 +6,7 @@ import Link from 'next/link';
 import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { api, downloadFile } from '@/lib/api';
-import { useMe } from '@/lib/useMe';
+import { sessionCards, useMe } from '@/lib/useMe';
 import { useRanked, type RankedScope } from '@/lib/useRanked';
 import { Icon, achievementIcon } from '@/components/ui/icons';
 import { RankCrest } from '@/components/ui/rank-crest';
@@ -185,7 +185,7 @@ function RankPage() {
   const comebackRecent =
     streaks?.lastComeback != null &&
     Date.now() - Date.parse(streaks.lastComeback.occurredAt) <= 7 * 86_400_000;
-  const dueToday = me?.today?.due ?? 0;
+  const dueToday = me ? sessionCards(me) : 0;
 
   if (loading && !ranked) return <PageSkeleton />;
 
@@ -458,7 +458,7 @@ function RankPage() {
           {comebackRecent && (
             <p className="t-caption mt-1 text-foreground">
               {dueToday > 0
-                ? `Welcome back. Your queue is ${dueToday} ${dueToday === 1 ? 'card' : 'cards'}, not a pile.`
+                ? `Welcome back. Your queue is ${dueToday} ${dueToday === 1 ? 'card' : 'cards'} today, not a pile.`
                 : 'Welcome back. Your queue is clear today.'}
             </p>
           )}

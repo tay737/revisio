@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import useSWR from 'swr';
 import { api } from '@/lib/api';
-import { learnerSnapshot, useMe } from '@/lib/useMe';
+import { learnerSnapshot, sessionCards, useMe } from '@/lib/useMe';
 import { useRanked } from '@/lib/useRanked';
 import { Icon, type IconName } from '@/components/ui/icons';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -83,7 +83,7 @@ export default function DashboardPage() {
   const started = useMemo(() => {
     if (!me) return null;
     return {
-      due: me.today.due,
+      due: sessionCards(me),
       streak: me.gamification.streak,
       level: me.gamification.level,
       subjects: me.subjects.map((s) => s.name),
@@ -124,6 +124,7 @@ export default function DashboardPage() {
   }
 
   const { gamification: gam, today } = me;
+  const dose = sessionCards(me);
   const accuracy = today.reviewed > 0 ? Math.round((today.correct / today.reviewed) * 100) : null;
 
   return (
@@ -148,7 +149,7 @@ export default function DashboardPage() {
               <Icon name="review" size={18} />
               Start review
               <span className="num rounded-full bg-black/20 px-2 py-0.5 t-caption font-bold">
-                {today.due}
+                {dose}
               </span>
             </Link>
           ) : (
@@ -193,7 +194,7 @@ export default function DashboardPage() {
 
       {/* ── 2. Five numbers: due and new are separate queues (#78) ──────── */}
       <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat icon="review" label="Due" value={today.dueCount} tone={today.dueCount > 0 ? 'good' : undefined} />
+        <Stat icon="review" label="Due backlog" value={today.dueCount} tone={today.dueCount > 0 ? 'good' : undefined} />
         <Stat icon="learn" label="New today" value={today.newCount} tone={today.newCount > 0 ? 'good' : undefined} />
         <Stat icon="reviewed" label="Done today" value={today.reviewed} />
         <Stat

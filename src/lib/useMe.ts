@@ -106,11 +106,25 @@ export function displayName(me: Pick<Me, 'name' | 'nickname'>): string {
   return me.nickname?.trim() || me.name;
 }
 
+/** Cards one review session deals at most — the learner's chosen length. */
+export function sessionLength(me: Me): number {
+  return me.prefs?.sessionLength ?? 20;
+}
+
+/**
+ * Today's queue as the learner meets it: the session dose, never the raw
+ * backlog. `today.due` is due + new across the whole backlog, which for a
+ * long-enrolled account is a four-digit number no surface should headline.
+ */
+export function sessionCards(me: Me): number {
+  return Math.min(me.today.due, sessionLength(me));
+}
+
 export function learnerSnapshot(me: Me): CompanionSnapshot {
   return {
     name: displayName(me),
     role: me.role,
-    due: me.today.due,
+    due: sessionCards(me),
     reviewed: me.today.reviewed,
     correct: me.today.correct,
     streak: me.gamification.streak,

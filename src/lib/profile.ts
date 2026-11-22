@@ -55,7 +55,7 @@ export function greetingFor(name: string, now: Date = new Date()): string {
 export function openers(snap: Pick<LearnerSnapshot, 'due' | 'streak' | 'level' | 'subjects'>, now: Date = new Date()): string[] {
   const lines: string[] = [];
   if (snap.due > 0) {
-    lines.push(`${snap.due} ${snap.due === 1 ? 'card is' : 'cards are'} waiting`);
+    lines.push(`${snap.due} ${snap.due === 1 ? 'card is' : 'cards are'} in today's queue`);
     lines.push(`Let's clear today's queue`);
   } else {
     lines.push(`Nothing is due today`);
@@ -177,7 +177,9 @@ export function companionFor(snap: CompanionSnapshot, now: Date = new Date()): C
         ? due === 1
           ? 'One card is due. It will take a minute.'
           : `${due} cards are due. A few now, the rest tomorrow.`
-        : `${due} cards are due. All of them are cards you have already seen.`,
+        : due === 1
+          ? 'One card is due today.'
+          : `${due} cards are due today.`,
       action: { label: 'Start the queue', href: '/review' },
     };
   }
