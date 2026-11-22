@@ -106,7 +106,12 @@ export function displayName(me: Pick<Me, 'name' | 'nickname'>): string {
   return me.nickname?.trim() || me.name;
 }
 
-/** Cards one review session deals at most — the learner's chosen length. */
+/**
+ * Cards one review session deals at most — the learner's chosen length.
+ * The pref is canonical: the session's localStorage/`?deal=` overrides are
+ * per-session experiments that PATCH the same pref on change, so the two
+ * can only diverge inside a session that has not saved yet.
+ */
 export function sessionLength(me: Me): number {
   return me.prefs?.sessionLength ?? 20;
 }
