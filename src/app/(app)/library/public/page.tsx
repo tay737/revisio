@@ -48,6 +48,12 @@ export default function PublicDecksPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  // F12/D11: the report ghost action. `reportOpen` is the one deck whose
+  // reason field is expanded; `reported` remembers sends this session —
+  // the endpoint is idempotent, so a repeat would be a silent no-op anyway.
+  const [reportOpen, setReportOpen] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reported, setReported] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     api
@@ -78,6 +84,25 @@ export default function PublicDecksPage() {
         );
       }
       load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That did not go through.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const sendReport = async (deck: Deck) => {
+    setBusy(`report:${deck.topicId}`);
+    setError('');
+    try {
+      await api.post('/api/v1/decks/report', {
+        deckTopicId: deck.topicId,
+        ...(reportReason.trim() ? { reason: reportReason.trim() } : {}),
+      });
+      setReported((prev) => new Set(prev).add(deck.topicId));
+      setReportOpen(null);
+      setReportReason('');
+      setMessage(`Reported “${deck.name}”. The team will take a look.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That did not go through.');
     } finally {
@@ -181,6 +206,57 @@ export default function PublicDecksPage() {
                     >
                       <Icon name="add" size={14} />
                       {busy === d.topicId ? 'Adding…' : 'Follow'}
+                    </Button>
+                  )}
+                  {reported.has(d.topicId) ? (
+                    <span className="t-fine text-muted-foreground">Reported</span>
+                  ) : reportOpen === d.topicId ? (
+                    <form
+                      className="flex w-full flex-col gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void sendReport(d);
+                      }}
+                    >
+                      <Input
+                        value={reportReason}
+                        onChange={(e) => setReportReason(e.target.value)}
+                        placeholder="What should we look at? (optional)"
+                        aria-label={`Report ${d.name}`}
+                        maxLength={500}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="submit"
+                          variant="secondary"
+                          size="sm"
+                          disabled={busy === `report:${d.topicId}`}
+                        >
+                          {busy === `report:${d.topicId}` ? 'Sending…' : 'Send report'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setReportOpen(null);
+                            setReportReason('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setReportOpen(d.topicId)}
+                      aria-label={`Report this deck: ${d.name}`}
+                    >
+                      <Icon name="flag" size={14} />
+                      Report
                     </Button>
                   )}
                 </div>

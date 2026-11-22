@@ -838,6 +838,22 @@ export const deckSubscriptions = pgTable('deck_subscriptions', {
   copyTopicIdx: index('deck_subscriptions_copy_topic_idx').on(t.copyTopicId),
 }));
 
+/** F12/D11 deck trust signal: a learner's "report this deck" flag. One row
+ *  per (user, deck) — a repeat report is a no-op. `status` is the moderation
+ *  queue state; v1 stores and lists, admins action it by hand. Primary-only
+ *  by design (like rate_limits): the mirror never reads it. */
+export const deckReports = pgTable('deck_reports', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  deckTopicId: text('deck_topic_id').notNull().references(() => topics.id, { onDelete: 'cascade' }),
+  reason: text('reason'),
+  status: text('status', { enum: ['open', 'reviewed', 'actioned', 'dismissed'] }).notNull().default('open'),
+  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+}, (t) => ({
+  pk: uniqueIndex('deck_reports_pk').on(t.userId, t.deckTopicId),
+  deckIdx: index('deck_reports_deck_idx').on(t.deckTopicId),
+}));
+
 /** A topic deck a teacher assigns to a class (#5). `required` drives queue
  *  priority; completion is derived from review_logs, never stored. */
 export const classAssignments = pgTable('class_assignments', {

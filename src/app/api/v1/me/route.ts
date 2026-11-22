@@ -68,13 +68,24 @@ export const GET = route(async (req: NextRequest) => {
     const totalXp = xpRes;
     const { level, intoLevel, forNext } = levelForXp(totalXp);
     const stats = statsRes;
+    // The session dose is computed here, once, so no client has to re-derive
+    // it from the unbounded backlog counts: `due` is every reachable card due
+    // now (four digits for a long-enrolled account), while `sessionCards` is
+    // the estimate of what one sitting covers — min(due, prefs.sessionLength).
+    // Exact semantics (incl. the exam pull-forward caveat) live in
+    // docs/MOBILE-DATA-API.md.
+    const prefLen = (row.prefs as { sessionLength?: unknown } | null)?.sessionLength;
+    const sessionLength = prefLen === 5 || prefLen === 10 || prefLen === 20 ? prefLen : 20;
+    const due = stats.dueCount + stats.newCount;
     const today = {
-      due: stats.dueCount + stats.newCount,
+      due,
       dueCount: stats.dueCount,
       newCount: stats.newCount,
       newRemaining: stats.newRemaining,
       reviewed: stats.reviewsToday,
       correct: stats.correctToday,
+      sessionLength,
+      sessionCards: Math.min(due, sessionLength),
     };
 
     // The 12 rungs, zero-filled; the average comes off the same counts so the

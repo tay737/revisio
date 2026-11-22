@@ -33,7 +33,7 @@ import { db, closeDb } from '../src/db/client';
 import {
   achievements, cardUserStates, cards, examPlans, leagueMemberships,
   notificationDeliveries, notificationPrefs, notifications, reviewLogs, streaks,
-  studyConnections, subjects, topics, userAchievements, userGoals, users, xpEvents,
+  studyConnections, subjects, topics, userAchievements, userGoals, userSubjects, users, xpEvents,
 } from '../src/db/schema';
 import {
   createGoal, createGuardianLink, friendBoard, getSocialOverview, listGoals, listGuardianLinks, processRetentionReminders,
@@ -122,6 +122,11 @@ try {
       userId, cardId: fixtureContentIds.card, stage: 'review',
       dueAt: new Date(Date.now() - 86_400_000),
     });
+  // The reminder counts what the queue would actually deal (todayStats →
+  // studiableCard), so a fixture learner must be enrolled in the fixture
+  // subject or its due card is invisible to the count.
+  const enrol = (userId: string) =>
+    db.insert(userSubjects).values({ userId, subjectId: fixtureContentIds.subject });
 
   // ── 1. achievement trigger + once-ever dedupe ───────────────────────────
   fixtureContentIds.achievement = `${MARK}-ach`;
@@ -153,7 +158,10 @@ try {
   const emailUser = await seedUser('email', { channel: 'email', triggers: triggers({ dueCards: true }) });
   const pushUser = await seedUser('push', { channel: 'push', triggers: triggers({ dueCards: true }) });
   fixtureUserIds.push(inAppUser, emailUser, pushUser);
-  for (const u of [inAppUser, emailUser, pushUser]) await dueState(u);
+  for (const u of [inAppUser, emailUser, pushUser]) {
+    await enrol(u);
+    await dueState(u);
+  }
 
   await processRetentionReminders(NOW);
 
@@ -194,6 +202,7 @@ try {
   for (const u of [riskUser, bothUser]) {
     await db.insert(streaks).values({ userId: u, current: 5, best: 5, lastActiveDate: yesterday, freezes: 0 });
   }
+  await enrol(bothUser);
   await dueState(bothUser); // riskUser deliberately has an empty queue
 
   await processRetentionReminders(NOW);

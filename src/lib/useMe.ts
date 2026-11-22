@@ -86,7 +86,14 @@ export interface Me {
      *  earned every 7th consecutive day, capped at 3. */
     streakFreezes: number;
   };
-  today: { due: number; dueCount: number; newCount: number; newRemaining: number; reviewed: number; correct: number };
+  today: {
+    due: number; dueCount: number; newCount: number; newRemaining: number;
+    reviewed: number; correct: number;
+    /** The session dose, computed server-side: `sessionLength` is the pref in
+     *  force (5|10|20) and `sessionCards` is min(due, sessionLength) — what one
+     *  sitting deals. `due`/`dueCount` stay the raw backlog for stats surfaces. */
+    sessionLength: number; sessionCards: number;
+  };
   /** The learner's own 12-level SRS strength distribution (zero-filled), with
    *  the mean rung — the dashboard's strength card renders straight from it. */
   srs: { levels: number[]; avgLevel: number | null; totalCards: number };

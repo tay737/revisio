@@ -17,6 +17,7 @@ import { consentFromBlob } from '@/lib/consent';
 import { isUnderAge } from '@/lib/age';
 import { sendRetentionEmail } from '@/services/email';
 import { enrolledSubjectIds, studiableCard, studiableCardIn } from '@/services/visibility';
+import { todayStats } from '@/services/stats';
 import { seasonAt, seasonConfigs } from '@/domain/seasons';
 import { weekBounds } from '@/domain/ranked';
 import { ApiError } from '@/services/api';
@@ -246,22 +247,12 @@ export async function recordNotification(userId: string, input: { kind: string; 
 }
 
 async function waitingCount(userId: string) {
-  const enrolled = await enrolledSubjectIds(userId);
-  const [dueRow, newRow, reviewRow] = await Promise.all([
-    db.select({ c: sql<number>`count(*)::int` }).from(cardUserStates).where(and(eq(cardUserStates.userId, userId), sql`${cardUserStates.dueAt} <= now()`)),
-    db.select({ c: sql<number>`count(*)::int` })
-      .from(cards).innerJoin(topics, eq(cards.topicId, topics.id))
-      .leftJoin(cardUserStates, and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)))
-      .where(and(studiableCard(userId, enrolled), isNull(cardUserStates.cardId))),
-    db.select({ c: sql<number>`count(*)::int` }).from(reviewLogs).where(and(eq(reviewLogs.userId, userId), gte(reviewLogs.reviewedAt, startOfToday()))),
-  ]);
-  return { due: dueRow[0]?.c ?? 0, fresh: newRow[0]?.c ?? 0, total: (dueRow[0]?.c ?? 0) + (newRow[0]?.c ?? 0), reviewedToday: reviewRow[0]?.c ?? 0 };
-}
-
-function startOfToday(): Date {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+  // The same numbers the dashboard quotes: the seen-due backlog plus *today's*
+  // rationed new-card allowance — never the whole unseen library. The old
+  // version counted every unseen reachable card, so the reminder could claim
+  // hundreds waiting on a day the queue deals a session's worth.
+  const s = await todayStats(userId);
+  return { due: s.dueCount, fresh: s.newCount, total: s.dueCount + s.newCount, reviewedToday: s.reviewsToday };
 }
 
 async function currentSeason(now: Date) {
@@ -304,12 +295,19 @@ export async function processRetentionReminders(now = new Date(), limit = 200) {
       const streakAtRisk = (streakRow?.current ?? 0) > 0 && w.reviewedToday === 0 && triggers.streakRisk !== false;
       let dueCardsSent = false;
       if (w.total > 0 && triggers.dueCards !== false) {
+        // Quote the session dose, never the raw backlog: `w.total` is unbounded
+        // (every seen card due now), while one sitting deals at most the
+        // learner's sessionLength. A four-digit "cards waiting" contradicts
+        // the ten-minutes-a-day promise.
+        const prefLen = (user.prefs as { sessionLength?: unknown } | null)?.sessionLength;
+        const sessionLen = prefLen === 5 || prefLen === 10 || prefLen === 20 ? prefLen : 20;
+        const dose = Math.min(w.total, sessionLen);
         candidates.push({
           kind: 'due_cards',
           title: 'Your study queue is ready',
           body: streakAtRisk
-            ? `You have ${w.total} card${w.total === 1 ? '' : 's'} waiting, and your streak is still alive. A short review keeps it going.`
-            : `You have ${w.total} card${w.total === 1 ? '' : 's'} waiting. Open Revisio when you're ready.`,
+            ? 'Your daily queue is ready, and your streak is still alive. A short review keeps it going.'
+            : `Your daily queue is ready. One session is about ${dose} ${dose === 1 ? 'card' : 'cards'}.`,
           href: '/review',
           dedupe: reminderDedupeKey('due_cards', now, prefs.timezone),
         });
