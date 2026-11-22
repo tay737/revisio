@@ -789,7 +789,7 @@ const paperATopic: TopicSpec = {
   id: 'tl:paperA',
   name: 'Paper A — specimen exam workshop',
   description:
-    'Pearson Core Exam Paper A (specimen 2020): business context and culture, diversity/inclusion and digital environments, learning and planning. 22 questions, 106 marks incl. 6 QWC, 2 hours. Every question carries its mark scheme, AO split and a model answer.',
+    'Business context, digital environments and learning skills. 22 questions, 106 marks, 2 hours, with mark schemes and model answers.',
   position: 19,
   lessons: [
     {
@@ -830,7 +830,7 @@ const paperBTopic: TopicSpec = {
   id: 'tl:paperB',
   name: 'Paper B — specimen exam workshop',
   description:
-    'Pearson Core Exam Paper B (specimen 2020): DSS pathway, tools and testing, security and legislation, data and digital analysis. 33 questions, 131 marks incl. 6 QWC, 2h30. Every question carries its mark scheme, AO split and a model answer.',
+    'DSS pathway, tools and testing, security, legislation and data analysis. 33 questions, 131 marks, 2h30, with mark schemes and model answers.',
   position: 20,
   lessons: [
     {
@@ -887,7 +887,7 @@ const tlevelCyber: SubjectSpec = {
   name: 'T-Level Cybersecurity',
   slug: 't-level-cybersecurity',
   description:
-    'T-Level Digital Support Services core content: business context, digital environments, security and legislation, data and analysis — with the Pearson specimen Core Exam Papers A and B as fully-marked exam-style practice.',
+    'T-Level Digital Support Services: business context, digital environments, security, legislation, data and Pearson specimen exam practice.',
   mathsEnabled: false, // unchanged — the subject is not maths-enabled
   topics: [paperATopic, paperBTopic],
   papers: [

@@ -709,7 +709,7 @@ const coreMaths: SubjectSpec = {
   name: 'Core Maths (AQA 1350)',
   slug: 'core-maths-aqa-1350',
   description:
-    'AQA Level 3 Certificate Mathematical Studies (1350): Paper 1 (data, personal finance, estimation, critical analysis) and Paper 2B (statistical literacy on the pre-release data pack), with critical path, expectation and cost benefit analysis.',
+    'AQA Level 3 Certificate in Mathematical Studies (1350): data, personal finance, estimation, critical analysis and exam practice.',
   mathsEnabled: true,
   topics: buildTopics(),
   papers: [
